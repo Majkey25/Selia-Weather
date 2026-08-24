@@ -3,7 +3,7 @@
 - [x] Task 1: Change the app identity and add the locale contract.
   - Acceptance: package, version, supported tags, persistence, and locale config match the spec.
   - Verify: focused locale test and debug build pass.
-- [ ] Task 2: Add complete English, Czech, German, Spanish, and French catalogs.
+- [x] Task 2: Add complete English, Czech, German, Spanish, and French catalogs.
   - Acceptance: every locale contains the same keys and valid formatting arguments.
   - Verify: Android Lint reports no translation or resource errors.
 - [ ] Task 3: Localize typed weather state and the forecast UI.

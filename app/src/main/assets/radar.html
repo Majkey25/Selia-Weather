@@ -1,9 +1,10 @@
 <!doctype html>
-<html lang="cs">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5,user-scalable=yes">
-  <title>Radar ČHMÚ</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https://produkty.chmi.cz; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'">
+  <title>ČHMÚ Radar</title>
   <style>
     * { box-sizing: border-box; }
     html, body { height: 100%; margin: 0; overflow: hidden; background: #071018; color: #f4fafc; font-family: system-ui, sans-serif; }
@@ -27,26 +28,92 @@
 </head>
 <body>
   <div class="layers">
-    <button id="rain" class="active" type="button" onclick="setLayer('rain')">Srážky</button>
-    <button id="clouds" type="button" onclick="setLayer('clouds')">Mraky</button>
-    <button id="lightning" type="button" onclick="toggleLightning()">Blesky</button>
+    <button id="rain" class="active" type="button" onclick="setLayer('rain')">Rain</button>
+    <button id="clouds" type="button" onclick="setLayer('clouds')">Clouds</button>
+    <button id="lightning" type="button" onclick="toggleLightning()">Lightning</button>
   </div>
   <div class="map">
-    <img id="base" src="https://produkty.chmi.cz/radar/und/pacz2gmaps6.und3.png" alt="Mapa Česka">
-    <img id="radar" alt="Radarové srážky ČHMÚ">
+    <img id="base" src="https://produkty.chmi.cz/radar/und/pacz2gmaps6.und3.png" alt="Map of Czechia">
+    <img id="radar" alt="ČHMÚ radar rainfall">
     <img id="strikes" alt="">
-    <img id="satellite" alt="Družicový snímek ČHMÚ" onerror="setStatus('Zvolený družicový snímek není dostupný.')">
+    <img id="satellite" alt="ČHMÚ satellite image" onerror="setStatus(TEXT.satelliteUnavailable)">
     <img id="satBorders" src="https://produkty.chmi.cz/druzice/und/msgcz-1160x800.und.010.hranice.png" alt="">
-    <div class="status" id="status">Hledám nejnovější data ČHMÚ…</div>
+    <div class="status" id="status">Looking for the latest ČHMÚ data…</div>
     <div class="time" id="time" hidden></div>
     <div class="source">ČHMÚ · UTC</div>
   </div>
   <div class="timeline">
-    <button id="play" type="button" onclick="togglePlay()" aria-label="Přehrát">▶</button>
-    <input id="slider" type="range" min="0" max="0" value="0" aria-label="Časová osa" oninput="showFrame(Number(this.value))">
+    <button id="play" type="button" onclick="togglePlay()" aria-label="Play">▶</button>
+    <input id="slider" type="range" min="0" max="0" value="0" aria-label="Timeline" oninput="showFrame(Number(this.value))">
   </div>
-  <div class="legend" aria-label="Intenzita srážek"></div>
+  <div class="legend" aria-label="Rain intensity"></div>
   <script>
+    var DICTIONARY = {
+      en: {
+        title: 'ČHMÚ Radar', rain: 'Rain', clouds: 'Clouds', lightning: 'Lightning',
+        map: 'Map of Czechia', radar: 'ČHMÚ radar rainfall', lightningImage: 'ČHMÚ lightning',
+        satellite: 'ČHMÚ satellite image', latestData: 'Looking for the latest ČHMÚ data…',
+        satelliteUnavailable: 'Selected satellite image is unavailable.', dataUnavailable: 'ČHMÚ data are not available yet.',
+        radarUnavailable: 'Selected radar frame is unavailable.', nowcastUnavailable: 'Selected ČHMÚ nowcast is unavailable.',
+        nowcastLoading: 'Loading ČHMÚ nowcast…', radarFailed: 'ČHMÚ radar could not be loaded.',
+        play: 'Play', pause: 'Pause', timeline: 'Timeline', intensity: 'Rain intensity', nowcast: 'nowcast', minute: 'min'
+      },
+      cs: {
+        title: 'Radar ČHMÚ', rain: 'Srážky', clouds: 'Mraky', lightning: 'Blesky',
+        map: 'Mapa Česka', radar: 'Radarové srážky ČHMÚ', lightningImage: 'Blesky ČHMÚ',
+        satellite: 'Družicový snímek ČHMÚ', latestData: 'Hledám nejnovější data ČHMÚ…',
+        satelliteUnavailable: 'Zvolený družicový snímek není dostupný.', dataUnavailable: 'Data ČHMÚ zatím nejsou dostupná.',
+        radarUnavailable: 'Zvolený radarový snímek není dostupný.', nowcastUnavailable: 'Zvolený nowcast ČHMÚ není dostupný.',
+        nowcastLoading: 'Načítám nowcast ČHMÚ…', radarFailed: 'Radar ČHMÚ se nepodařilo načíst.',
+        play: 'Přehrát', pause: 'Pozastavit', timeline: 'Časová osa', intensity: 'Intenzita srážek', nowcast: 'nowcast', minute: 'min'
+      },
+      de: {
+        title: 'ČHMÚ-Radar', rain: 'Regen', clouds: 'Wolken', lightning: 'Blitze',
+        map: 'Karte von Tschechien', radar: 'ČHMÚ-Radarniederschlag', lightningImage: 'ČHMÚ-Blitze',
+        satellite: 'ČHMÚ-Satellitenbild', latestData: 'Neueste ČHMÚ-Daten werden gesucht…',
+        satelliteUnavailable: 'Das ausgewählte Satellitenbild ist nicht verfügbar.', dataUnavailable: 'ČHMÚ-Daten sind noch nicht verfügbar.',
+        radarUnavailable: 'Das ausgewählte Radarbild ist nicht verfügbar.', nowcastUnavailable: 'Der ausgewählte ČHMÚ-nowcast ist nicht verfügbar.',
+        nowcastLoading: 'ČHMÚ-nowcast wird geladen…', radarFailed: 'ČHMÚ-Radar konnte nicht geladen werden.',
+        play: 'Abspielen', pause: 'Pausieren', timeline: 'Zeitleiste', intensity: 'Regenintensität', nowcast: 'nowcast', minute: 'Min.'
+      },
+      es: {
+        title: 'Radar ČHMÚ', rain: 'Lluvia', clouds: 'Nubes', lightning: 'Rayos',
+        map: 'Mapa de Chequia', radar: 'Precipitación de radar ČHMÚ', lightningImage: 'Rayos ČHMÚ',
+        satellite: 'Imagen satelital ČHMÚ', latestData: 'Buscando los datos más recientes de ČHMÚ…',
+        satelliteUnavailable: 'La imagen satelital seleccionada no está disponible.', dataUnavailable: 'Los datos de ČHMÚ aún no están disponibles.',
+        radarUnavailable: 'La imagen de radar seleccionada no está disponible.', nowcastUnavailable: 'El nowcast de ČHMÚ seleccionado no está disponible.',
+        nowcastLoading: 'Cargando nowcast de ČHMÚ…', radarFailed: 'No se pudo cargar el radar de ČHMÚ.',
+        play: 'Reproducir', pause: 'Pausar', timeline: 'Línea de tiempo', intensity: 'Intensidad de lluvia', nowcast: 'nowcast', minute: 'min'
+      },
+      fr: {
+        title: 'Radar ČHMÚ', rain: 'Pluie', clouds: 'Nuages', lightning: 'Éclairs',
+        map: 'Carte de Tchéquie', radar: 'Précipitations radar ČHMÚ', lightningImage: 'Éclairs ČHMÚ',
+        satellite: 'Image satellite ČHMÚ', latestData: 'Recherche des dernières données ČHMÚ…',
+        satelliteUnavailable: 'L’image satellite sélectionnée n’est pas disponible.', dataUnavailable: 'Les données ČHMÚ ne sont pas encore disponibles.',
+        radarUnavailable: 'L’image radar sélectionnée n’est pas disponible.', nowcastUnavailable: 'Le nowcast ČHMÚ sélectionné n’est pas disponible.',
+        nowcastLoading: 'Chargement du nowcast ČHMÚ…', radarFailed: 'Le radar ČHMÚ n’a pas pu être chargé.',
+        play: 'Lire', pause: 'Pause', timeline: 'Chronologie', intensity: 'Intensité des précipitations', nowcast: 'nowcast', minute: 'min'
+      }
+    };
+    function languageDictionary(tag) { return DICTIONARY[tag] || DICTIONARY.en; }
+    var requestedLanguage = new URLSearchParams(window.location.search).get('lang');
+    var language = Object.prototype.hasOwnProperty.call(DICTIONARY, requestedLanguage) ? requestedLanguage : 'en';
+    var TEXT = languageDictionary(language);
+    document.documentElement.lang = language;
+    document.title = TEXT.title;
+    function applyText() {
+      document.getElementById('rain').textContent = TEXT.rain;
+      document.getElementById('clouds').textContent = TEXT.clouds;
+      document.getElementById('lightning').textContent = TEXT.lightning;
+      document.getElementById('base').alt = TEXT.map;
+      document.getElementById('radar').alt = TEXT.radar;
+      document.getElementById('satellite').alt = TEXT.satellite;
+      document.getElementById('play').setAttribute('aria-label', TEXT.play);
+      document.getElementById('slider').setAttribute('aria-label', TEXT.timeline);
+      document.querySelector('.legend').setAttribute('aria-label', TEXT.intensity);
+      setStatus(TEXT.latestData);
+    }
+
     var radarFrames = [];
     var cloudFrames = [];
     var layer = 'rain';
@@ -127,7 +194,7 @@
       slider.min = 0;
       slider.max = Math.max(0, frameCount - 1);
       slider.value = value;
-      slider.setAttribute('aria-label', 'Časová osa');
+      slider.setAttribute('aria-label', TEXT.timeline);
       slider.oninput = function() { showFrame(Number(this.value)); };
       previous.parentNode.replaceChild(slider, previous);
     }
@@ -138,7 +205,7 @@
     }
     function showFrame(index) {
       var frames = layer === 'rain' ? radarFrames : cloudFrames;
-      if (!frames.length) { setStatus('Data ČHMÚ zatím nejsou dostupná.'); return; }
+      if (!frames.length) { setStatus(TEXT.dataUnavailable); return; }
       frameIndex = Math.max(0, Math.min(index, frames.length - 1));
       document.getElementById('slider').value = frameIndex;
       var frame = frames[frameIndex];
@@ -148,7 +215,13 @@
         var strikes = document.getElementById('strikes');
         if (frame.lightning && lightningVisible) {
           strikes.style.visibility = 'visible';
-          strikes.alt = 'Blesky ČHMÚ';
+          strikes.alt = TEXT.lightningImage;
+          strikes.onerror = function() {
+            if (activeFrame === frame) {
+              strikes.style.visibility = 'hidden';
+              strikes.alt = '';
+            }
+          };
           strikes.src = frame.lightning;
         } else {
           strikes.style.visibility = 'hidden';
@@ -162,7 +235,7 @@
           var radar = document.getElementById('radar');
           radar.onload = function() { if (activeFrame === frame) { setStatus(''); } };
           radar.onerror = function() {
-            if (activeFrame === frame) { setStatus('Zvolený radarový snímek není dostupný.'); }
+            if (activeFrame === frame) { setStatus(TEXT.radarUnavailable); }
           };
           radar.src = frame.url;
         }
@@ -173,20 +246,20 @@
     }
     function setFrameTime(frame) {
       var time = document.getElementById('time');
-      time.textContent = formatTime(frame.date) + (frame.forecast ? ' · nowcast +' + frame.lead + ' min' : '');
+      time.textContent = formatTime(frame.date) + (frame.forecast ? ' · ' + TEXT.nowcast + ' +' + frame.lead + ' ' + TEXT.minute : '');
       time.hidden = false;
     }
     function loadForecastFrame(frame, attempt) {
       if (activeFrame !== frame) { return; }
       if (!latestRadar || attempt >= nowcastOffsets.length) {
-        setStatus('Zvolený nowcast ČHMÚ není dostupný.');
+        setStatus(TEXT.nowcastUnavailable);
         return;
       }
       var base = addMinutes(latestRadar, nowcastOffsets[attempt]);
       frame.date = addMinutes(base, frame.lead);
       frame.url = nowcastUrl(base, frame.lead);
       setFrameTime(frame);
-      setStatus('Načítám nowcast ČHMÚ…');
+      setStatus(TEXT.nowcastLoading);
       var radar = document.getElementById('radar');
       radar.onload = function() {
         if (activeFrame === frame) { setStatus(''); }
@@ -198,10 +271,17 @@
     }
     function togglePlay() {
       var button = document.getElementById('play');
-      if (timer) { clearInterval(timer); timer = null; button.textContent = '▶'; return; }
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+        button.textContent = '▶';
+        button.setAttribute('aria-label', TEXT.play);
+        return;
+      }
       var available = layer === 'rain' ? radarFrames : cloudFrames;
       if (!available.length) { return; }
       button.textContent = 'Ⅱ';
+      button.setAttribute('aria-label', TEXT.pause);
       timer = setInterval(function() {
         var frames = layer === 'rain' ? radarFrames : cloudFrames;
         showFrame((frameIndex + 1) % frames.length);
@@ -209,7 +289,7 @@
     }
     function load() {
       probe(radarUrl, floorUtc(5), 5, 18, function(latest) {
-        if (!latest) { setStatus('Radar ČHMÚ se nepodařilo načíst.'); return; }
+        if (!latest) { setStatus(TEXT.radarFailed); return; }
         latestRadar = latest;
         var i;
         for (i = 11; i >= 0; i--) {
@@ -244,7 +324,16 @@
         throw new Error('CHMI URL self-test failed');
       }
     }
+    function dictionarySelfTest() {
+      if (languageDictionary('cs').rain !== 'Srážky' ||
+          languageDictionary('fr').clouds !== 'Nuages' ||
+          languageDictionary('invalid') !== DICTIONARY.en) {
+        throw new Error('Radar dictionary self-test failed');
+      }
+    }
+    applyText();
     selfTest();
+    dictionarySelfTest();
     load();
   </script>
 </body>

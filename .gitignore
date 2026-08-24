@@ -6,3 +6,4 @@
 /.reference/
 *.jks
 *.keystore
+/.signing/

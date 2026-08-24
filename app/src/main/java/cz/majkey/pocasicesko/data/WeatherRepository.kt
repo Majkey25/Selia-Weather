@@ -3,10 +3,12 @@ package cz.majkey.pocasicesko.data
 import android.content.Context
 import android.net.Uri
 import androidx.core.content.edit
+import cz.majkey.pocasicesko.BuildConfig
 import cz.majkey.pocasicesko.widget.WeatherWidgetProvider
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -29,6 +31,29 @@ class WeatherRepository(context: Context) {
             putString(KEY_LOCATION_LATITUDE, location.latitude.toString())
             putString(KEY_LOCATION_LONGITUDE, location.longitude.toString())
         }
+    }
+
+    fun favoriteLocations(): List<CzechLocation> {
+        val json = preferences.getString(KEY_FAVORITE_LOCATIONS, null) ?: return emptyList()
+        return runCatching { LocationFavoritesCodec.decode(json) }.getOrDefault(emptyList())
+    }
+
+    fun isFavorite(location: CzechLocation): Boolean = favoriteLocations().any { it.matches(location) }
+
+    fun toggleFavorite(location: CzechLocation): Boolean {
+        val favorites = favoriteLocations().toMutableList()
+        val existingIndex = favorites.indexOfFirst { it.matches(location) }
+        val added = existingIndex < 0
+        if (added) {
+            if (favorites.size >= MAX_FAVORITE_LOCATIONS) {
+                throw IllegalStateException("Lze uložit nejvýše $MAX_FAVORITE_LOCATIONS lokalit.")
+            }
+            favorites.add(location)
+        } else {
+            favorites.removeAt(existingIndex)
+        }
+        preferences.edit { putString(KEY_FAVORITE_LOCATIONS, LocationFavoritesCodec.encode(favorites)) }
+        return added
     }
 
     fun cachedForecast(location: CzechLocation): WeatherSnapshot? {
@@ -83,6 +108,8 @@ class WeatherRepository(context: Context) {
     private fun persist(location: CzechLocation, json: String, snapshot: WeatherSnapshot) {
         val today = snapshot.daily.first()
         val condition = conditionFor(snapshot.current.weatherCode, snapshot.current.isDay)
+        val currentHour = snapshot.current.time.take(13)
+        val nextHours = snapshot.hourly.dropWhile { it.time.take(13) < currentHour }.take(3)
         preferences.edit {
             putString(KEY_CACHE_JSON, json)
             putString(KEY_CACHE_LATITUDE, location.latitude.toString())
@@ -95,8 +122,17 @@ class WeatherRepository(context: Context) {
             putBoolean(KEY_WIDGET_IS_DAY, snapshot.current.isDay)
             putFloat(KEY_WIDGET_HIGH, today.temperatureMax.toFloat())
             putFloat(KEY_WIDGET_LOW, today.temperatureMin.toFloat())
+            putString(KEY_WIDGET_HOURLY_TIMES, nextHours.joinToString("|") { it.time.takeLast(5) })
+            putString(
+                KEY_WIDGET_HOURLY_TEMPERATURES,
+                nextHours.joinToString("|") { it.temperature.roundToInt().toString() },
+            )
         }
     }
+
+    private fun CzechLocation.matches(other: CzechLocation): Boolean =
+        kotlin.math.abs(latitude - other.latitude) <= COORDINATE_EPSILON &&
+            kotlin.math.abs(longitude - other.longitude) <= COORDINATE_EPSILON
 
     private fun request(url: String): String {
         val connection = URL(url).openConnection() as HttpURLConnection
@@ -151,6 +187,8 @@ class WeatherRepository(context: Context) {
         const val KEY_WIDGET_IS_DAY = "widget_is_day"
         const val KEY_WIDGET_HIGH = "widget_high"
         const val KEY_WIDGET_LOW = "widget_low"
+        const val KEY_WIDGET_HOURLY_TIMES = "widget_hourly_times"
+        const val KEY_WIDGET_HOURLY_TEMPERATURES = "widget_hourly_temperatures"
 
         private const val KEY_LOCATION_NAME = "location_name"
         private const val KEY_LOCATION_REGION = "location_region"
@@ -160,11 +198,13 @@ class WeatherRepository(context: Context) {
         private const val KEY_CACHE_LATITUDE = "cache_latitude"
         private const val KEY_CACHE_LONGITUDE = "cache_longitude"
         private const val KEY_CACHE_UPDATED_AT = "cache_updated_at"
+        private const val KEY_FAVORITE_LOCATIONS = "favorite_locations"
         private const val COORDINATE_EPSILON = 0.000_001
+        private const val MAX_FAVORITE_LOCATIONS = 12
         private const val MINIMUM_SEARCH_LENGTH = 2
         private const val CONNECT_TIMEOUT_MILLIS = 10_000
         private const val READ_TIMEOUT_MILLIS = 15_000
-        private const val USER_AGENT = "PocasiCesko/0.1.0 (Android)"
+        private val USER_AGENT = "PocasiCesko/${BuildConfig.VERSION_NAME} (Android)"
 
         private const val CURRENT_VARIABLES =
             "temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation," +

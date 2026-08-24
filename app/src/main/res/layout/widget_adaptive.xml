@@ -16,8 +16,22 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:padding="12dp">
+        android:orientation="horizontal">
+
+        <FrameLayout
+            android:id="@+id/widget_alignment_left"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:id="@+id/widget_content"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:minWidth="110dp"
+            android:orientation="vertical"
+            android:padding="12dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -32,6 +46,17 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/widget_label"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:includeFontPadding="false"
+                    android:maxLines="1"
+                    android:textColor="#BFFFFFFF"
+                    android:textSize="11sp"
+                    android:visibility="gone" />
 
                 <TextView
                     android:id="@+id/widget_city"
@@ -276,5 +301,12 @@
             android:textColor="#8FFFFFFF"
             android:textSize="9sp"
             android:visibility="gone" />
+        </LinearLayout>
+
+        <FrameLayout
+            android:id="@+id/widget_alignment_right"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1" />
     </LinearLayout>
 </FrameLayout>

@@ -122,6 +122,13 @@ class WeatherRepository(context: Context) {
             putBoolean(KEY_WIDGET_IS_DAY, snapshot.current.isDay)
             putFloat(KEY_WIDGET_HIGH, today.temperatureMax.toFloat())
             putFloat(KEY_WIDGET_LOW, today.temperatureMin.toFloat())
+            putInt(
+                KEY_WIDGET_PRECIPITATION_PROBABILITY,
+                nextHours.firstOrNull()?.precipitationProbability ?: -1,
+            )
+            putFloat(KEY_WIDGET_WIND_SPEED, snapshot.current.windSpeed.toFloat())
+            putInt(KEY_WIDGET_HUMIDITY, snapshot.current.humidity)
+            putLong(KEY_WIDGET_UPDATED_AT, snapshot.updatedAtEpochMillis)
             putString(KEY_WIDGET_HOURLY_TIMES, nextHours.joinToString("|") { it.time.takeLast(5) })
             putString(
                 KEY_WIDGET_HOURLY_TEMPERATURES,
@@ -187,6 +194,10 @@ class WeatherRepository(context: Context) {
         const val KEY_WIDGET_IS_DAY = "widget_is_day"
         const val KEY_WIDGET_HIGH = "widget_high"
         const val KEY_WIDGET_LOW = "widget_low"
+        const val KEY_WIDGET_PRECIPITATION_PROBABILITY = "widget_precipitation_probability"
+        const val KEY_WIDGET_WIND_SPEED = "widget_wind_speed"
+        const val KEY_WIDGET_HUMIDITY = "widget_humidity"
+        const val KEY_WIDGET_UPDATED_AT = "widget_updated_at"
         const val KEY_WIDGET_HOURLY_TIMES = "widget_hourly_times"
         const val KEY_WIDGET_HOURLY_TEMPERATURES = "widget_hourly_temperatures"
 

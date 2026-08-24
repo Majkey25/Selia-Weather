@@ -21,7 +21,7 @@
 - [x] Adaptive Task 1: Keep lightning available over rain and cloud layers.
   - Acceptance: clouds never remove the lightning control or overlay state.
   - Verify: measured rain, clouds with lightning, toggle, playback, and nowcast pass on API 29.
-- [ ] Adaptive Task 2: Show 20 future hours and expand every daily row.
+- [x] Adaptive Task 2: Show 20 future hours and expand every daily row.
   - Acceptance: the main panel has 20 scrollable hours and 14 richer daily rows.
   - Verify: API 29 and API 35 show 20 hours, all 14 days, and a 24-hour complete-day detail.
 - [ ] Adaptive Task 3: Fix hosted widget resize with one stable hierarchy.

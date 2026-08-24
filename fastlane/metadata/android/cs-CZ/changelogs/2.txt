@@ -1,0 +1,1 @@
+Nové minimalistické rozhraní, detail 24 hodin, oblíbené lokality, aktuální poloha, integrovaný radar a družice ČHMÚ, nový widget a Android 10+.

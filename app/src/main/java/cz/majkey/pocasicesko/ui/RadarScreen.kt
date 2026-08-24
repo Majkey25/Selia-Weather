@@ -3,6 +3,7 @@ package cz.majkey.pocasicesko.ui
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Bitmap
+import android.webkit.CookieManager
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
@@ -11,7 +12,6 @@ import android.webkit.WebViewClient
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -31,45 +31,48 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 
-private const val RADAR_URL = "https://produkty.chmi.cz/radar/"
+const val RADAR_APP_URL = "file:///android_asset/radar.html"
 
 @Composable
 @SuppressLint("SetJavaScriptEnabled")
-fun RadarScreen(padding: PaddingValues) {
+fun ChmiWebScreen(url: String, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     var webView by remember { mutableStateOf<WebView?>(null) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
 
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
-            .padding(padding)
-            .background(Color.White),
+            .background(Color(0xFF071018)),
     ) {
         AndroidView(
             factory = { viewContext ->
-                WebView(viewContext).apply {
+                WebView(viewContext).apply web@{
                     webView = this
                     settings.javaScriptEnabled = true
-                    settings.domStorageEnabled = true
-                    settings.allowFileAccess = false
+                    settings.domStorageEnabled = false
+                    settings.allowFileAccess = url.startsWith(ANDROID_ASSET_PREFIX)
                     settings.allowContentAccess = false
                     settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
                     settings.setSupportZoom(true)
                     settings.builtInZoomControls = true
                     settings.displayZoomControls = false
+                    CookieManager.getInstance().apply {
+                        setAcceptCookie(false)
+                        setAcceptThirdPartyCookies(this@web, false)
+                    }
                     webViewClient = object : WebViewClient() {
-                        override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                        override fun onPageStarted(view: WebView?, pageUrl: String?, favicon: Bitmap?) {
                             loading = true
                             error = null
                         }
 
-                        override fun onPageCommitVisible(view: WebView?, url: String?) {
+                        override fun onPageCommitVisible(view: WebView?, pageUrl: String?) {
                             loading = false
                         }
 
-                        override fun onPageFinished(view: WebView?, url: String?) {
+                        override fun onPageFinished(view: WebView?, pageUrl: String?) {
                             loading = false
                         }
 
@@ -90,14 +93,16 @@ fun RadarScreen(padding: PaddingValues) {
                         ): Boolean {
                             val uri = request?.url ?: return false
                             val host = uri.host.orEmpty()
-                            if (uri.scheme == "https" && (host == "chmi.cz" || host.endsWith(".chmi.cz"))) {
+                            if (uri.toString().startsWith(ANDROID_ASSET_PREFIX) ||
+                                uri.scheme == "https" && (host == "chmi.cz" || host.endsWith(".chmi.cz"))
+                            ) {
                                 return false
                             }
                             context.startActivity(Intent(Intent.ACTION_VIEW, uri))
                             return true
                         }
                     }
-                    loadUrl(RADAR_URL)
+                    loadUrl(url)
                 }
             },
             modifier = Modifier.fillMaxSize(),
@@ -108,7 +113,7 @@ fun RadarScreen(padding: PaddingValues) {
                 modifier = Modifier
                     .align(Alignment.Center)
                     .size(36.dp),
-                color = Color(0xFF315E7D),
+                color = Color(0xFF6DD3EA),
             )
         }
         error?.let { message ->
@@ -118,10 +123,7 @@ fun RadarScreen(padding: PaddingValues) {
                     .padding(28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(
-                    text = message,
-                    color = Color(0xFF7A1C1C),
-                )
+                Text(text = message, color = Color(0xFFFFB4AB))
                 TextButton(onClick = {
                     error = null
                     webView?.reload()
@@ -140,3 +142,5 @@ fun RadarScreen(padding: PaddingValues) {
         }
     }
 }
+
+private const val ANDROID_ASSET_PREFIX = "file:///android_asset/"

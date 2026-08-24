@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5,user-scalable=yes">
+  <title>Radar ČHMÚ</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; overflow: hidden; background: #071018; color: #f4fafc; font-family: system-ui, sans-serif; }
+    .layers { position: fixed; z-index: 10; top: 10px; left: 10px; right: 10px; height: 42px; display: flex; }
+    button { margin-right: 7px; border: 1px solid #ffffff20; border-radius: 14px; background: #172731; color: #d9e8ed; padding: 10px 13px; font: inherit; font-size: 13px; font-weight: 650; }
+    button:focus { outline: none; }
+    button.active { background: #2b6878; color: #fff; }
+    #lightning.off { opacity: .5; }
+    .map { position: fixed; top: 62px; left: 10px; right: 10px; bottom: 86px; overflow: hidden; border: 1px solid #ffffff18; border-radius: 20px; background: #05090d; }
+    .map img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+    #satellite, #satBorders { display: none; }
+    #satBorders { pointer-events: none; }
+    .status { position: absolute; z-index: 5; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 80%; color: #a9bbc3; text-align: center; font-size: 13px; }
+    .time { position: absolute; z-index: 5; left: 10px; bottom: 10px; padding: 7px 10px; border-radius: 12px; background: #07131ce8; font-size: 12px; }
+    .source { position: absolute; z-index: 5; right: 10px; bottom: 10px; color: #a8bac2; font-size: 10px; }
+    .timeline { position: fixed; left: 10px; right: 10px; bottom: 12px; height: 62px; padding-left: 52px; }
+    #play { position: absolute; left: 0; top: 8px; width: 42px; height: 42px; padding: 0; border-radius: 50%; font-size: 17px; }
+    input[type=range] { width: 100%; margin: 16px 0 0; accent-color: #66c9df; }
+    .legend { position: fixed; left: 62px; right: 10px; bottom: 7px; height: 5px; border-radius: 3px; background: linear-gradient(90deg,#51a3ff,#33d6a6,#f3e744,#ff8a30,#ef3153,#b12ce1); opacity: .85; }
+  </style>
+</head>
+<body>
+  <div class="layers">
+    <button id="rain" class="active" type="button" onclick="setLayer('rain')">Srážky</button>
+    <button id="clouds" type="button" onclick="setLayer('clouds')">Mraky</button>
+    <button id="lightning" type="button" onclick="toggleLightning()">Blesky</button>
+  </div>
+  <div class="map">
+    <img id="base" src="https://produkty.chmi.cz/radar/und/pacz2gmaps6.und3.png" alt="Mapa Česka">
+    <img id="radar" alt="Radarové srážky ČHMÚ">
+    <img id="strikes" alt="">
+    <img id="satellite" alt="Družicový snímek ČHMÚ" onerror="setStatus('Zvolený družicový snímek není dostupný.')">
+    <img id="satBorders" src="https://produkty.chmi.cz/druzice/und/msgcz-1160x800.und.010.hranice.png" alt="">
+    <div class="status" id="status">Hledám nejnovější data ČHMÚ…</div>
+    <div class="time" id="time" hidden></div>
+    <div class="source">ČHMÚ · UTC</div>
+  </div>
+  <div class="timeline">
+    <button id="play" type="button" onclick="togglePlay()" aria-label="Přehrát">▶</button>
+    <input id="slider" type="range" min="0" max="0" value="0" aria-label="Časová osa" oninput="showFrame(Number(this.value))">
+  </div>
+  <div class="legend" aria-label="Intenzita srážek"></div>
+  <script>
+    var radarFrames = [];
+    var cloudFrames = [];
+    var layer = 'rain';
+    var lightningVisible = true;
+    var frameIndex = 0;
+    var timer = null;
+    var latestRadar = null;
+    var activeFrame = null;
+    var nowcastOffsets = [15, 10, 5, 0, -5, -10, -15, -20, -25, -30];
+
+    function pad(value) { return String(value).padStart(2, '0'); }
+    function stamp(date) {
+      return date.getUTCFullYear() + pad(date.getUTCMonth() + 1) + pad(date.getUTCDate()) + pad(date.getUTCHours()) + pad(date.getUTCMinutes());
+    }
+    function addMinutes(date, minutes) { return new Date(date.getTime() + minutes * 60000); }
+    function floorUtc(minutes) {
+      var date = new Date();
+      date.setUTCSeconds(0, 0);
+      date.setUTCMinutes(Math.floor(date.getUTCMinutes() / minutes) * minutes);
+      return date;
+    }
+    function radarUrl(date) {
+      var value = stamp(date);
+      return 'https://produkty.chmi.cz/radar/input_data/czrad-z_max3d_masked/pacz2gmaps3.z_max3d.' + value.slice(0, 8) + '.' + value.slice(8) + '.0.png';
+    }
+    function lightningUrl(date) {
+      var rounded = new Date(date.getTime());
+      rounded.setUTCMinutes(Math.floor(rounded.getUTCMinutes() / 10) * 10);
+      var value = stamp(rounded);
+      return 'https://produkty.chmi.cz/radar/input_data/blesk/pacz2gmaps3.blesk.' + value.slice(0, 8) + '.' + value.slice(8) + '.png';
+    }
+    function nowcastUrl(base, lead) {
+      var value = stamp(base);
+      var directory = value.slice(0, 8) + '.' + value.slice(8);
+      var target = stamp(addMinutes(base, lead));
+      return 'https://produkty.chmi.cz/radar/input_data/czrad-z_max3d_fct_masked/' + directory + '/pacz2gmaps3.fct_z_max.' + target.slice(0, 8) + '.' + target.slice(8) + '.' + lead + '.png';
+    }
+    function satelliteUrl(date) {
+      var value = stamp(date);
+      return 'https://produkty.chmi.cz/druzice/input_data/hrfi/' + value.slice(0, 8) + '/CZ1_1160x800-vis_ir/CZ1_1160x800.vis_ir.' + value + '.jpeg';
+    }
+    function probe(buildUrl, date, step, attempts, done) {
+      var image = new Image();
+      image.onload = function() { done(date); };
+      image.onerror = function() {
+        if (attempts <= 1) { done(null); return; }
+        probe(buildUrl, addMinutes(date, -step), step, attempts - 1, done);
+      };
+      image.src = buildUrl(date);
+    }
+    function formatTime(date) { return pad(date.getUTCHours()) + ':' + pad(date.getUTCMinutes()) + ' UTC'; }
+    function setStatus(message) {
+      var status = document.getElementById('status');
+      status.textContent = message;
+      status.hidden = !message;
+    }
+    function setLayer(next) {
+      layer = next;
+      document.getElementById('rain').className = next === 'rain' ? 'active' : '';
+      document.getElementById('clouds').className = next === 'clouds' ? 'active' : '';
+      document.getElementById('lightning').style.display = next === 'rain' ? '' : 'none';
+      document.querySelector('.legend').style.visibility = next === 'rain' ? 'visible' : 'hidden';
+      document.getElementById('base').style.display = next === 'rain' ? 'block' : 'none';
+      document.getElementById('radar').style.display = next === 'rain' ? 'block' : 'none';
+      document.getElementById('strikes').style.visibility = next === 'rain' && lightningVisible ? 'visible' : 'hidden';
+      document.getElementById('satellite').style.display = next === 'clouds' ? 'block' : 'none';
+      document.getElementById('satBorders').style.display = next === 'clouds' ? 'block' : 'none';
+      var frames = next === 'rain' ? radarFrames : cloudFrames;
+      frameIndex = next === 'rain' ? Math.max(0, Math.min(11, frames.length - 1)) : Math.max(0, frames.length - 1);
+      replaceSlider(frames.length, frameIndex);
+      showFrame(frameIndex);
+    }
+    function replaceSlider(frameCount, value) {
+      var previous = document.getElementById('slider');
+      var slider = document.createElement('input');
+      slider.id = 'slider';
+      slider.type = 'range';
+      slider.min = 0;
+      slider.max = Math.max(0, frameCount - 1);
+      slider.value = value;
+      slider.setAttribute('aria-label', 'Časová osa');
+      slider.oninput = function() { showFrame(Number(this.value)); };
+      previous.parentNode.replaceChild(slider, previous);
+    }
+    function toggleLightning() {
+      lightningVisible = !lightningVisible;
+      document.getElementById('lightning').className = lightningVisible ? '' : 'off';
+      showFrame(frameIndex);
+    }
+    function showFrame(index) {
+      var frames = layer === 'rain' ? radarFrames : cloudFrames;
+      if (!frames.length) { setStatus('Data ČHMÚ zatím nejsou dostupná.'); return; }
+      frameIndex = Math.max(0, Math.min(index, frames.length - 1));
+      document.getElementById('slider').value = frameIndex;
+      var frame = frames[frameIndex];
+      activeFrame = frame;
+      setStatus('');
+      if (layer === 'rain') {
+        var strikes = document.getElementById('strikes');
+        if (frame.lightning && lightningVisible) {
+          strikes.style.visibility = 'visible';
+          strikes.alt = 'Blesky ČHMÚ';
+          strikes.src = frame.lightning;
+        } else {
+          strikes.style.visibility = 'hidden';
+          strikes.alt = '';
+          strikes.removeAttribute('src');
+        }
+        if (frame.forecast) {
+          loadForecastFrame(frame, 0);
+        } else {
+          setFrameTime(frame);
+          var radar = document.getElementById('radar');
+          radar.onload = function() { if (activeFrame === frame) { setStatus(''); } };
+          radar.onerror = function() {
+            if (activeFrame === frame) { setStatus('Zvolený radarový snímek není dostupný.'); }
+          };
+          radar.src = frame.url;
+        }
+      } else {
+        setFrameTime(frame);
+        document.getElementById('satellite').src = frame.url;
+      }
+    }
+    function setFrameTime(frame) {
+      var time = document.getElementById('time');
+      time.textContent = formatTime(frame.date) + (frame.forecast ? ' · nowcast +' + frame.lead + ' min' : '');
+      time.hidden = false;
+    }
+    function loadForecastFrame(frame, attempt) {
+      if (activeFrame !== frame) { return; }
+      if (!latestRadar || attempt >= nowcastOffsets.length) {
+        setStatus('Zvolený nowcast ČHMÚ není dostupný.');
+        return;
+      }
+      var base = addMinutes(latestRadar, nowcastOffsets[attempt]);
+      frame.date = addMinutes(base, frame.lead);
+      frame.url = nowcastUrl(base, frame.lead);
+      setFrameTime(frame);
+      setStatus('Načítám nowcast ČHMÚ…');
+      var radar = document.getElementById('radar');
+      radar.onload = function() {
+        if (activeFrame === frame) { setStatus(''); }
+      };
+      radar.onerror = function() {
+        if (activeFrame === frame) { loadForecastFrame(frame, attempt + 1); }
+      };
+      radar.src = frame.url;
+    }
+    function togglePlay() {
+      var button = document.getElementById('play');
+      if (timer) { clearInterval(timer); timer = null; button.textContent = '▶'; return; }
+      var available = layer === 'rain' ? radarFrames : cloudFrames;
+      if (!available.length) { return; }
+      button.textContent = 'Ⅱ';
+      timer = setInterval(function() {
+        var frames = layer === 'rain' ? radarFrames : cloudFrames;
+        showFrame((frameIndex + 1) % frames.length);
+      }, 700);
+    }
+    function load() {
+      probe(radarUrl, floorUtc(5), 5, 18, function(latest) {
+        if (!latest) { setStatus('Radar ČHMÚ se nepodařilo načíst.'); return; }
+        latestRadar = latest;
+        var i;
+        for (i = 11; i >= 0; i--) {
+          var date = addMinutes(latest, -i * 5);
+          radarFrames.push({ date: date, url: radarUrl(date), lightning: lightningUrl(date), forecast: false, lead: 0 });
+        }
+        frameIndex = 11;
+        for (i = 10; i <= 60; i += 10) {
+          radarFrames.push({ date: addMinutes(latest, i), url: '', lightning: '', forecast: true, lead: i });
+        }
+        document.getElementById('slider').max = radarFrames.length - 1;
+        showFrame(frameIndex);
+      });
+      probe(satelliteUrl, floorUtc(10), 10, 24, function(latest) {
+        if (!latest) { return; }
+        for (var i = 5; i >= 0; i--) {
+          var date = addMinutes(latest, -i * 10);
+          cloudFrames.push({ date: date, url: satelliteUrl(date), forecast: false, lead: 0 });
+        }
+        if (layer === 'clouds') {
+          frameIndex = cloudFrames.length - 1;
+          replaceSlider(cloudFrames.length, frameIndex);
+          showFrame(frameIndex);
+        }
+      });
+    }
+    function selfTest() {
+      var date = new Date(Date.UTC(2026, 7, 24, 14, 35));
+      if (radarUrl(date).indexOf('20260824.1435.0.png') < 0 ||
+          satelliteUrl(date).indexOf('202608241435.jpeg') < 0 ||
+          nowcastUrl(date, 10).indexOf('/20260824.1435/pacz2gmaps3.fct_z_max.20260824.1445.10.png') < 0) {
+        throw new Error('CHMI URL self-test failed');
+      }
+    }
+    selfTest();
+    load();
+  </script>
+</body>
+</html>

@@ -7,4 +7,5 @@
     <string name="widget_placeholder_temperature">--°</string>
     <string name="widget_placeholder_condition">Načíst počasí</string>
     <string name="widget_placeholder_range">--° / --°</string>
+    <string name="widget_placeholder_time">--:--</string>
 </resources>

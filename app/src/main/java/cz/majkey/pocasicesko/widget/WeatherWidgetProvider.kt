@@ -65,8 +65,18 @@ class WeatherWidgetProvider : AppWidgetProvider() {
     }
 
     companion object {
-        private const val WIDE_THRESHOLD_DP = 220
+        private const val WIDE_THRESHOLD_DP = 320
         private const val SETTINGS_PREFIX = "widget_settings_"
+        private val HOUR_TIME_IDS = intArrayOf(
+            R.id.widget_hour_1_time,
+            R.id.widget_hour_2_time,
+            R.id.widget_hour_3_time,
+        )
+        private val HOUR_TEMPERATURE_IDS = intArrayOf(
+            R.id.widget_hour_1_temp,
+            R.id.widget_hour_2_temp,
+            R.id.widget_hour_3_temp,
+        )
 
         fun updateAll(context: Context) {
             val manager = AppWidgetManager.getInstance(context)
@@ -94,12 +104,23 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             val isDay = weather.getBoolean(WeatherRepository.KEY_WIDGET_IS_DAY, true)
             val high = weather.getFloat(WeatherRepository.KEY_WIDGET_HIGH, Float.NaN)
             val low = weather.getFloat(WeatherRepository.KEY_WIDGET_LOW, Float.NaN)
+            val hourlyTimes = weather.getString(WeatherRepository.KEY_WIDGET_HOURLY_TIMES, null)
+                ?.split('|')
+                .orEmpty()
+            val hourlyTemperatures = weather.getString(WeatherRepository.KEY_WIDGET_HOURLY_TEMPERATURES, null)
+                ?.split('|')
+                .orEmpty()
 
             val textColor = if (settings.theme == WidgetTheme.LIGHT) 0xFF173042.toInt() else 0xFFFFFFFF.toInt()
             val secondaryTextColor = if (settings.theme == WidgetTheme.LIGHT) 0xB3173042.toInt() else 0xCCFFFFFF.toInt()
             views.setInt(R.id.widget_root, "setBackgroundResource", backgroundFor(settings.theme, kind, isDay))
             views.setTextViewText(R.id.widget_temperature, if (temperature.isNaN()) "--°" else "${temperature.roundToInt()}°")
             views.setTextColor(R.id.widget_temperature, textColor)
+            views.setTextViewText(R.id.widget_city, city)
+            views.setTextColor(R.id.widget_city, secondaryTextColor)
+            views.setTextViewText(R.id.widget_condition, condition)
+            views.setTextColor(R.id.widget_condition, textColor)
+            views.setViewVisibility(R.id.widget_details, if (settings.showDetails) View.VISIBLE else View.GONE)
             views.setViewVisibility(R.id.widget_clock, if (settings.showClock) View.VISIBLE else View.GONE)
             views.setTextColor(R.id.widget_clock, textColor)
             views.setViewVisibility(R.id.widget_icon, if (settings.showIcon) View.VISIBLE else View.GONE)
@@ -107,16 +128,22 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             views.setInt(R.id.widget_icon, "setColorFilter", textColor)
 
             if (wide) {
-                views.setTextViewText(R.id.widget_city, city)
-                views.setTextColor(R.id.widget_city, textColor)
-                views.setTextViewText(R.id.widget_condition, condition)
-                views.setTextColor(R.id.widget_condition, textColor)
                 views.setTextViewText(
                     R.id.widget_high_low,
                     if (high.isNaN() || low.isNaN()) "--° / --°" else "${high.roundToInt()}° / ${low.roundToInt()}°",
                 )
                 views.setTextColor(R.id.widget_high_low, secondaryTextColor)
-                views.setViewVisibility(R.id.widget_details, if (settings.showDetails) View.VISIBLE else View.GONE)
+                val showHourly = settings.showDetails && hourlyTimes.size >= 3 && hourlyTemperatures.size >= 3
+                views.setViewVisibility(R.id.widget_hourly, if (showHourly) View.VISIBLE else View.GONE)
+                HOUR_TIME_IDS.forEachIndexed { index, id ->
+                    views.setTextViewText(id, hourlyTimes.getOrNull(index) ?: "--:--")
+                    views.setTextColor(id, secondaryTextColor)
+                }
+                HOUR_TEMPERATURE_IDS.forEachIndexed { index, id ->
+                    val value = hourlyTemperatures.getOrNull(index)?.let { "$it°" } ?: "--°"
+                    views.setTextViewText(id, value)
+                    views.setTextColor(id, textColor)
+                }
             }
 
             val openApp = Intent(context, MainActivity::class.java)

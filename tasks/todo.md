@@ -12,7 +12,7 @@
 - [x] Task 4: Add the persisted in-app language picker and localize location flows.
   - Acceptance: system reset and manual overrides work on Android 10.
   - Verify: restart persistence and Czech to English switching pass in the emulator.
-- [ ] Task 5: Localize radar controls and status text.
+- [x] Task 5: Localize radar controls and status text.
   - Acceptance: radar labels follow the selected language without changing data behavior.
   - Verify: English, Czech, French, measured rain, clouds, lightning, and nowcast pass.
 - [ ] Task 6: Localize widget rendering and configuration.

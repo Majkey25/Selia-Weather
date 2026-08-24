@@ -21,9 +21,7 @@ import cz.majkey.pocasicesko.data.WeatherKind
 import cz.majkey.pocasicesko.data.WeatherRepository
 import cz.majkey.pocasicesko.locale.AppLocale
 import cz.majkey.pocasicesko.ui.labelResource
-import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import kotlin.math.roundToInt
@@ -262,9 +260,11 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             if (showUpdate) {
                 views.setTextViewText(
                     R.id.widget_update_time,
-                    Instant.ofEpochMilli(updatedAt)
-                        .atZone(ZoneId.systemDefault())
-                        .format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)),
+                    widgetUpdatedAt(
+                        updatedAt,
+                        java.time.ZoneId.systemDefault(),
+                        localizedContext.resources.configuration.locales[0],
+                    ),
                 )
             }
             views.setTextColor(R.id.widget_date, secondaryColor)
@@ -309,9 +309,31 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             val preferences = context.getSharedPreferences(WeatherRepository.PREFERENCES_NAME, Context.MODE_PRIVATE)
             val modeKey = widgetPreferenceKey(appWidgetId, "background_mode")
             val legacyTheme = preferences.getString(widgetPreferenceKey(appWidgetId, "theme"), null)
+            val legacyDetailsKey = widgetPreferenceKey(appWidgetId, "details")
+            val legacyDetails = preferences.getBoolean(legacyDetailsKey, true).takeIf {
+                preferences.contains(legacyDetailsKey)
+            }
             val mode = widgetBackgroundMode(preferences.getString(modeKey, null), legacyTheme)
             if (!preferences.contains(modeKey) && legacyTheme != null) {
                 preferences.edit { putString(modeKey, mode.name) }
+            }
+            fun storedBoolean(name: String): Boolean? {
+                val key = widgetPreferenceKey(appWidgetId, name)
+                return preferences.getBoolean(key, false).takeIf { preferences.contains(key) }
+            }
+            fun migratedVisibility(name: String, defaultValue: Boolean): Boolean = migratedWidgetVisibility(
+                newValue = storedBoolean(name),
+                legacyDetails = legacyDetails,
+                defaultValue = defaultValue,
+            )
+            fun migratedColor(name: String, fallback: String): String {
+                val key = widgetPreferenceKey(appWidgetId, name)
+                return migratedWidgetColor(
+                    mode = mode,
+                    hasStoredColor = preferences.contains(key),
+                    storedColor = preferences.getString(key, null),
+                    fallback = fallback,
+                )
             }
             return WidgetSettings(
                 backgroundMode = mode,
@@ -319,12 +341,8 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                     .orEmpty(),
                 backgroundEnd = preferences.getString(widgetPreferenceKey(appWidgetId, "background_end"), DEFAULT_BACKGROUND_END)
                     .orEmpty(),
-                primaryColor = preferences.getString(widgetPreferenceKey(appWidgetId, "primary_color"), DEFAULT_PRIMARY_COLOR)
-                    .orEmpty(),
-                secondaryColor = preferences.getString(
-                    widgetPreferenceKey(appWidgetId, "secondary_color"),
-                    DEFAULT_SECONDARY_COLOR,
-                ).orEmpty(),
+                primaryColor = migratedColor("primary_color", DEFAULT_PRIMARY_COLOR),
+                secondaryColor = migratedColor("secondary_color", DEFAULT_SECONDARY_COLOR),
                 accentColor = preferences.getString(widgetPreferenceKey(appWidgetId, "accent_color"), DEFAULT_ACCENT_COLOR)
                     .orEmpty(),
                 opacity = preferences.getInt(widgetPreferenceKey(appWidgetId, "opacity"), 100),
@@ -337,9 +355,9 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                 showLocation = preferences.getBoolean(widgetPreferenceKey(appWidgetId, "location"), true),
                 showTemperature = preferences.getBoolean(widgetPreferenceKey(appWidgetId, "temperature"), true),
                 showIcon = preferences.getBoolean(widgetPreferenceKey(appWidgetId, "icon"), true),
-                showCondition = preferences.getBoolean(widgetPreferenceKey(appWidgetId, "condition"), true),
-                showRange = preferences.getBoolean(widgetPreferenceKey(appWidgetId, "range"), true),
-                showHourly = preferences.getBoolean(widgetPreferenceKey(appWidgetId, "hourly"), true),
+                showCondition = migratedVisibility("condition", true),
+                showRange = migratedVisibility("range", true),
+                showHourly = migratedVisibility("hourly", true),
                 showPrecipitation = preferences.getBoolean(widgetPreferenceKey(appWidgetId, "precipitation"), false),
                 showWind = preferences.getBoolean(widgetPreferenceKey(appWidgetId, "wind"), false),
                 showHumidity = preferences.getBoolean(widgetPreferenceKey(appWidgetId, "humidity"), false),

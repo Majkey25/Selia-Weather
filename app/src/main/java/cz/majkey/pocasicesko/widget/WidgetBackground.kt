@@ -30,7 +30,7 @@ internal object WidgetBackground {
             WidgetBackgroundMode.LIGHT -> applyResource(views, R.drawable.widget_light)
             WidgetBackgroundMode.DARK -> applyResource(views, R.drawable.widget_dark)
             WidgetBackgroundMode.TRANSPARENT -> applyResource(views, R.drawable.widget_transparent)
-            WidgetBackgroundMode.SOLID -> applySolid(views, normalized.backgroundStart)
+            WidgetBackgroundMode.SOLID -> applySolid(views, normalized)
             WidgetBackgroundMode.GRADIENT -> applyGradient(views, normalized)
             WidgetBackgroundMode.CUSTOM_IMAGE -> {
                 val image = customImage(context, normalized)
@@ -44,9 +44,8 @@ internal object WidgetBackground {
         views.setInt(R.id.widget_root, "setBackgroundResource", resource)
     }
 
-    private fun applySolid(views: RemoteViews, color: String) {
-        views.setViewVisibility(R.id.widget_background_image, View.GONE)
-        views.setInt(R.id.widget_root, "setBackgroundColor", Color.parseColor(color))
+    private fun applySolid(views: RemoteViews, settings: WidgetSettings) {
+        applyImage(views, settings, solidBitmap(settings.backgroundStart))
     }
 
     private fun applyGradient(views: RemoteViews, settings: WidgetSettings) {
@@ -54,9 +53,9 @@ internal object WidgetBackground {
     }
 
     private fun applyImage(views: RemoteViews, settings: WidgetSettings, bitmap: Bitmap) {
-        views.setInt(R.id.widget_root, "setBackgroundColor", Color.parseColor(settings.backgroundStart))
+        views.setInt(R.id.widget_root, "setBackgroundResource", android.R.color.transparent)
         views.setImageViewBitmap(R.id.widget_background_image, bitmap)
-        views.setInt(R.id.widget_background_image, "setImageAlpha", settings.opacity * 255 / 100)
+        views.setInt(R.id.widget_background_image, "setImageAlpha", widgetOpacityAlpha(255, settings.opacity))
         views.setViewVisibility(R.id.widget_background_image, View.VISIBLE)
     }
 
@@ -82,6 +81,14 @@ internal object WidgetBackground {
                 )
             },
         )
+    }
+
+    private fun solidBitmap(color: String): Bitmap = Bitmap.createBitmap(
+        1,
+        1,
+        Bitmap.Config.ARGB_8888,
+    ).apply {
+        eraseColor(Color.parseColor(color))
     }
 
     private fun customImage(context: Context, settings: WidgetSettings): Bitmap? {

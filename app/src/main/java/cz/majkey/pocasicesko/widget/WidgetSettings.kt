@@ -1,6 +1,11 @@
 package cz.majkey.pocasicesko.widget
 
 import kotlin.math.roundToInt
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
+import java.util.Locale
 
 enum class WidgetBackgroundMode {
     AUTOMATIC,
@@ -89,6 +94,33 @@ internal fun widgetAlignment(value: String?): WidgetAlignment = runCatching {
     WidgetAlignment.valueOf(value.orEmpty())
 }.getOrDefault(WidgetAlignment.LEFT)
 
+internal fun migratedWidgetVisibility(
+    newValue: Boolean?,
+    legacyDetails: Boolean?,
+    defaultValue: Boolean,
+): Boolean = newValue ?: legacyDetails ?: defaultValue
+
+internal fun migratedWidgetColor(
+    mode: WidgetBackgroundMode,
+    hasStoredColor: Boolean,
+    storedColor: String?,
+    fallback: String,
+): String = when {
+    hasStoredColor -> storedColor ?: fallback
+    mode != WidgetBackgroundMode.LIGHT -> fallback
+    fallback == DEFAULT_PRIMARY_COLOR -> LEGACY_LIGHT_PRIMARY_COLOR
+    fallback == DEFAULT_SECONDARY_COLOR -> LEGACY_LIGHT_SECONDARY_COLOR
+    else -> fallback
+}
+
+internal fun widgetOpacityAlpha(baseAlpha: Int, opacity: Int): Int =
+    baseAlpha.coerceIn(0, 255) * opacity.coerceIn(0, 100) / 100
+
+internal fun widgetUpdatedAt(epochMillis: Long, zoneId: ZoneId, locale: Locale): String =
+    Instant.ofEpochMilli(epochMillis)
+        .atZone(zoneId)
+        .format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(locale))
+
 internal fun widgetPreferenceKey(appWidgetId: Int, name: String): String =
     "widget_settings_${appWidgetId}_$name"
 
@@ -165,3 +197,5 @@ internal const val DEFAULT_BACKGROUND_END = "#28758D"
 internal const val DEFAULT_PRIMARY_COLOR = "#FFFFFFFF"
 internal const val DEFAULT_SECONDARY_COLOR = "#CCFFFFFF"
 internal const val DEFAULT_ACCENT_COLOR = "#FF66C9DF"
+internal const val LEGACY_LIGHT_PRIMARY_COLOR = "#FF173042"
+internal const val LEGACY_LIGHT_SECONDARY_COLOR = "#B3173042"

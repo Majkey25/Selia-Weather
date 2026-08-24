@@ -2,8 +2,11 @@ package cz.majkey.pocasicesko.widget
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.ZoneOffset
+import java.util.Locale
 
 class WidgetSettingsTest {
     @Test
@@ -97,5 +100,44 @@ class WidgetSettingsTest {
         assertEquals(WidgetAlignmentSpacers(showLeft = false, showRight = true), widgetAlignmentSpacers(WidgetAlignment.LEFT))
         assertEquals(WidgetAlignmentSpacers(showLeft = true, showRight = true), widgetAlignmentSpacers(WidgetAlignment.CENTER))
         assertEquals(WidgetAlignmentSpacers(showLeft = true, showRight = false), widgetAlignmentSpacers(WidgetAlignment.RIGHT))
+    }
+
+    @Test
+    fun migratesLegacyDetailsAndLightForegroundsOnlyWhenNewValuesAreAbsent() {
+        assertTrue(migratedWidgetVisibility(newValue = null, legacyDetails = true, defaultValue = false))
+        assertFalse(migratedWidgetVisibility(newValue = false, legacyDetails = true, defaultValue = true))
+        assertEquals(
+            "#FF173042",
+            migratedWidgetColor(WidgetBackgroundMode.LIGHT, hasStoredColor = false, storedColor = null, fallback = DEFAULT_PRIMARY_COLOR),
+        )
+        assertEquals(
+            "#B3173042",
+            migratedWidgetColor(WidgetBackgroundMode.LIGHT, hasStoredColor = false, storedColor = null, fallback = DEFAULT_SECONDARY_COLOR),
+        )
+        assertEquals(
+            DEFAULT_PRIMARY_COLOR,
+            migratedWidgetColor(WidgetBackgroundMode.DARK, hasStoredColor = false, storedColor = null, fallback = DEFAULT_PRIMARY_COLOR),
+        )
+        assertEquals(
+            "#FFABCDEF",
+            migratedWidgetColor(WidgetBackgroundMode.LIGHT, hasStoredColor = true, storedColor = "#FFABCDEF", fallback = DEFAULT_PRIMARY_COLOR),
+        )
+    }
+
+    @Test
+    fun derivesConfiguredBackgroundAlphaWithoutAndroidGraphics() {
+        assertEquals(0, widgetOpacityAlpha(255, 0))
+        assertEquals(153, widgetOpacityAlpha(255, 60))
+        assertEquals(122, widgetOpacityAlpha(204, 60))
+        assertEquals(255, widgetOpacityAlpha(999, 999))
+    }
+
+    @Test
+    fun formatsWidgetUpdateTimeWithTheSelectedLocale() {
+        val epoch = 1_725_000_000_000L
+        val english = widgetUpdatedAt(epoch, ZoneOffset.UTC, Locale.US)
+        val french = widgetUpdatedAt(epoch, ZoneOffset.UTC, Locale.FRANCE)
+
+        assertNotEquals(english, french)
     }
 }

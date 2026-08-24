@@ -72,7 +72,7 @@
     <string name="condition_storm">Tormenta</string>
     <string name="condition_unknown">Desconocido</string>
     <string name="radar_title">Radar</string>
-    <string name="radar_subtitle">Nowcast ALADIN de ČHMÚ</string>
+    <string name="radar_subtitle">nowcast ALADIN de ČHMÚ</string>
     <string name="radar_footer">Datos: ČHMÚ · Open-Meteo · ECMWF</string>
     <string name="radar_retry">Reintentar radar</string>
     <string name="radar_rain">Lluvia</string>
@@ -83,7 +83,7 @@
     <string name="radar_loading">Cargando radar</string>
     <string name="radar_unavailable">Radar no disponible</string>
     <string name="radar_nowcast_loading">Cargando nowcast</string>
-    <string name="radar_nowcast_unavailable">Nowcast no disponible</string>
+    <string name="radar_nowcast_unavailable">nowcast no disponible</string>
     <string name="widget_title">Widget del tiempo</string>
     <string name="widget_preview_description">Vista previa del widget del tiempo</string>
     <string name="widget_appearance">Apariencia</string>

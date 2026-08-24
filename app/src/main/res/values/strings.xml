@@ -83,7 +83,7 @@
     <string name="radar_loading">Loading radar</string>
     <string name="radar_unavailable">Radar unavailable</string>
     <string name="radar_nowcast_loading">Loading nowcast</string>
-    <string name="radar_nowcast_unavailable">Nowcast unavailable</string>
+    <string name="radar_nowcast_unavailable">nowcast unavailable</string>
     <string name="widget_title">Weather widget</string>
     <string name="widget_preview_description">Preview of the weather widget</string>
     <string name="widget_appearance">Appearance</string>

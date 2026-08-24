@@ -82,8 +82,8 @@
     <string name="radar_timeline">Časová osa</string>
     <string name="radar_loading">Načítání radaru</string>
     <string name="radar_unavailable">Radar není k dispozici</string>
-    <string name="radar_nowcast_loading">Načítání nowcastu</string>
-    <string name="radar_nowcast_unavailable">Nowcast není k dispozici</string>
+    <string name="radar_nowcast_loading">Načítání nowcast</string>
+    <string name="radar_nowcast_unavailable">nowcast není k dispozici</string>
     <string name="widget_title">Widget počasí</string>
     <string name="widget_preview_description">Náhled widgetu počasí</string>
     <string name="widget_appearance">Vzhled</string>

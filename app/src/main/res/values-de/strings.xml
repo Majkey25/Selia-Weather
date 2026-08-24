@@ -82,8 +82,8 @@
     <string name="radar_timeline">Zeitleiste</string>
     <string name="radar_loading">Radar wird geladen</string>
     <string name="radar_unavailable">Radar nicht verfügbar</string>
-    <string name="radar_nowcast_loading">Nowcast wird geladen</string>
-    <string name="radar_nowcast_unavailable">Nowcast nicht verfügbar</string>
+    <string name="radar_nowcast_loading">nowcast wird geladen</string>
+    <string name="radar_nowcast_unavailable">nowcast nicht verfügbar</string>
     <string name="widget_title">Wetter-Widget</string>
     <string name="widget_preview_description">Vorschau des Wetter-Widgets</string>
     <string name="widget_appearance">Darstellung</string>

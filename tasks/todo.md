@@ -18,7 +18,7 @@
 - [x] Task 6: Localize widget rendering and configuration.
   - Acceptance: widget placeholders, conditions, controls, and preview follow the selected language.
   - Verify: English and French widget configuration and actual widget pass.
-- [ ] Adaptive Task 1: Keep lightning available over rain and cloud layers.
+- [x] Adaptive Task 1: Keep lightning available over rain and cloud layers.
   - Acceptance: clouds never remove the lightning control or overlay state.
   - Verify: measured rain, clouds with lightning, toggle, playback, and nowcast pass on API 29.
 - [ ] Adaptive Task 2: Show 20 future hours and expand every daily row.

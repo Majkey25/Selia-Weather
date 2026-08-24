@@ -64,6 +64,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -189,7 +190,7 @@ private fun LocationHeader(
         )
         if (fromCache) {
             Text(
-                text = stringResource(R.string.cached_data, formatUpdatedAt(updatedAt)),
+                text = stringResource(R.string.cached_data, formatUpdatedAt(updatedAt, Locale.current.platformLocale)),
                 color = Color(0xFFFFD38B),
                 fontSize = 12.sp,
                 modifier = Modifier.padding(top = 4.dp),
@@ -524,7 +525,7 @@ private fun DayDetailSheet(day: DailyWeather, hours: List<HourlyWeather>, onDism
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 34.dp),
         ) {
             item {
-                Text(formatFullDay(day.date), fontSize = 25.sp, fontWeight = FontWeight.SemiBold)
+                Text(formatFullDay(day.date, Locale.current.platformLocale), fontSize = 25.sp, fontWeight = FontWeight.SemiBold)
                 Text(
                     "${stringResource(R.string.whole_day_hours)} · ${hours.size}",
                     color = Color.White.copy(alpha = 0.56f),
@@ -658,21 +659,16 @@ private fun formatDay(date: String): String {
     return LocalDate.parse(date).format(formatter).replaceFirstChar { it.uppercase(locale) }
 }
 
-@Composable
-private fun formatFullDay(date: String): String {
-    val locale = Locale.current.platformLocale
-    val formatter = DateTimeFormatter.ofPattern("EEEE d. MMMM", locale)
-    return LocalDate.parse(date).format(formatter).replaceFirstChar { it.uppercase(locale) }
-}
+internal fun formatFullDay(date: String, locale: java.util.Locale): String =
+    LocalDate.parse(date).format(DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL).withLocale(locale))
 
 internal fun hourlyForDay(hourly: List<HourlyWeather>, date: String): List<HourlyWeather> =
     hourly.filter { it.time.startsWith("${date}T") }
 
-@Composable
-private fun formatUpdatedAt(epochMillis: Long): String {
-    val formatter = DateTimeFormatter.ofPattern("d. M. HH:mm", Locale.current.platformLocale)
-    return formatter.format(Instant.ofEpochMilli(epochMillis).atZone(ZoneId.of("Europe/Prague")))
-}
+internal fun formatUpdatedAt(epochMillis: Long, locale: java.util.Locale): String =
+    DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT)
+        .withLocale(locale)
+        .format(Instant.ofEpochMilli(epochMillis).atZone(ZoneId.of("Europe/Prague")))
 
 private fun windDirection(degrees: Int): String {
     val directions = listOf("S", "SV", "V", "JV", "J", "JZ", "Z", "SZ")

@@ -9,7 +9,7 @@
 - [x] Task 3: Localize typed weather state and the forecast UI.
   - Acceptance: no translated condition text is stored in the data layer or widget cache.
   - Verify: all unit tests pass.
-- [ ] Task 4: Add the persisted in-app language picker and localize location flows.
+- [x] Task 4: Add the persisted in-app language picker and localize location flows.
   - Acceptance: system reset and manual overrides work on Android 10.
   - Verify: restart persistence and Czech to English switching pass in the emulator.
 - [ ] Task 5: Localize radar controls and status text.

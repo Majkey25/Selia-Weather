@@ -6,7 +6,7 @@
 - [x] Task 2: Add complete English, Czech, German, Spanish, and French catalogs.
   - Acceptance: every locale contains the same keys and valid formatting arguments.
   - Verify: Android Lint reports no translation or resource errors.
-- [ ] Task 3: Localize typed weather state and the forecast UI.
+- [x] Task 3: Localize typed weather state and the forecast UI.
   - Acceptance: no translated condition text is stored in the data layer or widget cache.
   - Verify: all unit tests pass.
 - [ ] Task 4: Add the persisted in-app language picker and localize location flows.

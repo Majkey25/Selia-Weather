@@ -30,9 +30,12 @@ class WeatherParserTest {
     }
 
     @Test
-    fun unknownWeatherCodeHasExplicitFallback() {
-        assertEquals(WeatherKind.UNKNOWN, conditionFor(404).kind)
-        assertEquals("Neznámý stav", conditionFor(404).label)
+    fun mapsWeatherCodesToTypedConditions() {
+        assertEquals(WeatherConditionKey.CLEAR_DAY, conditionFor(0, true).key)
+        assertEquals(WeatherConditionKey.DRIZZLE, conditionFor(51, true).key)
+        assertEquals(WeatherConditionKey.SHOWERS, conditionFor(80, true).key)
+        assertEquals(WeatherConditionKey.STORM, conditionFor(95, true).key)
+        assertEquals(WeatherConditionKey.UNKNOWN, conditionFor(999, true).key)
     }
 
     companion object {

@@ -47,10 +47,13 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
+import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.data.CzechLocation
 import cz.majkey.pocasicesko.data.DailyWeather
 import cz.majkey.pocasicesko.data.HourlyWeather
@@ -61,7 +64,6 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -114,7 +116,7 @@ fun ForecastScreen(
         }
         item {
             Text(
-                text = "ALADIN CZ 1 km · první 3 dny\nNavazující ECMWF · data ČHMÚ přes Open-Meteo",
+                text = "ALADIN CZ 1 km · ECMWF · ČHMÚ · Open-Meteo",
                 color = Color.White.copy(alpha = 0.52f),
                 fontSize = 12.sp,
                 lineHeight = 17.sp,
@@ -175,7 +177,7 @@ private fun LocationHeader(
                         strokeWidth = 2.dp,
                     )
                 } else {
-                    Icon(Icons.Rounded.Refresh, contentDescription = "Obnovit předpověď")
+                    Icon(Icons.Rounded.Refresh, contentDescription = stringResource(R.string.refresh_forecast))
                 }
             }
         }
@@ -187,7 +189,7 @@ private fun LocationHeader(
         )
         if (fromCache) {
             Text(
-                text = "Uložená data · ${formatUpdatedAt(updatedAt)}",
+                text = stringResource(R.string.cached_data, formatUpdatedAt(updatedAt)),
                 color = Color(0xFFFFD38B),
                 fontSize = 12.sp,
                 modifier = Modifier.padding(top = 4.dp),
@@ -199,6 +201,7 @@ private fun LocationHeader(
 @Composable
 private fun WeatherHero(snapshot: WeatherSnapshot, accent: Color) {
     val condition = conditionFor(snapshot.current.weatherCode, snapshot.current.isDay)
+    val conditionLabel = stringResource(condition.labelResource())
     val today = snapshot.daily.first()
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -207,7 +210,7 @@ private fun WeatherHero(snapshot: WeatherSnapshot, accent: Color) {
         WeatherIcon(
             kind = condition.kind,
             isDay = snapshot.current.isDay,
-            contentDescription = condition.label,
+            contentDescription = conditionLabel,
             modifier = Modifier.size(58.dp),
             tint = accent,
         )
@@ -218,10 +221,10 @@ private fun WeatherHero(snapshot: WeatherSnapshot, accent: Color) {
             fontWeight = FontWeight.Normal,
             letterSpacing = (-4).sp,
         )
-        Text(condition.label, fontSize = 22.sp, fontWeight = FontWeight.Medium)
+        Text(conditionLabel, fontSize = 22.sp, fontWeight = FontWeight.Medium)
         Text(
             text = "${today.temperatureMin.roundToInt()}° / ${today.temperatureMax.roundToInt()}°  ·  " +
-                "Pocitově ${snapshot.current.feelsLike.roundToInt()}°",
+                stringResource(R.string.feels_like_temperature, "${snapshot.current.feelsLike.roundToInt()}°"),
             color = Color.White.copy(alpha = 0.65f),
             fontSize = 14.sp,
             modifier = Modifier.padding(top = 5.dp),
@@ -248,13 +251,13 @@ private fun HourlyGraphPanel(snapshot: WeatherSnapshot, accent: Color) {
     val currentHour = snapshot.current.time.take(13)
     val hours = snapshot.hourly.dropWhile { it.time.take(13) < currentHour }.take(6)
     Column {
-        SectionTitle("Dalších 6 hodin")
+        SectionTitle(stringResource(R.string.next_six_hours))
         Spacer(Modifier.height(12.dp))
         WeatherPanel {
             Column(Modifier.padding(horizontal = 14.dp, vertical = 16.dp)) {
                 EqualRow(hours) { hour, index ->
                     Text(
-                        text = if (index == 0) "Teď" else hour.time.substringAfter('T').take(5),
+                        text = if (index == 0) stringResource(R.string.now) else hour.time.substringAfter('T').take(5),
                         color = Color.White.copy(alpha = 0.58f),
                         fontSize = 12.sp,
                         textAlign = TextAlign.Center,
@@ -266,7 +269,7 @@ private fun HourlyGraphPanel(snapshot: WeatherSnapshot, accent: Color) {
                     WeatherIcon(
                         kind = condition.kind,
                         isDay = hour.isDay,
-                        contentDescription = condition.label,
+                        contentDescription = stringResource(condition.labelResource()),
                         modifier = Modifier.size(25.dp),
                         tint = conditionAccent(condition.kind, hour.isDay),
                     )
@@ -343,15 +346,24 @@ private fun HourlyTemperatureLine(temperatures: List<Double>, accent: Color, mod
 @Composable
 private fun CurrentMetrics(snapshot: WeatherSnapshot, accent: Color) {
     val today = snapshot.daily.first()
+    val locale = Locale.current.platformLocale
     val metrics = listOf(
-        Triple("Srážky", "${snapshot.current.precipitation.formatOneDecimal()} mm", "teď"),
-        Triple("Vítr", "${snapshot.current.windSpeed.roundToInt()} km/h", windDirection(snapshot.current.windDirection)),
-        Triple("Vlhkost", "${snapshot.current.humidity} %", "relativní"),
-        Triple("Tlak", "${snapshot.current.pressure.roundToInt()} hPa", "u hladiny moře"),
-        Triple("Slunce", "${today.sunrise.takeLast(5)}–${today.sunset.takeLast(5)}", "dnes"),
+        Triple(
+            stringResource(R.string.precipitation),
+            stringResource(R.string.precipitation_value, snapshot.current.precipitation.formatOneDecimal(locale)),
+            stringResource(R.string.now),
+        ),
+        Triple(
+            stringResource(R.string.wind),
+            stringResource(R.string.wind_value, snapshot.current.windSpeed.roundToInt()),
+            windDirection(snapshot.current.windDirection),
+        ),
+        Triple(stringResource(R.string.humidity), "${snapshot.current.humidity} %", stringResource(R.string.relative)),
+        Triple(stringResource(R.string.pressure), "${snapshot.current.pressure.roundToInt()} hPa", stringResource(R.string.sea_level)),
+        Triple(stringResource(R.string.sun), "${today.sunrise.takeLast(5)}–${today.sunset.takeLast(5)}", stringResource(R.string.today)),
     )
     Column {
-        SectionTitle("Teď podrobně")
+        SectionTitle(stringResource(R.string.current_details))
         Spacer(Modifier.height(12.dp))
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -399,7 +411,7 @@ private fun DailyForecastPanel(
     val globalMin = days.minOf { it.temperatureMin }
     val globalMax = days.maxOf { it.temperatureMax }
     Column {
-        SectionTitle("14 dní")
+        SectionTitle(stringResource(R.string.days_14))
         Spacer(Modifier.height(12.dp))
         WeatherPanel {
             Column {
@@ -434,6 +446,7 @@ private fun DailyRow(
     onClick: () -> Unit,
 ) {
     val condition = conditionFor(day.weatherCode)
+    val conditionLabel = stringResource(condition.labelResource())
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -442,7 +455,7 @@ private fun DailyRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = if (today) "Dnes" else formatDay(day.date),
+            text = if (today) stringResource(R.string.today) else formatDay(day.date),
             modifier = Modifier.width(69.dp),
             fontSize = 14.sp,
             fontWeight = if (today) FontWeight.SemiBold else FontWeight.Normal,
@@ -450,7 +463,7 @@ private fun DailyRow(
         WeatherIcon(
             kind = condition.kind,
             isDay = true,
-            contentDescription = condition.label,
+            contentDescription = conditionLabel,
             modifier = Modifier.size(23.dp),
             tint = conditionAccent(condition.kind, true),
         )
@@ -486,7 +499,7 @@ private fun DailyRow(
         )
         Icon(
             Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-            contentDescription = "Otevřít hodinový detail",
+            contentDescription = stringResource(R.string.open_hourly_detail),
             modifier = Modifier
                 .padding(start = 5.dp)
                 .size(17.dp),
@@ -513,7 +526,7 @@ private fun DayDetailSheet(day: DailyWeather, hours: List<HourlyWeather>, onDism
             item {
                 Text(formatFullDay(day.date), fontSize = 25.sp, fontWeight = FontWeight.SemiBold)
                 Text(
-                    "Celý den · ${hours.size} hodin",
+                    "${stringResource(R.string.whole_day_hours)} · ${hours.size}",
                     color = Color.White.copy(alpha = 0.56f),
                     fontSize = 13.sp,
                     modifier = Modifier.padding(top = 3.dp),
@@ -525,12 +538,16 @@ private fun DayDetailSheet(day: DailyWeather, hours: List<HourlyWeather>, onDism
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text("${day.temperatureMin.roundToInt()}° / ${day.temperatureMax.roundToInt()}°", fontSize = 12.sp)
-                    Text("Srážky ${day.precipitationSum.formatOneDecimal()} mm", fontSize = 12.sp)
-                    Text("Vítr ${day.windSpeedMax.roundToInt()} km/h", fontSize = 12.sp)
+                    Text(
+                        stringResource(R.string.precipitation_value, day.precipitationSum.formatOneDecimal(Locale.current.platformLocale)),
+                        fontSize = 12.sp,
+                    )
+                    Text(stringResource(R.string.wind_value, day.windSpeedMax.roundToInt()), fontSize = 12.sp)
                 }
             }
             items(hours, key = { it.time }) { hour ->
                 val condition = conditionFor(hour.weatherCode, hour.isDay)
+                val conditionLabel = stringResource(condition.labelResource())
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -541,12 +558,12 @@ private fun DayDetailSheet(day: DailyWeather, hours: List<HourlyWeather>, onDism
                     WeatherIcon(
                         kind = condition.kind,
                         isDay = hour.isDay,
-                        contentDescription = condition.label,
+                        contentDescription = conditionLabel,
                         modifier = Modifier.size(26.dp),
                         tint = conditionAccent(condition.kind, hour.isDay),
                     )
                     Text(
-                        condition.label,
+                        conditionLabel,
                         modifier = Modifier
                             .weight(1f)
                             .padding(start = 12.dp),
@@ -634,21 +651,26 @@ fun conditionAccent(kind: WeatherKind, isDay: Boolean): Color = when {
     else -> Color(0xFFA8C8D4)
 }
 
+@Composable
 private fun formatDay(date: String): String {
-    val formatter = DateTimeFormatter.ofPattern("EEE", Locale.forLanguageTag("cs-CZ"))
-    return LocalDate.parse(date).format(formatter).replaceFirstChar { it.uppercase() }
+    val locale = Locale.current.platformLocale
+    val formatter = DateTimeFormatter.ofPattern("EEE", locale)
+    return LocalDate.parse(date).format(formatter).replaceFirstChar { it.uppercase(locale) }
 }
 
+@Composable
 private fun formatFullDay(date: String): String {
-    val formatter = DateTimeFormatter.ofPattern("EEEE d. MMMM", Locale.forLanguageTag("cs-CZ"))
-    return LocalDate.parse(date).format(formatter).replaceFirstChar { it.uppercase() }
+    val locale = Locale.current.platformLocale
+    val formatter = DateTimeFormatter.ofPattern("EEEE d. MMMM", locale)
+    return LocalDate.parse(date).format(formatter).replaceFirstChar { it.uppercase(locale) }
 }
 
 internal fun hourlyForDay(hourly: List<HourlyWeather>, date: String): List<HourlyWeather> =
     hourly.filter { it.time.startsWith("${date}T") }
 
+@Composable
 private fun formatUpdatedAt(epochMillis: Long): String {
-    val formatter = DateTimeFormatter.ofPattern("d. M. HH:mm", Locale.forLanguageTag("cs-CZ"))
+    val formatter = DateTimeFormatter.ofPattern("d. M. HH:mm", Locale.current.platformLocale)
     return formatter.format(Instant.ofEpochMilli(epochMillis).atZone(ZoneId.of("Europe/Prague")))
 }
 
@@ -657,4 +679,4 @@ private fun windDirection(degrees: Int): String {
     return directions[((degrees + 22) % 360) / 45]
 }
 
-private fun Double.formatOneDecimal(): String = String.format(Locale.US, "%.1f", this)
+private fun Double.formatOneDecimal(locale: java.util.Locale): String = String.format(locale, "%.1f", this)

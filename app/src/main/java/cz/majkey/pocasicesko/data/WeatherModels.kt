@@ -66,21 +66,36 @@ enum class WeatherKind {
     UNKNOWN,
 }
 
+enum class WeatherConditionKey {
+    CLEAR_DAY,
+    CLEAR_NIGHT,
+    PARTLY_CLOUDY,
+    CLOUDY,
+    FOG,
+    DRIZZLE,
+    RAIN,
+    SNOW,
+    SHOWERS,
+    SNOW_SHOWERS,
+    STORM,
+    UNKNOWN,
+}
+
 data class WeatherCondition(
-    val label: String,
+    val key: WeatherConditionKey,
     val kind: WeatherKind,
 )
 
 fun conditionFor(code: Int, isDay: Boolean = true): WeatherCondition = when (code) {
-    0 -> WeatherCondition(if (isDay) "Jasno" else "Jasná noc", WeatherKind.CLEAR)
-    1, 2 -> WeatherCondition("Polojasno", WeatherKind.PARTLY_CLOUDY)
-    3 -> WeatherCondition("Zataženo", WeatherKind.CLOUDY)
-    45, 48 -> WeatherCondition("Mlha", WeatherKind.FOG)
-    in 51..57 -> WeatherCondition("Mrholení", WeatherKind.RAIN)
-    in 61..67 -> WeatherCondition("Déšť", WeatherKind.RAIN)
-    in 71..77 -> WeatherCondition("Sněžení", WeatherKind.SNOW)
-    in 80..82 -> WeatherCondition("Přeháňky", WeatherKind.RAIN)
-    85, 86 -> WeatherCondition("Sněhové přeháňky", WeatherKind.SNOW)
-    in 95..99 -> WeatherCondition("Bouřky", WeatherKind.STORM)
-    else -> WeatherCondition("Neznámý stav", WeatherKind.UNKNOWN)
+    0 -> WeatherCondition(if (isDay) WeatherConditionKey.CLEAR_DAY else WeatherConditionKey.CLEAR_NIGHT, WeatherKind.CLEAR)
+    1, 2 -> WeatherCondition(WeatherConditionKey.PARTLY_CLOUDY, WeatherKind.PARTLY_CLOUDY)
+    3 -> WeatherCondition(WeatherConditionKey.CLOUDY, WeatherKind.CLOUDY)
+    45, 48 -> WeatherCondition(WeatherConditionKey.FOG, WeatherKind.FOG)
+    in 51..57 -> WeatherCondition(WeatherConditionKey.DRIZZLE, WeatherKind.RAIN)
+    in 61..67 -> WeatherCondition(WeatherConditionKey.RAIN, WeatherKind.RAIN)
+    in 71..77 -> WeatherCondition(WeatherConditionKey.SNOW, WeatherKind.SNOW)
+    in 80..82 -> WeatherCondition(WeatherConditionKey.SHOWERS, WeatherKind.RAIN)
+    85, 86 -> WeatherCondition(WeatherConditionKey.SNOW_SHOWERS, WeatherKind.SNOW)
+    in 95..99 -> WeatherCondition(WeatherConditionKey.STORM, WeatherKind.STORM)
+    else -> WeatherCondition(WeatherConditionKey.UNKNOWN, WeatherKind.UNKNOWN)
 }

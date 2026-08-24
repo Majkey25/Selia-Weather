@@ -116,7 +116,7 @@
 
     var radarFrames = [];
     var cloudFrames = [];
-    var layer = 'rain';
+    var baseLayer = 'rain';
     var lightningVisible = true;
     var frameIndex = 0;
     var timer = null;
@@ -171,14 +171,14 @@
       status.hidden = !message;
     }
     function setLayer(next) {
-      layer = next;
+      baseLayer = next;
       document.getElementById('rain').className = next === 'rain' ? 'active' : '';
       document.getElementById('clouds').className = next === 'clouds' ? 'active' : '';
-      document.getElementById('lightning').style.display = next === 'rain' ? '' : 'none';
+      document.getElementById('lightning').style.display = '';
       document.querySelector('.legend').style.visibility = next === 'rain' ? 'visible' : 'hidden';
       document.getElementById('base').style.display = next === 'rain' ? 'block' : 'none';
       document.getElementById('radar').style.display = next === 'rain' ? 'block' : 'none';
-      document.getElementById('strikes').style.visibility = next === 'rain' && lightningVisible ? 'visible' : 'hidden';
+      document.getElementById('strikes').style.visibility = 'hidden';
       document.getElementById('satellite').style.display = next === 'clouds' ? 'block' : 'none';
       document.getElementById('satBorders').style.display = next === 'clouds' ? 'block' : 'none';
       var frames = next === 'rain' ? radarFrames : cloudFrames;
@@ -203,31 +203,42 @@
       document.getElementById('lightning').className = lightningVisible ? '' : 'off';
       showFrame(frameIndex);
     }
+    function layerVisibility(baseLayer, lightningVisible) {
+      return {
+        rain: baseLayer === 'rain',
+        clouds: baseLayer === 'clouds',
+        lightning: lightningVisible
+      };
+    }
+    function showLightning(frame) {
+      var strikes = document.getElementById('strikes');
+      var lightning = lightningVisible ? lightningUrl(frame.date) : null;
+      if (!lightning) {
+        strikes.style.visibility = 'hidden';
+        strikes.alt = '';
+        strikes.removeAttribute('src');
+        return;
+      }
+      strikes.style.visibility = 'visible';
+      strikes.alt = TEXT.lightningImage;
+      strikes.onerror = function() {
+        if (activeFrame === frame && strikes.getAttribute('src') === lightning) {
+          strikes.style.visibility = 'hidden';
+          strikes.alt = '';
+        }
+      };
+      strikes.src = lightning;
+    }
     function showFrame(index) {
-      var frames = layer === 'rain' ? radarFrames : cloudFrames;
+      var frames = baseLayer === 'rain' ? radarFrames : cloudFrames;
       if (!frames.length) { setStatus(TEXT.dataUnavailable); return; }
       frameIndex = Math.max(0, Math.min(index, frames.length - 1));
       document.getElementById('slider').value = frameIndex;
       var frame = frames[frameIndex];
       activeFrame = frame;
       setStatus('');
-      if (layer === 'rain') {
-        var strikes = document.getElementById('strikes');
-        if (frame.lightning && lightningVisible) {
-          strikes.style.visibility = 'visible';
-          strikes.alt = TEXT.lightningImage;
-          strikes.onerror = function() {
-            if (activeFrame === frame) {
-              strikes.style.visibility = 'hidden';
-              strikes.alt = '';
-            }
-          };
-          strikes.src = frame.lightning;
-        } else {
-          strikes.style.visibility = 'hidden';
-          strikes.alt = '';
-          strikes.removeAttribute('src');
-        }
+      showLightning(frame);
+      if (baseLayer === 'rain') {
         if (frame.forecast) {
           loadForecastFrame(frame, 0);
         } else {
@@ -258,6 +269,7 @@
       var base = addMinutes(latestRadar, nowcastOffsets[attempt]);
       frame.date = addMinutes(base, frame.lead);
       frame.url = nowcastUrl(base, frame.lead);
+      showLightning(frame);
       setFrameTime(frame);
       setStatus(TEXT.nowcastLoading);
       var radar = document.getElementById('radar');
@@ -278,12 +290,12 @@
         button.setAttribute('aria-label', TEXT.play);
         return;
       }
-      var available = layer === 'rain' ? radarFrames : cloudFrames;
+      var available = baseLayer === 'rain' ? radarFrames : cloudFrames;
       if (!available.length) { return; }
       button.textContent = 'Ⅱ';
       button.setAttribute('aria-label', TEXT.pause);
       timer = setInterval(function() {
-        var frames = layer === 'rain' ? radarFrames : cloudFrames;
+        var frames = baseLayer === 'rain' ? radarFrames : cloudFrames;
         showFrame((frameIndex + 1) % frames.length);
       }, 700);
     }
@@ -309,7 +321,7 @@
           var date = addMinutes(latest, -i * 10);
           cloudFrames.push({ date: date, url: satelliteUrl(date), forecast: false, lead: 0 });
         }
-        if (layer === 'clouds') {
+        if (baseLayer === 'clouds') {
           frameIndex = cloudFrames.length - 1;
           replaceSlider(cloudFrames.length, frameIndex);
           showFrame(frameIndex);
@@ -331,9 +343,18 @@
         throw new Error('Radar dictionary self-test failed');
       }
     }
+    function layerStateSelfTest() {
+      var rain = layerVisibility('rain', true);
+      var clouds = layerVisibility('clouds', true);
+      if (!rain.rain || !rain.lightning || rain.clouds ||
+          !clouds.clouds || !clouds.lightning || clouds.rain) {
+        throw new Error('Radar layer-state self-test failed');
+      }
+    }
     applyText();
     selfTest();
     dictionarySelfTest();
+    layerStateSelfTest();
     load();
   </script>
 </body>

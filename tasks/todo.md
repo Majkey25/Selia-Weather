@@ -1,6 +1,6 @@
 # ALADIN weather localization tasks
 
-- [ ] Task 1: Change the app identity and add the locale contract.
+- [x] Task 1: Change the app identity and add the locale contract.
   - Acceptance: package, version, supported tags, persistence, and locale config match the spec.
   - Verify: focused locale test and debug build pass.
 - [ ] Task 2: Add complete English, Czech, German, Spanish, and French catalogs.
@@ -19,7 +19,7 @@
   - Acceptance: widget placeholders, conditions, controls, and preview follow the selected language.
   - Verify: English and French widget configuration and actual widget pass.
 - [ ] Task 7: Rebrand docs and add five localized Play listings.
-  - Acceptance: product identity and package are consistent across repo, Pages, and Play metadata.
+  - Acceptance: product identity, package, and `Majkey25/ALADIN-weather` links are consistent across repo, Pages, and Play metadata.
   - Verify: Play text limits and Pages HTTP 200 check pass.
 - [ ] Task 8: Publish beta.2, prepare Play Console, and reclaim QA storage.
   - Acceptance: green CI, verified signed release, prepared Play entry, and safe emulator cleanup.

@@ -9,6 +9,7 @@
 5. Supported languages are Czech, English, German, Spanish, and French. Unsupported system languages fall back to English.
 6. The default Google Play listing language is English. Czech, German, Spanish, and French listings are added as localizations.
 7. The corrected release is `v0.2.0-beta.2` with `versionCode = 3`.
+8. The GitHub repository is `Majkey25/ALADIN-weather`.
 
 ## Objective
 
@@ -98,6 +99,7 @@ Do not pass translated strings through the data layer. Return typed state and re
 - Unit tests, lint, debug build, signed APK, and signed AAB pass.
 - Release QA passes on Android 10 and Android 15 emulators.
 - A PR merges through green CI and `v0.2.0-beta.2` is published with verified hashes.
+- GitHub links and Pages use `https://github.com/Majkey25/ALADIN-weather` and `https://majkey25.github.io/ALADIN-weather/`.
 - The Play Console form uses the final name and package before the user confirms creation.
 - After Play work finishes, emulators stop and large QA-only AVD/system-image data is removed. The repo, signing key, release artifacts, and local app project remain.
 

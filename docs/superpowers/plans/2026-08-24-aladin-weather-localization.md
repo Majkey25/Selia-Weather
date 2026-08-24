@@ -20,6 +20,7 @@
 - Add no dependency.
 - Keep `minSdk = 29` and `targetSdk = 36`.
 - Keep the Kotlin namespace `cz.majkey.pocasicesko`.
+- GitHub repository: `Majkey25/ALADIN-weather`.
 - Use only emulators for runtime QA.
 - Keep `.signing/` ignored and never print its contents.
 
@@ -384,7 +385,7 @@ git commit -m "feat(locale): localize widgets"
 
 - [ ] **Step 1: Rebrand repository documentation**
 
-Replace the visible product name with `ALADIN weather`. State package `com.majkeylab.weatheraladin`, Android 10 support, supported languages, system-language default, and privacy behavior. Keep the repository URL unchanged.
+Replace the visible product name with `ALADIN weather`. State package `com.majkeylab.weatheraladin`, Android 10 support, supported languages, system-language default, and privacy behavior. Replace old repository links with `https://github.com/Majkey25/ALADIN-weather`.
 
 - [ ] **Step 2: Update the privacy policy**
 
@@ -398,7 +399,7 @@ Reuse the verified icon, feature graphic, and phone screenshots in each locale o
 
 - [ ] **Step 4: Validate text limits and links**
 
-Check file lengths. Verify `https://majkey25.github.io/Pocasi-Cesko/` returns HTTP 200 and contains the `ALADIN weather` privacy title after merge.
+Check file lengths. Verify `https://majkey25.github.io/ALADIN-weather/` returns HTTP 200 and contains the `ALADIN weather` privacy title after merge.
 
 - [ ] **Step 5: Commit docs and listings**
 

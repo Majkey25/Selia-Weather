@@ -8,6 +8,17 @@ import org.junit.Test
 
 class ForecastDayTest {
     @Test
+    fun selectsTwentyHoursFromCurrentHour() {
+        val hours = (0..23).map { hour("2026-08-24T%02d:00".format(it)) }
+
+        val selected = upcomingHours(hours, "2026-08-24T03", 20)
+
+        assertEquals(20, selected.size)
+        assertEquals("2026-08-24T03:00", selected.first().time)
+        assertEquals("2026-08-24T22:00", selected.last().time)
+    }
+
+    @Test
     fun selectsOnlyHoursFromRequestedDay() {
         val hours = listOf(
             hour("2026-08-24T23:00"),

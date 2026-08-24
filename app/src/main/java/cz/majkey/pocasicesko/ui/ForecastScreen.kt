@@ -3,6 +3,7 @@ package cz.majkey.pocasicesko.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,6 +39,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -115,7 +117,6 @@ fun ForecastScreen(
         item {
             DailyForecastPanel(
                 days = snapshot.daily,
-                accent = accent,
                 onDayClick = { selectedDay = it },
             )
         }
@@ -262,67 +263,81 @@ private fun WeatherHero(snapshot: WeatherSnapshot, accent: Color) {
 @Composable
 private fun HourlyGraphPanel(snapshot: WeatherSnapshot, accent: Color) {
     val currentHour = snapshot.current.time.take(13)
-    val hours = snapshot.hourly.dropWhile { it.time.take(13) < currentHour }.take(6)
+    val hours = upcomingHours(snapshot.hourly, currentHour)
+    val scrollState = rememberScrollState()
+    val itemWidth = 68.dp
     Column {
-        SectionTitle(stringResource(R.string.next_six_hours))
+        SectionTitle(stringResource(R.string.next_hours, 20))
         Spacer(Modifier.height(12.dp))
         WeatherPanel {
-            Column(Modifier.padding(horizontal = 14.dp, vertical = 16.dp)) {
-                EqualRow(hours) { hour, index ->
-                    Text(
-                        text = if (index == 0) stringResource(R.string.now) else hour.time.substringAfter('T').take(5),
-                        color = Color.White.copy(alpha = 0.58f),
-                        fontSize = 12.sp,
-                        textAlign = TextAlign.Center,
-                    )
-                }
-                Spacer(Modifier.height(9.dp))
-                EqualRow(hours) { hour, _ ->
-                    val condition = conditionFor(hour.weatherCode, hour.isDay)
-                    WeatherIcon(
-                        kind = condition.kind,
-                        isDay = hour.isDay,
-                        contentDescription = stringResource(condition.labelResource()),
-                        modifier = Modifier.size(25.dp),
-                        tint = conditionAccent(condition.kind, hour.isDay),
-                    )
-                }
-                HourlyTemperatureLine(
-                    temperatures = hours.map { it.temperature },
-                    accent = accent,
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(scrollState),
+            ) {
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(66.dp)
-                        .padding(horizontal = 13.dp, vertical = 8.dp),
-                )
-                EqualRow(hours) { hour, _ ->
-                    Text(
-                        text = "${hour.temperature.roundToInt()}°",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        textAlign = TextAlign.Center,
+                        .width(itemWidth * hours.size)
+                        .padding(vertical = 16.dp),
+                ) {
+                    Row {
+                        hours.forEachIndexed { index, hour ->
+                            Text(
+                                text = if (index == 0) stringResource(R.string.now) else hour.time.substringAfter('T').take(5),
+                                modifier = Modifier.width(itemWidth),
+                                color = Color.White.copy(alpha = 0.58f),
+                                fontSize = 12.sp,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(9.dp))
+                    Row {
+                        hours.forEach { hour ->
+                            val condition = conditionFor(hour.weatherCode, hour.isDay)
+                            Box(Modifier.width(itemWidth), contentAlignment = Alignment.Center) {
+                                WeatherIcon(
+                                    kind = condition.kind,
+                                    isDay = hour.isDay,
+                                    contentDescription = stringResource(condition.labelResource()),
+                                    modifier = Modifier.size(25.dp),
+                                    tint = conditionAccent(condition.kind, hour.isDay),
+                                )
+                            }
+                        }
+                    }
+                    HourlyTemperatureLine(
+                        temperatures = hours.map { it.temperature },
+                        accent = accent,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(66.dp)
+                            .padding(horizontal = itemWidth / 2, vertical = 8.dp),
                     )
+                    Row {
+                        hours.forEach { hour ->
+                            Text(
+                                text = "${hour.temperature.roundToInt()}°",
+                                modifier = Modifier.width(itemWidth),
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(5.dp))
+                    Row {
+                        hours.forEach { hour ->
+                            Text(
+                                text = if (hour.precipitationProbability > 0) "${hour.precipitationProbability} %" else "–",
+                                modifier = Modifier.width(itemWidth),
+                                color = Color(0xFF8EDCF0),
+                                fontSize = 11.sp,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
+                    }
                 }
-                Spacer(Modifier.height(5.dp))
-                EqualRow(hours) { hour, _ ->
-                    Text(
-                        text = if (hour.precipitationProbability > 0) "${hour.precipitationProbability} %" else "–",
-                        color = Color(0xFF8EDCF0),
-                        fontSize = 11.sp,
-                        textAlign = TextAlign.Center,
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun <T> EqualRow(items: List<T>, content: @Composable (T, Int) -> Unit) {
-    Row(Modifier.fillMaxWidth()) {
-        items.forEachIndexed { index, item ->
-            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                content(item, index)
             }
         }
     }
@@ -418,11 +433,8 @@ private fun CurrentMetrics(snapshot: WeatherSnapshot, accent: Color) {
 @Composable
 private fun DailyForecastPanel(
     days: List<DailyWeather>,
-    accent: Color,
     onDayClick: (DailyWeather) -> Unit,
 ) {
-    val globalMin = days.minOf { it.temperatureMin }
-    val globalMax = days.maxOf { it.temperatureMax }
     Column {
         SectionTitle(stringResource(R.string.days_14))
         Spacer(Modifier.height(12.dp))
@@ -432,9 +444,6 @@ private fun DailyForecastPanel(
                     DailyRow(
                         day = day,
                         today = index == 0,
-                        globalMin = globalMin,
-                        globalMax = globalMax,
-                        accent = accent,
                         onClick = { onDayClick(day) },
                     )
                     if (index != days.lastIndex) {
@@ -453,9 +462,6 @@ private fun DailyForecastPanel(
 private fun DailyRow(
     day: DailyWeather,
     today: Boolean,
-    globalMin: Double,
-    globalMax: Double,
-    accent: Color,
     onClick: () -> Unit,
 ) {
     val condition = conditionFor(day.weatherCode)
@@ -465,52 +471,60 @@ private fun DailyRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 15.dp, vertical = 13.dp),
+            .heightIn(min = 78.dp)
+            .padding(horizontal = 15.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = if (today) stringResource(R.string.today) else formatDay(day.date, locale),
-            modifier = Modifier.width(69.dp),
-            fontSize = 14.sp,
-            fontWeight = if (today) FontWeight.SemiBold else FontWeight.Normal,
-        )
+        Column(Modifier.width(74.dp)) {
+            Text(
+                text = if (today) stringResource(R.string.today) else formatDay(day.date, locale),
+                fontSize = 14.sp,
+                fontWeight = if (today) FontWeight.SemiBold else FontWeight.Normal,
+            )
+            Text(
+                text = LocalDate.parse(day.date).format(DateTimeFormatter.ofPattern("d MMM", locale)),
+                color = Color.White.copy(alpha = 0.48f),
+                fontSize = 11.sp,
+            )
+        }
         WeatherIcon(
             kind = condition.kind,
             isDay = true,
             contentDescription = conditionLabel,
-            modifier = Modifier.size(23.dp),
+            modifier = Modifier.size(27.dp),
             tint = conditionAccent(condition.kind, true),
         )
-        Text(
-            text = if (day.precipitationProbability > 0) "${day.precipitationProbability}%" else "",
-            modifier = Modifier.width(45.dp),
-            color = Color(0xFF8EDCF0),
-            fontSize = 11.sp,
-            textAlign = TextAlign.Center,
-        )
-        Text(
-            text = "${day.temperatureMin.roundToInt()}°",
-            color = Color.White.copy(alpha = 0.5f),
-            fontSize = 14.sp,
-        )
-        TemperatureRangeBar(
-            low = day.temperatureMin,
-            high = day.temperatureMax,
-            globalMin = globalMin,
-            globalMax = globalMax,
-            accent = accent,
+        Column(
             modifier = Modifier
                 .weight(1f)
-                .padding(horizontal = 10.dp)
-                .height(10.dp),
-        )
-        Text(
-            text = "${day.temperatureMax.roundToInt()}°",
-            modifier = Modifier.width(31.dp),
-            fontSize = 14.sp,
-            fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.End,
-        )
+                .padding(start = 11.dp, end = 8.dp),
+        ) {
+            Text(
+                text = conditionLabel,
+                fontSize = 14.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = "${day.precipitationProbability}% · ${stringResource(R.string.wind_value, day.windSpeedMax.roundToInt())}",
+                color = Color(0xFF8EDCF0),
+                fontSize = 11.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                text = "${day.temperatureMin.roundToInt()}°",
+                color = Color.White.copy(alpha = 0.5f),
+                fontSize = 14.sp,
+            )
+            Text(
+                text = "${day.temperatureMax.roundToInt()}°",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
         Icon(
             Icons.AutoMirrored.Rounded.KeyboardArrowRight,
             contentDescription = stringResource(R.string.open_hourly_detail),
@@ -609,37 +623,6 @@ private fun DayDetailSheet(day: DailyWeather, hours: List<HourlyWeather>, onDism
 }
 
 @Composable
-private fun TemperatureRangeBar(
-    low: Double,
-    high: Double,
-    globalMin: Double,
-    globalMax: Double,
-    accent: Color,
-    modifier: Modifier = Modifier,
-) {
-    Canvas(modifier) {
-        val range = (globalMax - globalMin).coerceAtLeast(1.0)
-        val start = ((low - globalMin) / range).toFloat() * size.width
-        val end = ((high - globalMin) / range).toFloat() * size.width
-        val centerY = size.height / 2
-        drawLine(
-            color = Color.White.copy(alpha = 0.10f),
-            start = Offset(0f, centerY),
-            end = Offset(size.width, centerY),
-            strokeWidth = 6.dp.toPx(),
-            cap = StrokeCap.Round,
-        )
-        drawLine(
-            brush = Brush.horizontalGradient(listOf(Color(0xFF62C7E5), accent, Color(0xFFFFC15D))),
-            start = Offset(start, centerY),
-            end = Offset(end.coerceAtLeast(start + 1f), centerY),
-            strokeWidth = 6.dp.toPx(),
-            cap = StrokeCap.Round,
-        )
-    }
-}
-
-@Composable
 private fun WeatherPanel(content: @Composable () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -676,6 +659,12 @@ internal fun formatFullDay(date: String, locale: java.util.Locale): String =
 
 internal fun hourlyForDay(hourly: List<HourlyWeather>, date: String): List<HourlyWeather> =
     hourly.filter { it.time.startsWith("${date}T") }
+
+internal fun upcomingHours(
+    hourly: List<HourlyWeather>,
+    currentHour: String,
+    limit: Int = 20,
+): List<HourlyWeather> = hourly.dropWhile { it.time.take(13) < currentHour }.take(limit)
 
 internal fun formatUpdatedAt(epochMillis: Long, locale: java.util.Locale): String =
     DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT)

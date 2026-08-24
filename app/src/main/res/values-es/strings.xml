@@ -17,6 +17,7 @@
     <string name="cached_data">Actualizado %1$s (en caché)</string>
     <string name="feels_like_temperature">Sensación de %1$s</string>
     <string name="next_six_hours">Próximas 6 horas</string>
+    <string name="next_hours">Próximas %1$d horas</string>
     <string name="now">Ahora</string>
     <string name="current_details">Detalles actuales</string>
     <string name="days_14">14 días</string>

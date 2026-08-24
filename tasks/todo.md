@@ -15,7 +15,7 @@
 - [x] Task 5: Localize radar controls and status text.
   - Acceptance: radar labels follow the selected language without changing data behavior.
   - Verify: English, Czech, French, measured rain, clouds, lightning, and nowcast pass.
-- [ ] Task 6: Localize widget rendering and configuration.
+- [x] Task 6: Localize widget rendering and configuration.
   - Acceptance: widget placeholders, conditions, controls, and preview follow the selected language.
   - Verify: English and French widget configuration and actual widget pass.
 - [ ] Task 7: Rebrand docs and add five localized Play listings.

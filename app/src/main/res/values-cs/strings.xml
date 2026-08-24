@@ -16,7 +16,6 @@
     <string name="retry">Zkusit znovu</string>
     <string name="cached_data">Aktualizováno %1$s (z mezipaměti)</string>
     <string name="feels_like_temperature">Pocitově %1$s</string>
-    <string name="next_six_hours">Příštích 6 hodin</string>
     <string name="next_hours">Příštích %1$d hodin</string>
     <string name="now">Nyní</string>
     <string name="current_details">Aktuální podrobnosti</string>

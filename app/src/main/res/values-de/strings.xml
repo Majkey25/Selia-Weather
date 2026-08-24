@@ -16,7 +16,6 @@
     <string name="retry">Erneut versuchen</string>
     <string name="cached_data">Aktualisiert %1$s (zwischengespeichert)</string>
     <string name="feels_like_temperature">Gefühlt %1$s</string>
-    <string name="next_six_hours">Nächste 6 Stunden</string>
     <string name="next_hours">Nächste %1$d Stunden</string>
     <string name="now">Jetzt</string>
     <string name="current_details">Aktuelle Details</string>

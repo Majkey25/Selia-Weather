@@ -18,9 +18,27 @@
 - [x] Task 6: Localize widget rendering and configuration.
   - Acceptance: widget placeholders, conditions, controls, and preview follow the selected language.
   - Verify: English and French widget configuration and actual widget pass.
-- [ ] Task 7: Rebrand docs and add five localized Play listings.
+- [ ] Adaptive Task 1: Keep lightning available over rain and cloud layers.
+  - Acceptance: clouds never remove the lightning control or overlay state.
+  - Verify: measured rain, clouds with lightning, toggle, playback, and nowcast pass on API 29.
+- [ ] Adaptive Task 2: Show 20 future hours and expand every daily row.
+  - Acceptance: the main panel has 20 scrollable hours and 14 richer daily rows.
+  - Verify: API 29 and API 35 show 20 hours, all 14 days, and a 24-hour complete-day detail.
+- [ ] Adaptive Task 3: Fix hosted widget resize with one stable hierarchy.
+  - Acceptance: real launcher resize never shows `Error loading widget`.
+  - Verify: compact, standard, wide, tall, full-width, and reverse resize pass on API 29 and API 35.
+- [ ] Adaptive Task 4: Add the customizable widget renderer.
+  - Acceptance: each widget stores independent colors, opacity, text, alignment, image URI, and field selection.
+  - Verify: invalid values and unreadable images fall back without breaking `RemoteViews`.
+- [ ] Adaptive Task 5: Build the complete widget editor and image picker.
+  - Acceptance: preview and hosted widget interpret every setting the same way.
+  - Verify: independent English and French widgets persist through launcher and app restart.
+- [ ] Adaptive Task 6: Add localized optional Buy Me a Coffee support.
+  - Acceptance: settings opens the exact published HTTPS URL and grants no feature.
+  - Verify: English, Czech, external routing, and missing-handler paths pass.
+- [ ] Task 7: Publish English-first docs and five localized Play listings.
   - Acceptance: product identity, package, and `Majkey25/ALADIN-weather` links are consistent across repo, Pages, and Play metadata.
   - Verify: Play text limits and Pages HTTP 200 check pass.
-- [ ] Task 8: Publish beta.2, prepare Play Console, and reclaim QA storage.
+- [ ] Task 8: Verify and publish beta.2, prepare Play Console, and reclaim QA storage.
   - Acceptance: green CI, verified signed release, prepared Play entry, and safe emulator cleanup.
   - Verify: live GitHub release, hashes, signatures, Play state, and reclaimed byte count are recorded.

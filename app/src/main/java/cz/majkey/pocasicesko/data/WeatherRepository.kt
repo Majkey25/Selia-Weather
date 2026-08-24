@@ -182,7 +182,6 @@ class WeatherRepository(context: Context) {
         const val PREFERENCES_NAME = "weather"
         const val KEY_WIDGET_CITY = "widget_city"
         const val KEY_WIDGET_TEMPERATURE = "widget_temperature"
-        const val KEY_WIDGET_CONDITION = "widget_condition"
         const val KEY_WIDGET_CONDITION_KEY = "widget_condition_key"
         const val KEY_WIDGET_KIND = "widget_kind"
         const val KEY_WIDGET_IS_DAY = "widget_is_day"

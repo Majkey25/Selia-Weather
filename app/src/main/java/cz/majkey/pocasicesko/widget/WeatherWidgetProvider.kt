@@ -12,8 +12,12 @@ import android.widget.RemoteViews
 import androidx.core.content.edit
 import cz.majkey.pocasicesko.MainActivity
 import cz.majkey.pocasicesko.R
+import cz.majkey.pocasicesko.data.WeatherCondition
+import cz.majkey.pocasicesko.data.WeatherConditionKey
 import cz.majkey.pocasicesko.data.WeatherKind
 import cz.majkey.pocasicesko.data.WeatherRepository
+import cz.majkey.pocasicesko.locale.AppLocale
+import cz.majkey.pocasicesko.ui.labelResource
 import kotlin.math.roundToInt
 
 enum class WidgetTheme {
@@ -85,22 +89,27 @@ class WeatherWidgetProvider : AppWidgetProvider() {
         }
 
         fun update(context: Context, manager: AppWidgetManager, appWidgetId: Int) {
-            val weather = context.getSharedPreferences(WeatherRepository.PREFERENCES_NAME, Context.MODE_PRIVATE)
-            val settings = loadSettings(context, appWidgetId)
+            val localizedContext = AppLocale.localized(context)
+            val weather = localizedContext.getSharedPreferences(WeatherRepository.PREFERENCES_NAME, Context.MODE_PRIVATE)
+            val settings = loadSettings(localizedContext, appWidgetId)
             val minWidth = manager.getAppWidgetOptions(appWidgetId)
                 .getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, WIDE_THRESHOLD_DP)
             val wide = minWidth >= WIDE_THRESHOLD_DP
             val views = RemoteViews(
-                context.packageName,
+                localizedContext.packageName,
                 if (wide) R.layout.widget_wide else R.layout.widget_compact,
             )
 
-            val city = weather.getString(WeatherRepository.KEY_WIDGET_CITY, null) ?: "Otevřete aplikaci"
+            val city = weather.getString(WeatherRepository.KEY_WIDGET_CITY, null)
+                ?: localizedContext.getString(R.string.widget_placeholder_city)
             val temperature = weather.getFloat(WeatherRepository.KEY_WIDGET_TEMPERATURE, Float.NaN)
-            val condition = weather.getString(WeatherRepository.KEY_WIDGET_CONDITION, null) ?: "Načíst počasí"
             val kind = runCatching {
                 WeatherKind.valueOf(weather.getString(WeatherRepository.KEY_WIDGET_KIND, "UNKNOWN").orEmpty())
             }.getOrDefault(WeatherKind.UNKNOWN)
+            val condition = localizedContext.widgetConditionLabel(
+                weather.getString(WeatherRepository.KEY_WIDGET_CONDITION_KEY, null),
+                kind,
+            )
             val isDay = weather.getBoolean(WeatherRepository.KEY_WIDGET_IS_DAY, true)
             val high = weather.getFloat(WeatherRepository.KEY_WIDGET_HIGH, Float.NaN)
             val low = weather.getFloat(WeatherRepository.KEY_WIDGET_LOW, Float.NaN)
@@ -114,7 +123,11 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             val textColor = if (settings.theme == WidgetTheme.LIGHT) 0xFF173042.toInt() else 0xFFFFFFFF.toInt()
             val secondaryTextColor = if (settings.theme == WidgetTheme.LIGHT) 0xB3173042.toInt() else 0xCCFFFFFF.toInt()
             views.setInt(R.id.widget_root, "setBackgroundResource", backgroundFor(settings.theme, kind, isDay))
-            views.setTextViewText(R.id.widget_temperature, if (temperature.isNaN()) "--°" else "${temperature.roundToInt()}°")
+            views.setTextViewText(
+                R.id.widget_temperature,
+                if (temperature.isNaN()) localizedContext.getString(R.string.widget_placeholder_temperature)
+                else "${temperature.roundToInt()}°",
+            )
             views.setTextColor(R.id.widget_temperature, textColor)
             views.setTextViewText(R.id.widget_city, city)
             views.setTextColor(R.id.widget_city, secondaryTextColor)
@@ -126,21 +139,31 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             views.setViewVisibility(R.id.widget_icon, if (settings.showIcon) View.VISIBLE else View.GONE)
             views.setImageViewResource(R.id.widget_icon, iconFor(kind, isDay))
             views.setInt(R.id.widget_icon, "setColorFilter", textColor)
+            views.setContentDescription(R.id.widget_icon, condition)
 
             if (wide) {
                 views.setTextViewText(
                     R.id.widget_high_low,
-                    if (high.isNaN() || low.isNaN()) "--° / --°" else "${high.roundToInt()}° / ${low.roundToInt()}°",
+                    if (high.isNaN() || low.isNaN()) {
+                        localizedContext.getString(R.string.widget_placeholder_range)
+                    } else {
+                        "${high.roundToInt()}° / ${low.roundToInt()}°"
+                    },
                 )
                 views.setTextColor(R.id.widget_high_low, secondaryTextColor)
                 val showHourly = settings.showDetails && hourlyTimes.size >= 3 && hourlyTemperatures.size >= 3
                 views.setViewVisibility(R.id.widget_hourly, if (showHourly) View.VISIBLE else View.GONE)
                 HOUR_TIME_IDS.forEachIndexed { index, id ->
-                    views.setTextViewText(id, hourlyTimes.getOrNull(index) ?: "--:--")
+                    views.setTextViewText(
+                        id,
+                        hourlyTimes.getOrNull(index)
+                            ?: localizedContext.getString(R.string.widget_placeholder_time),
+                    )
                     views.setTextColor(id, secondaryTextColor)
                 }
                 HOUR_TEMPERATURE_IDS.forEachIndexed { index, id ->
-                    val value = hourlyTemperatures.getOrNull(index)?.let { "$it°" } ?: "--°"
+                    val value = hourlyTemperatures.getOrNull(index)?.let { "$it°" }
+                        ?: localizedContext.getString(R.string.widget_placeholder_temperature)
                     views.setTextViewText(id, value)
                     views.setTextColor(id, textColor)
                 }
@@ -213,3 +236,11 @@ class WeatherWidgetProvider : AppWidgetProvider() {
         }
     }
 }
+
+internal fun widgetConditionKey(value: String?): WeatherConditionKey = runCatching {
+    WeatherConditionKey.valueOf(value.orEmpty())
+}.getOrDefault(WeatherConditionKey.UNKNOWN)
+
+internal fun Context.widgetConditionLabel(conditionKey: String?, kind: WeatherKind): String = conditionKey
+    ?.let { getString(WeatherCondition(widgetConditionKey(it), kind).labelResource()) }
+    ?: getString(R.string.widget_placeholder_condition)

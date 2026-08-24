@@ -9,6 +9,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.annotation.StringRes
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -42,12 +43,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
+import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.data.WeatherKind
 import cz.majkey.pocasicesko.data.WeatherRepository
+import cz.majkey.pocasicesko.locale.AppLocale
 import cz.majkey.pocasicesko.ui.WeatherIcon
 import cz.majkey.pocasicesko.ui.WeatherTheme
 import java.time.LocalTime
@@ -65,6 +71,10 @@ private data class WidgetPreviewData(
 class WidgetConfigActivity : ComponentActivity() {
     private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
 
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLocale.wrap(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setResult(Activity.RESULT_CANCELED)
@@ -77,7 +87,7 @@ class WidgetConfigActivity : ComponentActivity() {
             return
         }
 
-        val preview = loadPreview(applicationContext)
+        val preview = loadPreview(this)
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
@@ -85,13 +95,13 @@ class WidgetConfigActivity : ComponentActivity() {
         setContent {
             WeatherTheme {
                 WidgetConfigScreen(
-                    initial = WeatherWidgetProvider.loadSettings(applicationContext, appWidgetId),
+                    initial = WeatherWidgetProvider.loadSettings(this, appWidgetId),
                     preview = preview,
                     onSave = { settings ->
-                        WeatherWidgetProvider.saveSettings(applicationContext, appWidgetId, settings)
+                        WeatherWidgetProvider.saveSettings(this, appWidgetId, settings)
                         WeatherWidgetProvider.update(
-                            applicationContext,
-                            AppWidgetManager.getInstance(applicationContext),
+                            this,
+                            AppWidgetManager.getInstance(this),
                             appWidgetId,
                         )
                         setResult(
@@ -120,9 +130,9 @@ private fun WidgetConfigScreen(
                 .padding(padding)
                 .padding(horizontal = 20.dp, vertical = 16.dp),
         ) {
-            Text("Widget", fontSize = 30.sp, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.widget_title), fontSize = 30.sp, fontWeight = FontWeight.SemiBold)
             Text(
-                "Náhled se mění rovnou s nastavením.",
+                stringResource(R.string.widget_preview_description),
                 modifier = Modifier.padding(top = 4.dp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 13.sp,
@@ -134,7 +144,7 @@ private fun WidgetConfigScreen(
             )
 
             Text(
-                "Vzhled",
+                stringResource(R.string.widget_appearance),
                 modifier = Modifier.padding(top = 24.dp, bottom = 8.dp),
                 fontSize = 17.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -147,27 +157,27 @@ private fun WidgetConfigScreen(
                     FilterChip(
                         selected = settings.theme == theme,
                         onClick = { settings = settings.copy(theme = theme) },
-                        label = { Text(theme.label()) },
+                        label = { Text(stringResource(theme.labelResource())) },
                     )
                 }
             }
 
             Spacer(Modifier.height(14.dp))
             SettingSwitch(
-                title = "Čas",
-                description = "Systémové hodiny v pravém rohu",
+                title = stringResource(R.string.widget_clock_title),
+                description = stringResource(R.string.widget_clock_description),
                 checked = settings.showClock,
                 onCheckedChange = { settings = settings.copy(showClock = it) },
             )
             SettingSwitch(
-                title = "Ikona počasí",
-                description = "Aktuální stav bez další grafiky",
+                title = stringResource(R.string.widget_icon_title),
+                description = stringResource(R.string.widget_icon_description),
                 checked = settings.showIcon,
                 onCheckedChange = { settings = settings.copy(showIcon = it) },
             )
             SettingSwitch(
-                title = "Podrobnosti",
-                description = "Stav, denní rozsah a hodinový mini-výhled",
+                title = stringResource(R.string.widget_details_title),
+                description = stringResource(R.string.widget_details_description),
                 checked = settings.showDetails,
                 onCheckedChange = { settings = settings.copy(showDetails = it) },
             )
@@ -177,7 +187,7 @@ private fun WidgetConfigScreen(
                 onClick = { onSave(settings) },
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Použít")
+                Text(stringResource(R.string.widget_apply))
             }
         }
     }
@@ -187,6 +197,7 @@ private fun WidgetConfigScreen(
 private fun WidgetPreview(data: WidgetPreviewData, settings: WidgetSettings, modifier: Modifier = Modifier) {
     val colors = previewColors(settings.theme, data.kind, data.isDay)
     val textColor = if (settings.theme == WidgetTheme.LIGHT) Color(0xFF173042) else Color.White
+    val previewDescription = stringResource(R.string.widget_preview_description)
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -194,6 +205,7 @@ private fun WidgetPreview(data: WidgetPreviewData, settings: WidgetSettings, mod
             .clip(RoundedCornerShape(28.dp))
             .background(Brush.horizontalGradient(colors))
             .border(BorderStroke(1.dp, textColor.copy(alpha = 0.12f)), RoundedCornerShape(28.dp))
+            .semantics { contentDescription = previewDescription }
             .padding(18.dp),
     ) {
         Column(Modifier.align(Alignment.CenterStart)) {
@@ -264,15 +276,25 @@ private fun SettingSwitch(
 }
 
 private fun loadPreview(context: Context): WidgetPreviewData {
-    val preferences = context.getSharedPreferences(WeatherRepository.PREFERENCES_NAME, Context.MODE_PRIVATE)
+    val localizedContext = AppLocale.localized(context)
+    val preferences = localizedContext.getSharedPreferences(WeatherRepository.PREFERENCES_NAME, Context.MODE_PRIVATE)
     val temperature = preferences.getFloat(WeatherRepository.KEY_WIDGET_TEMPERATURE, Float.NaN)
+    val kind = runCatching {
+        WeatherKind.valueOf(preferences.getString(WeatherRepository.KEY_WIDGET_KIND, "UNKNOWN").orEmpty())
+    }.getOrDefault(WeatherKind.UNKNOWN)
     return WidgetPreviewData(
-        city = preferences.getString(WeatherRepository.KEY_WIDGET_CITY, null) ?: "Praha",
-        temperature = if (temperature.isNaN()) "--°" else "${temperature.roundToInt()}°",
-        condition = preferences.getString(WeatherRepository.KEY_WIDGET_CONDITION, null) ?: "Načíst počasí",
-        kind = runCatching {
-            WeatherKind.valueOf(preferences.getString(WeatherRepository.KEY_WIDGET_KIND, "UNKNOWN").orEmpty())
-        }.getOrDefault(WeatherKind.UNKNOWN),
+        city = preferences.getString(WeatherRepository.KEY_WIDGET_CITY, null)
+            ?: localizedContext.getString(R.string.widget_placeholder_city),
+        temperature = if (temperature.isNaN()) {
+            localizedContext.getString(R.string.widget_placeholder_temperature)
+        } else {
+            "${temperature.roundToInt()}°"
+        },
+        condition = localizedContext.widgetConditionLabel(
+            preferences.getString(WeatherRepository.KEY_WIDGET_CONDITION_KEY, null),
+            kind,
+        ),
+        kind = kind,
         isDay = preferences.getBoolean(WeatherRepository.KEY_WIDGET_IS_DAY, true),
     )
 }
@@ -289,9 +311,10 @@ private fun previewColors(theme: WidgetTheme, kind: WeatherKind, isDay: Boolean)
     }
 }
 
-private fun WidgetTheme.label(): String = when (this) {
-    WidgetTheme.AUTOMATIC -> "Automatický"
-    WidgetTheme.LIGHT -> "Světlý"
-    WidgetTheme.DARK -> "Tmavý"
-    WidgetTheme.TRANSPARENT -> "Průhledný"
+@StringRes
+private fun WidgetTheme.labelResource(): Int = when (this) {
+    WidgetTheme.AUTOMATIC -> R.string.widget_theme_auto
+    WidgetTheme.LIGHT -> R.string.widget_theme_light
+    WidgetTheme.DARK -> R.string.widget_theme_dark
+    WidgetTheme.TRANSPARENT -> R.string.widget_theme_transparent
 }

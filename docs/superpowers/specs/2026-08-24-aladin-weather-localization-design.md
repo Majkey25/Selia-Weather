@@ -24,7 +24,7 @@ The work succeeds when the release uses package `com.majkeylab.weatheraladin`, s
 - Android 13 and newer use `LocaleManager.applicationLocales`.
 - Android 10 through 12 use a configuration context and recreate the active activity after a language change.
 - The settings sheet opens from the forecast header and offers System, English, Czech, German, Spanish, and French.
-- Weather condition data stores `WeatherKind`. UI and widgets resolve the visible condition label from resources.
+- Weather condition data stores `WeatherConditionKey` and `WeatherKind`. UI and widgets resolve the visible condition label from resources.
 - The local radar HTML receives the active language tag and selects labels from a fixed five-language dictionary. It never executes remote scripts.
 - The widget configuration activity and widget provider use the same persisted locale override.
 

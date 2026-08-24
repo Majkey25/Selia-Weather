@@ -1,0 +1,26 @@
+# ALADIN weather localization tasks
+
+- [ ] Task 1: Change the app identity and add the locale contract.
+  - Acceptance: package, version, supported tags, persistence, and locale config match the spec.
+  - Verify: focused locale test and debug build pass.
+- [ ] Task 2: Add complete English, Czech, German, Spanish, and French catalogs.
+  - Acceptance: every locale contains the same keys and valid formatting arguments.
+  - Verify: Android Lint reports no translation or resource errors.
+- [ ] Task 3: Localize typed weather state and the forecast UI.
+  - Acceptance: no translated condition text is stored in the data layer or widget cache.
+  - Verify: all unit tests pass.
+- [ ] Task 4: Add the persisted in-app language picker and localize location flows.
+  - Acceptance: system reset and manual overrides work on Android 10.
+  - Verify: restart persistence and Czech to English switching pass in the emulator.
+- [ ] Task 5: Localize radar controls and status text.
+  - Acceptance: radar labels follow the selected language without changing data behavior.
+  - Verify: English, Czech, French, measured rain, clouds, lightning, and nowcast pass.
+- [ ] Task 6: Localize widget rendering and configuration.
+  - Acceptance: widget placeholders, conditions, controls, and preview follow the selected language.
+  - Verify: English and French widget configuration and actual widget pass.
+- [ ] Task 7: Rebrand docs and add five localized Play listings.
+  - Acceptance: product identity and package are consistent across repo, Pages, and Play metadata.
+  - Verify: Play text limits and Pages HTTP 200 check pass.
+- [ ] Task 8: Publish beta.2, prepare Play Console, and reclaim QA storage.
+  - Acceptance: green CI, verified signed release, prepared Play entry, and safe emulator cleanup.
+  - Verify: live GitHub release, hashes, signatures, Play state, and reclaimed byte count are recorded.

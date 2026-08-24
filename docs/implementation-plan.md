@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Vytvořit a vydat jednoduchou českou weather app pro Android 13+ s ALADIN předpovědí, radarem ČHMÚ a resizovatelným widgetem.
+**Goal:** Vytvořit a vydat jednoduchou českou weather app pro Android 10+ s ALADIN předpovědí, radarem ČHMÚ a resizovatelným widgetem.
 
 **Architecture:** Jeden Android app modul. `WeatherRepository` vlastní HTTP a JSON mapování. Compose vykresluje počasí a radar. Nativní `AppWidgetProvider` používá stejnou uloženou předpověď. `SharedPreferences` drží poslední lokaci, cache a nastavení widgetu.
 
@@ -14,7 +14,7 @@
 
 **Files:** Gradle wrapper, root Gradle files, `app/build.gradle.kts`, manifest, resources.
 
-- [ ] Vytvořit minimální Android app s `minSdk = 33`, `targetSdk = 36` a namespace `cz.majkey.pocasicesko`.
+- [ ] Vytvořit minimální Android app s `minSdk = 29`, `targetSdk = 36` a namespace `cz.majkey.pocasicesko`.
 - [ ] Přidat jen Compose, Material Icons a testovací závislosti.
 - [ ] Přidat síťové oprávnění, hlavní aktivitu a widget provider.
 - [ ] Spustit `gradlew.bat :app:assembleDebug --console=plain`.

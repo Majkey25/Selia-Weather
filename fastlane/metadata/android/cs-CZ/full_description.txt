@@ -1,0 +1,16 @@
+Počasí Česko je jednoduchá aplikace pro přesnou a rychlou kontrolu počasí v České republice.
+
+První tři dny předpovědi používají český model ALADIN CZ. Navazující výhled rozšiřuje předpověď až na 14 dní. Vše bez účtu, reklam a API klíče.
+
+• aktuální teplota, pocitová teplota a stav počasí
+• hodinový graf, 14denní předpověď a 24hodinový detail každého dne
+• srážky, vlhkost, vítr, tlak a časy slunce
+• hledání českých měst a obcí
+• oblíbené lokality a volitelná aktuální poloha
+• integrovaný radar, nowcast, blesky a družicová oblačnost ČHMÚ
+• resizovatelný widget s nastavitelným vzhledem
+• poslední úspěšná předpověď dostupná i bez připojení
+
+Rozhraní je navržené pro rychlé ovládání jednou rukou. Dynamické barvy reagují na den, noc a aktuální počasí, ale obsah zůstává čitelný a klidný.
+
+Počasí Česko není oficiální aplikací ČHMÚ ani Open-Meteo. Data zůstávají označená svým zdrojem.

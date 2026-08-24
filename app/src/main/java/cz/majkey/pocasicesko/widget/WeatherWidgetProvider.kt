@@ -7,6 +7,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.widget.RemoteViews
 import androidx.core.content.edit
@@ -19,20 +20,6 @@ import cz.majkey.pocasicesko.data.WeatherRepository
 import cz.majkey.pocasicesko.locale.AppLocale
 import cz.majkey.pocasicesko.ui.labelResource
 import kotlin.math.roundToInt
-
-enum class WidgetTheme {
-    AUTOMATIC,
-    LIGHT,
-    DARK,
-    TRANSPARENT,
-}
-
-data class WidgetSettings(
-    val theme: WidgetTheme = WidgetTheme.AUTOMATIC,
-    val showClock: Boolean = true,
-    val showIcon: Boolean = true,
-    val showDetails: Boolean = true,
-)
 
 class WeatherWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, appWidgetIds: IntArray) {
@@ -69,7 +56,8 @@ class WeatherWidgetProvider : AppWidgetProvider() {
     }
 
     companion object {
-        private const val WIDE_THRESHOLD_DP = 320
+        private const val COMPACT_WIDTH_DP = 110
+        private const val COMPACT_HEIGHT_DP = 40
         private const val SETTINGS_PREFIX = "widget_settings_"
         private val HOUR_TIME_IDS = intArrayOf(
             R.id.widget_hour_1_time,
@@ -89,16 +77,24 @@ class WeatherWidgetProvider : AppWidgetProvider() {
         }
 
         fun update(context: Context, manager: AppWidgetManager, appWidgetId: Int) {
+            runCatching { render(context, manager, appWidgetId) }
+                .onFailure { error ->
+                    Log.e("ALADINWidget", "Widget $appWidgetId render failed", error)
+                    manager.updateAppWidget(appWidgetId, fallbackViews(AppLocale.localized(context)))
+                }
+        }
+
+        private fun render(context: Context, manager: AppWidgetManager, appWidgetId: Int) {
             val localizedContext = AppLocale.localized(context)
             val weather = localizedContext.getSharedPreferences(WeatherRepository.PREFERENCES_NAME, Context.MODE_PRIVATE)
             val settings = loadSettings(localizedContext, appWidgetId)
-            val minWidth = manager.getAppWidgetOptions(appWidgetId)
-                .getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, WIDE_THRESHOLD_DP)
-            val wide = minWidth >= WIDE_THRESHOLD_DP
-            val views = RemoteViews(
-                localizedContext.packageName,
-                if (wide) R.layout.widget_wide else R.layout.widget_compact,
-            )
+            val options = manager.getAppWidgetOptions(appWidgetId)
+            val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, COMPACT_WIDTH_DP)
+            val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, COMPACT_HEIGHT_DP)
+            val width = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, minWidth)
+            val height = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, minHeight)
+            val size = widgetSize(maxOf(minWidth, width), maxOf(minHeight, height))
+            val views = RemoteViews(localizedContext.packageName, R.layout.widget_adaptive)
 
             val city = weather.getString(WeatherRepository.KEY_WIDGET_CITY, null)
                 ?: localizedContext.getString(R.string.widget_placeholder_city)
@@ -133,7 +129,8 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             views.setTextColor(R.id.widget_city, secondaryTextColor)
             views.setTextViewText(R.id.widget_condition, condition)
             views.setTextColor(R.id.widget_condition, textColor)
-            views.setViewVisibility(R.id.widget_details, if (settings.showDetails) View.VISIBLE else View.GONE)
+            val showDetails = settings.showDetails && size != WidgetSize.COMPACT
+            views.setViewVisibility(R.id.widget_details, if (showDetails) View.VISIBLE else View.GONE)
             views.setViewVisibility(R.id.widget_clock, if (settings.showClock) View.VISIBLE else View.GONE)
             views.setTextColor(R.id.widget_clock, textColor)
             views.setViewVisibility(R.id.widget_icon, if (settings.showIcon) View.VISIBLE else View.GONE)
@@ -141,32 +138,33 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             views.setInt(R.id.widget_icon, "setColorFilter", textColor)
             views.setContentDescription(R.id.widget_icon, condition)
 
-            if (wide) {
+            views.setTextViewText(
+                R.id.widget_high_low,
+                if (high.isNaN() || low.isNaN()) {
+                    localizedContext.getString(R.string.widget_placeholder_range)
+                } else {
+                    "${high.roundToInt()}° / ${low.roundToInt()}°"
+                },
+            )
+            views.setTextColor(R.id.widget_high_low, secondaryTextColor)
+            val showHourly = size == WidgetSize.WIDE && settings.showDetails &&
+                hourlyTimes.size >= 3 && hourlyTemperatures.size >= 3
+            views.setViewVisibility(R.id.widget_hourly, if (showHourly) View.VISIBLE else View.GONE)
+            views.setViewVisibility(R.id.widget_hourly_divider, if (showHourly) View.VISIBLE else View.GONE)
+            views.setViewVisibility(R.id.widget_metrics, View.GONE)
+            HOUR_TIME_IDS.forEachIndexed { index, id ->
                 views.setTextViewText(
-                    R.id.widget_high_low,
-                    if (high.isNaN() || low.isNaN()) {
-                        localizedContext.getString(R.string.widget_placeholder_range)
-                    } else {
-                        "${high.roundToInt()}° / ${low.roundToInt()}°"
-                    },
+                    id,
+                    hourlyTimes.getOrNull(index)
+                        ?: localizedContext.getString(R.string.widget_placeholder_time),
                 )
-                views.setTextColor(R.id.widget_high_low, secondaryTextColor)
-                val showHourly = settings.showDetails && hourlyTimes.size >= 3 && hourlyTemperatures.size >= 3
-                views.setViewVisibility(R.id.widget_hourly, if (showHourly) View.VISIBLE else View.GONE)
-                HOUR_TIME_IDS.forEachIndexed { index, id ->
-                    views.setTextViewText(
-                        id,
-                        hourlyTimes.getOrNull(index)
-                            ?: localizedContext.getString(R.string.widget_placeholder_time),
-                    )
-                    views.setTextColor(id, secondaryTextColor)
-                }
-                HOUR_TEMPERATURE_IDS.forEachIndexed { index, id ->
-                    val value = hourlyTemperatures.getOrNull(index)?.let { "$it°" }
-                        ?: localizedContext.getString(R.string.widget_placeholder_temperature)
-                    views.setTextViewText(id, value)
-                    views.setTextColor(id, textColor)
-                }
+                views.setTextColor(id, secondaryTextColor)
+            }
+            HOUR_TEMPERATURE_IDS.forEachIndexed { index, id ->
+                val value = hourlyTemperatures.getOrNull(index)?.let { "$it°" }
+                    ?: localizedContext.getString(R.string.widget_placeholder_temperature)
+                views.setTextViewText(id, value)
+                views.setTextColor(id, textColor)
             }
 
             val openApp = Intent(context, MainActivity::class.java)
@@ -178,6 +176,15 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             )
             views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
             manager.updateAppWidget(appWidgetId, views)
+        }
+
+        private fun fallbackViews(context: Context): RemoteViews = RemoteViews(
+            context.packageName,
+            R.layout.widget_adaptive,
+        ).apply {
+            setInt(R.id.widget_root, "setBackgroundResource", R.drawable.widget_dark)
+            setTextViewText(R.id.widget_temperature, context.getString(R.string.widget_placeholder_temperature))
+            setTextViewText(R.id.widget_city, context.getString(R.string.widget_placeholder_city))
         }
 
         fun loadSettings(context: Context, appWidgetId: Int): WidgetSettings {

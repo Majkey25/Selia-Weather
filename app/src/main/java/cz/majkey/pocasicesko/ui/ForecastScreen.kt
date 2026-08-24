@@ -47,6 +47,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.text.style.TextAlign
@@ -146,6 +147,7 @@ private fun LocationHeader(
     onRefresh: () -> Unit,
     onSettings: () -> Unit,
 ) {
+    val locale = LocalConfiguration.current.locales[0]
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(Modifier.fillMaxWidth()) {
             IconButton(
@@ -200,7 +202,7 @@ private fun LocationHeader(
         )
         if (fromCache) {
             Text(
-                text = stringResource(R.string.cached_data, formatUpdatedAt(updatedAt, Locale.current.platformLocale)),
+                text = stringResource(R.string.cached_data, formatUpdatedAt(updatedAt, locale)),
                 color = Color(0xFFFFD38B),
                 fontSize = 12.sp,
                 modifier = Modifier.padding(top = 4.dp),
@@ -458,6 +460,7 @@ private fun DailyRow(
 ) {
     val condition = conditionFor(day.weatherCode)
     val conditionLabel = stringResource(condition.labelResource())
+    val locale = LocalConfiguration.current.locales[0]
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -466,7 +469,7 @@ private fun DailyRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = if (today) stringResource(R.string.today) else formatDay(day.date),
+            text = if (today) stringResource(R.string.today) else formatDay(day.date, locale),
             modifier = Modifier.width(69.dp),
             fontSize = 14.sp,
             fontWeight = if (today) FontWeight.SemiBold else FontWeight.Normal,
@@ -522,6 +525,7 @@ private fun DailyRow(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DayDetailSheet(day: DailyWeather, hours: List<HourlyWeather>, onDismiss: () -> Unit) {
+    val locale = LocalConfiguration.current.locales[0]
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = Color(0xFF101820),
@@ -535,7 +539,7 @@ private fun DayDetailSheet(day: DailyWeather, hours: List<HourlyWeather>, onDism
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 34.dp),
         ) {
             item {
-                Text(formatFullDay(day.date, Locale.current.platformLocale), fontSize = 25.sp, fontWeight = FontWeight.SemiBold)
+                Text(formatFullDay(day.date, locale), fontSize = 25.sp, fontWeight = FontWeight.SemiBold)
                 Text(
                     "${stringResource(R.string.whole_day_hours)} · ${hours.size}",
                     color = Color.White.copy(alpha = 0.56f),
@@ -662,9 +666,7 @@ fun conditionAccent(kind: WeatherKind, isDay: Boolean): Color = when {
     else -> Color(0xFFA8C8D4)
 }
 
-@Composable
-private fun formatDay(date: String): String {
-    val locale = Locale.current.platformLocale
+internal fun formatDay(date: String, locale: java.util.Locale): String {
     val formatter = DateTimeFormatter.ofPattern("EEE", locale)
     return LocalDate.parse(date).format(formatter).replaceFirstChar { it.uppercase(locale) }
 }

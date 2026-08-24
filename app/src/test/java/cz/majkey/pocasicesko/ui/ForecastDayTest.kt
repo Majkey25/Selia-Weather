@@ -22,6 +22,12 @@ class ForecastDayTest {
     }
 
     @Test
+    fun formatsShortDayInSelectedLocale() {
+        assertEquals("Tue", formatDay("2026-08-25", Locale.US))
+        assertEquals("Út", formatDay("2026-08-25", Locale.forLanguageTag("cs-CZ")))
+    }
+
+    @Test
     fun formatsFullDayInSelectedLocale() {
         assertEquals("Monday, August 24, 2026", formatFullDay("2026-08-24", Locale.US))
         assertEquals("pondělí 24. srpna 2026", formatFullDay("2026-08-24", Locale.forLanguageTag("cs-CZ")))

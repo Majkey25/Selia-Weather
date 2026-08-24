@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -78,6 +79,7 @@ fun ForecastScreen(
     refreshError: String?,
     onSearch: () -> Unit,
     onRefresh: () -> Unit,
+    onSettings: () -> Unit,
 ) {
     val condition = conditionFor(snapshot.current.weatherCode, snapshot.current.isDay)
     val accent = conditionAccent(condition.kind, snapshot.current.isDay)
@@ -97,6 +99,7 @@ fun ForecastScreen(
                 updatedAt = snapshot.updatedAtEpochMillis,
                 onSearch = onSearch,
                 onRefresh = onRefresh,
+                onSettings = onSettings,
             )
         }
         item {
@@ -141,9 +144,16 @@ private fun LocationHeader(
     updatedAt: Long,
     onSearch: () -> Unit,
     onRefresh: () -> Unit,
+    onSettings: () -> Unit,
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(Modifier.fillMaxWidth()) {
+            IconButton(
+                onClick = onSettings,
+                modifier = Modifier.align(Alignment.CenterStart),
+            ) {
+                Icon(Icons.Rounded.Settings, contentDescription = stringResource(R.string.open_settings))
+            }
             Surface(
                 modifier = Modifier
                     .align(Alignment.Center)

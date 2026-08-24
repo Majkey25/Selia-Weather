@@ -27,10 +27,10 @@ class DeviceLocationRepository(context: Context) {
     private val locationManager = appContext.getSystemService(LocationManager::class.java)
 
     suspend fun currentLocation(): CzechLocation {
-        if (!hasLocationPermission()) throw SecurityException("Poloha nebyla povolena.")
+        if (!hasLocationPermission()) throw LocationPermissionException()
         val location = recentLastKnownLocation() ?: requestSingleLocation()
         if (location.latitude !in CZECH_LATITUDE || location.longitude !in CZECH_LONGITUDE) {
-            throw IOException("Aktuální poloha je mimo Česko.")
+            throw LocationOutsideCzechiaException()
         }
         return withContext(Dispatchers.IO) { resolveName(location) }
     }
@@ -53,7 +53,7 @@ class DeviceLocationRepository(context: Context) {
         suspendCancellableCoroutine { continuation ->
             val provider = enabledProviders().firstOrNull()
             if (provider == null) {
-                continuation.resumeWithException(IOException("Zapněte polohu v systému."))
+                continuation.resumeWithException(SystemLocationDisabledException())
                 return@suspendCancellableCoroutine
             }
             val listener = object : LocationListener {
@@ -97,8 +97,8 @@ class DeviceLocationRepository(context: Context) {
             ?: adminArea?.takeIf { it == "Hlavní město Praha" }?.let { "Praha" }
             ?: address?.subAdminArea
             ?: adminArea
-            ?: "Moje poloha"
-        val region = adminArea ?: "Aktuální poloha"
+            ?: "Czechia"
+        val region = adminArea ?: "Czechia"
         return CzechLocation(name, region, location.latitude, location.longitude)
     }
 
@@ -109,3 +109,11 @@ class DeviceLocationRepository(context: Context) {
         private const val LOCATION_TIMEOUT_MILLIS = 15_000L
     }
 }
+
+sealed class DeviceLocationException : IOException()
+
+class LocationPermissionException : DeviceLocationException()
+
+class LocationOutsideCzechiaException : DeviceLocationException()
+
+class SystemLocationDisabledException : DeviceLocationException()

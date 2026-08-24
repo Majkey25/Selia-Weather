@@ -24,6 +24,7 @@ class RadarScreenTest {
         assertTrue(source.contains("function layerStateSelfTest()"))
         assertTrue(source.contains("document.getElementById('lightning').style.display = '';"))
         assertTrue(source.contains("var lightning = lightningVisible ? lightningUrl(frame.date) : null;"))
+        assertTrue(source.contains("#strikes { z-index: 1; pointer-events: none; }"))
         assertTrue(source.contains("layerStateSelfTest();"))
         assertTrue(source.contains("nowcast: 'nowcast'"))
     }

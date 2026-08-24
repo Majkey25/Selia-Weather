@@ -27,7 +27,7 @@
 - [x] Adaptive Task 3: Fix hosted widget resize with one stable hierarchy.
   - Acceptance: real launcher resize never shows `Error loading widget`.
   - Verify: compact, standard, wide, tall, full-width, and reverse resize pass on API 29 and API 35.
-- [ ] Adaptive Task 4: Add the customizable widget renderer.
+- [x] Adaptive Task 4: Add the customizable widget renderer.
   - Acceptance: each widget stores independent colors, opacity, text, alignment, image URI, and field selection.
   - Verify: invalid values and unreadable images fall back without breaking `RemoteViews`.
 - [ ] Adaptive Task 5: Build the complete widget editor and image picker.

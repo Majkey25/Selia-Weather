@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Počasí Česko</string>
+    <string name="widget_description">Čas a počasí pro vybrané české město</string>
+    <string name="weather_icon">Ikona počasí</string>
+    <string name="widget_placeholder_city">Otevřete aplikaci</string>
+    <string name="widget_placeholder_temperature">--°</string>
+    <string name="widget_placeholder_condition">Načíst počasí</string>
+    <string name="widget_placeholder_range">--° / --°</string>
+</resources>

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" role="img" aria-label="Počasí Česko">
+  <rect width="108" height="108" rx="24" fill="#255b86"/>
+  <circle cx="68" cy="38" r="20" fill="#ffd166"/>
+  <path d="M25 78c0-10 8-18 18-18 5 0 10 2 13 6 3-3 7-5 12-5 9 0 16 7 16 16v3H25z" fill="#fff"/>
+</svg>

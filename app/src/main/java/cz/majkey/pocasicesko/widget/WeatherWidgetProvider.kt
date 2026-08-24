@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import android.util.SizeF
 import android.view.View
 import android.widget.RemoteViews
 import androidx.core.content.edit
@@ -91,9 +92,12 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             val options = manager.getAppWidgetOptions(appWidgetId)
             val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, COMPACT_WIDTH_DP)
             val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, COMPACT_HEIGHT_DP)
-            val width = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, minWidth)
-            val height = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, minHeight)
-            val size = widgetSize(maxOf(minWidth, width), maxOf(minHeight, height))
+            @Suppress("DEPRECATION")
+            val currentSize = options.getParcelableArrayList<SizeF>(AppWidgetManager.OPTION_APPWIDGET_SIZES)
+                ?.firstOrNull()
+            val width = currentSize?.width?.roundToInt() ?: minWidth
+            val height = currentSize?.height?.roundToInt() ?: minHeight
+            val size = widgetSize(width, height)
             val views = RemoteViews(localizedContext.packageName, R.layout.widget_adaptive)
 
             val city = weather.getString(WeatherRepository.KEY_WIDGET_CITY, null)
@@ -130,7 +134,12 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             views.setTextViewText(R.id.widget_condition, condition)
             views.setTextColor(R.id.widget_condition, textColor)
             val showDetails = settings.showDetails && size != WidgetSize.COMPACT
+            val showHourly = size == WidgetSize.WIDE && settings.showDetails &&
+                hourlyTimes.size >= 3 && hourlyTemperatures.size >= 3
+            val showMetrics = size == WidgetSize.TALL && settings.showDetails
+            views.setViewVisibility(R.id.widget_city, if (size == WidgetSize.COMPACT) View.GONE else View.VISIBLE)
             views.setViewVisibility(R.id.widget_details, if (showDetails) View.VISIBLE else View.GONE)
+            views.setViewVisibility(R.id.widget_high_low, if (showDetails) View.VISIBLE else View.GONE)
             views.setViewVisibility(R.id.widget_clock, if (settings.showClock) View.VISIBLE else View.GONE)
             views.setTextColor(R.id.widget_clock, textColor)
             views.setViewVisibility(R.id.widget_icon, if (settings.showIcon) View.VISIBLE else View.GONE)
@@ -138,20 +147,28 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             views.setInt(R.id.widget_icon, "setColorFilter", textColor)
             views.setContentDescription(R.id.widget_icon, condition)
 
-            views.setTextViewText(
-                R.id.widget_high_low,
-                if (high.isNaN() || low.isNaN()) {
-                    localizedContext.getString(R.string.widget_placeholder_range)
-                } else {
-                    "${high.roundToInt()}° / ${low.roundToInt()}°"
-                },
-            )
+            val range = if (high.isNaN() || low.isNaN()) {
+                localizedContext.getString(R.string.widget_placeholder_range)
+            } else {
+                "${high.roundToInt()}° / ${low.roundToInt()}°"
+            }
+            views.setTextViewText(R.id.widget_high_low, range)
             views.setTextColor(R.id.widget_high_low, secondaryTextColor)
-            val showHourly = size == WidgetSize.WIDE && settings.showDetails &&
-                hourlyTimes.size >= 3 && hourlyTemperatures.size >= 3
             views.setViewVisibility(R.id.widget_hourly, if (showHourly) View.VISIBLE else View.GONE)
             views.setViewVisibility(R.id.widget_hourly_divider, if (showHourly) View.VISIBLE else View.GONE)
-            views.setViewVisibility(R.id.widget_metrics, View.GONE)
+            views.setViewVisibility(R.id.widget_metrics, if (showMetrics) View.VISIBLE else View.GONE)
+            views.setViewVisibility(R.id.widget_precipitation, if (showMetrics) View.VISIBLE else View.GONE)
+            views.setViewVisibility(R.id.widget_wind, if (showMetrics) View.VISIBLE else View.GONE)
+            views.setViewVisibility(R.id.widget_humidity, if (showMetrics) View.VISIBLE else View.GONE)
+            views.setTextViewText(R.id.widget_precipitation, range)
+            views.setTextViewText(R.id.widget_wind, hourlyMetric(hourlyTimes, hourlyTemperatures, 0))
+            views.setTextViewText(R.id.widget_humidity, hourlyMetric(hourlyTimes, hourlyTemperatures, 1))
+            views.setTextColor(R.id.widget_precipitation, secondaryTextColor)
+            views.setTextColor(R.id.widget_wind, secondaryTextColor)
+            views.setTextColor(R.id.widget_humidity, secondaryTextColor)
+            views.setViewVisibility(R.id.widget_date, View.GONE)
+            views.setViewVisibility(R.id.widget_update_time, View.GONE)
+            views.setViewVisibility(R.id.widget_background_image, View.GONE)
             HOUR_TIME_IDS.forEachIndexed { index, id ->
                 views.setTextViewText(
                     id,
@@ -186,6 +203,10 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             setTextViewText(R.id.widget_temperature, context.getString(R.string.widget_placeholder_temperature))
             setTextViewText(R.id.widget_city, context.getString(R.string.widget_placeholder_city))
         }
+
+        private fun hourlyMetric(times: List<String>, temperatures: List<String>, index: Int): String =
+            listOfNotNull(times.getOrNull(index), temperatures.getOrNull(index)?.let { "$it°" })
+                .joinToString(" · ")
 
         fun loadSettings(context: Context, appWidgetId: Int): WidgetSettings {
             val preferences = context.getSharedPreferences(WeatherRepository.PREFERENCES_NAME, Context.MODE_PRIVATE)

@@ -24,7 +24,7 @@
 - [x] Adaptive Task 2: Show 20 future hours and expand every daily row.
   - Acceptance: the main panel has 20 scrollable hours and 14 richer daily rows.
   - Verify: API 29 and API 35 show 20 hours, all 14 days, and a 24-hour complete-day detail.
-- [ ] Adaptive Task 3: Fix hosted widget resize with one stable hierarchy.
+- [x] Adaptive Task 3: Fix hosted widget resize with one stable hierarchy.
   - Acceptance: real launcher resize never shows `Error loading widget`.
   - Verify: compact, standard, wide, tall, full-width, and reverse resize pass on API 29 and API 35.
 - [ ] Adaptive Task 4: Add the customizable widget renderer.

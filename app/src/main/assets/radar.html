@@ -37,7 +37,7 @@
     <img id="base" src="https://produkty.chmi.cz/radar/und/pacz2gmaps6.und3.png" alt="Map of Czechia">
     <img id="radar" alt="ČHMÚ radar rainfall">
     <img id="strikes" alt="">
-    <img id="satellite" alt="ČHMÚ satellite image" onerror="setStatus(TEXT.satelliteUnavailable)">
+    <img id="satellite" alt="ČHMÚ satellite image">
     <img id="satBorders" src="https://produkty.chmi.cz/druzice/und/msgcz-1160x800.und.010.hranice.png" alt="">
     <div class="status" id="status">Looking for the latest ČHMÚ data…</div>
     <div class="time" id="time" hidden></div>
@@ -123,6 +123,10 @@
     var timer = null;
     var latestRadar = null;
     var activeFrame = null;
+    var requestToken = 0;
+    var lightningSource = null;
+    var radarSource = null;
+    var satelliteSource = null;
     var nowcastOffsets = [15, 10, 5, 0, -5, -10, -15, -20, -25, -30];
 
     function pad(value) { return String(value).padStart(2, '0'); }
@@ -211,26 +215,79 @@
         lightning: lightningVisible
       };
     }
-    function showLightning(frame) {
+    function isActiveImageRequest(token, frame, source, activeSource) {
+      return token === requestToken && frame === activeFrame && source === activeSource;
+    }
+    function loadImage(source, onload, onerror) {
+      var image = new Image();
+      image.onload = onload;
+      image.onerror = onerror;
+      image.src = source;
+    }
+    function loadCurrentImage(source, token, frame, activeSource, onload, onerror) {
+      loadImage(source, function() {
+        if (isActiveImageRequest(token, frame, source, activeSource())) { onload(); }
+      }, function() {
+        if (isActiveImageRequest(token, frame, source, activeSource())) { onerror(); }
+      });
+    }
+    function hideImage(image) {
+      image.style.visibility = 'hidden';
+      image.alt = '';
+      image.removeAttribute('src');
+    }
+    function showLightning(frame, token) {
       var strikes = document.getElementById('strikes');
       var lightning = lightningVisible ? lightningUrl(frame.date) : null;
       if (!lightning) {
-        strikes.style.visibility = 'hidden';
-        strikes.alt = '';
-        strikes.removeAttribute('src');
+        lightningSource = null;
+        hideImage(strikes);
         return;
       }
-      strikes.style.visibility = 'visible';
-      strikes.alt = TEXT.lightningImage;
-      strikes.onerror = function() {
-        if (activeFrame === frame && strikes.getAttribute('src') === lightning) {
-          strikes.style.visibility = 'hidden';
-          strikes.alt = '';
-        }
-      };
-      strikes.src = lightning;
+      lightningSource = lightning;
+      hideImage(strikes);
+      loadCurrentImage(lightning, token, frame, function() { return lightningSource; }, function() {
+        strikes.src = lightning;
+        strikes.alt = TEXT.lightningImage;
+        strikes.style.visibility = 'visible';
+      }, function() {
+        lightningSource = null;
+        hideImage(strikes);
+      });
+    }
+    function showRadar(frame, token, onerror) {
+      var radar = document.getElementById('radar');
+      var source = frame.url;
+      radarSource = source;
+      hideImage(radar);
+      loadCurrentImage(source, token, frame, function() { return radarSource; }, function() {
+        radar.src = source;
+        radar.alt = TEXT.radar;
+        radar.style.visibility = 'visible';
+        setStatus('');
+      }, function() {
+        radarSource = null;
+        hideImage(radar);
+        onerror();
+      });
+    }
+    function showSatellite(frame, token) {
+      var satellite = document.getElementById('satellite');
+      var source = frame.url;
+      satelliteSource = source;
+      hideImage(satellite);
+      loadCurrentImage(source, token, frame, function() { return satelliteSource; }, function() {
+        satellite.src = source;
+        satellite.alt = TEXT.satellite;
+        satellite.style.visibility = 'visible';
+      }, function() {
+        satelliteSource = null;
+        hideImage(satellite);
+        setStatus(TEXT.satelliteUnavailable);
+      });
     }
     function showFrame(index) {
+      var token = ++requestToken;
       var frames = baseLayer === 'rain' ? radarFrames : cloudFrames;
       if (!frames.length) { setStatus(TEXT.dataUnavailable); return; }
       frameIndex = Math.max(0, Math.min(index, frames.length - 1));
@@ -238,22 +295,17 @@
       var frame = frames[frameIndex];
       activeFrame = frame;
       setStatus('');
-      showLightning(frame);
+      showLightning(frame, token);
       if (baseLayer === 'rain') {
         if (frame.forecast) {
-          loadForecastFrame(frame, 0);
+          loadForecastFrame(frame, 0, token);
         } else {
           setFrameTime(frame);
-          var radar = document.getElementById('radar');
-          radar.onload = function() { if (activeFrame === frame) { setStatus(''); } };
-          radar.onerror = function() {
-            if (activeFrame === frame) { setStatus(TEXT.radarUnavailable); }
-          };
-          radar.src = frame.url;
+          showRadar(frame, token, function() { setStatus(TEXT.radarUnavailable); });
         }
       } else {
         setFrameTime(frame);
-        document.getElementById('satellite').src = frame.url;
+        showSatellite(frame, token);
       }
     }
     function setFrameTime(frame) {
@@ -261,8 +313,8 @@
       time.textContent = formatTime(frame.date) + (frame.forecast ? ' · ' + TEXT.nowcast + ' +' + frame.lead + ' ' + TEXT.minute : '');
       time.hidden = false;
     }
-    function loadForecastFrame(frame, attempt) {
-      if (activeFrame !== frame) { return; }
+    function loadForecastFrame(frame, attempt, token) {
+      if (token !== requestToken || activeFrame !== frame) { return; }
       if (!latestRadar || attempt >= nowcastOffsets.length) {
         setStatus(TEXT.nowcastUnavailable);
         return;
@@ -270,17 +322,10 @@
       var base = addMinutes(latestRadar, nowcastOffsets[attempt]);
       frame.date = addMinutes(base, frame.lead);
       frame.url = nowcastUrl(base, frame.lead);
-      showLightning(frame);
+      showLightning(frame, token);
       setFrameTime(frame);
       setStatus(TEXT.nowcastLoading);
-      var radar = document.getElementById('radar');
-      radar.onload = function() {
-        if (activeFrame === frame) { setStatus(''); }
-      };
-      radar.onerror = function() {
-        if (activeFrame === frame) { loadForecastFrame(frame, attempt + 1); }
-      };
-      radar.src = frame.url;
+      showRadar(frame, token, function() { loadForecastFrame(frame, attempt + 1, token); });
     }
     function togglePlay() {
       var button = document.getElementById('play');
@@ -352,10 +397,26 @@
         throw new Error('Radar layer-state self-test failed');
       }
     }
+    function imageRequestSelfTest() {
+      var previousToken = requestToken;
+      var previousFrame = activeFrame;
+      var frame = {};
+      requestToken = 1;
+      activeFrame = frame;
+      if (!isActiveImageRequest(1, frame, 'current', 'current') ||
+          isActiveImageRequest(0, frame, 'current', 'current') ||
+          isActiveImageRequest(1, {}, 'current', 'current') ||
+          isActiveImageRequest(1, frame, 'stale', 'current')) {
+        throw new Error('Radar image request self-test failed');
+      }
+      requestToken = previousToken;
+      activeFrame = previousFrame;
+    }
     applyText();
     selfTest();
     dictionarySelfTest();
     layerStateSelfTest();
+    imageRequestSelfTest();
     load();
   </script>
 </body>

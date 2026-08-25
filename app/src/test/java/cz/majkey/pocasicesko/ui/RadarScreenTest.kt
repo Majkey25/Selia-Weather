@@ -28,4 +28,28 @@ class RadarScreenTest {
         assertTrue(source.contains("layerStateSelfTest();"))
         assertTrue(source.contains("nowcast: 'nowcast'"))
     }
+
+    @Test
+    fun radarAssetGuardsImageRequestsAgainstStaleFrames() {
+        val asset = File(System.getProperty("user.dir"), "src/main/assets/radar.html")
+        assertTrue("Missing radar asset: ${asset.absolutePath}", asset.isFile)
+        val source = asset.readText()
+
+        assertTrue(source.contains("var requestToken = 0;"))
+        assertTrue(source.contains("var radarSource = null;"))
+        assertTrue(source.contains("function isActiveImageRequest(token, frame, source, activeSource)"))
+        assertTrue(source.contains("function loadImage(source, onload, onerror)"))
+        assertTrue(source.contains("function loadCurrentImage(source, token, frame, activeSource, onload, onerror)"))
+        assertTrue(source.contains("function showRadar(frame, token, onerror)"))
+        assertTrue(source.contains("function showSatellite(frame, token)"))
+        assertTrue(source.contains("showRadar(frame, token, function() { setStatus(TEXT.radarUnavailable); });"))
+        assertTrue(source.contains("showRadar(frame, token, function() { loadForecastFrame(frame, attempt + 1, token); });"))
+        assertTrue(source.contains("hideImage(strikes);"))
+        assertTrue(source.contains("hideImage(radar);"))
+        assertTrue(source.contains("hideImage(satellite);"))
+        assertTrue(!source.contains("id=\"satellite\" alt=\"ČHMÚ satellite image\" onerror="))
+        assertTrue(!source.contains("radar.onload ="))
+        assertTrue(!source.contains("radar.onerror ="))
+        assertTrue(source.contains("imageRequestSelfTest();"))
+    }
 }

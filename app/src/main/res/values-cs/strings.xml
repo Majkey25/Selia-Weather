@@ -25,6 +25,14 @@
     <string name="whole_day_hours">Celý den</string>
     <string name="precipitation">Srážky</string>
     <string name="wind">Vítr</string>
+    <string name="wind_direction_north">S</string>
+    <string name="wind_direction_northeast">SV</string>
+    <string name="wind_direction_east">V</string>
+    <string name="wind_direction_southeast">JV</string>
+    <string name="wind_direction_south">J</string>
+    <string name="wind_direction_southwest">JZ</string>
+    <string name="wind_direction_west">Z</string>
+    <string name="wind_direction_northwest">SZ</string>
     <string name="humidity">Vlhkost</string>
     <string name="pressure">Tlak</string>
     <string name="sun">Slunce</string>

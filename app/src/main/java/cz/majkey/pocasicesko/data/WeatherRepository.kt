@@ -167,21 +167,6 @@ class WeatherRepository(context: Context) {
         }
     }
 
-    private fun forecastUri(location: CzechLocation): Uri = Uri.Builder()
-        .scheme("https")
-        .authority("api.open-meteo.com")
-        .appendPath("v1")
-        .appendPath("forecast")
-        .appendQueryParameter("latitude", location.latitude.toString())
-        .appendQueryParameter("longitude", location.longitude.toString())
-        .appendQueryParameter("models", "chmi_aladin_seamless")
-        .appendQueryParameter("forecast_days", "14")
-        .appendQueryParameter("timezone", "Europe/Prague")
-        .appendQueryParameter("current", CURRENT_VARIABLES)
-        .appendQueryParameter("hourly", HOURLY_VARIABLES)
-        .appendQueryParameter("daily", DAILY_VARIABLES)
-        .build()
-
     private fun geocodingUri(query: String): Uri = Uri.Builder()
         .scheme("https")
         .authority("geocoding-api.open-meteo.com")
@@ -195,6 +180,14 @@ class WeatherRepository(context: Context) {
         .build()
 
     companion object {
+        internal fun forecastUri(location: CzechLocation): Uri = Uri.parse(forecastUrl(location))
+
+        internal fun forecastUrl(location: CzechLocation): String =
+            "https://api.open-meteo.com/v1/forecast?latitude=${location.latitude}" +
+                "&longitude=${location.longitude}&models=chmi_aladin_seamless&forecast_days=14&past_hours=24" +
+                "&timezone=Europe%2FPrague&current=$CURRENT_VARIABLES&hourly=$HOURLY_VARIABLES" +
+                "&daily=$DAILY_VARIABLES"
+
         const val PREFERENCES_NAME = "weather"
         const val KEY_WIDGET_CITY = "widget_city"
         const val KEY_WIDGET_TEMPERATURE = "widget_temperature"

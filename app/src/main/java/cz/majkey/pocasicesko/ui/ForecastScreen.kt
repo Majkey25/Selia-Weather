@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
@@ -35,6 +37,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -384,7 +387,7 @@ private fun CurrentMetrics(snapshot: WeatherSnapshot, accent: Color) {
         Triple(
             stringResource(R.string.wind),
             stringResource(R.string.wind_value, snapshot.current.windSpeed.roundToInt()),
-            windDirection(snapshot.current.windDirection),
+            stringResource(windDirectionResource(snapshot.current.windDirection)),
         ),
         Triple(stringResource(R.string.humidity), "${snapshot.current.humidity} %", stringResource(R.string.relative)),
         Triple(stringResource(R.string.pressure), "${snapshot.current.pressure.roundToInt()} hPa", stringResource(R.string.sea_level)),
@@ -540,15 +543,18 @@ private fun DailyRow(
 @Composable
 private fun DayDetailSheet(day: DailyWeather, hours: List<HourlyWeather>, onDismiss: () -> Unit) {
     val locale = LocalConfiguration.current.locales[0]
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = Color(0xFF101820),
         contentColor = Color.White,
+        sheetState = sheetState,
+        sheetGesturesEnabled = false,
     ) {
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(max = 720.dp)
+                .fillMaxHeight()
                 .navigationBarsPadding(),
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 34.dp),
         ) {
@@ -574,7 +580,7 @@ private fun DayDetailSheet(day: DailyWeather, hours: List<HourlyWeather>, onDism
                     Text(stringResource(R.string.wind_value, day.windSpeedMax.roundToInt()), fontSize = 12.sp)
                 }
             }
-            items(hours, key = { it.time }) { hour ->
+            itemsIndexed(hours, key = { index, hour -> "${hour.time}-$index" }) { _, hour ->
                 val condition = conditionFor(hour.weatherCode, hour.isDay)
                 val conditionLabel = stringResource(condition.labelResource())
                 Row(
@@ -658,7 +664,10 @@ internal fun formatFullDay(date: String, locale: java.util.Locale): String =
     LocalDate.parse(date).format(DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL).withLocale(locale))
 
 internal fun hourlyForDay(hourly: List<HourlyWeather>, date: String): List<HourlyWeather> =
-    hourly.filter { it.time.startsWith("${date}T") }
+    hourly.asSequence()
+        .filter { it.time.startsWith("${date}T") }
+        .sortedBy { it.time }
+        .toList()
 
 internal fun upcomingHours(
     hourly: List<HourlyWeather>,
@@ -671,9 +680,15 @@ internal fun formatUpdatedAt(epochMillis: Long, locale: java.util.Locale): Strin
         .withLocale(locale)
         .format(Instant.ofEpochMilli(epochMillis).atZone(ZoneId.of("Europe/Prague")))
 
-private fun windDirection(degrees: Int): String {
-    val directions = listOf("S", "SV", "V", "JV", "J", "JZ", "Z", "SZ")
-    return directions[((degrees + 22) % 360) / 45]
+internal fun windDirectionResource(degrees: Int): Int = when ((Math.floorMod(degrees, 360) + 22) % 360 / 45) {
+    0 -> R.string.wind_direction_north
+    1 -> R.string.wind_direction_northeast
+    2 -> R.string.wind_direction_east
+    3 -> R.string.wind_direction_southeast
+    4 -> R.string.wind_direction_south
+    5 -> R.string.wind_direction_southwest
+    6 -> R.string.wind_direction_west
+    else -> R.string.wind_direction_northwest
 }
 
 private fun Double.formatOneDecimal(locale: java.util.Locale): String = String.format(locale, "%.1f", this)

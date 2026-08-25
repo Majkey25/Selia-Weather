@@ -1,5 +1,6 @@
 package cz.majkey.pocasicesko.ui
 
+import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.data.HourlyWeather
 import java.time.Instant
 import java.util.Locale
@@ -30,6 +31,48 @@ class ForecastDayTest {
         val selected = hourlyForDay(hours, "2026-08-25")
 
         assertEquals(listOf("2026-08-25T00:00", "2026-08-25T23:00"), selected.map { it.time })
+    }
+
+    @Test
+    fun ordersAllHoursForNormalDay() {
+        val hours = (0..23)
+            .map { hour("2026-08-25T%02d:00".format(it)) }
+            .reversed()
+
+        val selected = hourlyForDay(hours, "2026-08-25")
+
+        assertEquals(24, selected.size)
+        assertEquals("2026-08-25T00:00", selected.first().time)
+        assertEquals("2026-08-25T23:00", selected.last().time)
+    }
+
+    @Test
+    fun preservesTwentyThreeAndTwentyFiveHourDstDays() {
+        val springHours = (0..23)
+            .filter { it != 2 }
+            .map { hour("2026-03-29T%02d:00".format(it)) }
+        val fallHours = (0..23).map { hour("2026-10-25T%02d:00".format(it)) } +
+            hour("2026-10-25T02:00")
+
+        assertEquals(23, hourlyForDay(springHours, "2026-03-29").size)
+        assertEquals(25, hourlyForDay(fallHours, "2026-10-25").size)
+    }
+
+    @Test
+    fun mapsWindDirectionSectorBoundaries() {
+        assertEquals(R.string.wind_direction_north, windDirectionResource(0))
+        assertEquals(R.string.wind_direction_northeast, windDirectionResource(23))
+        assertEquals(R.string.wind_direction_east, windDirectionResource(68))
+        assertEquals(R.string.wind_direction_southeast, windDirectionResource(113))
+        assertEquals(R.string.wind_direction_south, windDirectionResource(158))
+        assertEquals(R.string.wind_direction_southwest, windDirectionResource(203))
+        assertEquals(R.string.wind_direction_west, windDirectionResource(248))
+        assertEquals(R.string.wind_direction_northwest, windDirectionResource(293))
+        assertEquals(R.string.wind_direction_north, windDirectionResource(22))
+        assertEquals(R.string.wind_direction_northeast, windDirectionResource(23))
+        assertEquals(R.string.wind_direction_northwest, windDirectionResource(337))
+        assertEquals(R.string.wind_direction_north, windDirectionResource(338))
+        assertEquals(R.string.wind_direction_north, windDirectionResource(-1))
     }
 
     @Test

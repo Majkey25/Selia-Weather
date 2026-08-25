@@ -25,6 +25,14 @@
     <string name="whole_day_hours">Ganzer Tag</string>
     <string name="precipitation">Niederschlag</string>
     <string name="wind">Wind</string>
+    <string name="wind_direction_north">N</string>
+    <string name="wind_direction_northeast">NO</string>
+    <string name="wind_direction_east">O</string>
+    <string name="wind_direction_southeast">SO</string>
+    <string name="wind_direction_south">S</string>
+    <string name="wind_direction_southwest">SW</string>
+    <string name="wind_direction_west">W</string>
+    <string name="wind_direction_northwest">NW</string>
     <string name="humidity">Luftfeuchtigkeit</string>
     <string name="pressure">Luftdruck</string>
     <string name="sun">Sonne</string>

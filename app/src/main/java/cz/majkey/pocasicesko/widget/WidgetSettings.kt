@@ -69,6 +69,12 @@ internal enum class WidgetWorkAdmission {
     REJECT_INCOMING,
 }
 
+internal enum class WidgetDeleteMergeTarget {
+    ACTIVE,
+    QUEUED,
+    NEW,
+}
+
 internal class WidgetApplyState {
     private val lock = Any()
     private var active = false
@@ -82,6 +88,10 @@ internal class WidgetApplyState {
     fun cancel() = synchronized(lock) { active = false }
 
     fun isActive(): Boolean = synchronized(lock) { active }
+
+    fun commitIfActive(commit: () -> Boolean): Boolean = synchronized(lock) {
+        active && commit()
+    }
 }
 
 internal data class WidgetBitmapSize(val width: Int, val height: Int)
@@ -218,6 +228,20 @@ internal fun widgetCanFinishActivity(destroyed: Boolean, finishing: Boolean): Bo
 
 internal fun widgetDeleteIds(current: IntArray, incoming: IntArray): IntArray =
     (current.asList() + incoming.asList()).distinct().toIntArray()
+
+internal fun widgetDeleteMergeTarget(activeComplete: Boolean, queuedDelete: Boolean): WidgetDeleteMergeTarget = when {
+    !activeComplete -> WidgetDeleteMergeTarget.ACTIVE
+    queuedDelete -> WidgetDeleteMergeTarget.QUEUED
+    else -> WidgetDeleteMergeTarget.NEW
+}
+
+internal fun finishWidgetDelete(cleanup: () -> Unit, onComplete: () -> Unit) {
+    try {
+        cleanup()
+    } finally {
+        onComplete()
+    }
+}
 
 internal fun widgetImageUris(values: Map<String, *>): Set<String> = values
     .filterKeys { it.endsWith("_image_uri") }

@@ -135,6 +135,7 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             settings: WidgetSettings,
             needsImageGrant: Boolean,
             canCommit: () -> Boolean,
+            commitIfActive: (() -> Boolean) -> Boolean,
             onComplete: (Boolean) -> Unit,
         ): Boolean = submitWidgetWork(
             kind = WidgetWorkKind.APPLY,
@@ -149,8 +150,8 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                         )
                         grantTaken = true
                     }
-                    check(widgetApplyCanCommit(canCommit(), widgetExists(context, appWidgetId)))
-                    saveSettings(context, appWidgetId, settings)
+                    check(widgetExists(context, appWidgetId))
+                    commitIfActive { saveSettings(context, appWidgetId, settings) }
                 }.getOrDefault(false)
                 if (!committed && grantTaken) releaseImageIfUnused(context, settings.imageUri)
                 val rendered = if (committed) runCatching {
@@ -591,8 +592,8 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             onComplete: () -> Unit,
         ): Boolean = synchronized(widgetWorkLock) {
             val queued = widgetWorker.queue.filterIsInstance<WidgetWork>()
-            val existing = (activeDelete ?: queued.filterIsInstance<DeleteWork>().firstOrNull())
-            if (existing?.merge(appWidgetIds, onComplete) == true) return true
+            if (activeDelete?.merge(appWidgetIds, onComplete) == true) return true
+            if (queued.filterIsInstance<DeleteWork>().firstOrNull()?.merge(appWidgetIds, onComplete) == true) return true
             queued.filter { it.kind == WidgetWorkKind.UPDATE }.forEach {
                 widgetWorker.queue.remove(it)
                 it.discard()
@@ -649,6 +650,7 @@ class WeatherWidgetProvider : AppWidgetProvider() {
 
             override fun run() {
                 synchronized(widgetWorkLock) { activeDelete = this }
+                var callbacks = emptyList<() -> Unit>()
                 try {
                     while (true) {
                         val ids = synchronized(lock) {
@@ -658,22 +660,34 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                             runCatching { deleteSettings(context, appWidgetId) }
                                 .onFailure { Log.w("ALADINWidget", "Widget $appWidgetId cleanup failed", it) }
                         }
-                        val callbacks = synchronized(lock) {
+                        val finishedCallbacks = synchronized(lock) {
                             if (appWidgetIds.isNotEmpty()) null else {
                                 complete = true
                                 completions.toList().also { completions.clear() }
                             }
                         }
-                        if (callbacks != null) {
-                            reconcilePersistedImageGrants(context)
-                            callbacks.forEach { it() }
+                        if (finishedCallbacks != null) {
+                            callbacks = finishedCallbacks
+                            finishWidgetDelete(
+                                { reconcilePersistedImageGrants(context) },
+                                { callbacks.forEach { it() } },
+                            )
                             return
                         }
                     }
+                } catch (error: RuntimeException) {
+                    Log.w("ALADINWidget", "Widget cleanup failed", error)
                 } finally {
                     synchronized(widgetWorkLock) {
                         if (activeDelete === this) activeDelete = null
                     }
+                    if (callbacks.isEmpty()) {
+                        callbacks = synchronized(lock) {
+                            complete = true
+                            completions.toList().also { completions.clear() }
+                        }
+                    }
+                    callbacks.forEach { it() }
                 }
             }
 

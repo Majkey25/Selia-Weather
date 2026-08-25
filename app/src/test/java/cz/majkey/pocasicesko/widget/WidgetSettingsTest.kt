@@ -238,6 +238,7 @@ class WidgetSettingsTest {
         assertTrue(state.isActive())
         state.cancel()
         assertFalse(state.isActive())
+        assertFalse(state.commitIfActive { true })
     }
 
     @Test
@@ -264,6 +265,10 @@ class WidgetSettingsTest {
         assertTrue(widgetApplyCanCommit(active = true, widgetExists = true))
         assertFalse(widgetApplyCanCommit(active = false, widgetExists = true))
         assertFalse(widgetApplyCanCommit(active = true, widgetExists = false))
+        assertEquals(
+            WidgetDeleteMergeTarget.QUEUED,
+            widgetDeleteMergeTarget(activeComplete = true, queuedDelete = true),
+        )
     }
 
     @Test
@@ -271,5 +276,15 @@ class WidgetSettingsTest {
         assertFalse(widgetCanFinishActivity(destroyed = true, finishing = false))
         assertFalse(widgetCanFinishActivity(destroyed = false, finishing = true))
         assertTrue(widgetCanFinishActivity(destroyed = false, finishing = false))
+    }
+
+    @Test
+    fun completesEveryMergedDeleteCallbackAfterCleanupFailure() {
+        var completed = false
+
+        assertTrue(runCatching {
+            finishWidgetDelete({ error("cleanup") }) { completed = true }
+        }.isFailure)
+        assertTrue(completed)
     }
 }

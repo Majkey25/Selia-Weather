@@ -101,6 +101,7 @@ class WidgetConfigActivity : ComponentActivity() {
             normalized,
             requiresWidgetImageGrant(initialImageUri, normalized.imageUri),
             applyState::isActive,
+            applyState::commitIfActive,
         ) { saved ->
             val target = activity.get()
             if (target != null) {

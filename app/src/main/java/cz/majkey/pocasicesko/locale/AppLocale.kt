@@ -18,7 +18,7 @@ enum class SupportedLanguage(val tag: String) {
 }
 
 internal fun normalizeLanguageTag(tag: String?): String {
-    val language = tag.orEmpty().substringBefore('-').lowercase(Locale.ROOT)
+    val language = tag.orEmpty().substringBefore(',').substringBefore('-').lowercase(Locale.ROOT)
     return SupportedLanguage.entries.firstOrNull { it.tag == language }?.tag.orEmpty()
 }
 
@@ -26,6 +26,14 @@ internal fun effectiveLanguageTag(selectedTag: String?, systemTag: String?): Str
     normalizeLanguageTag(selectedTag).ifBlank {
         normalizeLanguageTag(systemTag).ifBlank { SupportedLanguage.ENGLISH.tag }
     }
+
+internal fun selectedLanguageTag(
+    sdkInt: Int,
+    preferenceTag: String?,
+    frameworkTags: String?,
+): String = normalizeLanguageTag(
+    if (sdkInt >= Build.VERSION_CODES.TIRAMISU) frameworkTags else preferenceTag,
+)
 
 object AppLocale {
     private const val PREFERENCES = "app_locale"
@@ -35,24 +43,27 @@ object AppLocale {
 
     fun set(activity: Activity, tag: String) {
         val languageTag = normalizeLanguageTag(tag)
-        activity.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
-            .edit()
-            .putString(LANGUAGE_TAG, languageTag)
-            .apply()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            activity.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+                .edit()
+                .remove(LANGUAGE_TAG)
+                .apply()
             activity.getSystemService(LocaleManager::class.java).applicationLocales =
                 LocaleList.forLanguageTags(languageTag)
         } else {
+            activity.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+                .edit()
+                .putString(LANGUAGE_TAG, languageTag)
+                .apply()
             activity.recreate()
         }
     }
 
     fun localized(context: Context): Context {
-        val languageTag = normalizeLanguageTag(
-            context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
-                .getString(LANGUAGE_TAG, null),
-        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) return context
+
+        val languageTag = selectedTag(context)
         if (languageTag.isEmpty()) return context
 
         val configuration = Configuration(context.resources.configuration).apply {
@@ -61,8 +72,18 @@ object AppLocale {
         return context.createConfigurationContext(configuration)
     }
 
-    fun languageTag(context: Context): String = effectiveLanguageTag(
+    fun selectedTag(context: Context): String = selectedLanguageTag(
+        Build.VERSION.SDK_INT,
         context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).getString(LANGUAGE_TAG, null),
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.getSystemService(LocaleManager::class.java).applicationLocales.toLanguageTags()
+        } else {
+            null
+        },
+    )
+
+    fun languageTag(context: Context): String = effectiveLanguageTag(
+        selectedTag(context),
         context.resources.configuration.locales[0].toLanguageTag(),
     )
 

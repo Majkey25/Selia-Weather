@@ -59,6 +59,12 @@ android {
     buildTypes.named("release") {
         signingConfig = signingConfigs.findByName("release")
     }
+
+    bundle {
+        language {
+            enableSplit = false
+        }
+    }
 }
 
 kotlin {

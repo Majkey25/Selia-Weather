@@ -22,4 +22,12 @@ class AppLocaleTest {
         assertEquals("de", effectiveLanguageTag(null, "de-AT"))
         assertEquals("en", effectiveLanguageTag("", "pl-PL"))
     }
+
+    @Test
+    fun usesFrameworkAppLocalesInsteadOfStalePreferenceOnApi33() {
+        assertEquals("fr", selectedLanguageTag(35, "cs", "fr-FR"))
+        assertEquals("fr", selectedLanguageTag(35, "cs", "fr,de"))
+        assertEquals("", selectedLanguageTag(35, "cs", ""))
+        assertEquals("cs", selectedLanguageTag(32, "cs", "fr-FR"))
+    }
 }

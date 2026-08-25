@@ -81,7 +81,7 @@ import cz.majkey.pocasicesko.data.WeatherKind
 import cz.majkey.pocasicesko.data.WeatherRepository
 import cz.majkey.pocasicesko.data.WeatherSnapshot
 import cz.majkey.pocasicesko.data.conditionFor
-import cz.majkey.pocasicesko.locale.normalizeLanguageTag
+import cz.majkey.pocasicesko.locale.AppLocale
 import cz.majkey.pocasicesko.R
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
@@ -181,7 +181,7 @@ fun WeatherApp(repository: WeatherRepository, onLanguage: (String) -> Unit) {
             }
             if (showSettings) {
                 SettingsSheet(
-                    selectedTag = selectedLanguageTag(context),
+                    selectedTag = AppLocale.selectedTag(context),
                     onLanguage = onLanguage,
                     onSupport = {
                         try {
@@ -682,11 +682,6 @@ private fun List<CzechLocation>.containsLocation(location: CzechLocation): Boole
     kotlin.math.abs(it.latitude - location.latitude) <= 0.000_001 &&
         kotlin.math.abs(it.longitude - location.longitude) <= 0.000_001
 }
-
-private fun selectedLanguageTag(context: android.content.Context): String = normalizeLanguageTag(
-    context.getSharedPreferences("app_locale", android.content.Context.MODE_PRIVATE)
-        .getString("language_tag", null),
-)
 
 private val NIGHT_STARS = listOf(
     Triple(0.12f, 0.11f, 0.34f),

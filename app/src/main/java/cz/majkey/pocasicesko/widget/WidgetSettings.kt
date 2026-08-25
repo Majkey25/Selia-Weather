@@ -144,39 +144,6 @@ internal fun widgetAlignmentSpacers(alignment: WidgetAlignment): WidgetAlignment
     WidgetAlignment.RIGHT -> WidgetAlignmentSpacers(showLeft = true, showRight = false)
 }
 
-enum class WidgetTheme {
-    AUTOMATIC,
-    LIGHT,
-    DARK,
-    TRANSPARENT,
-}
-
-internal val WidgetSettings.theme: WidgetTheme
-    get() = when (backgroundMode) {
-        WidgetBackgroundMode.LIGHT -> WidgetTheme.LIGHT
-        WidgetBackgroundMode.DARK -> WidgetTheme.DARK
-        WidgetBackgroundMode.TRANSPARENT -> WidgetTheme.TRANSPARENT
-        else -> WidgetTheme.AUTOMATIC
-    }
-
-internal fun WidgetSettings.copy(theme: WidgetTheme): WidgetSettings = copy(
-    backgroundMode = when (theme) {
-        WidgetTheme.AUTOMATIC -> WidgetBackgroundMode.AUTOMATIC
-        WidgetTheme.LIGHT -> WidgetBackgroundMode.LIGHT
-        WidgetTheme.DARK -> WidgetBackgroundMode.DARK
-        WidgetTheme.TRANSPARENT -> WidgetBackgroundMode.TRANSPARENT
-    },
-)
-
-internal val WidgetSettings.showDetails: Boolean
-    get() = showCondition && showRange && showHourly
-
-internal fun WidgetSettings.copy(showDetails: Boolean): WidgetSettings = copy(
-    showCondition = showDetails,
-    showRange = showDetails,
-    showHourly = showDetails,
-)
-
 private fun backgroundModeOrNull(value: String): WidgetBackgroundMode? = runCatching {
     WidgetBackgroundMode.valueOf(value)
 }.getOrNull()

@@ -17,6 +17,32 @@ import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.data.WeatherKind
 
 internal object WidgetBackground {
+    fun previewImage(context: Context, settings: WidgetSettings): Bitmap? =
+        customImage(context, settings.normalized())
+
+    fun previewColors(settings: WidgetSettings, kind: WeatherKind, isDay: Boolean): IntArray {
+        val normalized = settings.normalized()
+        return when (normalized.backgroundMode) {
+            WidgetBackgroundMode.AUTOMATIC -> when {
+                !isDay -> intArrayOf(0xFF05070D.toInt(), 0xFF1A2850.toInt())
+                kind == WeatherKind.RAIN || kind == WeatherKind.STORM || kind == WeatherKind.SNOW ->
+                    intArrayOf(0xFF091117.toInt(), 0xFF3E5865.toInt())
+                else -> intArrayOf(0xFF0B1822.toInt(), 0xFF23657C.toInt())
+            }
+            WidgetBackgroundMode.LIGHT -> intArrayOf(0xFFF4F1EA.toInt(), 0xFFF4F1EA.toInt())
+            WidgetBackgroundMode.DARK -> intArrayOf(0xF20A0F14.toInt(), 0xF20A0F14.toInt())
+            WidgetBackgroundMode.TRANSPARENT -> intArrayOf(0x3D05090D, 0x3D05090D)
+            WidgetBackgroundMode.SOLID -> intArrayOf(
+                Color.parseColor(normalized.backgroundStart),
+                Color.parseColor(normalized.backgroundStart),
+            )
+            WidgetBackgroundMode.GRADIENT, WidgetBackgroundMode.CUSTOM_IMAGE -> intArrayOf(
+                Color.parseColor(normalized.backgroundStart),
+                Color.parseColor(normalized.backgroundEnd),
+            )
+        }
+    }
+
     fun apply(
         context: Context,
         views: RemoteViews,

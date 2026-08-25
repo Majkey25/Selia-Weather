@@ -8,8 +8,10 @@ import pytest
 
 from aladin_ensemble.sources.chmi_radar import parse_merge1h_contract
 from aladin_ensemble.sources.chmi_station import (
+    ElementMetadata,
     Station,
     build_source_manifest,
+    parse_element_metadata,
     parse_station_metadata,
     parse_station_observations,
 )
@@ -18,7 +20,9 @@ from aladin_ensemble.types import Observation, SourceManifest
 
 FIXTURES = Path(__file__).parent / "fixtures" / "chmi"
 DOCUMENTATION_URL = "https://opendata.chmi.cz/meteorology/climate/Klimatologicka_data_popis.pdf"
-LICENSE_URL = "https://www.chmi.cz/"
+LICENSE_URL = (
+    "https://www.chmi.cz/-/jak-mohu-pou%C5%BE%C3%ADvat-otev%C5%99en%C3%A1-data-%C4%8Dhm%C3%BA-"
+)
 
 
 def _stations() -> dict[str, Station]:
@@ -27,8 +31,15 @@ def _stations() -> dict[str, Station]:
 
 
 def _observations() -> tuple[Observation, ...]:
+    checksum = _manifest().checksum_sha256
+    assert checksum is not None
     with (FIXTURES / "hourly.json").open(encoding="utf-8") as source:
-        return tuple(parse_station_observations(source, _stations()))
+        return tuple(parse_station_observations(source, _stations(), _metadata(), "1H", checksum))
+
+
+def _metadata() -> dict[tuple[str, str, str], ElementMetadata]:
+    with (FIXTURES / "meta2.json").open(encoding="utf-8") as source:
+        return parse_element_metadata(source)
 
 
 def _manifest() -> SourceManifest:
@@ -46,20 +57,20 @@ def test_parses_utf8_station_and_hourly_observations() -> None:
     stations = _stations()
     observations = _observations()
     station = stations["0-20000-0-11502"]
-    temperature = observations[0]
-    precipitation = observations[5]
+    pressure = observations[0]
+    precipitation = observations[1]
 
     assert station.name == "Ústí nad Labem, Kočkov"
-    assert temperature.variable == "temperature_2m"
-    assert temperature.value == 12.5
-    assert temperature.valid_time == datetime(2026, 10, 25, tzinfo=UTC)
+    assert pressure.variable == "surface_pressure"
+    assert pressure.value == 1007.1
+    assert pressure.valid_time == datetime(2026, 10, 25, tzinfo=UTC)
     assert precipitation.unit == "mm"
     assert precipitation.interval == timedelta(hours=1)
     assert precipitation.accumulation == "interval"
 
 
 def test_preserves_missing_flag_and_quality_without_zero_substitution() -> None:
-    missing = _observations()[6]
+    missing = _observations()[2]
 
     assert missing.value is None
     assert missing.flag == "M"
@@ -77,7 +88,11 @@ def test_rejects_invalid_station_observation_range(tmp_path: Path) -> None:
         invalid.open(encoding="utf-8") as source,
         pytest.raises(ValueError, match="relative_humidity"),
     ):
-        tuple(parse_station_observations(source, _stations()))
+        tuple(
+            parse_station_observations(
+                source, _stations(), _metadata(), "10M", _manifest().checksum_sha256 or ""
+            )
+        )
 
 
 def test_manifest_records_checksum_and_source_timestamp() -> None:
@@ -117,20 +132,17 @@ def test_ingest_is_idempotent_and_persists_manifest() -> None:
 
 
 def test_merge1h_contract_parses_utc_interval_projection_and_bounds() -> None:
-    contract = parse_merge1h_contract(FIXTURES / "radar-merge1h.json")
+    contract = parse_merge1h_contract(FIXTURES / "T_PASV23_C_OKPR_20260825173000.hdf")
 
-    assert contract.valid_time == datetime(2026, 8, 16, 22, 30, tzinfo=UTC)
-    assert contract.interval == timedelta(hours=1)
-    assert contract.projection == "EPSG:3857"
-    assert contract.bounds == (11.267, 48.047, 19.624, 51.458)
+    assert contract.valid_end == datetime(2026, 8, 25, 17, 30, tzinfo=UTC)
+    assert contract.valid_start == datetime(2026, 8, 25, 16, 30, 1, tzinfo=UTC)
+    assert contract.projdef.startswith("+proj=merc")
+    assert contract.geographic_bounds == (11.266869, 48.047275, 19.623974, 51.458369)
 
 
-def test_merge1h_contract_rejects_bad_checksum(tmp_path: Path) -> None:
-    invalid = tmp_path / "radar.json"
-    invalid.write_text(
-        """{"filename":"T_PASV23_C_OKPR_20260816223000.hdf","projection":"EPSG:3857","bounds":[11.267,48.047,19.624,51.458],"interval_minutes":60,"checksum_sha256":"bad"}""",
-        encoding="utf-8",
-    )
+def test_merge1h_contract_rejects_bad_filename(tmp_path: Path) -> None:
+    invalid = tmp_path / "radar.hdf"
+    invalid.write_bytes((FIXTURES / "T_PASV23_C_OKPR_20260825173000.hdf").read_bytes())
 
-    with pytest.raises(ValueError, match="checksum"):
+    with pytest.raises(ValueError, match="filename"):
         parse_merge1h_contract(invalid)

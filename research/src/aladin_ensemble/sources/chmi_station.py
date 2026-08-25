@@ -41,24 +41,39 @@ class Station:
 
 
 @dataclass(frozen=True, slots=True)
+class ElementMetadata:
+    observation_type: str
+    wigos_id: str
+    element: str
+    unit: str
+    height_m: float
+    schedule: str
+
+
+@dataclass(frozen=True, slots=True)
 class _Element:
     variable: str
     unit: str
     minimum: float
     maximum: float
+    declared_units: frozenset[str]
     interval: timedelta | None = None
     accumulation: Literal["instant", "interval", "cumulative"] = "instant"
 
 
 ELEMENTS = {
-    "T": _Element("temperature_2m", "°C", -90.0, 60.0),
-    "Td": _Element("dew_point_2m", "°C", -100.0, 60.0),
-    "H": _Element("relative_humidity", "%", 0.0, 100.0),
-    "P": _Element("surface_pressure", "hPa", 800.0, 1100.0),
-    "D": _Element("wind_direction_10m", "°", 0.0, 360.0),
-    "F": _Element("wind_speed_10m", "m/s", 0.0, 120.0),
-    "SRA10M": _Element("precipitation", "mm", 0.0, 1_000.0, timedelta(minutes=10), "interval"),
-    "SRA1H": _Element("precipitation", "mm", 0.0, 1_000.0, timedelta(hours=1), "interval"),
+    "T": _Element("temperature", "°C", -90.0, 60.0, frozenset({"°C"})),
+    "Td": _Element("dew_point", "°C", -100.0, 60.0, frozenset({"°C"})),
+    "H": _Element("relative_humidity", "%", 0.0, 100.0, frozenset({"%"})),
+    "P": _Element("surface_pressure", "hPa", 800.0, 1100.0, frozenset({"hPa"})),
+    "D": _Element("wind_direction", "°", 0.0, 360.0, frozenset({"stupně"})),
+    "F": _Element("wind_speed", "m/s", 0.0, 120.0, frozenset({"m/s"})),
+    "SRA10M": _Element(
+        "precipitation", "mm", 0.0, 1_000.0, frozenset({"mm"}), timedelta(minutes=10), "interval"
+    ),
+    "SRA1H": _Element(
+        "precipitation", "mm", 0.0, 1_000.0, frozenset({"mm"}), timedelta(hours=1), "interval"
+    ),
 }
 
 
@@ -172,8 +187,52 @@ def parse_station_metadata(source: TextIO) -> Iterator[Station]:
         )
 
 
+def parse_element_metadata(source: TextIO) -> dict[tuple[str, str, str], ElementMetadata]:
+    _, fields, rows = _collection(source)
+    required = ("OBS_TYPE", "WSI", "EG_EL_ABBREVIATION", "UN_DESCRIPTION", "HEIGHT", "SCHEDULE")
+    if any(field not in fields for field in required):
+        raise ValueError("ČHMÚ element metadata columns are incomplete")
+    metadata: dict[tuple[str, str, str], ElementMetadata] = {}
+    for row in rows:
+        values = _row_values(row, fields)
+        observation_type = values["OBS_TYPE"]
+        wigos_id = values["WSI"]
+        element = values["EG_EL_ABBREVIATION"]
+        unit = values["UN_DESCRIPTION"]
+        schedule = values["SCHEDULE"]
+        if not (
+            isinstance(observation_type, str)
+            and observation_type
+            and isinstance(wigos_id, str)
+            and wigos_id
+            and isinstance(element, str)
+            and element
+            and isinstance(unit, str)
+            and unit
+            and isinstance(schedule, str)
+            and schedule
+        ):
+            raise ValueError("ČHMÚ element metadata identity is invalid")
+        key = (observation_type, wigos_id, element)
+        if key in metadata:
+            raise ValueError(f"duplicate ČHMÚ element metadata {key}")
+        metadata[key] = ElementMetadata(
+            observation_type=observation_type,
+            wigos_id=wigos_id,
+            element=element,
+            unit=unit,
+            height_m=_number(values["HEIGHT"], "HEIGHT"),
+            schedule=schedule,
+        )
+    return metadata
+
+
 def parse_station_observations(
-    source: TextIO, stations: Mapping[str, Station]
+    source: TextIO,
+    stations: Mapping[str, Station],
+    element_metadata: Mapping[tuple[str, str, str], ElementMetadata],
+    observation_type: str,
+    source_checksum: str,
 ) -> Iterator[Observation]:
     _, fields, rows = _collection(source)
     required = ("STATION", "ELEMENT", "DT", "VAL", "FLAG", "QUALITY")
@@ -191,6 +250,11 @@ def parse_station_observations(
         station = stations.get(station_id)
         if station is None:
             raise ValueError(f"ČHMÚ observation has unknown WIGOS station {station_id}")
+        metadata = element_metadata.get((observation_type, station_id, element_name))
+        if metadata is None:
+            raise ValueError(f"ČHMÚ observation has no metadata for {element_name}")
+        if metadata.unit not in element.declared_units:
+            raise ValueError(f"ČHMÚ metadata unit is invalid for {element_name}")
         value = _optional_value(values["VAL"], element)
         flag = _optional_flag(values["FLAG"])
         yield Observation(
@@ -200,14 +264,24 @@ def parse_station_observations(
             latitude=station.latitude,
             longitude=station.longitude,
             elevation_m=station.elevation_m,
-            variable=element.variable,
+            variable=_variable(element_name, element.variable, metadata.height_m),
             value=value,
             unit=element.unit,
             interval=element.interval,
             accumulation=element.accumulation,
             flag=flag,
             quality=_quality(values["QUALITY"]),
+            measurement_height_m=metadata.height_m,
+            source_checksum=source_checksum,
         )
+
+
+def _variable(element_name: str, variable: str, height_m: float) -> str:
+    if element_name in {"D", "F"} and height_m == 10.0:
+        return f"{variable}_10m"
+    if element_name in {"T", "Td"} and height_m == 2.0:
+        return f"{variable}_2m"
+    return variable
 
 
 def _optional_value(value: object, element: _Element) -> float | None:
@@ -236,6 +310,20 @@ def _quality(value: object) -> int | None:
     if quality < 0:
         raise ValueError("ČHMÚ QUALITY must be non-negative")
     return quality
+
+
+def cumulative_precipitation_intervals(
+    values: Iterator[tuple[datetime, float | None]] | tuple[tuple[datetime, float | None], ...],
+) -> Iterator[tuple[datetime, float | None]]:
+    previous: float | None = None
+    for valid_time, value in values:
+        if valid_time.tzinfo is None or valid_time.utcoffset() != UTC.utcoffset(valid_time):
+            raise ValueError("cumulative precipitation time must be UTC")
+        if value is not None and (not isfinite(value) or value < 0):
+            raise ValueError("cumulative precipitation must be finite and non-negative")
+        interval = value - previous if value is not None and previous is not None else None
+        yield valid_time, interval if interval is not None and interval >= 0 else None
+        previous = value
 
 
 def build_source_manifest(

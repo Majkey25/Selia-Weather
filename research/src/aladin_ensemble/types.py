@@ -65,6 +65,8 @@ class Observation:
     accumulation: Literal["instant", "interval", "cumulative"] = "instant"
     flag: str | None = None
     quality: int | None = None
+    measurement_height_m: float | None = None
+    source_checksum: str | None = None
 
     def __post_init__(self) -> None:
         _require_utc(self.valid_time, "valid_time")
@@ -82,6 +84,50 @@ class Observation:
             isinstance(self.quality, bool) or not isinstance(self.quality, int) or self.quality < 0
         ):
             raise ValueError("quality must be a non-negative integer")
+        if self.measurement_height_m is not None:
+            _require_finite(self.measurement_height_m, "measurement_height_m")
+            if self.measurement_height_m < 0:
+                raise ValueError("measurement_height_m must be non-negative")
+        _require_checksum(self.source_checksum, "source_checksum")
+
+
+@dataclass(frozen=True, slots=True)
+class SpatialObservation:
+    source: str
+    source_checksum: str
+    valid_start: datetime
+    valid_end: datetime
+    variable: str
+    value: float | None
+    unit: str
+    projection: str
+    geographic_bounds: tuple[float, float, float, float]
+    row: int
+    column: int
+    xscale_m: float
+    yscale_m: float
+    flag: str | None = None
+
+    def __post_init__(self) -> None:
+        _require_checksum(self.source_checksum, "source_checksum")
+        _require_utc(self.valid_start, "valid_start")
+        _require_utc(self.valid_end, "valid_end")
+        if self.valid_end <= self.valid_start:
+            raise ValueError("valid_end must follow valid_start")
+        _require_value(self.value)
+        if not self.projection:
+            raise ValueError("projection is required")
+        west, south, east, north = self.geographic_bounds
+        if not (-180 <= west < east <= 180 and -90 <= south < north <= 90):
+            raise ValueError("geographic_bounds are invalid")
+        if self.row < 0 or self.column < 0:
+            raise ValueError("grid indices must be non-negative")
+        _require_finite(self.xscale_m, "xscale_m")
+        _require_finite(self.yscale_m, "yscale_m")
+        if self.xscale_m <= 0 or self.yscale_m <= 0:
+            raise ValueError("grid scales must be positive")
+        if self.flag is not None and not self.flag:
+            raise ValueError("flag cannot be empty")
 
 
 @dataclass(frozen=True, slots=True)
@@ -123,13 +169,16 @@ class SourceManifest:
             _require_utc(self.run_time, "run_time")
         if self.source_url is not None and not self.source_url:
             raise ValueError("source_url cannot be empty")
-        if self.checksum_sha256 is not None and (
-            len(self.checksum_sha256) != 64
-            or any(character not in "0123456789abcdef" for character in self.checksum_sha256)
-        ):
-            raise ValueError("checksum_sha256 must be a lowercase SHA-256 digest")
+        _require_checksum(self.checksum_sha256, "checksum_sha256")
         if self.source_timestamp is not None:
             _require_utc(self.source_timestamp, "source_timestamp")
+
+
+def _require_checksum(value: str | None, field_name: str) -> None:
+    if value is not None and (
+        len(value) != 64 or any(character not in "0123456789abcdef" for character in value)
+    ):
+        raise ValueError(f"{field_name} must be a lowercase SHA-256 digest")
 
 
 @dataclass(frozen=True, slots=True)

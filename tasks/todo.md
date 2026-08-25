@@ -36,7 +36,7 @@
 - [x] Adaptive Task 6: Add localized optional Buy Me a Coffee support.
   - Acceptance: settings opens the exact published HTTPS URL and grants no feature.
   - Verify: English, Czech, external routing, and missing-handler paths pass.
-- [ ] Task 7: Publish English-first docs and five localized Play listings.
+- [x] Task 7: Publish English-first docs and five localized Play listings.
   - Acceptance: product identity, package, and `Majkey25/ALADIN-weather` links are consistent across repo, Pages, and Play metadata.
   - Verify: Play text limits and Pages HTTP 200 check pass.
 - [ ] Task 8: Verify and publish beta.2, prepare Play Console, and reclaim QA storage.

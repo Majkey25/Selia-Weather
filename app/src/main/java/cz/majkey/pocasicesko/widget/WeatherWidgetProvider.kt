@@ -28,6 +28,11 @@ import java.time.format.FormatStyle
 import kotlin.math.roundToInt
 
 class WeatherWidgetProvider : AppWidgetProvider() {
+    override fun onReceive(context: Context, intent: Intent) {
+        super.onReceive(context, intent)
+        if (isWidgetLocaleChange(intent.action)) updateAll(context)
+    }
+
     override fun onUpdate(context: Context, manager: AppWidgetManager, appWidgetIds: IntArray) {
         appWidgetIds.forEach { update(context, manager, it) }
         if (appWidgetIds.isEmpty()) return
@@ -455,6 +460,9 @@ class WeatherWidgetProvider : AppWidgetProvider() {
 internal fun widgetConditionKey(value: String?): WeatherConditionKey = runCatching {
     WeatherConditionKey.valueOf(value.orEmpty())
 }.getOrDefault(WeatherConditionKey.UNKNOWN)
+
+internal fun isWidgetLocaleChange(action: String?): Boolean = action == Intent.ACTION_APPLICATION_LOCALE_CHANGED ||
+    action == Intent.ACTION_LOCALE_CHANGED
 
 internal fun Context.widgetConditionLabel(conditionKey: String?, kind: WeatherKind): String = conditionKey
     ?.let { getString(WeatherCondition(widgetConditionKey(it), kind).labelResource()) }

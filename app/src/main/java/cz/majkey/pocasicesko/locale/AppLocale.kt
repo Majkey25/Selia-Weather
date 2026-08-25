@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.res.Configuration
 import android.os.Build
 import android.os.LocaleList
+import cz.majkey.pocasicesko.widget.WeatherWidgetProvider
 import java.util.Locale
 
 enum class SupportedLanguage(val tag: String) {
@@ -56,6 +57,7 @@ object AppLocale {
                 .edit()
                 .putString(LANGUAGE_TAG, languageTag)
                 .apply()
+            WeatherWidgetProvider.updateAll(activity)
             activity.recreate()
         }
     }

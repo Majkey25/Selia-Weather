@@ -20,14 +20,12 @@ import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.locale.AppLocale
 import cz.majkey.pocasicesko.ui.WeatherTheme
 import java.lang.ref.WeakReference
-import java.util.concurrent.atomic.AtomicBoolean
 
 class WidgetConfigActivity : ComponentActivity() {
     private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
     private var selectedImageUri by mutableStateOf<String?>(null)
     private var initialImageUri = ""
-    private var applying = false
-    private val applyActive = AtomicBoolean()
+    private val applyState = WidgetApplyState()
     private val applyingBackCallback = object : OnBackPressedCallback(false) {
         override fun handleOnBackPressed() = Unit
     }
@@ -73,9 +71,7 @@ class WidgetConfigActivity : ComponentActivity() {
                     onRemoveImage = {
                         selectedImageUri = null
                     },
-                    onApply = { settings ->
-                        if (!applying) applySettings(settings)
-                    },
+                    onApply = ::applySettings,
                 )
             }
         }
@@ -89,13 +85,12 @@ class WidgetConfigActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        if (applying) applyActive.set(false)
+        applyState.cancel()
         super.onDestroy()
     }
 
     private fun applySettings(settings: WidgetSettings) {
-        applying = true
-        applyActive.set(true)
+        if (!applyState.start()) return
         applyingBackCallback.isEnabled = true
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LOCKED
         val normalized = settings.normalized()
@@ -105,20 +100,22 @@ class WidgetConfigActivity : ComponentActivity() {
             appWidgetId,
             normalized,
             requiresWidgetImageGrant(initialImageUri, normalized.imageUri),
-            applyActive::get,
+            applyState::isActive,
         ) { saved ->
-            activity.get()?.runOnUiThread {
-                activity.get()?.finishApply(saved)
+            val target = activity.get()
+            if (target != null) {
+                target.runOnUiThread {
+                    target.finishApply(saved)
+                }
             }
         }
     }
 
     private fun finishApply(saved: Boolean) {
-        if (isDestroyed || isFinishing) return
-        applying = widgetApplyInProgress(started = true, callbackDelivered = true)
-        applyActive.set(false)
+        applyState.cancel()
         applyingBackCallback.isEnabled = false
-        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        if (!isDestroyed) requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        if (!widgetCanFinishActivity(isDestroyed, isFinishing)) return
         if (!saved) {
             Toast.makeText(this, R.string.widget_image_access_failed, Toast.LENGTH_LONG).show()
             return

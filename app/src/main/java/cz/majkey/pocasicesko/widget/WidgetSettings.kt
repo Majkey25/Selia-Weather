@@ -69,6 +69,21 @@ internal enum class WidgetWorkAdmission {
     REJECT_INCOMING,
 }
 
+internal class WidgetApplyState {
+    private val lock = Any()
+    private var active = false
+
+    fun start(): Boolean = synchronized(lock) {
+        if (active) return@synchronized false
+        active = true
+        true
+    }
+
+    fun cancel() = synchronized(lock) { active = false }
+
+    fun isActive(): Boolean = synchronized(lock) { active }
+}
+
 internal data class WidgetBitmapSize(val width: Int, val height: Int)
 internal data class WidgetAlignmentSpacers(val showLeft: Boolean, val showRight: Boolean)
 internal data class WidgetContentVisibility(
@@ -196,6 +211,13 @@ internal fun widgetApplySucceeded(commitSucceeded: Boolean, renderSucceeded: Boo
 
 internal fun widgetApplyInProgress(started: Boolean, callbackDelivered: Boolean): Boolean =
     started && !callbackDelivered
+
+internal fun widgetApplyCanCommit(active: Boolean, widgetExists: Boolean): Boolean = active && widgetExists
+
+internal fun widgetCanFinishActivity(destroyed: Boolean, finishing: Boolean): Boolean = !destroyed && !finishing
+
+internal fun widgetDeleteIds(current: IntArray, incoming: IntArray): IntArray =
+    (current.asList() + incoming.asList()).distinct().toIntArray()
 
 internal fun widgetImageUris(values: Map<String, *>): Set<String> = values
     .filterKeys { it.endsWith("_image_uri") }

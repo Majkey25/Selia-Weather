@@ -232,8 +232,12 @@ class WidgetSettingsTest {
 
     @Test
     fun keepsApplyActiveUntilItsWorkerCallbackCompletes() {
-        assertTrue(widgetApplyInProgress(started = true, callbackDelivered = false))
-        assertFalse(widgetApplyInProgress(started = true, callbackDelivered = true))
+        val state = WidgetApplyState()
+
+        assertTrue(state.start())
+        assertTrue(state.isActive())
+        state.cancel()
+        assertFalse(state.isActive())
     }
 
     @Test
@@ -252,5 +256,20 @@ class WidgetSettingsTest {
 
         assertEquals(setOf(first, shared), referenced)
         assertEquals(setOf(orphan), widgetOrphanImageUris(setOf(first, shared, orphan), referenced))
+    }
+
+    @Test
+    fun mergesDuplicateDeleteIdsAndRejectsApplyForAnInactiveWidget() {
+        assertEquals(intArrayOf(3, 7, 9).toList(), widgetDeleteIds(intArrayOf(3, 7), intArrayOf(7, 9)).toList())
+        assertTrue(widgetApplyCanCommit(active = true, widgetExists = true))
+        assertFalse(widgetApplyCanCommit(active = false, widgetExists = true))
+        assertFalse(widgetApplyCanCommit(active = true, widgetExists = false))
+    }
+
+    @Test
+    fun clearsUiApplyStateBeforeIgnoringAWeakDestroyedTarget() {
+        assertFalse(widgetCanFinishActivity(destroyed = true, finishing = false))
+        assertFalse(widgetCanFinishActivity(destroyed = false, finishing = true))
+        assertTrue(widgetCanFinishActivity(destroyed = false, finishing = false))
     }
 }

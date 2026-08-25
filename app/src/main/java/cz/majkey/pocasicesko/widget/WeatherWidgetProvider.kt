@@ -61,31 +61,10 @@ class WeatherWidgetProvider : AppWidgetProvider() {
     }
 
     override fun onDeleted(context: Context, appWidgetIds: IntArray) {
-        runDeletionWork(context, appWidgetIds)
-    }
-
-    private fun runDeletionWork(context: Context, appWidgetIds: IntArray) {
         val pendingResult = goAsync()
         val finished = AtomicBoolean()
         val finish = { if (finished.compareAndSet(false, true)) pendingResult.finish() }
-        try {
-            Thread(
-                {
-                    try {
-                        appWidgetIds.forEach { appWidgetId ->
-                            runCatching { deleteSettings(context.applicationContext, appWidgetId) }
-                                .onFailure { Log.w("ALADINWidget", "Widget $appWidgetId cleanup failed", it) }
-                        }
-                        reconcilePersistedImageGrants(context.applicationContext)
-                    } finally {
-                        finish()
-                    }
-                },
-                "pocasi-widget-delete",
-            ).start()
-        } catch (_: RuntimeException) {
-            finish()
-        }
+        if (!submitDeleteWork(context.applicationContext, appWidgetIds, finish)) finish()
     }
 
     private fun runBroadcastWork(work: () -> Unit) {
@@ -162,7 +141,7 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             work = {
                 var grantTaken = false
                 val committed = runCatching {
-                    check(canCommit())
+                    check(widgetApplyCanCommit(canCommit(), widgetExists(context, appWidgetId)))
                     if (needsImageGrant) {
                         context.contentResolver.takePersistableUriPermission(
                             Uri.parse(settings.imageUri),
@@ -170,7 +149,7 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                         )
                         grantTaken = true
                     }
-                    check(canCommit())
+                    check(widgetApplyCanCommit(canCommit(), widgetExists(context, appWidgetId)))
                     saveSettings(context, appWidgetId, settings)
                 }.getOrDefault(false)
                 if (!committed && grantTaken) releaseImageIfUnused(context, settings.imageUri)
@@ -535,6 +514,11 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             orphaned.forEach { releaseImageIfUnused(context, it) }
         }
 
+        private fun widgetExists(context: Context, appWidgetId: Int): Boolean =
+            AppWidgetManager.getInstance(context)
+                .getAppWidgetIds(ComponentName(context, WeatherWidgetProvider::class.java))
+                .contains(appWidgetId)
+
         private fun applyTextStyle(
             views: RemoteViews,
             textScale: Int,
@@ -571,25 +555,28 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                     widgetWorker.execute(task)
                     true
                 } catch (_: RejectedExecutionException) {
-                    val pending = widgetWorker.queue.peek() as? WidgetWork
-                    when (widgetWorkAdmission(pending?.kind, kind)) {
-                        WidgetWorkAdmission.REPLACE_PENDING -> {
-                            (widgetWorker.queue.poll() as? WidgetWork)?.discard()
-                            runCatching { widgetWorker.execute(task) }
-                                .onFailure { task.discard() }
-                                .isSuccess
+                    val queued = widgetWorker.queue.filterIsInstance<WidgetWork>()
+                    when (kind) {
+                        WidgetWorkKind.UPDATE -> {
+                            queued.filter { it.kind == WidgetWorkKind.UPDATE }.forEach {
+                                widgetWorker.queue.remove(it)
+                                it.discard()
+                            }
+                            submitAfterAdmission(task)
                         }
-                        WidgetWorkAdmission.DROP_INCOMING,
-                        WidgetWorkAdmission.REJECT_INCOMING,
-                        -> {
-                            task.discard()
-                            false
+                        WidgetWorkKind.APPLY -> {
+                            if (queued.any { it.kind == WidgetWorkKind.APPLY }) {
+                                task.discard()
+                                false
+                            } else {
+                                queued.filter { it.kind == WidgetWorkKind.UPDATE }.forEach {
+                                    widgetWorker.queue.remove(it)
+                                    it.discard()
+                                }
+                                submitAfterAdmission(task)
+                            }
                         }
-                        WidgetWorkAdmission.ENQUEUE -> {
-                            runCatching { widgetWorker.execute(task) }
-                                .onFailure { task.discard() }
-                                .isSuccess
-                        }
+                        WidgetWorkKind.DELETE -> error("Delete work has dedicated admission")
                     }
                 } catch (error: RuntimeException) {
                     Log.w("ALADINWidget", "Widget worker did not start", error)
@@ -598,26 +585,105 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                 }
             }
 
+        private fun submitDeleteWork(
+            context: Context,
+            appWidgetIds: IntArray,
+            onComplete: () -> Unit,
+        ): Boolean = synchronized(widgetWorkLock) {
+            val queued = widgetWorker.queue.filterIsInstance<WidgetWork>()
+            val existing = (activeDelete ?: queued.filterIsInstance<DeleteWork>().firstOrNull())
+            if (existing?.merge(appWidgetIds, onComplete) == true) return true
+            queued.filter { it.kind == WidgetWorkKind.UPDATE }.forEach {
+                widgetWorker.queue.remove(it)
+                it.discard()
+            }
+            submitAfterAdmission(DeleteWork(context, appWidgetIds, onComplete))
+        }
+
+        private fun submitAfterAdmission(task: WidgetWork): Boolean = runCatching {
+            widgetWorker.execute(task)
+        }.onFailure {
+            task.discard()
+        }.isSuccess
+
         private val widgetRenderLock = Any()
         private val widgetWorkLock = Any()
+        private var activeDelete: DeleteWork? = null
         private val widgetWorker = ThreadPoolExecutor(
             1,
             1,
             0L,
             TimeUnit.MILLISECONDS,
-            ArrayBlockingQueue<Runnable>(1),
+            ArrayBlockingQueue<Runnable>(3),
             { runnable -> Thread(runnable, "pocasi-widget-worker") },
             ThreadPoolExecutor.AbortPolicy(),
         )
 
-        private class WidgetWork(
+        private open class WidgetWork(
             val kind: WidgetWorkKind,
             private val work: () -> Unit,
             private val onDiscard: () -> Unit,
         ) : Runnable {
             override fun run() = work()
 
-            fun discard() = onDiscard()
+            open fun discard() = onDiscard()
+        }
+
+        private class DeleteWork(
+            private val context: Context,
+            appWidgetIds: IntArray,
+            onComplete: () -> Unit,
+        ) : WidgetWork(WidgetWorkKind.DELETE, {}, onComplete) {
+            private val lock = Any()
+            private var appWidgetIds = appWidgetIds
+            private val completions = mutableListOf(onComplete)
+            private var complete = false
+
+            fun merge(ids: IntArray, onComplete: () -> Unit): Boolean = synchronized(lock) {
+                if (complete) false else {
+                    appWidgetIds = widgetDeleteIds(appWidgetIds, ids)
+                    completions += onComplete
+                    true
+                }
+            }
+
+            override fun run() {
+                synchronized(widgetWorkLock) { activeDelete = this }
+                try {
+                    while (true) {
+                        val ids = synchronized(lock) {
+                            appWidgetIds.also { appWidgetIds = intArrayOf() }
+                        }
+                        ids.forEach { appWidgetId ->
+                            runCatching { deleteSettings(context, appWidgetId) }
+                                .onFailure { Log.w("ALADINWidget", "Widget $appWidgetId cleanup failed", it) }
+                        }
+                        val callbacks = synchronized(lock) {
+                            if (appWidgetIds.isNotEmpty()) null else {
+                                complete = true
+                                completions.toList().also { completions.clear() }
+                            }
+                        }
+                        if (callbacks != null) {
+                            reconcilePersistedImageGrants(context)
+                            callbacks.forEach { it() }
+                            return
+                        }
+                    }
+                } finally {
+                    synchronized(widgetWorkLock) {
+                        if (activeDelete === this) activeDelete = null
+                    }
+                }
+            }
+
+            override fun discard() {
+                val callbacks = synchronized(lock) {
+                    complete = true
+                    completions.toList().also { completions.clear() }
+                }
+                callbacks.forEach { it() }
+            }
         }
     }
 }

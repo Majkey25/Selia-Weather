@@ -16,7 +16,7 @@ Approximate and precise location permissions are optional. After you select **Us
 
 ## Network communication
 
-- Open-Meteo receives place search terms and selected coordinates. It provides geocoding and forecasts. The developer does not retain this data off-device. [Open-Meteo states](https://open-meteo.com/en/terms) that free API server logs may contain coordinates and are deleted after 90 days.
+- Open-Meteo receives place search terms and forecast coordinates for every forecast request. This includes default Prague, a searched place, a favourite, and current location. Current location remains optional and starts only after you select **Use my location**. Open-Meteo provides geocoding and forecasts. The developer does not retain this data off-device. [Open-Meteo states](https://open-meteo.com/en/terms) that free API server logs may contain coordinates and are deleted after 90 days.
 - ČHMÚ provides radar, nowcast, lightning, and satellite images. Its servers process normal HTTPS technical data such as your IP address and request data.
 - Buy Me a Coffee receives data only if you choose the optional support action. The app opens the external HTTPS page `https://www.buymeacoffee.com/majkey` through Android.
 

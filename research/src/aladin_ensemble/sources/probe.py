@@ -5,8 +5,10 @@ import json
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from functools import partial
 from math import isfinite
 from pathlib import Path
+from time import sleep
 from typing import cast
 from urllib.error import HTTPError
 from urllib.parse import urlencode
@@ -89,6 +91,7 @@ CZECH_SAMPLE_POINTS = (
 )
 
 FetchJson = Callable[[str], JsonValue]
+Sleeper = Callable[[float], None]
 
 
 def _json_value(value: object) -> JsonValue:
@@ -117,6 +120,28 @@ def _fetch_json(url: str) -> JsonValue:
         raise DefinitiveProbeError(f"HTTP {error.code}") from error
     except (OSError, TimeoutError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
         raise OperationalProbeError(f"request failed: {error}") from error
+
+
+def retrying_fetch_json(
+    url: str,
+    *,
+    fetch_json: FetchJson = _fetch_json,
+    attempts: int = 2,
+    retry_delay_seconds: float = 1.0,
+    sleeper: Sleeper = sleep,
+) -> JsonValue:
+    if attempts <= 0:
+        raise ValueError("attempts must be positive")
+    if not isfinite(retry_delay_seconds) or retry_delay_seconds < 0:
+        raise ValueError("retry_delay_seconds must be finite and non-negative")
+    for attempt in range(attempts):
+        try:
+            return fetch_json(url)
+        except OperationalProbeError:
+            if attempt + 1 == attempts:
+                raise
+            sleeper(retry_delay_seconds * 2**attempt)
+    raise AssertionError("unreachable retry loop")
 
 
 def _url(
@@ -318,11 +343,15 @@ def probe_registry(
     points: Sequence[SamplePoint] = CZECH_SAMPLE_POINTS,
     fetch_json: FetchJson = _fetch_json,
     now: datetime | None = None,
+    pause_seconds: float = 0.0,
+    sleeper: Sleeper = sleep,
 ) -> ProbeResult:
+    if not isfinite(pause_seconds) or pause_seconds < 0:
+        raise ValueError("pause_seconds must be finite and non-negative")
     registry = ModelRegistry()
     excluded: list[tuple[str, str]] = []
     operational_failures: list[tuple[str, str]] = []
-    for seed in seeds:
+    for index, seed in enumerate(seeds):
         try:
             candidate = probe_candidate(seed, points=points, fetch_json=fetch_json, now=now)
             registry.add(candidate)
@@ -334,6 +363,8 @@ def probe_registry(
             operational_failures.append((seed.model_id, str(error)))
         except ValueError as error:
             excluded.append((seed.model_id, str(error)))
+        if pause_seconds > 0 and index < len(seeds) - 1:
+            sleeper(pause_seconds)
     return ProbeResult(registry, tuple(excluded), tuple(operational_failures))
 
 
@@ -361,6 +392,9 @@ def main() -> int:
     parser.add_argument("--runs", type=int, default=1)
     parser.add_argument("--dates", type=int, default=1)
     parser.add_argument("--provider-limit", type=int, default=FREE_DAILY_LIMIT)
+    parser.add_argument("--pause-seconds", type=float, default=0.5)
+    parser.add_argument("--probe-attempts", type=int, default=2)
+    parser.add_argument("--retry-delay-seconds", type=float, default=1.0)
     args = parser.parse_args()
     budget = estimate_http_request_budget(
         candidate_count=len(OFFICIAL_MODEL_SEEDS),
@@ -369,10 +403,20 @@ def main() -> int:
         variable_count=len(REQUIRED_VARIABLES),
         date_count=args.dates,
         provider_limit=args.provider_limit,
+        probe_attempts=args.probe_attempts,
     )
     print(budget.summary())
     budget.require_within_limit()
-    result = probe_registry()
+    fetch_json = partial(
+        retrying_fetch_json,
+        fetch_json=_fetch_json,
+        attempts=args.probe_attempts,
+        retry_delay_seconds=args.retry_delay_seconds,
+    )
+    result = probe_registry(
+        fetch_json=fetch_json,
+        pause_seconds=args.pause_seconds,
+    )
     write_probe_registry(args.output, result)
     print(f"eligible: {len(result.registry.model_ids)}")
     print(f"excluded: {len(result.excluded)}")

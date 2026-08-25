@@ -16,12 +16,14 @@ from aladin_ensemble.registry import (
 )
 from aladin_ensemble.sources import probe as probe_module
 from aladin_ensemble.sources.probe import (
+    DefinitiveProbeError,
     ModelSeed,
     OperationalProbeError,
     ProbeResult,
     SamplePoint,
     probe_candidate,
     probe_registry,
+    retrying_fetch_json,
     write_probe_registry,
 )
 from aladin_ensemble.types import (
@@ -166,6 +168,16 @@ def test_request_budget_counts_probe_and_download_calls() -> None:
     )
     assert budget.expected_http_requests == 16
     budget.require_within_limit()
+    retried = estimate_http_request_budget(
+        candidate_count=2,
+        location_count=7,
+        run_count=3,
+        variable_count=3,
+        date_count=2,
+        provider_limit=100,
+        probe_attempts=2,
+    )
+    assert retried.expected_http_requests == 20
 
 
 def test_probe_rejects_invalid_hourly_data() -> None:
@@ -190,6 +202,64 @@ def test_probe_excludes_unavailable_source() -> None:
     assert result.excluded == ()
     assert result.operational_failures == (("dwd_icon_eu", "connection reset"),)
     assert not result.complete
+
+
+def test_probe_registry_paces_candidates_without_sleeping_after_last() -> None:
+    seeds = (
+        ModelSeed("model_a", "Model A", "Provider", "https://example.com/a"),
+        ModelSeed("model_b", "Model B", "Provider", "https://example.com/b"),
+    )
+    sleeps: list[float] = []
+
+    result = probe_registry(
+        seeds=seeds,
+        points=(SamplePoint("test", 50.0, 14.0),),
+        fetch_json=lambda _: hourly_payload(),
+        pause_seconds=0.5,
+        sleeper=sleeps.append,
+    )
+
+    assert result.complete
+    assert result.registry.model_ids == ("model_a", "model_b")
+    assert sleeps == [0.5]
+
+
+def test_retrying_fetch_retries_only_operational_failures() -> None:
+    calls = 0
+    sleeps: list[float] = []
+
+    def transient(_: str) -> JsonValue:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise OperationalProbeError("connection reset")
+        return {"ok": True}
+
+    assert retrying_fetch_json(
+        "https://example.com",
+        fetch_json=transient,
+        attempts=2,
+        retry_delay_seconds=1.0,
+        sleeper=sleeps.append,
+    ) == {"ok": True}
+    assert calls == 2
+    assert sleeps == [1.0]
+
+    definitive_calls = 0
+
+    def definitive(_: str) -> JsonValue:
+        nonlocal definitive_calls
+        definitive_calls += 1
+        raise DefinitiveProbeError("HTTP 400")
+
+    with pytest.raises(DefinitiveProbeError, match="400"):
+        retrying_fetch_json(
+            "https://example.com",
+            fetch_json=definitive,
+            attempts=2,
+            sleeper=sleeps.append,
+        )
+    assert definitive_calls == 1
 
 
 def test_probe_marks_empty_archive_response_incomplete() -> None:
@@ -245,7 +315,7 @@ def test_main_writes_incomplete_registry_and_fails_on_operational_error(
     monkeypatch.setattr(
         probe_module,
         "probe_registry",
-        lambda: ProbeResult(ModelRegistry(), (), (("dwd_icon_eu", "HTTP 503"),)),
+        lambda **_: ProbeResult(ModelRegistry(), (), (("dwd_icon_eu", "HTTP 503"),)),
     )
     monkeypatch.setattr("sys.argv", ["probe", "--output", str(output)])
     assert probe_module.main() == 1
@@ -253,7 +323,7 @@ def test_main_writes_incomplete_registry_and_fails_on_operational_error(
     summary = capsys.readouterr().out
     assert "locations: 7" in summary
     assert "variables: 3" in summary
-    assert "expected HTTP requests: 51" in summary
+    assert "expected HTTP requests: 85" in summary
 
 
 def test_http_request_budget_rejects_free_limit_boundary() -> None:

@@ -61,8 +61,16 @@ def estimate_http_request_budget(
     variable_count: int,
     date_count: int,
     provider_limit: int,
+    probe_attempts: int = 1,
 ) -> RequestBudget:
-    if min(candidate_count, location_count, run_count, variable_count, date_count) < 1:
+    if min(
+        candidate_count,
+        location_count,
+        run_count,
+        variable_count,
+        date_count,
+        probe_attempts,
+    ) < 1:
         raise ValueError("request budget counts must be positive")
     return RequestBudget(
         candidate_count=candidate_count,
@@ -70,7 +78,7 @@ def estimate_http_request_budget(
         run_count=run_count,
         variable_count=variable_count,
         date_count=date_count,
-        expected_http_requests=candidate_count * (2 + date_count * run_count),
+        expected_http_requests=candidate_count * (2 * probe_attempts + date_count * run_count),
         provider_limit=provider_limit,
     )
 

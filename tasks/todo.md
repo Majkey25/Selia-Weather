@@ -46,7 +46,7 @@
 
 ## Czech calibrated ensemble
 
-- [ ] Research Task 1: Create locked Python package and verified model registry.
+- [x] Research Task 1: Create locked Python package and verified model registry.
 - [ ] Research Task 2: Ingest independent ČHMÚ station and radar truth.
 - [ ] Research Task 3: Download and align issued forecast runs without leakage.
 - [ ] Research Task 4: Implement metrics and locked baselines.

@@ -59,6 +59,7 @@ enum class WidgetSize {
 internal enum class WidgetWorkKind {
     UPDATE,
     APPLY,
+    DELETE,
 }
 
 internal enum class WidgetWorkAdmission {
@@ -191,10 +192,26 @@ internal fun widgetImageUriReferenced(values: Map<String, *>, uri: String): Bool
 internal fun requiresWidgetImageGrant(initialUri: String, imageUri: String): Boolean =
     imageUri.isNotBlank() && imageUri != initialUri
 
+internal fun widgetApplySucceeded(commitSucceeded: Boolean, renderSucceeded: Boolean): Boolean = commitSucceeded
+
+internal fun widgetApplyInProgress(started: Boolean, callbackDelivered: Boolean): Boolean =
+    started && !callbackDelivered
+
+internal fun widgetImageUris(values: Map<String, *>): Set<String> = values
+    .filterKeys { it.endsWith("_image_uri") }
+    .values
+    .filterIsInstance<String>()
+    .filter(String::isNotBlank)
+    .toSet()
+
+internal fun widgetOrphanImageUris(persisted: Set<String>, referenced: Set<String>): Set<String> =
+    persisted - referenced
+
 internal fun widgetWorkAdmission(
     pending: WidgetWorkKind?,
     incoming: WidgetWorkKind,
 ): WidgetWorkAdmission = when {
+    incoming == WidgetWorkKind.DELETE -> WidgetWorkAdmission.ENQUEUE
     pending == null -> WidgetWorkAdmission.ENQUEUE
     pending == WidgetWorkKind.UPDATE -> WidgetWorkAdmission.REPLACE_PENDING
     incoming == WidgetWorkKind.UPDATE -> WidgetWorkAdmission.DROP_INCOMING

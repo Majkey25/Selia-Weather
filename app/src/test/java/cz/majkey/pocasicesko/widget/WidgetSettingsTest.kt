@@ -203,6 +203,10 @@ class WidgetSettingsTest {
             WidgetWorkAdmission.REJECT_INCOMING,
             widgetWorkAdmission(WidgetWorkKind.APPLY, WidgetWorkKind.APPLY),
         )
+        assertEquals(
+            WidgetWorkAdmission.ENQUEUE,
+            widgetWorkAdmission(WidgetWorkKind.APPLY, WidgetWorkKind.DELETE),
+        )
     }
 
     @Test
@@ -218,5 +222,35 @@ class WidgetSettingsTest {
                 original,
             ),
         )
+    }
+
+    @Test
+    fun treatsDurableCommitAsApplySuccessEvenWhenRenderFallsBack() {
+        assertTrue(widgetApplySucceeded(commitSucceeded = true, renderSucceeded = false))
+        assertFalse(widgetApplySucceeded(commitSucceeded = false, renderSucceeded = true))
+    }
+
+    @Test
+    fun keepsApplyActiveUntilItsWorkerCallbackCompletes() {
+        assertTrue(widgetApplyInProgress(started = true, callbackDelivered = false))
+        assertFalse(widgetApplyInProgress(started = true, callbackDelivered = true))
+    }
+
+    @Test
+    fun reconcilesOnlyUnreferencedPersistedImageUris() {
+        val first = "content://example/first"
+        val shared = "content://example/shared"
+        val orphan = "content://example/orphan"
+        val referenced = widgetImageUris(
+            mapOf(
+                "widget_settings_1_image_uri" to first,
+                "widget_settings_2_image_uri" to shared,
+                "widget_settings_3_image_uri" to shared,
+                "widget_settings_3_label" to orphan,
+            ),
+        )
+
+        assertEquals(setOf(first, shared), referenced)
+        assertEquals(setOf(orphan), widgetOrphanImageUris(setOf(first, shared, orphan), referenced))
     }
 }

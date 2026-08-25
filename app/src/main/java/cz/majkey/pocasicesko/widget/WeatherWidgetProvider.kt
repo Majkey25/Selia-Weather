@@ -40,6 +40,7 @@ class WeatherWidgetProvider : AppWidgetProvider() {
 
     override fun onUpdate(context: Context, manager: AppWidgetManager, appWidgetIds: IntArray) {
         runBroadcastWork {
+            reconcilePersistedImageGrants(context)
             appWidgetIds.forEach { renderWidget(context, manager, it) }
             if (appWidgetIds.isNotEmpty()) {
                 runCatching {
@@ -60,7 +61,31 @@ class WeatherWidgetProvider : AppWidgetProvider() {
     }
 
     override fun onDeleted(context: Context, appWidgetIds: IntArray) {
-        runBroadcastWork { appWidgetIds.forEach { deleteSettings(context, it) } }
+        runDeletionWork(context, appWidgetIds)
+    }
+
+    private fun runDeletionWork(context: Context, appWidgetIds: IntArray) {
+        val pendingResult = goAsync()
+        val finished = AtomicBoolean()
+        val finish = { if (finished.compareAndSet(false, true)) pendingResult.finish() }
+        try {
+            Thread(
+                {
+                    try {
+                        appWidgetIds.forEach { appWidgetId ->
+                            runCatching { deleteSettings(context.applicationContext, appWidgetId) }
+                                .onFailure { Log.w("ALADINWidget", "Widget $appWidgetId cleanup failed", it) }
+                        }
+                        reconcilePersistedImageGrants(context.applicationContext)
+                    } finally {
+                        finish()
+                    }
+                },
+                "pocasi-widget-delete",
+            ).start()
+        } catch (_: RuntimeException) {
+            finish()
+        }
     }
 
     private fun runBroadcastWork(work: () -> Unit) {
@@ -119,39 +144,47 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             submitWidgetWork(WidgetWorkKind.UPDATE, work = { updateAllNow(context.applicationContext) })
         }
 
+        fun reconcileImageGrants(context: Context) {
+            submitWidgetWork(WidgetWorkKind.UPDATE, work = {
+                reconcilePersistedImageGrants(context.applicationContext)
+            })
+        }
+
         fun applySettings(
             context: Context,
             appWidgetId: Int,
             settings: WidgetSettings,
             needsImageGrant: Boolean,
+            canCommit: () -> Boolean,
             onComplete: (Boolean) -> Unit,
         ): Boolean = submitWidgetWork(
             kind = WidgetWorkKind.APPLY,
             work = {
-                val rendered = runCatching {
+                var grantTaken = false
+                val committed = runCatching {
+                    check(canCommit())
                     if (needsImageGrant) {
                         context.contentResolver.takePersistableUriPermission(
                             Uri.parse(settings.imageUri),
                             Intent.FLAG_GRANT_READ_URI_PERMISSION,
                         )
+                        grantTaken = true
                     }
-                    saveSettings(context, appWidgetId, settings) &&
-                        runCatching {
-                            renderWidget(
-                                context.applicationContext,
-                                AppWidgetManager.getInstance(context),
-                                appWidgetId,
-                                fallbackOnFailure = false,
-                            )
-                        }.isSuccess
+                    check(canCommit())
+                    saveSettings(context, appWidgetId, settings)
                 }.getOrDefault(false)
-                if (!rendered && needsImageGrant) releaseImageIfUnused(context, settings.imageUri)
-                onComplete(rendered)
+                if (!committed && grantTaken) releaseImageIfUnused(context, settings.imageUri)
+                val rendered = if (committed) runCatching {
+                    renderWidget(
+                        context.applicationContext,
+                        AppWidgetManager.getInstance(context),
+                        appWidgetId,
+                    )
+                    true
+                }.getOrDefault(false) else false
+                onComplete(widgetApplySucceeded(committed, rendered))
             },
-            onDiscard = {
-                if (needsImageGrant) releaseImageIfUnused(context, settings.imageUri)
-                onComplete(false)
-            },
+            onDiscard = { onComplete(false) },
         )
 
         private fun updateAllNow(context: Context, fallbackOnFailure: Boolean = true) {
@@ -491,6 +524,15 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                     Intent.FLAG_GRANT_READ_URI_PERMISSION,
                 )
             }
+        }
+
+        private fun reconcilePersistedImageGrants(context: Context) {
+            val preferences = context.getSharedPreferences(WeatherRepository.PREFERENCES_NAME, Context.MODE_PRIVATE)
+            val orphaned = widgetOrphanImageUris(
+                context.contentResolver.persistedUriPermissions.mapTo(mutableSetOf()) { it.uri.toString() },
+                widgetImageUris(preferences.all),
+            )
+            orphaned.forEach { releaseImageIfUnused(context, it) }
         }
 
         private fun applyTextStyle(

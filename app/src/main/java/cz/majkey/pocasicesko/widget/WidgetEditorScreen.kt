@@ -56,6 +56,8 @@ import cz.majkey.pocasicesko.data.WeatherKind
 import cz.majkey.pocasicesko.data.WeatherRepository
 import cz.majkey.pocasicesko.locale.AppLocale
 import cz.majkey.pocasicesko.ui.WeatherIcon
+import cz.majkey.pocasicesko.units.MeasurementUnits
+import cz.majkey.pocasicesko.units.WeatherUnitFormatter
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
@@ -199,6 +201,11 @@ internal fun WidgetEditorScreen(
                     FieldToggle(R.string.widget_field_precipitation, settings.showPrecipitation) { settings = settings.copy(showPrecipitation = it) }
                     FieldToggle(R.string.widget_field_wind, settings.showWind) { settings = settings.copy(showWind = it) }
                     FieldToggle(R.string.widget_field_humidity, settings.showHumidity) { settings = settings.copy(showHumidity = it) }
+                    FieldToggle(R.string.dew_point, settings.showDewPoint) { settings = settings.copy(showDewPoint = it) }
+                    FieldToggle(R.string.pressure, settings.showPressure) { settings = settings.copy(showPressure = it) }
+                    FieldToggle(R.string.visibility, settings.showVisibility) { settings = settings.copy(showVisibility = it) }
+                    FieldToggle(R.string.wind_gusts, settings.showWindGusts) { settings = settings.copy(showWindGusts = it) }
+                    FieldToggle(R.string.moon, settings.showMoon) { settings = settings.copy(showMoon = it) }
                     FieldToggle(R.string.widget_field_updated, settings.showUpdatedAt) { settings = settings.copy(showUpdatedAt = it) }
                 }
             }
@@ -313,6 +320,7 @@ private fun WidgetPreview(settings: WidgetSettings, size: WidgetSize) {
         size = size,
         availability = availability,
     )
+    val advancedText = widgetAdvancedText(normalized, data.advanced)
     val primary = androidx.compose.ui.graphics.Color(AndroidColor.parseColor(normalized.primaryColor))
     val secondary = androidx.compose.ui.graphics.Color(AndroidColor.parseColor(normalized.secondaryColor))
     val accent = androidx.compose.ui.graphics.Color(AndroidColor.parseColor(normalized.accentColor))
@@ -381,6 +389,9 @@ private fun WidgetPreview(settings: WidgetSettings, size: WidgetSize) {
                         if (visibility.showHumidity) Text(data.humidity, Modifier.weight(1f), color = secondary, fontSize = 10.sp * scale, textAlign = TextAlign.End)
                     }
                 }
+                if (widgetAdvancedVisible(size, advancedText)) {
+                    Text(advancedText, color = secondary, fontSize = 10.sp * scale, maxLines = 2)
+                }
                 if (visibility.showHourly) {
                     Spacer(Modifier.height(5.dp))
                     Box(Modifier.fillMaxWidth().height(1.dp).background(accent))
@@ -389,7 +400,7 @@ private fun WidgetPreview(settings: WidgetSettings, size: WidgetSize) {
                         repeat(3) { index ->
                             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(data.hourlyTimes[index], color = secondary, fontSize = 11.sp * scale)
-                                Text("${data.hourlyTemperatures[index]}°", color = primary, fontSize = 14.sp * scale, fontWeight = FontWeight.SemiBold)
+                                Text(data.hourlyTemperatures[index], color = primary, fontSize = 14.sp * scale, fontWeight = FontWeight.SemiBold)
                             }
                         }
                     }
@@ -433,6 +444,11 @@ private val WidgetSettingsSaver = listSaver<WidgetSettings, Any>(
             settings.showWind,
             settings.showHumidity,
             settings.showUpdatedAt,
+            settings.showDewPoint,
+            settings.showPressure,
+            settings.showVisibility,
+            settings.showWindGusts,
+            settings.showMoon,
         )
     },
     restore = { values ->
@@ -460,6 +476,11 @@ private val WidgetSettingsSaver = listSaver<WidgetSettings, Any>(
             showWind = values[20] as Boolean,
             showHumidity = values[21] as Boolean,
             showUpdatedAt = values[22] as Boolean,
+            showDewPoint = values.getOrNull(23) as? Boolean ?: false,
+            showPressure = values.getOrNull(24) as? Boolean ?: false,
+            showVisibility = values.getOrNull(25) as? Boolean ?: false,
+            showWindGusts = values.getOrNull(26) as? Boolean ?: false,
+            showMoon = values.getOrNull(27) as? Boolean ?: false,
         ).normalized()
     },
 )
@@ -479,11 +500,13 @@ private data class WidgetPreviewData(
     val windSpeed: Float,
     val humidity: String,
     val humidityPercent: Int,
+    val advanced: WidgetAdvancedData,
     val updatedAt: Long,
 )
 
 private fun loadPreview(context: Context): WidgetPreviewData {
     val preferences = context.getSharedPreferences(WeatherRepository.PREFERENCES_NAME, Context.MODE_PRIVATE)
+    val unitFormatter = WeatherUnitFormatter(MeasurementUnits.current(context), context.resources.configuration.locales[0])
     val temperature = preferences.getFloat(WeatherRepository.KEY_WIDGET_TEMPERATURE, Float.NaN)
     val kind = runCatching {
         WeatherKind.valueOf(preferences.getString(WeatherRepository.KEY_WIDGET_KIND, "UNKNOWN").orEmpty())
@@ -497,19 +520,24 @@ private fun loadPreview(context: Context): WidgetPreviewData {
     val humidity = preferences.getInt(WeatherRepository.KEY_WIDGET_HUMIDITY, -1)
     return WidgetPreviewData(
         city = preferences.getString(WeatherRepository.KEY_WIDGET_CITY, null) ?: context.getString(R.string.widget_placeholder_city),
-        temperature = if (temperature.isNaN()) context.getString(R.string.widget_placeholder_temperature) else "${temperature.roundToInt()}°",
+        temperature = if (temperature.isNaN()) context.getString(R.string.widget_placeholder_temperature)
+        else unitFormatter.temperature(temperature.toDouble()),
         condition = context.widgetConditionLabel(preferences.getString(WeatherRepository.KEY_WIDGET_CONDITION_KEY, null), kind),
         kind = kind,
         isDay = preferences.getBoolean(WeatherRepository.KEY_WIDGET_IS_DAY, true),
-        range = if (high.isNaN() || low.isNaN()) context.getString(R.string.widget_placeholder_range) else "${high.roundToInt()}° / ${low.roundToInt()}°",
+        range = if (high.isNaN() || low.isNaN()) context.getString(R.string.widget_placeholder_range)
+        else "${unitFormatter.temperature(high.toDouble())} / ${unitFormatter.temperature(low.toDouble())}",
         hourlyTimes = hourlyTimes,
-        hourlyTemperatures = hourlyTemperatures,
+        hourlyTemperatures = hourlyTemperatures.map { value ->
+            value.toDoubleOrNull()?.let(unitFormatter::temperature).orEmpty()
+        },
         precipitation = if (precipitation < 0) "--" else "${context.getString(R.string.precipitation)} $precipitation%",
         precipitationProbability = precipitation,
-        wind = if (wind.isNaN()) "--" else "${context.getString(R.string.wind)} ${wind.roundToInt()} km/h",
+        wind = if (wind.isNaN()) "--" else "${context.getString(R.string.wind)} ${unitFormatter.windSpeed(wind.toDouble())}",
         windSpeed = wind,
         humidity = if (humidity < 0) "--" else "${context.getString(R.string.humidity)} $humidity%",
         humidityPercent = humidity,
+        advanced = preferences.widgetAdvancedData(context, unitFormatter),
         updatedAt = preferences.getLong(WeatherRepository.KEY_WIDGET_UPDATED_AT, 0L),
     )
 }

@@ -48,8 +48,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -73,6 +75,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
 import cz.majkey.pocasicesko.data.CzechLocation
+import cz.majkey.pocasicesko.BuildConfig
 import cz.majkey.pocasicesko.data.DeviceLocationRepository
 import cz.majkey.pocasicesko.data.LocationOutsideCzechiaException
 import cz.majkey.pocasicesko.data.LocationPermissionException
@@ -82,6 +85,12 @@ import cz.majkey.pocasicesko.data.WeatherRepository
 import cz.majkey.pocasicesko.data.WeatherSnapshot
 import cz.majkey.pocasicesko.data.conditionFor
 import cz.majkey.pocasicesko.locale.AppLocale
+import cz.majkey.pocasicesko.monetization.AdsController
+import cz.majkey.pocasicesko.monetization.PremiumBillingController
+import cz.majkey.pocasicesko.monetization.shouldShowAds
+import cz.majkey.pocasicesko.units.MeasurementSystem
+import cz.majkey.pocasicesko.units.MeasurementUnits
+import cz.majkey.pocasicesko.widget.WeatherWidgetProvider
 import cz.majkey.pocasicesko.R
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
@@ -109,7 +118,12 @@ private sealed interface WeatherUiState {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WeatherApp(repository: WeatherRepository, onLanguage: (String) -> Unit) {
+fun WeatherApp(
+    repository: WeatherRepository,
+    adsController: AdsController,
+    premiumBillingController: PremiumBillingController,
+    onLanguage: (String) -> Unit,
+) {
     val context = LocalContext.current
     val deviceLocationRepository = remember { DeviceLocationRepository(context) }
     var destination by remember { mutableStateOf(Destination.WEATHER) }
@@ -117,11 +131,18 @@ fun WeatherApp(repository: WeatherRepository, onLanguage: (String) -> Unit) {
     var reloadKey by remember { mutableIntStateOf(0) }
     var showLocationSearch by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
+    var measurementSystem by remember { mutableStateOf(MeasurementUnits.current(context)) }
     var state by remember { mutableStateOf<WeatherUiState>(WeatherUiState.Loading) }
     val forecastLoadFailed = stringResource(R.string.forecast_load_failed)
     val serverError = stringResource(R.string.server_error)
     val supportUnavailable = stringResource(R.string.support_unavailable)
     var supportError by remember { mutableStateOf<String?>(null) }
+    val entitlement by premiumBillingController.entitlement.collectAsState()
+    val premiumOffers by premiumBillingController.offers.collectAsState()
+    val billingMessage by premiumBillingController.message.collectAsState()
+    val adsInitialized by adsController.adsInitialized.collectAsState()
+    val privacyOptionsRequired by adsController.privacyOptionsRequired.collectAsState()
+    val showAds = shouldShowAds(entitlement, adsInitialized, BuildConfig.MONETIZATION_CONFIGURED)
 
     LaunchedEffect(location, reloadKey) {
         val cached = withContext(Dispatchers.IO) { repository.cachedForecast(location) }
@@ -146,16 +167,26 @@ fun WeatherApp(repository: WeatherRepository, onLanguage: (String) -> Unit) {
                 containerColor = Color.Transparent,
                 contentColor = Color.White,
                 bottomBar = {
-                    FloatingNavigation(
-                        destination = destination,
-                        onDestination = { destination = it },
-                    )
+                    Column {
+                        if (destination == Destination.WEATHER && showAds) AdaptiveBanner()
+                        FloatingNavigation(
+                            destination = destination,
+                            onDestination = { selected ->
+                                if (destination == Destination.MAPS && selected == Destination.WEATHER) {
+                                    adsController.maybeShowInterstitial(entitlement) { destination = selected }
+                                } else {
+                                    destination = selected
+                                }
+                            },
+                        )
+                    }
                 },
             ) { padding ->
                 when (destination) {
                     Destination.WEATHER -> WeatherDestination(
                         state = state,
                         location = location,
+                        measurementSystem = measurementSystem,
                         padding = padding,
                         onSearch = { showLocationSearch = true },
                         onRetry = { reloadKey++ },
@@ -182,7 +213,18 @@ fun WeatherApp(repository: WeatherRepository, onLanguage: (String) -> Unit) {
             if (showSettings) {
                 SettingsSheet(
                     selectedTag = AppLocale.selectedTag(context),
+                    selectedMeasurementSystem = measurementSystem,
+                    entitlement = entitlement,
+                    premiumOffers = premiumOffers,
+                    billingMessage = billingMessage,
+                    monetizationAvailable = BuildConfig.MONETIZATION_CONFIGURED,
+                    privacyOptionsRequired = privacyOptionsRequired,
                     onLanguage = onLanguage,
+                    onMeasurementSystem = { selected ->
+                        MeasurementUnits.save(context, selected)
+                        measurementSystem = selected
+                        WeatherWidgetProvider.updateAll(context)
+                    },
                     onSupport = {
                         try {
                             context.startActivity(supportIntent())
@@ -192,6 +234,10 @@ fun WeatherApp(repository: WeatherRepository, onLanguage: (String) -> Unit) {
                         }
                     },
                     supportError = supportError,
+                    onPurchase = premiumBillingController::launch,
+                    onRestorePurchases = premiumBillingController::refresh,
+                    onPrivacyOptions = adsController::showPrivacyOptions,
+                    onClearBillingMessage = premiumBillingController::clearMessage,
                     onDismiss = { showSettings = false },
                 )
             }
@@ -203,6 +249,7 @@ fun WeatherApp(repository: WeatherRepository, onLanguage: (String) -> Unit) {
 private fun WeatherDestination(
     state: WeatherUiState,
     location: CzechLocation,
+    measurementSystem: MeasurementSystem,
     padding: PaddingValues,
     onSearch: () -> Unit,
     onRetry: () -> Unit,
@@ -222,6 +269,7 @@ private fun WeatherDestination(
             message = state.message,
             padding = padding,
             onRetry = onRetry,
+            onSettings = onSettings,
         )
 
         is WeatherUiState.Content -> ForecastScreen(
@@ -231,6 +279,7 @@ private fun WeatherDestination(
             fromCache = state.fromCache,
             refreshing = state.refreshing,
             refreshError = state.refreshError,
+            measurementSystem = measurementSystem,
             onSearch = onSearch,
             onRefresh = onRetry,
             onSettings = onSettings,
@@ -382,7 +431,12 @@ private fun weatherPalette(snapshot: WeatherSnapshot?): WeatherPalette {
 }
 
 @Composable
-private fun ErrorState(message: String, padding: PaddingValues, onRetry: () -> Unit) {
+private fun ErrorState(
+    message: String,
+    padding: PaddingValues,
+    onRetry: () -> Unit,
+    onSettings: () -> Unit,
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -397,7 +451,10 @@ private fun ErrorState(message: String, padding: PaddingValues, onRetry: () -> U
         Spacer(Modifier.height(8.dp))
         Text(message, color = Color.White.copy(alpha = 0.7f), textAlign = TextAlign.Center)
         Spacer(Modifier.height(14.dp))
-        TextButton(onClick = onRetry) { Text(stringResource(R.string.retry)) }
+        Row {
+            TextButton(onClick = onSettings) { Text(stringResource(R.string.settings)) }
+            TextButton(onClick = onRetry) { Text(stringResource(R.string.retry)) }
+        }
     }
 }
 
@@ -416,6 +473,8 @@ private fun LocationSearchSheet(
     var searching by remember { mutableStateOf(false) }
     var locating by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var pickingPoint by remember { mutableStateOf(false) }
+    var pinnedSaveError by remember { mutableStateOf<String?>(null) }
     val focusManager = LocalFocusManager.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -426,6 +485,7 @@ private fun LocationSearchSheet(
     val favoriteLimit = stringResource(R.string.favorite_limit)
     val searchFailed = stringResource(R.string.search_failed)
     val searchInCzechia = stringResource(R.string.search_in_czechia)
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     fun locationError(failure: Exception): String = when (failure) {
         is LocationPermissionException -> locationPermissionRequired
@@ -455,6 +515,17 @@ private fun LocationSearchSheet(
             error = null
         } catch (_: IllegalStateException) {
             error = "$favoriteLimit (12)"
+        }
+    }
+
+    fun savePinnedLocation(location: CzechLocation) {
+        try {
+            if (!favorites.containsLocation(location)) repository.toggleFavorite(location)
+            favorites = repository.favoriteLocations()
+            pinnedSaveError = null
+            onSelect(location)
+        } catch (_: IllegalStateException) {
+            pinnedSaveError = "$favoriteLimit (12)"
         }
     }
 
@@ -513,8 +584,19 @@ private fun LocationSearchSheet(
         onDismissRequest = onDismiss,
         containerColor = Color(0xFF101820),
         contentColor = Color.White,
+        sheetState = sheetState,
     ) {
-        Column(
+        if (pickingPoint) {
+            PinnedLocationPicker(
+                initialLocation = selectedLocation,
+                saveError = pinnedSaveError,
+                onBack = {
+                    pickingPoint = false
+                    pinnedSaveError = null
+                },
+                onSave = ::savePinnedLocation,
+            )
+        } else Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
@@ -550,6 +632,35 @@ private fun LocationSearchSheet(
                             modifier = Modifier.size(22.dp),
                             color = Color(0xFF83D6E8),
                             strokeWidth = 2.dp,
+                        )
+                    }
+                }
+            }
+
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 10.dp)
+                    .clickable {
+                        pinnedSaveError = null
+                        pickingPoint = true
+                    },
+                color = Color(0xFF1A2A34),
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.09f)),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 15.dp, vertical = 13.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Rounded.Map, contentDescription = null, tint = Color(0xFF83D6E8))
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text(stringResource(R.string.choose_point_on_map), fontWeight = FontWeight.SemiBold)
+                        Text(
+                            stringResource(R.string.pinned_location_purpose),
+                            color = Color.White.copy(alpha = 0.52f),
+                            fontSize = 12.sp,
                         )
                     }
                 }

@@ -46,12 +46,16 @@
 
 ## Czech calibrated ensemble
 
+- [x] Android exact-point task: choose/save a named WGS84 field point and disclose model-grid resolution.
+- [x] Android units task: Metric default plus Imperial display units in Settings and widgets.
 - [x] Research Task 1: Create locked Python package and verified model registry.
 - [x] Research Task 2: Ingest independent ČHMÚ station and radar truth.
-- [ ] Research Task 3: Download and align issued forecast runs without leakage.
-- [ ] Research Task 4: Implement metrics and locked baselines.
-- [ ] Research Task 5: Train constrained hierarchical blends.
-- [ ] Research Task 6: Evaluate holdout, publish report, and export Android weights.
-- [ ] Android Tasks 1-8: Validate weights, blend forecasts, add complete detail/Moon/widget fields, and document.
+- [x] Research Task 3: Download and align issued forecast runs without leakage.
+- [x] Research Task 4: Implement metrics and locked baselines.
+- [x] Research Task 5: Train constrained hierarchical blends.
+- [ ] Research Task 6: Evaluator/export contract, complete 15-model registry, and status report are ready; real 90-day training, 30-day locked holdout, and Android weights remain gated by data volume and production licence.
+- [ ] Android Tasks 1-3: Validate and consume production ensemble weights after the research/licence gate passes.
+- [x] Android Tasks 4-7: Add nullable forecast details, offline Moon data, a complete detail sheet, and optional advanced widget fields.
+- [ ] Android Task 8: Finish signed runtime, Play data-safety, listing, and attribution acceptance.
 - [ ] Tile Tasks 1-4: Generate, deploy, display, and operationally validate 1-24h forecast precipitation.
 - [ ] Release Task: Signed emulator/Huawei QA, broad review, PR, release, Play preparation, and cleanup.

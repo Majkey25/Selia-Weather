@@ -15,6 +15,10 @@
         android:theme="@style/Theme.PocasiCesko"
         android:usesCleartextTraffic="false">
 
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="${adMobAppId}" />
+
         <activity
             android:name=".widget.WidgetConfigActivity"
             android:exported="true"

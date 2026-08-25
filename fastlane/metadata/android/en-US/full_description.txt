@@ -1,8 +1,8 @@
-ALADIN weather gives you a clear weather view for Czechia. No ads, account, or API key.
+ALADIN weather gives you a clear weather view for Czechia without an account. The free version contains limited ads; either Premium option removes them.
 
-The first three days use the ALADIN CZ model. The forecast continues for up to 14 days. See current conditions, precipitation, wind, humidity, pressure, sun times, and a scrollable 20-hour outlook. Tap any day for its full hourly detail.
+The first three days use the ALADIN CZ model. The forecast continues for up to 14 days. See current conditions, precipitation, cloud layers, wind, humidity, pressure, visibility, sun and Moon details, and a scrollable 20-hour outlook. Tap any day for its full hourly detail.
 
-Search Czech places, save favourites, or use your optional current location. The last successful forecast remains available offline.
+Search Czech places, save favourites, choose an exact named point on the map, or use your optional current location. The last successful forecast remains available offline.
 
 ČHMÚ radar includes rain, satellite clouds, nowcast, and lightning. Rain and clouds are separate base layers. Turn lightning on or off independently over either layer.
 

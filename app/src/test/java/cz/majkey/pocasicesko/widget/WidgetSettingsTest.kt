@@ -53,6 +53,11 @@ class WidgetSettingsTest {
         assertFalse(settings.showPrecipitation)
         assertFalse(settings.showWind)
         assertFalse(settings.showHumidity)
+        assertFalse(settings.showDewPoint)
+        assertFalse(settings.showPressure)
+        assertFalse(settings.showVisibility)
+        assertFalse(settings.showWindGusts)
+        assertFalse(settings.showMoon)
         assertFalse(settings.showUpdatedAt)
     }
 
@@ -219,6 +224,28 @@ class WidgetSettingsTest {
         assertTrue(tall.showPrecipitation)
         assertFalse(tall.showWind)
         assertFalse(tall.showHumidity)
+    }
+
+    @Test
+    fun advancedLineUsesOnlyEnabledAvailableFieldsAndRespectsCompactSize() {
+        val settings = WidgetSettings(showDewPoint = true, showPressure = true, showMoon = true)
+        val text = widgetAdvancedText(
+            settings,
+            WidgetAdvancedData(
+                dewPoint = "Dew point 8°",
+                pressure = null,
+                visibility = "Visibility 10 km",
+                windGusts = null,
+                moon = "Moon 95%",
+            ),
+        )
+
+        assertEquals("Dew point 8° · Moon 95%", text)
+        assertFalse(widgetAdvancedVisible(WidgetSize.STANDARD, text))
+        assertTrue(widgetAdvancedVisible(WidgetSize.TALL, text))
+        assertTrue(widgetAdvancedVisible(WidgetSize.WIDE, text))
+        assertFalse(widgetAdvancedVisible(WidgetSize.COMPACT, text))
+        assertFalse(widgetAdvancedVisible(WidgetSize.TALL, ""))
     }
 
     @Test

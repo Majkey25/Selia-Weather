@@ -1,4 +1,4 @@
-ALADIN weather zeigt das Wetter für Tschechien ohne Werbung, Konto oder API-Schlüssel.
+ALADIN weather zeigt das Wetter für Tschechien ohne Konto. Die kostenlose Version enthält begrenzte Werbung; beide Premium-Optionen entfernen sie.
 
 Die ersten drei Tage basieren auf dem Modell ALADIN CZ. Die Vorhersage reicht bis zu 14 Tage. Sie sehen aktuelle Werte, Niederschlag, Wind, Luftfeuchtigkeit, Druck, Sonnenzeiten und eine scrollbare Vorschau für 20 Stunden. Tippen Sie auf einen Tag für die stündlichen Details.
 

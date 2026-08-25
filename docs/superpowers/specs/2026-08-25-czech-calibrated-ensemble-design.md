@@ -8,7 +8,7 @@ This work does not average weather codes or call a forecast image "radar." ČHM�
 
 ## Approved assumptions
 
-- `ALADIN weather` remains free, open source, without subscriptions or advertising.
+- `ALADIN weather` remains free to install and open source. The free tier may show limited consent-gated ads. A lifetime purchase or monthly Premium removes ads.
 - Buy Me a Coffee remains an optional donation with no entitlement or priority.
 - The Huawei device connected to this workspace is authorised for app installation and functional QA.
 - Model candidates can receive a zero weight. "Use all models" means evaluate every eligible model that covers Czechia, not force every output into the result.
@@ -70,14 +70,15 @@ Use full issued runs or fixed previous-run lead times. Do not evaluate a five-da
 
 ## Licence and service gate
 
-Open-Meteo Free API is limited to non-commercial use and fewer than 10,000 calls per day. The release can use it only while the project qualifies under those terms and remains within all limits.
+Open-Meteo Free API is limited to non-commercial use and fewer than 10,000 calls per day. An advertising or subscription release cannot use that free endpoint.
 
-Before a public Play rollout with the new ensemble, satisfy one of these conditions:
+Before a public monetized Play rollout, satisfy one of these conditions:
 
-1. obtain written confirmation that this free, ad-free, subscription-free app with an optional no-benefit donation qualifies as non-commercial;
-2. use a paid commercial endpoint;
-3. self-host the required Open-Meteo services;
-4. ingest commercially compatible provider open data directly.
+1. use a paid commercial endpoint whose credentials are not embedded in the Android client;
+2. self-host the required Open-Meteo services;
+3. ingest commercially compatible provider open data directly.
+
+Production ads and paid products remain disabled until this licence gate passes.
 
 The research downloader records attribution and source licence for every dataset. A missing or incompatible licence excludes the source.
 
@@ -177,6 +178,37 @@ A calibrated segment ships only when:
 If a blend does not pass, ship the best eligible single model for that variable and lead bucket.
 
 ## Runtime forecast architecture
+
+### Exact saved points
+
+Locations are first-class WGS84 coordinates, not only geocoded cities. The location flow adds
+**Choose point on map** alongside search and device location. A user can place a pin, enter a
+custom label such as a field name, preview latitude and longitude, then save and use the point.
+Existing favourites remain compatible because they already persist name, region, latitude, and
+longitude.
+
+- Reject non-finite coordinates and points outside the supported Czech map bounds.
+- Keep the current 12-location bound and coordinate-based duplicate matching.
+- Preserve the selected WGS84 coordinate in requests and cache keys.
+- Record the actual model grid point, elevation, and native resolution returned by each source.
+- Show when a provider selects a nearby land/elevation grid cell instead of the literal pin.
+- Do not claim field-scale or 100 m forecast precision from a 1–25 km model grid.
+- For precipitation, expose calibrated probability, amount, spread, and the smallest historically
+  skilful neighbourhood scale. A deterministic yes/no field-rain claim is not allowed.
+- Use observed ČHMÚ radar/MERGE and short nowcast for the nearest available 1 km evidence; keep it
+  visibly separate from later numerical-model precipitation.
+
+The picker must always allow direct coordinate entry. An interactive tile map ships only with a
+documented provider, attribution, caching, and acceptable mobile-use terms; otherwise the
+coordinate entry plus the existing ČHMÚ georeferenced map is the fail-closed path.
+
+### Measurement units
+
+Settings offers two explicit display presets. **Metric** is the default and uses °C, km/h, mm,
+hPa, and kilometres. **Imperial** uses °F, mph, inches, inHg, and miles. Raw API data, caches, research
+inputs, ensemble weights, and calculations remain in canonical metric units. Conversion happens
+only in the shared display formatter, including widgets, so changing units never changes model
+inputs or invalidates calibration.
 
 ### Model payload
 

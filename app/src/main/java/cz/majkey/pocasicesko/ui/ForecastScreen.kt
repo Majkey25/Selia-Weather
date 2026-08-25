@@ -54,7 +54,6 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -67,12 +66,13 @@ import cz.majkey.pocasicesko.data.HourlyWeather
 import cz.majkey.pocasicesko.data.WeatherKind
 import cz.majkey.pocasicesko.data.WeatherSnapshot
 import cz.majkey.pocasicesko.data.conditionFor
+import cz.majkey.pocasicesko.units.MeasurementSystem
+import cz.majkey.pocasicesko.units.WeatherUnitFormatter
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
-import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,13 +83,17 @@ fun ForecastScreen(
     fromCache: Boolean,
     refreshing: Boolean,
     refreshError: String?,
+    measurementSystem: MeasurementSystem,
     onSearch: () -> Unit,
     onRefresh: () -> Unit,
     onSettings: () -> Unit,
 ) {
     val condition = conditionFor(snapshot.current.weatherCode, snapshot.current.isDay)
     val accent = conditionAccent(condition.kind, snapshot.current.isDay)
+    val locale = LocalConfiguration.current.locales[0]
+    val units = remember(measurementSystem, locale) { WeatherUnitFormatter(measurementSystem, locale) }
     var selectedDay by remember { mutableStateOf<DailyWeather?>(null) }
+    var showDetails by remember { mutableStateOf(false) }
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -109,17 +113,21 @@ fun ForecastScreen(
             )
         }
         item {
-            WeatherHero(snapshot = snapshot, accent = accent)
+            WeatherHero(snapshot = snapshot, accent = accent, units = units)
         }
         item {
-            HourlyGraphPanel(snapshot = snapshot, accent = accent)
+            HourlyGraphPanel(snapshot = snapshot, accent = accent, units = units)
         }
         item {
-            CurrentMetrics(snapshot = snapshot, accent = accent)
+            CurrentMetrics(snapshot = snapshot, accent = accent, units = units)
+        }
+        item {
+            WeatherDetailAction { showDetails = true }
         }
         item {
             DailyForecastPanel(
                 days = snapshot.daily,
+                units = units,
                 onDayClick = { selectedDay = it },
             )
         }
@@ -136,8 +144,45 @@ fun ForecastScreen(
         DayDetailSheet(
             day = day,
             hours = hourlyForDay(snapshot.hourly, day.date),
+            units = units,
             onDismiss = { selectedDay = null },
         )
+    }
+    if (showDetails) {
+        WeatherDetailSheet(
+            snapshot = snapshot,
+            location = location,
+            units = units,
+            onDismiss = { showDetails = false },
+        )
+    }
+}
+
+@Composable
+private fun WeatherDetailAction(onClick: () -> Unit) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        color = Color(0xA61A252E),
+        shape = RoundedCornerShape(22.dp),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.09f)),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 15.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                stringResource(R.string.open_weather_details),
+                modifier = Modifier.weight(1f),
+                fontWeight = FontWeight.SemiBold,
+            )
+            Icon(
+                Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.58f),
+            )
+        }
     }
 }
 
@@ -216,7 +261,7 @@ private fun LocationHeader(
 }
 
 @Composable
-private fun WeatherHero(snapshot: WeatherSnapshot, accent: Color) {
+private fun WeatherHero(snapshot: WeatherSnapshot, accent: Color, units: WeatherUnitFormatter) {
     val condition = conditionFor(snapshot.current.weatherCode, snapshot.current.isDay)
     val conditionLabel = stringResource(condition.labelResource())
     val today = snapshot.daily.first()
@@ -232,7 +277,7 @@ private fun WeatherHero(snapshot: WeatherSnapshot, accent: Color) {
             tint = accent,
         )
         Text(
-            text = "${snapshot.current.temperature.roundToInt()}°",
+            text = units.temperature(snapshot.current.temperature),
             fontSize = 104.sp,
             lineHeight = 112.sp,
             fontWeight = FontWeight.Normal,
@@ -240,8 +285,8 @@ private fun WeatherHero(snapshot: WeatherSnapshot, accent: Color) {
         )
         Text(conditionLabel, fontSize = 22.sp, fontWeight = FontWeight.Medium)
         Text(
-            text = "${today.temperatureMin.roundToInt()}° / ${today.temperatureMax.roundToInt()}°  ·  " +
-                stringResource(R.string.feels_like_temperature, "${snapshot.current.feelsLike.roundToInt()}°"),
+            text = "${units.temperature(today.temperatureMin)} / ${units.temperature(today.temperatureMax)}  ·  " +
+                stringResource(R.string.feels_like_temperature, units.temperature(snapshot.current.feelsLike)),
             color = Color.White.copy(alpha = 0.65f),
             fontSize = 14.sp,
             modifier = Modifier.padding(top = 5.dp),
@@ -264,7 +309,7 @@ private fun WeatherHero(snapshot: WeatherSnapshot, accent: Color) {
 }
 
 @Composable
-private fun HourlyGraphPanel(snapshot: WeatherSnapshot, accent: Color) {
+private fun HourlyGraphPanel(snapshot: WeatherSnapshot, accent: Color, units: WeatherUnitFormatter) {
     val currentHour = snapshot.current.time.take(13)
     val hours = upcomingHours(snapshot.hourly, currentHour)
     val scrollState = rememberScrollState()
@@ -320,7 +365,7 @@ private fun HourlyGraphPanel(snapshot: WeatherSnapshot, accent: Color) {
                     Row {
                         hours.forEach { hour ->
                             Text(
-                                text = "${hour.temperature.roundToInt()}°",
+                                text = units.temperature(hour.temperature),
                                 modifier = Modifier.width(itemWidth),
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.SemiBold,
@@ -375,22 +420,21 @@ private fun HourlyTemperatureLine(temperatures: List<Double>, accent: Color, mod
 }
 
 @Composable
-private fun CurrentMetrics(snapshot: WeatherSnapshot, accent: Color) {
+private fun CurrentMetrics(snapshot: WeatherSnapshot, accent: Color, units: WeatherUnitFormatter) {
     val today = snapshot.daily.first()
-    val locale = Locale.current.platformLocale
     val metrics = listOf(
         Triple(
             stringResource(R.string.precipitation),
-            stringResource(R.string.precipitation_value, snapshot.current.precipitation.formatOneDecimal(locale)),
+            units.precipitation(snapshot.current.precipitation),
             stringResource(R.string.now),
         ),
         Triple(
             stringResource(R.string.wind),
-            stringResource(R.string.wind_value, snapshot.current.windSpeed.roundToInt()),
+            units.windSpeed(snapshot.current.windSpeed),
             stringResource(windDirectionResource(snapshot.current.windDirection)),
         ),
         Triple(stringResource(R.string.humidity), "${snapshot.current.humidity} %", stringResource(R.string.relative)),
-        Triple(stringResource(R.string.pressure), "${snapshot.current.pressure.roundToInt()} hPa", stringResource(R.string.sea_level)),
+        Triple(stringResource(R.string.pressure), units.pressure(snapshot.current.pressure), stringResource(R.string.sea_level)),
         Triple(stringResource(R.string.sun), "${today.sunrise.takeLast(5)}–${today.sunset.takeLast(5)}", stringResource(R.string.today)),
     )
     Column {
@@ -436,6 +480,7 @@ private fun CurrentMetrics(snapshot: WeatherSnapshot, accent: Color) {
 @Composable
 private fun DailyForecastPanel(
     days: List<DailyWeather>,
+    units: WeatherUnitFormatter,
     onDayClick: (DailyWeather) -> Unit,
 ) {
     Column {
@@ -447,6 +492,7 @@ private fun DailyForecastPanel(
                     DailyRow(
                         day = day,
                         today = index == 0,
+                        units = units,
                         onClick = { onDayClick(day) },
                     )
                     if (index != days.lastIndex) {
@@ -465,6 +511,7 @@ private fun DailyForecastPanel(
 private fun DailyRow(
     day: DailyWeather,
     today: Boolean,
+    units: WeatherUnitFormatter,
     onClick: () -> Unit,
 ) {
     val condition = conditionFor(day.weatherCode)
@@ -509,7 +556,7 @@ private fun DailyRow(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = "${day.precipitationProbability}% · ${stringResource(R.string.wind_value, day.windSpeedMax.roundToInt())}",
+                text = "${day.precipitationProbability}% · ${units.windSpeed(day.windSpeedMax)}",
                 color = Color(0xFF8EDCF0),
                 fontSize = 11.sp,
                 maxLines = 1,
@@ -518,12 +565,12 @@ private fun DailyRow(
         }
         Column(horizontalAlignment = Alignment.End) {
             Text(
-                text = "${day.temperatureMin.roundToInt()}°",
+                text = units.temperature(day.temperatureMin),
                 color = Color.White.copy(alpha = 0.5f),
                 fontSize = 14.sp,
             )
             Text(
-                text = "${day.temperatureMax.roundToInt()}°",
+                text = units.temperature(day.temperatureMax),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -541,7 +588,12 @@ private fun DailyRow(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DayDetailSheet(day: DailyWeather, hours: List<HourlyWeather>, onDismiss: () -> Unit) {
+private fun DayDetailSheet(
+    day: DailyWeather,
+    hours: List<HourlyWeather>,
+    units: WeatherUnitFormatter,
+    onDismiss: () -> Unit,
+) {
     val locale = LocalConfiguration.current.locales[0]
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
@@ -572,12 +624,9 @@ private fun DayDetailSheet(day: DailyWeather, hours: List<HourlyWeather>, onDism
                         .padding(top = 16.dp, bottom = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Text("${day.temperatureMin.roundToInt()}° / ${day.temperatureMax.roundToInt()}°", fontSize = 12.sp)
-                    Text(
-                        stringResource(R.string.precipitation_value, day.precipitationSum.formatOneDecimal(Locale.current.platformLocale)),
-                        fontSize = 12.sp,
-                    )
-                    Text(stringResource(R.string.wind_value, day.windSpeedMax.roundToInt()), fontSize = 12.sp)
+                    Text("${units.temperature(day.temperatureMin)} / ${units.temperature(day.temperatureMax)}", fontSize = 12.sp)
+                    Text(units.precipitation(day.precipitationSum), fontSize = 12.sp)
+                    Text(units.windSpeed(day.windSpeedMax), fontSize = 12.sp)
                 }
             }
             itemsIndexed(hours, key = { index, hour -> "${hour.time}-$index" }) { _, hour ->
@@ -613,7 +662,7 @@ private fun DayDetailSheet(day: DailyWeather, hours: List<HourlyWeather>, onDism
                         textAlign = TextAlign.End,
                     )
                     Text(
-                        "${hour.temperature.roundToInt()}°",
+                        units.temperature(hour.temperature),
                         modifier = Modifier
                             .width(48.dp)
                             .padding(start = 8.dp),
@@ -690,5 +739,3 @@ internal fun windDirectionResource(degrees: Int): Int = when ((Math.floorMod(deg
     6 -> R.string.wind_direction_west
     else -> R.string.wind_direction_northwest
 }
-
-private fun Double.formatOneDecimal(locale: java.util.Locale): String = String.format(locale, "%.1f", this)

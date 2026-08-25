@@ -1,6 +1,13 @@
 package cz.majkey.pocasicesko.widget
 
+import android.content.Context
+import android.content.SharedPreferences
+import cz.majkey.pocasicesko.R
+import cz.majkey.pocasicesko.astro.MoonPhaseKey
 import cz.majkey.pocasicesko.data.WeatherKind
+import cz.majkey.pocasicesko.data.WeatherRepository
+import cz.majkey.pocasicesko.ui.labelResource
+import cz.majkey.pocasicesko.units.WeatherUnitFormatter
 import kotlin.math.roundToInt
 import java.time.Instant
 import java.time.LocalDate
@@ -49,6 +56,11 @@ data class WidgetSettings(
     val showPrecipitation: Boolean = false,
     val showWind: Boolean = false,
     val showHumidity: Boolean = false,
+    val showDewPoint: Boolean = false,
+    val showPressure: Boolean = false,
+    val showVisibility: Boolean = false,
+    val showWindGusts: Boolean = false,
+    val showMoon: Boolean = false,
     val showUpdatedAt: Boolean = false,
 )
 
@@ -116,6 +128,13 @@ internal data class WidgetPreviewBackgroundKey(
     val isDay: Boolean,
     val width: Int = MAX_BACKGROUND_WIDTH,
     val height: Int = MAX_BACKGROUND_HEIGHT,
+)
+internal data class WidgetAdvancedData(
+    val dewPoint: String?,
+    val pressure: String?,
+    val visibility: String?,
+    val windGusts: String?,
+    val moon: String?,
 )
 internal data class WidgetContentVisibility(
     val showLabel: Boolean,
@@ -226,6 +245,49 @@ internal fun widgetPreviewBackgroundKey(
         kind = kind,
         isDay = isDay,
     )
+}
+
+internal fun widgetAdvancedText(settings: WidgetSettings, data: WidgetAdvancedData): String = listOfNotNull(
+    data.dewPoint.takeIf { settings.showDewPoint },
+    data.pressure.takeIf { settings.showPressure },
+    data.visibility.takeIf { settings.showVisibility },
+    data.windGusts.takeIf { settings.showWindGusts },
+    data.moon.takeIf { settings.showMoon },
+).joinToString(" · ")
+
+internal fun widgetAdvancedVisible(size: WidgetSize, text: String): Boolean =
+    (size == WidgetSize.TALL || size == WidgetSize.WIDE) && text.isNotBlank()
+
+internal fun SharedPreferences.widgetAdvancedData(
+    context: Context,
+    unitFormatter: WeatherUnitFormatter,
+): WidgetAdvancedData = WidgetAdvancedData(
+    dewPoint = formattedFloat(WeatherRepository.KEY_WIDGET_DEW_POINT) {
+        "${context.getString(R.string.dew_point)} ${unitFormatter.temperature(it)}"
+    },
+    pressure = formattedFloat(WeatherRepository.KEY_WIDGET_PRESSURE) {
+        "${context.getString(R.string.pressure)} ${unitFormatter.pressure(it)}"
+    },
+    visibility = formattedFloat(WeatherRepository.KEY_WIDGET_VISIBILITY) {
+        "${context.getString(R.string.visibility)} ${unitFormatter.visibility(it)}"
+    },
+    windGusts = formattedFloat(WeatherRepository.KEY_WIDGET_WIND_GUSTS) {
+        "${context.getString(R.string.wind_gusts)} ${unitFormatter.windSpeed(it)}"
+    },
+    moon = widgetMoon(context),
+)
+
+private fun SharedPreferences.formattedFloat(key: String, formatter: (Double) -> String): String? =
+    getFloat(key, Float.NaN).takeIf(Float::isFinite)?.toDouble()?.let(formatter)
+
+private fun SharedPreferences.widgetMoon(context: Context): String? {
+    val phase = runCatching {
+        MoonPhaseKey.valueOf(getString(WeatherRepository.KEY_WIDGET_MOON_PHASE, null).orEmpty())
+    }.getOrNull() ?: return null
+    val illumination = getFloat(WeatherRepository.KEY_WIDGET_MOON_ILLUMINATION, Float.NaN)
+        .takeIf(Float::isFinite) ?: return null
+    return "${context.getString(R.string.moon)} ${context.getString(phase.labelResource())} " +
+        "${(illumination * 100).roundToInt()}%"
 }
 
 internal fun widgetContentVisibility(

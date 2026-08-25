@@ -1,4 +1,4 @@
-ALADIN weather je přehledné počasí pro Česko bez reklam, účtu a API klíče.
+ALADIN weather je přehledné počasí pro Česko bez účtu. Bezplatná verze obsahuje omezené reklamy; obě možnosti Premium je odstraní.
 
 První tři dny vycházejí z modelu ALADIN CZ. Výhled pokračuje až na 14 dní. Na hlavní obrazovce najdete aktuální stav, srážky, vítr, vlhkost, tlak, časy slunce a posuvný přehled dalších 20 hodin. Po klepnutí na den uvidíte hodinový detail celého dne.
 

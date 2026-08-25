@@ -2,6 +2,7 @@ package cz.majkey.pocasicesko.data
 
 import android.content.Context
 import android.net.Uri
+import cz.majkey.pocasicesko.astro.MoonCalculator
 import androidx.core.content.edit
 import cz.majkey.pocasicesko.BuildConfig
 import cz.majkey.pocasicesko.locale.AppLocale
@@ -9,6 +10,8 @@ import cz.majkey.pocasicesko.widget.WeatherWidgetProvider
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.time.LocalDateTime
+import java.time.ZoneId
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -119,6 +122,13 @@ class WeatherRepository(context: Context) {
         val condition = conditionFor(snapshot.current.weatherCode, snapshot.current.isDay)
         val currentHour = snapshot.current.time.take(13)
         val nextHours = snapshot.hourly.dropWhile { it.time.take(13) < currentHour }.take(3)
+        val moon = runCatching {
+            MoonCalculator.calculate(
+                LocalDateTime.parse(snapshot.current.time).atZone(ZoneId.of(snapshot.timezone)),
+                location.latitude,
+                location.longitude,
+            )
+        }.getOrNull()
         preferences.edit {
             putString(KEY_CACHE_JSON, json)
             putString(KEY_CACHE_LATITUDE, location.latitude.toString())
@@ -137,6 +147,12 @@ class WeatherRepository(context: Context) {
             )
             putFloat(KEY_WIDGET_WIND_SPEED, snapshot.current.windSpeed.toFloat())
             putInt(KEY_WIDGET_HUMIDITY, snapshot.current.humidity)
+            putFloat(KEY_WIDGET_DEW_POINT, snapshot.current.dewPoint?.toFloat() ?: Float.NaN)
+            putFloat(KEY_WIDGET_PRESSURE, snapshot.current.pressure.toFloat())
+            putFloat(KEY_WIDGET_VISIBILITY, snapshot.current.visibilityMeters?.toFloat() ?: Float.NaN)
+            putFloat(KEY_WIDGET_WIND_GUSTS, snapshot.current.windGusts.toFloat())
+            putString(KEY_WIDGET_MOON_PHASE, moon?.phase?.name.orEmpty())
+            putFloat(KEY_WIDGET_MOON_ILLUMINATION, moon?.illuminatedFraction?.toFloat() ?: Float.NaN)
             putLong(KEY_WIDGET_UPDATED_AT, snapshot.updatedAtEpochMillis)
             putString(KEY_WIDGET_HOURLY_TIMES, nextHours.joinToString("|") { it.time.takeLast(5) })
             putString(
@@ -199,6 +215,12 @@ class WeatherRepository(context: Context) {
         const val KEY_WIDGET_PRECIPITATION_PROBABILITY = "widget_precipitation_probability"
         const val KEY_WIDGET_WIND_SPEED = "widget_wind_speed"
         const val KEY_WIDGET_HUMIDITY = "widget_humidity"
+        const val KEY_WIDGET_DEW_POINT = "widget_dew_point"
+        const val KEY_WIDGET_PRESSURE = "widget_pressure"
+        const val KEY_WIDGET_VISIBILITY = "widget_visibility"
+        const val KEY_WIDGET_WIND_GUSTS = "widget_wind_gusts"
+        const val KEY_WIDGET_MOON_PHASE = "widget_moon_phase"
+        const val KEY_WIDGET_MOON_ILLUMINATION = "widget_moon_illumination"
         const val KEY_WIDGET_UPDATED_AT = "widget_updated_at"
         const val KEY_WIDGET_HOURLY_TIMES = "widget_hourly_times"
         const val KEY_WIDGET_HOURLY_TEMPERATURES = "widget_hourly_temperatures"
@@ -220,14 +242,21 @@ class WeatherRepository(context: Context) {
         private val USER_AGENT = "ALADIN-weather/${BuildConfig.VERSION_NAME} (Android; https://github.com/Majkey25/ALADIN-weather)"
 
         private const val CURRENT_VARIABLES =
-            "temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation," +
-                "weather_code,cloud_cover,pressure_msl,wind_speed_10m,wind_direction_10m,wind_gusts_10m"
+            "temperature_2m,relative_humidity_2m,dew_point_2m,apparent_temperature," +
+                "wet_bulb_temperature_2m,is_day,precipitation,rain,snowfall," +
+                "snow_depth_water_equivalent,weather_code,cloud_cover,cloud_cover_low," +
+                "cloud_cover_mid,cloud_cover_high,visibility,pressure_msl,surface_pressure," +
+                "wind_speed_10m,wind_direction_10m,wind_gusts_10m,cape," +
+                "vapour_pressure_deficit,surface_temperature"
         private const val HOURLY_VARIABLES =
-            "temperature_2m,relative_humidity_2m,precipitation_probability,precipitation," +
-                "weather_code,pressure_msl,wind_speed_10m,wind_direction_10m,is_day"
+            "$CURRENT_VARIABLES,precipitation_probability,et0_fao_evapotranspiration"
         private const val DAILY_VARIABLES =
-            "weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset," +
-                "precipitation_sum,precipitation_probability_max,wind_speed_10m_max"
+            "weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max," +
+                "apparent_temperature_min,sunrise,sunset,daylight_duration,sunshine_duration," +
+                "precipitation_sum,rain_sum,snowfall_sum,precipitation_hours," +
+                "precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max," +
+                "wind_direction_10m_dominant,shortwave_radiation_sum," +
+                "et0_fao_evapotranspiration"
 
         val DEFAULT_LOCATION = CzechLocation(
             name = "Praha",

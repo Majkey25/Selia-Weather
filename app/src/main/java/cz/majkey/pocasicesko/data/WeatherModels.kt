@@ -20,6 +20,19 @@ data class CurrentWeather(
     val windDirection: Int,
     val windGusts: Double,
     val isDay: Boolean,
+    val dewPoint: Double? = null,
+    val wetBulbTemperature: Double? = null,
+    val rain: Double? = null,
+    val snowfall: Double? = null,
+    val snowDepthWaterEquivalent: Double? = null,
+    val cloudCoverLow: Int? = null,
+    val cloudCoverMid: Int? = null,
+    val cloudCoverHigh: Int? = null,
+    val visibilityMeters: Double? = null,
+    val surfacePressure: Double? = null,
+    val cape: Double? = null,
+    val vapourPressureDeficit: Double? = null,
+    val surfaceTemperature: Double? = null,
 )
 
 data class HourlyWeather(
@@ -33,6 +46,22 @@ data class HourlyWeather(
     val windSpeed: Double,
     val windDirection: Int,
     val isDay: Boolean,
+    val apparentTemperature: Double? = null,
+    val dewPoint: Double? = null,
+    val wetBulbTemperature: Double? = null,
+    val rain: Double? = null,
+    val snowfall: Double? = null,
+    val snowDepthWaterEquivalent: Double? = null,
+    val cloudCoverLow: Int? = null,
+    val cloudCoverMid: Int? = null,
+    val cloudCoverHigh: Int? = null,
+    val visibilityMeters: Double? = null,
+    val surfacePressure: Double? = null,
+    val windGusts: Double? = null,
+    val cape: Double? = null,
+    val vapourPressureDeficit: Double? = null,
+    val surfaceTemperature: Double? = null,
+    val et0: Double? = null,
 )
 
 data class DailyWeather(
@@ -45,6 +74,17 @@ data class DailyWeather(
     val precipitationSum: Double,
     val precipitationProbability: Int,
     val windSpeedMax: Double,
+    val apparentTemperatureMax: Double? = null,
+    val apparentTemperatureMin: Double? = null,
+    val daylightDurationSeconds: Double? = null,
+    val sunshineDurationSeconds: Double? = null,
+    val rainSum: Double? = null,
+    val snowfallSum: Double? = null,
+    val precipitationHours: Double? = null,
+    val windGustsMax: Double? = null,
+    val dominantWindDirection: Int? = null,
+    val shortwaveRadiationSum: Double? = null,
+    val et0: Double? = null,
 )
 
 data class WeatherSnapshot(

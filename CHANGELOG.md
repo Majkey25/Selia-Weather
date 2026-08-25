@@ -8,6 +8,8 @@
 - Added a horizontal 20-hour forecast, expanded 14-day rows, and preserved full-day hourly details.
 - Rebuilt the widget around one resize-safe layout and added per-widget colours, opacity, gradient or image backgrounds, text scale, alignment, label, and data visibility.
 - Added an optional Buy Me a Coffee link that grants no entitlement.
+- Added exact saved map points, Metric and Imperial display units, full weather and Moon details, and advanced forecast variables.
+- Added consent-gated Google test ads in debug plus Google Play lifetime and monthly ad-removal products. Production ads stay disabled until real AdMob IDs are supplied.
 
 ## [0.2.0-beta.1] - 2026-08-24
 

@@ -26,6 +26,37 @@
 
 ---
 
+### Task 0: Add exact saved map points
+
+**Files:**
+- Modify: `app/src/main/java/cz/majkey/pocasicesko/ui/WeatherApp.kt`
+- Modify or create only when required: the existing map WebView asset/screen
+- Modify: five `strings.xml` catalogs
+- Modify: `app/src/test/java/cz/majkey/pocasicesko/data/LocationFavoritesCodecTest.kt`
+- Create only when coordinate conversion is not trivial in the UI: one focused mapping test
+
+- [ ] Reuse `CzechLocation` and the existing favourites codec; do not add a second location model.
+- [ ] Add **Choose point on map**, direct latitude/longitude entry, and a bounded custom label.
+- [ ] Validate finite WGS84 values and the supported Czech map bounds before selection or storage.
+- [ ] Save by coordinate identity and keep the existing 12-location bound.
+- [ ] Preserve exact request/cache coordinates; show the source grid point/resolution separately.
+- [ ] Keep map attribution visible and fail closed when an interactive tile source is unavailable.
+- [ ] Test valid field, map-boundary, malformed/non-finite, duplicate, and old-favourite compatibility.
+- [ ] Run focused/full Android checks. Do not commit without explicit user approval.
+
+---
+
+### Task 0b: Add Metric and Imperial display units
+
+- [ ] Keep Metric units as the persisted default and add the selector only to Settings.
+- [ ] Keep network/cache/research values canonical metric; convert only at display boundaries.
+- [ ] Cover temperature, wind/gusts, precipitation/snow, pressure, visibility, and distance.
+- [ ] Apply the same preset to forecast details and every widget/preview.
+- [ ] Test conversion constants, malformed stored values, restart persistence, and widget refresh.
+- [ ] Run focused/full Android checks. Do not commit without explicit user approval.
+
+---
+
 ### Task 1: Add the ensemble schema and validator
 
 **Files:**

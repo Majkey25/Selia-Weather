@@ -22,6 +22,8 @@ import cz.majkey.pocasicesko.data.WeatherKind
 import cz.majkey.pocasicesko.data.WeatherRepository
 import cz.majkey.pocasicesko.locale.AppLocale
 import cz.majkey.pocasicesko.ui.labelResource
+import cz.majkey.pocasicesko.units.MeasurementUnits
+import cz.majkey.pocasicesko.units.WeatherUnitFormatter
 import java.time.LocalDate
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.RejectedExecutionException
@@ -111,6 +113,7 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             R.id.widget_precipitation to 10f,
             R.id.widget_wind to 10f,
             R.id.widget_humidity to 10f,
+            R.id.widget_advanced to 10f,
             R.id.widget_update_time to 9f,
             R.id.widget_hour_1_time to 11f,
             R.id.widget_hour_2_time to 11f,
@@ -190,6 +193,10 @@ class WeatherWidgetProvider : AppWidgetProvider() {
 
         private fun render(context: Context, manager: AppWidgetManager, appWidgetId: Int) {
             val localizedContext = AppLocale.localized(context)
+            val unitFormatter = WeatherUnitFormatter(
+                MeasurementUnits.current(context),
+                localizedContext.resources.configuration.locales[0],
+            )
             val weather = localizedContext.getSharedPreferences(WeatherRepository.PREFERENCES_NAME, Context.MODE_PRIVATE)
             val settings = loadSettings(localizedContext, appWidgetId)
             val options = manager.getAppWidgetOptions(appWidgetId)
@@ -225,6 +232,10 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             val precipitation = weather.getInt(WeatherRepository.KEY_WIDGET_PRECIPITATION_PROBABILITY, -1)
             val wind = weather.getFloat(WeatherRepository.KEY_WIDGET_WIND_SPEED, Float.NaN)
             val humidity = weather.getInt(WeatherRepository.KEY_WIDGET_HUMIDITY, -1)
+            val advancedText = widgetAdvancedText(
+                settings,
+                weather.widgetAdvancedData(localizedContext, unitFormatter),
+            )
             val updatedAt = weather.getLong(WeatherRepository.KEY_WIDGET_UPDATED_AT, 0L)
             val availability = widgetDataAvailability(
                 hourlyTimes,
@@ -250,7 +261,7 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             views.setTextViewText(
                 R.id.widget_temperature,
                 if (temperature.isNaN()) localizedContext.getString(R.string.widget_placeholder_temperature)
-                else "${temperature.roundToInt()}°",
+                else unitFormatter.temperature(temperature.toDouble()),
             )
             views.setTextColor(R.id.widget_temperature, primaryColor)
             views.setTextViewText(R.id.widget_city, city)
@@ -298,7 +309,7 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             val range = if (high.isNaN() || low.isNaN()) {
                 localizedContext.getString(R.string.widget_placeholder_range)
             } else {
-                "${high.roundToInt()}° / ${low.roundToInt()}°"
+                "${unitFormatter.temperature(high.toDouble())} / ${unitFormatter.temperature(low.toDouble())}"
             }
             views.setTextViewText(R.id.widget_high_low, range)
             views.setTextColor(R.id.widget_high_low, secondaryColor)
@@ -325,7 +336,7 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             )
             views.setTextViewText(
                 R.id.widget_wind,
-                if (wind.isNaN()) "--" else "${localizedContext.getString(R.string.wind)} ${wind.roundToInt()} km/h",
+                if (wind.isNaN()) "--" else "${localizedContext.getString(R.string.wind)} ${unitFormatter.windSpeed(wind.toDouble())}",
             )
             views.setTextViewText(
                 R.id.widget_humidity,
@@ -334,6 +345,12 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             views.setTextColor(R.id.widget_precipitation, secondaryColor)
             views.setTextColor(R.id.widget_wind, secondaryColor)
             views.setTextColor(R.id.widget_humidity, secondaryColor)
+            views.setViewVisibility(
+                R.id.widget_advanced,
+                if (widgetAdvancedVisible(size, advancedText)) View.VISIBLE else View.GONE,
+            )
+            views.setTextViewText(R.id.widget_advanced, advancedText)
+            views.setTextColor(R.id.widget_advanced, secondaryColor)
             views.setViewVisibility(
                 R.id.widget_date,
                 if (visibility.showDate) View.VISIBLE else View.GONE,
@@ -364,7 +381,7 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                 views.setTextColor(id, secondaryColor)
             }
             HOUR_TEMPERATURE_IDS.forEachIndexed { index, id ->
-                val value = hourlyTemperatures.getOrNull(index)?.let { "$it°" }
+                val value = hourlyTemperatures.getOrNull(index)?.toDoubleOrNull()?.let(unitFormatter::temperature)
                     ?: localizedContext.getString(R.string.widget_placeholder_temperature)
                 views.setTextViewText(id, value)
                 views.setTextColor(id, primaryColor)
@@ -447,6 +464,11 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                 showPrecipitation = preferences.getBoolean(widgetPreferenceKey(appWidgetId, "precipitation"), false),
                 showWind = preferences.getBoolean(widgetPreferenceKey(appWidgetId, "wind"), false),
                 showHumidity = preferences.getBoolean(widgetPreferenceKey(appWidgetId, "humidity"), false),
+                showDewPoint = preferences.getBoolean(widgetPreferenceKey(appWidgetId, "dew_point"), false),
+                showPressure = preferences.getBoolean(widgetPreferenceKey(appWidgetId, "pressure"), false),
+                showVisibility = preferences.getBoolean(widgetPreferenceKey(appWidgetId, "visibility"), false),
+                showWindGusts = preferences.getBoolean(widgetPreferenceKey(appWidgetId, "wind_gusts"), false),
+                showMoon = preferences.getBoolean(widgetPreferenceKey(appWidgetId, "moon"), false),
                 showUpdatedAt = preferences.getBoolean(widgetPreferenceKey(appWidgetId, "updated_at"), false),
             ).normalized()
         }
@@ -479,6 +501,11 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                 .putBoolean(widgetPreferenceKey(appWidgetId, "precipitation"), normalized.showPrecipitation)
                 .putBoolean(widgetPreferenceKey(appWidgetId, "wind"), normalized.showWind)
                 .putBoolean(widgetPreferenceKey(appWidgetId, "humidity"), normalized.showHumidity)
+                .putBoolean(widgetPreferenceKey(appWidgetId, "dew_point"), normalized.showDewPoint)
+                .putBoolean(widgetPreferenceKey(appWidgetId, "pressure"), normalized.showPressure)
+                .putBoolean(widgetPreferenceKey(appWidgetId, "visibility"), normalized.showVisibility)
+                .putBoolean(widgetPreferenceKey(appWidgetId, "wind_gusts"), normalized.showWindGusts)
+                .putBoolean(widgetPreferenceKey(appWidgetId, "moon"), normalized.showMoon)
                 .putBoolean(widgetPreferenceKey(appWidgetId, "updated_at"), normalized.showUpdatedAt)
                 .commit()
             if (saved && oldImageUri != normalized.imageUri) releaseImageIfUnused(context, oldImageUri)

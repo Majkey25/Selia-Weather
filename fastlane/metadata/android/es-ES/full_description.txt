@@ -1,4 +1,4 @@
-ALADIN weather muestra el tiempo de Chequia sin anuncios, cuentas ni claves de API.
+ALADIN weather muestra el tiempo de Chequia sin cuenta. La versión gratuita contiene anuncios limitados; ambas opciones Premium los eliminan.
 
 Los primeros tres días usan el modelo ALADIN CZ. La previsión llega hasta 14 días. Consulta las condiciones actuales, precipitación, viento, humedad, presión, horas de sol y una vista desplazable de 20 horas. Toca un día para ver su detalle horario.
 

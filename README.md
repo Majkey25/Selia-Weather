@@ -23,13 +23,14 @@
 
 ## What it does
 
-- Shows current weather, apparent temperature, precipitation, humidity, wind, pressure, and sun times.
+- Shows current and apparent temperature, dew point, wet-bulb temperature, precipitation, cloud layers, visibility, pressure, wind, sun, and Moon details.
 - Shows a horizontal 20-hour outlook, a 14-day forecast, and an hourly detail for each day. A complete day normally has 24 hours.
-- Searches places in Czechia, stores favourites, and can use your optional current location.
+- Searches places in Czechia, stores favourites, can use your optional current location, and can save an exact named map point or coordinate.
 - Includes ČHMÚ rain radar, satellite clouds, nowcast, and lightning. Rain and clouds are base layers. Lightning is an independent overlay on either layer.
 - Keeps the last successful forecast for offline display.
 - Includes a resizable launcher widget with per-widget colours, transparency, gradient or custom-image backgrounds, text scale, alignment, custom label, and selectable weather fields.
-- Uses no account, ads, analytics SDK, or API key.
+- Supports Metric and Imperial display units in the app and widgets.
+- The free build can show a restrained adaptive banner and an occasional interstitial after a completed map visit. Google UMP controls consent. Either Premium purchase removes ads.
 
 ## Forecast data and accuracy
 
@@ -58,6 +59,12 @@ For a custom background, the editor asks Android to grant access to the selected
 
 The settings screen includes an optional [Buy Me a Coffee](https://www.buymeacoffee.com/majkey) link. It opens in Android's external browser. Support does not unlock features, give priority, or change the app.
 
+## Ads and Premium
+
+Google Play offers `remove_ads_lifetime` as a one-time purchase and `premium_monthly` as an auto-renewing subscription. Either option removes ads. The app checks active purchases whenever Play Billing connects or the app resumes. A pending or unknown entitlement never enables ads.
+
+The debug build uses Google's published test ad IDs. Production ad IDs are supplied as Gradle properties `ALADIN_ADMOB_APP_ID`, `ALADIN_BANNER_AD_UNIT_ID`, and `ALADIN_INTERSTITIAL_AD_UNIT_ID`. A release built without all three stays ad-disabled.
+
 ## Build
 
 ```powershell
@@ -68,7 +75,7 @@ The debug APK is at `app/build/outputs/apk/debug/app-debug.apk`.
 
 ## Privacy
 
-The app has no analytics, account, or advertising SDK. It keeps the selected place, favourites, widget settings, and forecast cache in internal app storage. Current location is optional. Its coordinates are sent to Open-Meteo over HTTPS to request the forecast. Read the [privacy policy](https://majkey25.github.io/ALADIN-weather/).
+The app has no developer account or separate analytics SDK. It keeps the selected place, favourites, widget settings, and forecast cache in internal app storage. Current location is optional. Its coordinates are sent to Open-Meteo over HTTPS to request the forecast. The free build uses Google Mobile Ads and UMP; purchases use Google Play Billing. Read the [privacy policy](https://majkey25.github.io/ALADIN-weather/).
 
 ## Status
 

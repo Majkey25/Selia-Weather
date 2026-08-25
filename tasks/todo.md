@@ -33,7 +33,7 @@
 - [x] Adaptive Task 5: Build the complete widget editor and image picker.
   - Acceptance: preview and hosted widget interpret every setting the same way.
   - Verify: independent English and French widgets persist through launcher and app restart.
-- [ ] Adaptive Task 6: Add localized optional Buy Me a Coffee support.
+- [x] Adaptive Task 6: Add localized optional Buy Me a Coffee support.
   - Acceptance: settings opens the exact published HTTPS URL and grants no feature.
   - Verify: English, Czech, external routing, and missing-handler paths pass.
 - [ ] Task 7: Publish English-first docs and five localized Play listings.

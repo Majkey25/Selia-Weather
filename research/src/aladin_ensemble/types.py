@@ -2,11 +2,32 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from math import isfinite
 
 
 def _require_utc(value: datetime, field_name: str) -> None:
     if value.tzinfo is None or value.utcoffset() != UTC.utcoffset(value):
         raise ValueError(f"{field_name} must be timezone-aware UTC")
+
+
+def _require_finite(value: object, field_name: str) -> None:
+    if isinstance(value, bool) or not isinstance(value, int | float) or not isfinite(value):
+        raise ValueError(f"{field_name} must be finite")
+
+
+def _require_coordinates(latitude: float, longitude: float, elevation_m: float) -> None:
+    _require_finite(latitude, "latitude")
+    _require_finite(longitude, "longitude")
+    _require_finite(elevation_m, "elevation_m")
+    if not -90 <= latitude <= 90:
+        raise ValueError("latitude is outside WGS84 range")
+    if not -180 <= longitude <= 180:
+        raise ValueError("longitude is outside WGS84 range")
+
+
+def _require_value(value: float | None) -> None:
+    if value is not None:
+        _require_finite(value, "value")
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,6 +45,8 @@ class ForecastValue:
     def __post_init__(self) -> None:
         _require_utc(self.run_time, "run_time")
         _require_utc(self.valid_time, "valid_time")
+        _require_coordinates(self.latitude, self.longitude, self.elevation_m)
+        _require_value(self.value)
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,6 +63,22 @@ class Observation:
 
     def __post_init__(self) -> None:
         _require_utc(self.valid_time, "valid_time")
+        _require_coordinates(self.latitude, self.longitude, self.elevation_m)
+        _require_value(self.value)
+
+
+@dataclass(frozen=True, slots=True)
+class ResponseMetadata:
+    latitude: float
+    longitude: float
+    elevation_m: float
+    timezone: str | None
+    generationtime_ms: float | None
+
+    def __post_init__(self) -> None:
+        _require_coordinates(self.latitude, self.longitude, self.elevation_m)
+        if self.generationtime_ms is not None:
+            _require_finite(self.generationtime_ms, "generationtime_ms")
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,6 +89,13 @@ class SourceManifest:
     license_url: str
     retrieved_at: datetime
     run_time: datetime | None
+    request_endpoint: str | None = None
+    request_parameters: tuple[tuple[str, str], ...] = ()
+    requested_model_id: str | None = None
+    archive_endpoint: str | None = None
+    archive_parameters: tuple[tuple[str, str], ...] = ()
+    responses: tuple[ResponseMetadata, ...] = ()
+    provider_model_id: str | None = None
 
     def __post_init__(self) -> None:
         _require_utc(self.retrieved_at, "retrieved_at")

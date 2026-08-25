@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from math import nan
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -11,18 +14,27 @@ from aladin_ensemble.registry import (
     ModelRegistry,
     estimate_request_budget,
 )
+from aladin_ensemble.sources import probe as probe_module
 from aladin_ensemble.sources.probe import (
     ModelSeed,
+    OperationalProbeError,
+    ProbeResult,
     SamplePoint,
     probe_candidate,
     probe_registry,
     write_probe_registry,
 )
-from aladin_ensemble.types import ModelCandidate, SourceManifest
+from aladin_ensemble.types import (
+    ForecastValue,
+    ModelCandidate,
+    Observation,
+    ResponseMetadata,
+    SourceManifest,
+)
 
 
 def hourly_payload(
-    *, values: list[float | None] | None = None, times: list[str] | None = None
+    *, values: Sequence[float | None] | None = None, times: Sequence[str] | None = None
 ) -> JsonValue:
     hourly_values = values or [1.0] * 25
     hourly: dict[str, JsonValue] = {}
@@ -40,7 +52,12 @@ def hourly_payload(
     hourly["precipitation"] = numeric_values
     hourly["wind_speed_10m"] = numeric_values
     return {
+        "elevation": 250.0,
+        "generationtime_ms": 1.0,
         "hourly": hourly,
+        "latitude": 50.0,
+        "longitude": 14.0,
+        "timezone": "GMT",
     }
 
 
@@ -132,9 +149,11 @@ def test_request_budget_fails_closed_above_limit() -> None:
         run_count=180,
         variable_count=3,
         date_count=180,
+        location_batch_limit=7,
+        variable_batch_limit=3,
         provider_limit=10_000,
     )
-    with pytest.raises(ValueError, match="exceeds"):
+    with pytest.raises(ValueError, match="reaches"):
         budget.require_within_limit()
 
 
@@ -145,9 +164,11 @@ def test_request_budget_counts_probe_and_download_calls() -> None:
         run_count=3,
         variable_count=3,
         date_count=2,
+        location_batch_limit=7,
+        variable_batch_limit=3,
         provider_limit=100,
     )
-    assert budget.expected_calls == 16
+    assert budget.expected_calls == 14
     budget.require_within_limit()
 
 
@@ -158,7 +179,7 @@ def test_probe_rejects_invalid_hourly_data() -> None:
     def invalid_fetch(_: str) -> JsonValue:
         return hourly_payload(times=["invalid"])
 
-    with pytest.raises(ValueError, match="Invalid isoformat"):
+    with pytest.raises(OperationalProbeError, match="Invalid isoformat"):
         probe_candidate(seed, points=(point,), fetch_json=invalid_fetch)
 
 
@@ -168,9 +189,30 @@ def test_probe_excludes_unavailable_source() -> None:
     def unavailable_fetch(_: str) -> JsonValue:
         raise OSError("connection reset")
 
-    registry, excluded = probe_registry(seeds=(seed,), fetch_json=unavailable_fetch)
-    assert registry.model_ids == ()
-    assert excluded == (("dwd_icon_eu", "probe failed: connection reset"),)
+    result = probe_registry(seeds=(seed,), fetch_json=unavailable_fetch)
+    assert result.registry.model_ids == ()
+    assert result.excluded == ()
+    assert result.operational_failures == (("dwd_icon_eu", "connection reset"),)
+    assert not result.complete
+
+
+def test_probe_marks_empty_archive_response_incomplete() -> None:
+    seed = ModelSeed("dwd_icon_eu", "DWD ICON-EU", "DWD", "https://open-meteo.com/en/docs/dwd-api")
+
+    def empty_archive_fetch(url: str) -> JsonValue:
+        return [] if "previous-runs" in url else hourly_payload()
+
+    result = probe_registry(
+        seeds=(seed,),
+        points=(SamplePoint("test", 50.0, 14.0),),
+        fetch_json=empty_archive_fetch,
+    )
+    assert result.registry.model_ids == ()
+    assert result.excluded == ()
+    assert result.operational_failures == (
+        ("dwd_icon_eu", "response format failed: Open-Meteo payload has no response rows"),
+    )
+    assert not result.complete
 
 
 def test_probe_excludes_incomplete_hourly_series() -> None:
@@ -181,19 +223,139 @@ def test_probe_excludes_incomplete_hourly_series() -> None:
             return hourly_payload()
         return hourly_payload(values=[1.0] + [None] * 24)
 
-    registry, excluded = probe_registry(
+    result = probe_registry(
         seeds=(seed,),
         points=(SamplePoint("test", 50.0, 14.0),),
         fetch_json=incomplete_fetch,
     )
-    assert registry.model_ids == ()
-    assert excluded == (("dwd_icon_eu", "probe failed: coverage is below 90 percent"),)
+    assert result.registry.model_ids == ()
+    assert result.excluded == (("dwd_icon_eu", "coverage is below 90 percent"),)
+    assert result.complete
 
 
 def test_probe_registry_json_sorts_exclusions(tmp_path: Path) -> None:
     registry = ModelRegistry()
     registry.add(candidate())
     output = tmp_path / "model-registry.json"
-    write_probe_registry(output, registry, (("z_model", "z"), ("a_model", "a")))
+    write_probe_registry(output, ProbeResult(registry, (("z_model", "z"), ("a_model", "a")), ()))
     text = output.read_text(encoding="utf-8")
     assert text.find('"a_model"') < text.find('"z_model"')
+
+
+def test_main_writes_incomplete_registry_and_fails_on_operational_error(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    output = tmp_path / "model-registry.json"
+    monkeypatch.setattr(
+        probe_module,
+        "probe_registry",
+        lambda: ProbeResult(ModelRegistry(), (), (("dwd_icon_eu", "HTTP 503"),)),
+    )
+    monkeypatch.setattr("sys.argv", ["probe", "--output", str(output)])
+    assert probe_module.main() == 1
+    assert '"status":"incomplete"' in output.read_text(encoding="utf-8")
+
+
+def test_budget_batches_requests_and_rejects_free_limit_boundary() -> None:
+    budget = estimate_request_budget(
+        candidate_count=1,
+        location_count=8,
+        run_count=1,
+        variable_count=4,
+        date_count=1,
+        location_batch_limit=7,
+        variable_batch_limit=3,
+        provider_limit=10_000,
+    )
+    assert budget.expected_calls == 8
+    within_limit = replace(budget, expected_calls=9_999)
+    within_limit.require_within_limit()
+    with pytest.raises(ValueError, match="reaches"):
+        replace(budget, expected_calls=10_000).require_within_limit()
+
+
+def test_probe_requires_archive_horizon_and_records_provenance() -> None:
+    seed = ModelSeed("dwd_icon_eu", "DWD ICON-EU", "DWD", "https://open-meteo.com/en/docs/dwd-api")
+    point = SamplePoint("test", 50.0, 14.0)
+
+    def short_archive_fetch(url: str) -> JsonValue:
+        if "previous-runs" in url:
+            return hourly_payload(
+                times=[
+                    (datetime(2026, 8, 25, tzinfo=UTC) + timedelta(hours=hour)).isoformat()
+                    for hour in range(24)
+                ]
+            )
+        return hourly_payload()
+
+    result = probe_registry(seeds=(seed,), points=(point,), fetch_json=short_archive_fetch)
+    assert result.excluded == (("dwd_icon_eu", "archive availability is unverified"),)
+    candidate_result = probe_candidate(
+        seed,
+        points=(point,),
+        fetch_json=lambda _: hourly_payload(),
+        now=datetime(2026, 8, 25, tzinfo=UTC),
+    )
+    manifest = candidate_result.manifest
+    assert manifest.requested_model_id == "dwd_icon_eu"
+    assert manifest.request_endpoint == "https://api.open-meteo.com/v1/forecast"
+    assert ("models", "dwd_icon_eu") in manifest.request_parameters
+    assert manifest.provider_model_id is None
+    assert manifest.run_time is None
+    assert manifest.responses == (ResponseMetadata(50.0, 14.0, 250.0, "GMT", 1.0),)
+
+
+def test_probe_excludes_nonfinite_coverage_as_definitive() -> None:
+    seed = ModelSeed("dwd_icon_eu", "DWD ICON-EU", "DWD", "https://open-meteo.com/en/docs/dwd-api")
+
+    def nonfinite_fetch(url: str) -> JsonValue:
+        if "previous-runs" in url:
+            return hourly_payload()
+        return hourly_payload(values=[nan] * 25)
+
+    result = probe_registry(
+        seeds=(seed,),
+        points=(SamplePoint("test", 50.0, 14.0),),
+        fetch_json=nonfinite_fetch,
+    )
+    assert result.complete
+    assert result.excluded == (("dwd_icon_eu", "coverage is below 90 percent"),)
+
+
+def test_records_reject_naive_time_and_nonfinite_or_boolean_values() -> None:
+    with pytest.raises(ValueError, match="run_time"):
+        ForecastValue(
+            "model",
+            datetime(2026, 8, 25),
+            datetime(2026, 8, 25, tzinfo=UTC),
+            50.0,
+            14.0,
+            250.0,
+            "temperature_2m",
+            1.0,
+            "°C",
+        )
+    with pytest.raises(ValueError, match="latitude"):
+        Observation(
+            "CHMI",
+            "station",
+            datetime(2026, 8, 25, tzinfo=UTC),
+            nan,
+            14.0,
+            250.0,
+            "temperature_2m",
+            1.0,
+            "°C",
+        )
+    with pytest.raises(ValueError, match="value"):
+        Observation(
+            "CHMI",
+            "station",
+            datetime(2026, 8, 25, tzinfo=UTC),
+            50.0,
+            14.0,
+            250.0,
+            "temperature_2m",
+            cast(float, True),
+            "°C",
+        )

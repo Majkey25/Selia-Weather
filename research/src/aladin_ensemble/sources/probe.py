@@ -5,13 +5,15 @@ import json
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from math import isfinite
 from pathlib import Path
 from typing import cast
+from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from aladin_ensemble.registry import JsonValue, ModelRegistry, estimate_request_budget
-from aladin_ensemble.types import ModelCandidate, SourceManifest
+from aladin_ensemble.types import ModelCandidate, ResponseMetadata, SourceManifest
 
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 PREVIOUS_RUNS_URL = "https://previous-runs-api.open-meteo.com/v1/forecast"
@@ -34,6 +36,25 @@ class ModelSeed:
     display_name: str
     provider: str
     documentation_url: str
+
+
+class OperationalProbeError(RuntimeError):
+    pass
+
+
+class DefinitiveProbeError(RuntimeError):
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class ProbeResult:
+    registry: ModelRegistry
+    excluded: tuple[tuple[str, str], ...]
+    operational_failures: tuple[tuple[str, str], ...]
+
+    @property
+    def complete(self) -> bool:
+        return not self.operational_failures
 
 
 # IDs are copied from current official Open-Meteo documentation controls and confirmed by probes.
@@ -67,6 +88,9 @@ CZECH_SAMPLE_POINTS = (
     SamplePoint("border-middle", 49.1951, 16.6068),
 )
 
+COVERAGE_LOCATION_BATCH_LIMIT = len(CZECH_SAMPLE_POINTS)
+VARIABLE_BATCH_LIMIT = len(REQUIRED_VARIABLES)
+
 FetchJson = Callable[[str], JsonValue]
 
 
@@ -87,23 +111,39 @@ def _json_value(value: object) -> JsonValue:
 
 def _fetch_json(url: str) -> JsonValue:
     request = Request(url, headers={"User-Agent": "aladin-ensemble-research/0.1"})
-    with urlopen(request, timeout=30) as response:
-        return _json_value(json.loads(response.read().decode("utf-8")))
+    try:
+        with urlopen(request, timeout=30) as response:
+            return _json_value(json.loads(response.read().decode("utf-8")))
+    except HTTPError as error:
+        if error.code == 429 or error.code >= 500:
+            raise OperationalProbeError(f"HTTP {error.code}") from error
+        raise DefinitiveProbeError(f"HTTP {error.code}") from error
+    except (OSError, TimeoutError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
+        raise OperationalProbeError(f"request failed: {error}") from error
 
 
-def _url(base_url: str, model_id: str, points: Sequence[SamplePoint], forecast_hours: int) -> str:
-    return f"{base_url}?{urlencode({
-        'latitude': ','.join(str(point.latitude) for point in points),
-        'longitude': ','.join(str(point.longitude) for point in points),
-        'hourly': ','.join(sorted(REQUIRED_VARIABLES)),
-        'forecast_hours': str(forecast_hours),
-        'models': model_id,
-        'timezone': 'GMT',
-    })}"
+def _url(
+    base_url: str, model_id: str, points: Sequence[SamplePoint], forecast_hours: int
+) -> tuple[str, tuple[tuple[str, str], ...]]:
+    parameters = tuple(
+        sorted(
+            {
+                "forecast_hours": str(forecast_hours),
+                "hourly": ",".join(sorted(REQUIRED_VARIABLES)),
+                "latitude": ",".join(str(point.latitude) for point in points),
+                "longitude": ",".join(str(point.longitude) for point in points),
+                "models": model_id,
+                "timezone": "GMT",
+            }.items()
+        )
+    )
+    return f"{base_url}?{urlencode(parameters)}", parameters
 
 
 def _rows(payload: JsonValue) -> tuple[Mapping[str, JsonValue], ...]:
     values = payload if isinstance(payload, list) else [payload]
+    if not values:
+        raise ValueError("Open-Meteo payload has no response rows")
     rows: list[Mapping[str, JsonValue]] = []
     for value in values:
         if not isinstance(value, dict):
@@ -139,7 +179,7 @@ def _timestamps(hourly: Mapping[str, JsonValue]) -> tuple[datetime, ...]:
     return tuple(timestamps)
 
 
-def _coverage_row(row: Mapping[str, JsonValue]) -> tuple[frozenset[str], int]:
+def _coverage_row(row: Mapping[str, JsonValue]) -> tuple[frozenset[str], int, int]:
     hourly = _hourly(row)
     timestamps = _timestamps(hourly)
     returned: set[str] = set()
@@ -149,16 +189,62 @@ def _coverage_row(row: Mapping[str, JsonValue]) -> tuple[frozenset[str], int]:
             isinstance(values, list)
             and len(values) == len(timestamps)
             and all(
-                isinstance(value, int | float) and not isinstance(value, bool) for value in values
+                isinstance(value, int | float)
+                and not isinstance(value, bool)
+                and isfinite(value)
+                for value in values
             )
         ):
             returned.add(variable)
     horizon = int((timestamps[-1] - timestamps[0]).total_seconds() // 3600)
-    return frozenset(returned), horizon
+    return frozenset(returned), horizon, len(timestamps)
 
 
 def _archive_available(payload: JsonValue) -> bool:
-    return all(REQUIRED_VARIABLES.issubset(_coverage_row(row)[0]) for row in _rows(payload))
+    return all(
+        REQUIRED_VARIABLES.issubset(variables)
+        and horizon >= REQUIRED_HORIZON_HOURS
+        and count >= REQUIRED_HORIZON_HOURS + 1
+        for variables, horizon, count in (_coverage_row(row) for row in _rows(payload))
+    )
+
+
+def _response_metadata(row: Mapping[str, JsonValue]) -> ResponseMetadata:
+    latitude = row.get("latitude")
+    longitude = row.get("longitude")
+    elevation = row.get("elevation")
+    generationtime = row.get("generationtime_ms")
+    timezone = row.get("timezone")
+    if (
+        isinstance(latitude, bool)
+        or not isinstance(latitude, int | float)
+        or isinstance(longitude, bool)
+        or not isinstance(longitude, int | float)
+        or isinstance(elevation, bool)
+        or not isinstance(elevation, int | float)
+        or isinstance(generationtime, bool)
+        or generationtime is not None and not isinstance(generationtime, int | float)
+        or timezone is not None and not isinstance(timezone, str)
+    ):
+        raise ValueError("Open-Meteo payload has invalid response metadata")
+    return ResponseMetadata(
+        latitude=float(latitude),
+        longitude=float(longitude),
+        elevation_m=float(elevation),
+        timezone=timezone,
+        generationtime_ms=float(generationtime) if generationtime is not None else None,
+    )
+
+
+def _provider_model_id(rows: Sequence[Mapping[str, JsonValue]]) -> str | None:
+    model_id = rows[0].get("model")
+    if any(row.get("model") != model_id for row in rows[1:]):
+        raise ValueError("Open-Meteo payload has inconsistent provider model identifiers")
+    if model_id is None:
+        return None
+    if not isinstance(model_id, str):
+        raise ValueError("Open-Meteo payload has an invalid provider model identifier")
+    return model_id
 
 
 def probe_candidate(
@@ -173,18 +259,32 @@ def probe_candidate(
     retrieved_at = now or datetime.now(UTC)
     if retrieved_at.tzinfo is None or retrieved_at.utcoffset() != UTC.utcoffset(retrieved_at):
         raise ValueError("now must be timezone-aware UTC")
-    rows = _rows(fetch_json(_url(FORECAST_URL, seed.model_id, points, REQUIRED_HORIZON_HOURS + 1)))
-    if len(rows) != len(points):
-        raise ValueError("Open-Meteo returned an unexpected number of locations")
-    coverage = tuple(_coverage_row(row) for row in rows)
+    forecast_url, forecast_parameters = _url(
+        FORECAST_URL, seed.model_id, points, REQUIRED_HORIZON_HOURS + 1
+    )
+    archive_url, archive_parameters = _url(
+        PREVIOUS_RUNS_URL, seed.model_id, points[:1], REQUIRED_HORIZON_HOURS + 1
+    )
+    try:
+        rows = _rows(fetch_json(forecast_url))
+        if len(rows) != len(points):
+            raise ValueError("Open-Meteo returned an unexpected number of locations")
+        coverage = tuple(_coverage_row(row) for row in rows)
+        responses = tuple(_response_metadata(row) for row in rows)
+        provider_model_id = _provider_model_id(rows)
+        archive_payload = fetch_json(archive_url)
+        archive_verified = _archive_available(archive_payload)
+    except ValueError as error:
+        raise OperationalProbeError(f"response format failed: {error}") from error
     returned: set[str] = set()
-    for variables, _ in coverage:
+    for variables, _, _ in coverage:
         returned.update(variables)
     covered_points = sum(
-        REQUIRED_VARIABLES.issubset(variables) and horizon >= REQUIRED_HORIZON_HOURS
-        for variables, horizon in coverage
+        REQUIRED_VARIABLES.issubset(variables)
+        and horizon >= REQUIRED_HORIZON_HOURS
+        and count >= REQUIRED_HORIZON_HOURS + 1
+        for variables, horizon, count in coverage
     )
-    archive_payload = fetch_json(_url(PREVIOUS_RUNS_URL, seed.model_id, points[:1], 25))
     return ModelCandidate(
         model_id=seed.model_id,
         display_name=seed.display_name,
@@ -194,9 +294,9 @@ def probe_candidate(
         sample_points=len(points),
         covered_points=covered_points,
         required_horizon_hours=REQUIRED_HORIZON_HOURS,
-        available_horizon_hours=min(horizon for _, horizon in coverage),
+        available_horizon_hours=min(horizon for _, horizon, _ in coverage),
         verified=True,
-        archive_verified=_archive_available(archive_payload),
+        archive_verified=archive_verified,
         manifest=SourceManifest(
             provider="Open-Meteo",
             documentation_url=seed.documentation_url,
@@ -204,6 +304,13 @@ def probe_candidate(
             license_url=TERMS_URL,
             retrieved_at=retrieved_at,
             run_time=None,
+            request_endpoint=FORECAST_URL,
+            request_parameters=forecast_parameters,
+            requested_model_id=seed.model_id,
+            archive_endpoint=PREVIOUS_RUNS_URL,
+            archive_parameters=archive_parameters,
+            responses=responses,
+            provider_model_id=provider_model_id,
         ),
     )
 
@@ -214,26 +321,36 @@ def probe_registry(
     points: Sequence[SamplePoint] = CZECH_SAMPLE_POINTS,
     fetch_json: FetchJson = _fetch_json,
     now: datetime | None = None,
-) -> tuple[ModelRegistry, tuple[tuple[str, str], ...]]:
+) -> ProbeResult:
     registry = ModelRegistry()
     excluded: list[tuple[str, str]] = []
+    operational_failures: list[tuple[str, str]] = []
     for seed in seeds:
         try:
             candidate = probe_candidate(seed, points=points, fetch_json=fetch_json, now=now)
             registry.add(candidate)
-        except (OSError, ValueError) as error:
-            excluded.append((seed.model_id, f"probe failed: {error}"))
-    return registry, tuple(excluded)
+        except DefinitiveProbeError as error:
+            excluded.append((seed.model_id, str(error)))
+        except OperationalProbeError as error:
+            operational_failures.append((seed.model_id, str(error)))
+        except OSError as error:
+            operational_failures.append((seed.model_id, str(error)))
+        except ValueError as error:
+            excluded.append((seed.model_id, str(error)))
+    return ProbeResult(registry, tuple(excluded), tuple(operational_failures))
 
 
-def write_probe_registry(
-    path: Path, registry: ModelRegistry, excluded: Sequence[tuple[str, str]]
-) -> None:
-    payload = registry.payload()
+def write_probe_registry(path: Path, result: ProbeResult) -> None:
+    payload = result.registry.payload()
     excluded_records: list[JsonValue] = []
-    for model_id, reason in sorted(excluded):
+    for model_id, reason in sorted(result.excluded):
         excluded_records.append({"model_id": model_id, "reason": reason})
     payload["excluded"] = excluded_records
+    failures: list[JsonValue] = []
+    for model_id, reason in sorted(result.operational_failures):
+        failures.append({"model_id": model_id, "reason": reason})
+    payload["operational_failures"] = failures
+    payload["status"] = "complete" if result.complete else "incomplete"
     path.write_text(
         json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8"
     )
@@ -246,6 +363,8 @@ def main() -> int:
     parser.add_argument("--output", type=Path, default=Path("model-registry.json"))
     parser.add_argument("--runs", type=int, default=1)
     parser.add_argument("--dates", type=int, default=1)
+    parser.add_argument("--location-batch-limit", type=int, default=COVERAGE_LOCATION_BATCH_LIMIT)
+    parser.add_argument("--variable-batch-limit", type=int, default=VARIABLE_BATCH_LIMIT)
     parser.add_argument("--provider-limit", type=int, default=FREE_DAILY_LIMIT)
     args = parser.parse_args()
     budget = estimate_request_budget(
@@ -254,17 +373,22 @@ def main() -> int:
         run_count=args.runs,
         variable_count=len(REQUIRED_VARIABLES),
         date_count=args.dates,
+        location_batch_limit=args.location_batch_limit,
+        variable_batch_limit=args.variable_batch_limit,
         provider_limit=args.provider_limit,
     )
     print(budget.summary())
     budget.require_within_limit()
-    registry, excluded = probe_registry()
-    write_probe_registry(args.output, registry, excluded)
-    print(f"eligible: {len(registry.model_ids)}")
-    print(f"excluded: {len(excluded)}")
-    for model_id, reason in excluded:
+    result = probe_registry()
+    write_probe_registry(args.output, result)
+    print(f"eligible: {len(result.registry.model_ids)}")
+    print(f"excluded: {len(result.excluded)}")
+    print(f"operational failures: {len(result.operational_failures)}")
+    for model_id, reason in result.excluded:
         print(f"excluded {model_id}: {reason}")
-    return 0
+    for model_id, reason in result.operational_failures:
+        print(f"operational failure {model_id}: {reason}")
+    return 0 if result.complete else 1
 
 
 if __name__ == "__main__":

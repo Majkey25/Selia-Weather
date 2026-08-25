@@ -18,7 +18,7 @@
 
 - Data is encrypted in transit: Yes.
 - Account creation: No.
-- Approximate location and precise location: collected and shared with Open-Meteo when the user requests current location. Both are optional, used for app functionality, and encrypted in transit.
+- Approximate location and precise location: collected and shared with Open-Meteo for every forecast request. The request sends the selected forecast coordinates, including default Prague, a search result, a favourite, or current location. The current-location permission is optional. The data supports app functionality and is encrypted in transit.
 - In-app search history: place search terms are collected and shared with Open-Meteo for geocoding. This data is optional, used for app functionality, and encrypted in transit.
 - Ephemeral processing: No. The app does not retain this data off-device, but [Open-Meteo states](https://open-meteo.com/en/terms) that free API server logs may contain coordinates and are deleted after 90 days.
 - Users can delete local app data in Android settings or by uninstalling the app.
@@ -26,7 +26,7 @@
 - A selected widget image stays on the device. The app retains read access to the Android document URI only while a configured widget uses it.
 - The optional Buy Me a Coffee action opens an external HTTPS page. It grants no app feature, entitlement, or priority.
 
-The location disclosure covers coordinates sent to Open-Meteo and Android Geocoder only after the user selects **Use my location**. ČHMÚ radar and satellite requests use normal HTTPS connections. Do not claim a service-provider or user-action exception for the Open-Meteo transfer.
+The location disclosure covers forecast coordinates sent to Open-Meteo for every forecast request. Android Geocoder can receive coordinates only after the user selects **Use my location**. ČHMÚ radar and satellite requests use normal HTTPS connections. Do not claim a service-provider or user-action exception for the Open-Meteo transfer.
 
 ## Assets
 

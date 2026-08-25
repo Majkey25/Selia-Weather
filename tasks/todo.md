@@ -30,7 +30,7 @@
 - [x] Adaptive Task 4: Add the customizable widget renderer.
   - Acceptance: each widget stores independent colors, opacity, text, alignment, image URI, and field selection.
   - Verify: invalid values and unreadable images fall back without breaking `RemoteViews`.
-- [ ] Adaptive Task 5: Build the complete widget editor and image picker.
+- [x] Adaptive Task 5: Build the complete widget editor and image picker.
   - Acceptance: preview and hosted widget interpret every setting the same way.
   - Verify: independent English and French widgets persist through launcher and app restart.
 - [ ] Adaptive Task 6: Add localized optional Buy Me a Coffee support.

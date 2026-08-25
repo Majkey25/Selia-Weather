@@ -25,32 +25,29 @@ import cz.majkey.pocasicesko.ui.labelResource
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.RejectedExecutionException
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.roundToInt
 
 class WeatherWidgetProvider : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
-        if (isWidgetLocaleChange(intent.action)) updateAll(context)
+        if (isWidgetLocaleChange(intent.action)) runBroadcastWork { updateAllNow(context) }
     }
 
     override fun onUpdate(context: Context, manager: AppWidgetManager, appWidgetIds: IntArray) {
-        appWidgetIds.forEach { update(context, manager, it) }
-        if (appWidgetIds.isEmpty()) return
-
-        val pendingResult = goAsync()
-        Thread(
-            {
-                try {
+        runBroadcastWork {
+            appWidgetIds.forEach { renderWidget(context, manager, it) }
+            if (appWidgetIds.isNotEmpty()) {
+                runCatching {
                     val repository = WeatherRepository(context)
                     repository.fetchForecastBlocking(repository.lastLocation())
-                } catch (_: Exception) {
-                    updateAll(context)
-                } finally {
-                    pendingResult.finish()
-                }
-            },
-            "pocasi-widget-refresh",
-        ).start()
+                }.onFailure { updateAllNow(context) }
+            }
+        }
     }
 
     override fun onAppWidgetOptionsChanged(
@@ -59,11 +56,28 @@ class WeatherWidgetProvider : AppWidgetProvider() {
         appWidgetId: Int,
         newOptions: Bundle,
     ) {
-        update(context, manager, appWidgetId)
+        runBroadcastWork { renderWidget(context, manager, appWidgetId) }
     }
 
     override fun onDeleted(context: Context, appWidgetIds: IntArray) {
-        appWidgetIds.forEach { deleteSettings(context, it) }
+        runBroadcastWork { appWidgetIds.forEach { deleteSettings(context, it) } }
+    }
+
+    private fun runBroadcastWork(work: () -> Unit) {
+        val pendingResult = goAsync()
+        val finished = AtomicBoolean()
+        val finish = { if (finished.compareAndSet(false, true)) pendingResult.finish() }
+        if (!submitWidgetWork(
+            kind = WidgetWorkKind.UPDATE,
+            work = {
+                try {
+                    work()
+                } finally {
+                    finish()
+                }
+            },
+            onDiscard = finish,
+        )) finish()
     }
 
     companion object {
@@ -102,17 +116,65 @@ class WeatherWidgetProvider : AppWidgetProvider() {
         )
 
         fun updateAll(context: Context) {
-            val manager = AppWidgetManager.getInstance(context)
-            val component = ComponentName(context, WeatherWidgetProvider::class.java)
-            manager.getAppWidgetIds(component).forEach { update(context, manager, it) }
+            submitWidgetWork(WidgetWorkKind.UPDATE, work = { updateAllNow(context.applicationContext) })
         }
 
-        fun update(context: Context, manager: AppWidgetManager, appWidgetId: Int) {
-            runCatching { render(context, manager, appWidgetId) }
-                .onFailure { error ->
+        fun applySettings(
+            context: Context,
+            appWidgetId: Int,
+            settings: WidgetSettings,
+            needsImageGrant: Boolean,
+            onComplete: (Boolean) -> Unit,
+        ): Boolean = submitWidgetWork(
+            kind = WidgetWorkKind.APPLY,
+            work = {
+                val rendered = runCatching {
+                    if (needsImageGrant) {
+                        context.contentResolver.takePersistableUriPermission(
+                            Uri.parse(settings.imageUri),
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                        )
+                    }
+                    saveSettings(context, appWidgetId, settings) &&
+                        runCatching {
+                            renderWidget(
+                                context.applicationContext,
+                                AppWidgetManager.getInstance(context),
+                                appWidgetId,
+                                fallbackOnFailure = false,
+                            )
+                        }.isSuccess
+                }.getOrDefault(false)
+                if (!rendered && needsImageGrant) releaseImageIfUnused(context, settings.imageUri)
+                onComplete(rendered)
+            },
+            onDiscard = {
+                if (needsImageGrant) releaseImageIfUnused(context, settings.imageUri)
+                onComplete(false)
+            },
+        )
+
+        private fun updateAllNow(context: Context, fallbackOnFailure: Boolean = true) {
+            val manager = AppWidgetManager.getInstance(context)
+            val component = ComponentName(context, WeatherWidgetProvider::class.java)
+            manager.getAppWidgetIds(component).forEach {
+                renderWidget(context, manager, it, fallbackOnFailure)
+            }
+        }
+
+        private fun renderWidget(
+            context: Context,
+            manager: AppWidgetManager,
+            appWidgetId: Int,
+            fallbackOnFailure: Boolean = true,
+        ) {
+            synchronized(widgetRenderLock) {
+                if (!fallbackOnFailure) return render(context, manager, appWidgetId)
+                runCatching { render(context, manager, appWidgetId) }.onFailure { error ->
                     Log.e("ALADINWidget", "Widget $appWidgetId render failed", error)
                     manager.updateAppWidget(appWidgetId, fallbackViews(AppLocale.localized(context)))
                 }
+            }
         }
 
         private fun render(context: Context, manager: AppWidgetManager, appWidgetId: Int) {
@@ -375,47 +437,48 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             ).normalized()
         }
 
-        fun saveSettings(context: Context, appWidgetId: Int, settings: WidgetSettings) {
+        fun saveSettings(context: Context, appWidgetId: Int, settings: WidgetSettings): Boolean {
             val normalized = settings.normalized()
             val preferences = context.getSharedPreferences(WeatherRepository.PREFERENCES_NAME, Context.MODE_PRIVATE)
             val imageKey = widgetPreferenceKey(appWidgetId, "image_uri")
             val oldImageUri = preferences.getString(imageKey, null).orEmpty()
-            preferences.edit {
-                putString(widgetPreferenceKey(appWidgetId, "background_mode"), normalized.backgroundMode.name)
-                putString(widgetPreferenceKey(appWidgetId, "background_start"), normalized.backgroundStart)
-                putString(widgetPreferenceKey(appWidgetId, "background_end"), normalized.backgroundEnd)
-                putString(widgetPreferenceKey(appWidgetId, "primary_color"), normalized.primaryColor)
-                putString(widgetPreferenceKey(appWidgetId, "secondary_color"), normalized.secondaryColor)
-                putString(widgetPreferenceKey(appWidgetId, "accent_color"), normalized.accentColor)
-                putInt(widgetPreferenceKey(appWidgetId, "opacity"), normalized.opacity)
-                putInt(widgetPreferenceKey(appWidgetId, "text_scale"), normalized.textScale)
-                putString(widgetPreferenceKey(appWidgetId, "alignment"), normalized.alignment.name)
-                putString(widgetPreferenceKey(appWidgetId, "label"), normalized.customLabel)
-                putString(imageKey, normalized.imageUri)
-                putBoolean(widgetPreferenceKey(appWidgetId, "clock"), normalized.showClock)
-                putBoolean(widgetPreferenceKey(appWidgetId, "date"), normalized.showDate)
-                putBoolean(widgetPreferenceKey(appWidgetId, "location"), normalized.showLocation)
-                putBoolean(widgetPreferenceKey(appWidgetId, "temperature"), normalized.showTemperature)
-                putBoolean(widgetPreferenceKey(appWidgetId, "icon"), normalized.showIcon)
-                putBoolean(widgetPreferenceKey(appWidgetId, "condition"), normalized.showCondition)
-                putBoolean(widgetPreferenceKey(appWidgetId, "range"), normalized.showRange)
-                putBoolean(widgetPreferenceKey(appWidgetId, "hourly"), normalized.showHourly)
-                putBoolean(widgetPreferenceKey(appWidgetId, "precipitation"), normalized.showPrecipitation)
-                putBoolean(widgetPreferenceKey(appWidgetId, "wind"), normalized.showWind)
-                putBoolean(widgetPreferenceKey(appWidgetId, "humidity"), normalized.showHumidity)
-                putBoolean(widgetPreferenceKey(appWidgetId, "updated_at"), normalized.showUpdatedAt)
-            }
-            if (oldImageUri != normalized.imageUri) releaseImageIfUnused(context, oldImageUri)
+            val saved = preferences.edit()
+                .putString(widgetPreferenceKey(appWidgetId, "background_mode"), normalized.backgroundMode.name)
+                .putString(widgetPreferenceKey(appWidgetId, "background_start"), normalized.backgroundStart)
+                .putString(widgetPreferenceKey(appWidgetId, "background_end"), normalized.backgroundEnd)
+                .putString(widgetPreferenceKey(appWidgetId, "primary_color"), normalized.primaryColor)
+                .putString(widgetPreferenceKey(appWidgetId, "secondary_color"), normalized.secondaryColor)
+                .putString(widgetPreferenceKey(appWidgetId, "accent_color"), normalized.accentColor)
+                .putInt(widgetPreferenceKey(appWidgetId, "opacity"), normalized.opacity)
+                .putInt(widgetPreferenceKey(appWidgetId, "text_scale"), normalized.textScale)
+                .putString(widgetPreferenceKey(appWidgetId, "alignment"), normalized.alignment.name)
+                .putString(widgetPreferenceKey(appWidgetId, "label"), normalized.customLabel)
+                .putString(imageKey, normalized.imageUri)
+                .putBoolean(widgetPreferenceKey(appWidgetId, "clock"), normalized.showClock)
+                .putBoolean(widgetPreferenceKey(appWidgetId, "date"), normalized.showDate)
+                .putBoolean(widgetPreferenceKey(appWidgetId, "location"), normalized.showLocation)
+                .putBoolean(widgetPreferenceKey(appWidgetId, "temperature"), normalized.showTemperature)
+                .putBoolean(widgetPreferenceKey(appWidgetId, "icon"), normalized.showIcon)
+                .putBoolean(widgetPreferenceKey(appWidgetId, "condition"), normalized.showCondition)
+                .putBoolean(widgetPreferenceKey(appWidgetId, "range"), normalized.showRange)
+                .putBoolean(widgetPreferenceKey(appWidgetId, "hourly"), normalized.showHourly)
+                .putBoolean(widgetPreferenceKey(appWidgetId, "precipitation"), normalized.showPrecipitation)
+                .putBoolean(widgetPreferenceKey(appWidgetId, "wind"), normalized.showWind)
+                .putBoolean(widgetPreferenceKey(appWidgetId, "humidity"), normalized.showHumidity)
+                .putBoolean(widgetPreferenceKey(appWidgetId, "updated_at"), normalized.showUpdatedAt)
+                .commit()
+            if (saved && oldImageUri != normalized.imageUri) releaseImageIfUnused(context, oldImageUri)
+            return saved
         }
 
         private fun deleteSettings(context: Context, appWidgetId: Int) {
             val preferences = context.getSharedPreferences(WeatherRepository.PREFERENCES_NAME, Context.MODE_PRIVATE)
             val prefix = "widget_settings_${appWidgetId}_"
             val oldImageUri = preferences.getString(widgetPreferenceKey(appWidgetId, "image_uri"), null).orEmpty()
-            preferences.edit {
+            val deleted = preferences.edit().apply {
                 preferences.all.keys.filter { it.startsWith(prefix) }.forEach(::remove)
-            }
-            releaseImageIfUnused(context, oldImageUri)
+            }.commit()
+            if (deleted) releaseImageIfUnused(context, oldImageUri)
         }
 
         fun releaseImageIfUnused(context: Context, uriValue: String) {
@@ -453,6 +516,66 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             WeatherKind.RAIN -> R.drawable.ic_weather_rain
             WeatherKind.STORM -> R.drawable.ic_weather_storm
             WeatherKind.SNOW -> R.drawable.ic_weather_snow
+        }
+
+        private fun submitWidgetWork(
+            kind: WidgetWorkKind,
+            work: () -> Unit,
+            onDiscard: () -> Unit = {},
+        ): Boolean =
+            synchronized(widgetWorkLock) {
+                val task = WidgetWork(kind, work, onDiscard)
+                try {
+                    widgetWorker.execute(task)
+                    true
+                } catch (_: RejectedExecutionException) {
+                    val pending = widgetWorker.queue.peek() as? WidgetWork
+                    when (widgetWorkAdmission(pending?.kind, kind)) {
+                        WidgetWorkAdmission.REPLACE_PENDING -> {
+                            (widgetWorker.queue.poll() as? WidgetWork)?.discard()
+                            runCatching { widgetWorker.execute(task) }
+                                .onFailure { task.discard() }
+                                .isSuccess
+                        }
+                        WidgetWorkAdmission.DROP_INCOMING,
+                        WidgetWorkAdmission.REJECT_INCOMING,
+                        -> {
+                            task.discard()
+                            false
+                        }
+                        WidgetWorkAdmission.ENQUEUE -> {
+                            runCatching { widgetWorker.execute(task) }
+                                .onFailure { task.discard() }
+                                .isSuccess
+                        }
+                    }
+                } catch (error: RuntimeException) {
+                    Log.w("ALADINWidget", "Widget worker did not start", error)
+                    task.discard()
+                    false
+                }
+            }
+
+        private val widgetRenderLock = Any()
+        private val widgetWorkLock = Any()
+        private val widgetWorker = ThreadPoolExecutor(
+            1,
+            1,
+            0L,
+            TimeUnit.MILLISECONDS,
+            ArrayBlockingQueue<Runnable>(1),
+            { runnable -> Thread(runnable, "pocasi-widget-worker") },
+            ThreadPoolExecutor.AbortPolicy(),
+        )
+
+        private class WidgetWork(
+            val kind: WidgetWorkKind,
+            private val work: () -> Unit,
+            private val onDiscard: () -> Unit,
+        ) : Runnable {
+            override fun run() = work()
+
+            fun discard() = onDiscard()
         }
     }
 }

@@ -145,6 +145,7 @@
     <string name="widget_image_remove">Quitar imagen</string>
     <string name="widget_image_selected">Imagen seleccionada</string>
     <string name="widget_image_not_selected">No hay imagen seleccionada</string>
+    <string name="widget_image_access_failed">No se pudo guardar esta imagen. Vuelva a seleccionarla e inténtelo de nuevo.</string>
     <string name="widget_invalid_hex">Usa #RRGGBB o #AARRGGBB</string>
     <string name="widget_field_time">Hora</string>
     <string name="widget_field_date">Fecha</string>

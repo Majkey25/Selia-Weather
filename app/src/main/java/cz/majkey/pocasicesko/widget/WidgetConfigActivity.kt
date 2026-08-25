@@ -5,6 +5,7 @@ import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -13,27 +14,18 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.locale.AppLocale
 import cz.majkey.pocasicesko.ui.WeatherTheme
 
 class WidgetConfigActivity : ComponentActivity() {
     private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
     private var selectedImageUri by mutableStateOf<String?>(null)
-    private var pendingGrantUri: String? = null
     private var initialImageUri = ""
-    private var applied = false
+    private var applying = false
 
     private val imagePicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uri ?: return@registerForActivityResult
-        runCatching {
-            contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }.onSuccess {
-            val value = uri.toString()
-            val selection = selectWidgetImage(initialImageUri, pendingGrantUri, value)
-            selection.releasedGrantUri?.let { WeatherWidgetProvider.releaseImageIfUnused(this, it) }
-            pendingGrantUri = selection.pendingGrantUri
-            selectedImageUri = selection.editorUri
-        }
+        selectedImageUri = uri?.toString()
     }
 
     override fun attachBaseContext(newBase: Context) {
@@ -49,7 +41,6 @@ class WidgetConfigActivity : ComponentActivity() {
                 AppWidgetManager.INVALID_APPWIDGET_ID,
             ) ?: AppWidgetManager.INVALID_APPWIDGET_ID
         selectedImageUri = savedInstanceState?.getString(STATE_SELECTED_IMAGE_URI)
-        pendingGrantUri = savedInstanceState?.getString(STATE_PENDING_GRANT_URI)
         initialImageUri = savedInstanceState?.getString(STATE_INITIAL_IMAGE_URI).orEmpty()
         if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) {
             finish()
@@ -69,21 +60,11 @@ class WidgetConfigActivity : ComponentActivity() {
                     initial = WeatherWidgetProvider.loadSettings(this, appWidgetId),
                     pickedImageUri = selectedImageUri,
                     onPickImage = { imagePicker.launch(arrayOf("image/*")) },
-                    onRemoveImage = { uri ->
-                        if (uri == pendingGrantUri) discardPendingImage()
+                    onRemoveImage = {
                         selectedImageUri = null
                     },
                     onApply = { settings ->
-                        WeatherWidgetProvider.saveSettings(this, appWidgetId, settings)
-                        WeatherWidgetProvider.update(this, AppWidgetManager.getInstance(this), appWidgetId)
-                        pendingGrantUri = null
-                        selectedImageUri = null
-                        applied = true
-                        setResult(
-                            Activity.RESULT_OK,
-                            Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId),
-                        )
-                        finish()
+                        if (!applying) applySettings(settings)
                     },
                 )
             }
@@ -93,25 +74,38 @@ class WidgetConfigActivity : ComponentActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putInt(STATE_WIDGET_ID, appWidgetId)
         outState.putString(STATE_SELECTED_IMAGE_URI, selectedImageUri)
-        outState.putString(STATE_PENDING_GRANT_URI, pendingGrantUri)
         outState.putString(STATE_INITIAL_IMAGE_URI, initialImageUri)
         super.onSaveInstanceState(outState)
     }
 
-    override fun onDestroy() {
-        if (isFinishing && !applied) discardPendingImage()
-        super.onDestroy()
-    }
-
-    private fun discardPendingImage() {
-        pendingGrantUri?.let { WeatherWidgetProvider.releaseImageIfUnused(this, it) }
-        pendingGrantUri = null
+    private fun applySettings(settings: WidgetSettings) {
+        applying = true
+        val normalized = settings.normalized()
+        WeatherWidgetProvider.applySettings(
+            applicationContext,
+            appWidgetId,
+            normalized,
+            requiresWidgetImageGrant(initialImageUri, normalized.imageUri),
+        ) { saved ->
+            runOnUiThread {
+                applying = false
+                if (!saved) {
+                    Toast.makeText(this, R.string.widget_image_access_failed, Toast.LENGTH_LONG).show()
+                    return@runOnUiThread
+                }
+                selectedImageUri = null
+                setResult(
+                    Activity.RESULT_OK,
+                    Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId),
+                )
+                finish()
+            }
+        }
     }
 
     private companion object {
         const val STATE_WIDGET_ID = "widget_id"
         const val STATE_SELECTED_IMAGE_URI = "selected_image_uri"
-        const val STATE_PENDING_GRANT_URI = "pending_grant_uri"
         const val STATE_INITIAL_IMAGE_URI = "initial_image_uri"
     }
 }

@@ -145,6 +145,7 @@
     <string name="widget_image_remove">Odebrat obrázek</string>
     <string name="widget_image_selected">Obrázek vybrán</string>
     <string name="widget_image_not_selected">Není vybrán obrázek</string>
+    <string name="widget_image_access_failed">Obrázek se nepodařilo uložit. Vyberte jej znovu a opakujte akci.</string>
     <string name="widget_invalid_hex">Použijte #RRGGBB nebo #AARRGGBB</string>
     <string name="widget_field_time">Čas</string>
     <string name="widget_field_date">Datum</string>

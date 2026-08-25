@@ -56,6 +56,18 @@ enum class WidgetSize {
     WIDE,
 }
 
+internal enum class WidgetWorkKind {
+    UPDATE,
+    APPLY,
+}
+
+internal enum class WidgetWorkAdmission {
+    ENQUEUE,
+    REPLACE_PENDING,
+    DROP_INCOMING,
+    REJECT_INCOMING,
+}
+
 internal data class WidgetBitmapSize(val width: Int, val height: Int)
 internal data class WidgetAlignmentSpacers(val showLeft: Boolean, val showRight: Boolean)
 internal data class WidgetContentVisibility(
@@ -73,11 +85,6 @@ internal data class WidgetContentVisibility(
     val showHumidity: Boolean,
     val showDate: Boolean,
     val showUpdatedAt: Boolean,
-)
-internal data class WidgetImageSelection(
-    val editorUri: String,
-    val pendingGrantUri: String?,
-    val releasedGrantUri: String?,
 )
 
 internal fun widgetSize(minWidth: Int, minHeight: Int): WidgetSize = when {
@@ -181,15 +188,18 @@ internal fun widgetImageUriReferenced(values: Map<String, *>, uri: String): Bool
         key.endsWith("_image_uri") && value == uri
     }
 
-internal fun selectWidgetImage(
-    initialUri: String,
-    pendingGrantUri: String?,
-    pickedUri: String,
-): WidgetImageSelection = WidgetImageSelection(
-    editorUri = pickedUri,
-    pendingGrantUri = pickedUri.takeUnless { it == initialUri },
-    releasedGrantUri = pendingGrantUri?.takeUnless { it == pickedUri },
-)
+internal fun requiresWidgetImageGrant(initialUri: String, imageUri: String): Boolean =
+    imageUri.isNotBlank() && imageUri != initialUri
+
+internal fun widgetWorkAdmission(
+    pending: WidgetWorkKind?,
+    incoming: WidgetWorkKind,
+): WidgetWorkAdmission = when {
+    pending == null -> WidgetWorkAdmission.ENQUEUE
+    pending == WidgetWorkKind.UPDATE -> WidgetWorkAdmission.REPLACE_PENDING
+    incoming == WidgetWorkKind.UPDATE -> WidgetWorkAdmission.DROP_INCOMING
+    else -> WidgetWorkAdmission.REJECT_INCOMING
+}
 
 internal fun widgetUpdatedAt(epochMillis: Long, zoneId: ZoneId, locale: Locale): String =
     Instant.ofEpochMilli(epochMillis)

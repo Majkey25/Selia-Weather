@@ -172,14 +172,51 @@ class WidgetSettingsTest {
     }
 
     @Test
-    fun boundsInvalidColorInputAndLetsOriginalImageReplacePendingImage() {
+    fun boundsInvalidColorInputAndRequiresGrantOnlyForANewImage() {
         val original = "content://example/original"
-        val pending = "content://example/new"
-        val selection = selectWidgetImage(original, pending, original)
 
         assertEquals("#12345678", widgetColorInput("#123456789"))
-        assertEquals(original, selection.editorUri)
-        assertEquals(null, selection.pendingGrantUri)
-        assertEquals(pending, selection.releasedGrantUri)
+        assertFalse(requiresWidgetImageGrant(original, original))
+        assertFalse(requiresWidgetImageGrant(original, ""))
+        assertTrue(requiresWidgetImageGrant(original, "content://example/new"))
+    }
+
+    @Test
+    fun coalescesQueuedUpdatesButNeverDropsQueuedApply() {
+        assertEquals(
+            WidgetWorkAdmission.ENQUEUE,
+            widgetWorkAdmission(null, WidgetWorkKind.UPDATE),
+        )
+        assertEquals(
+            WidgetWorkAdmission.REPLACE_PENDING,
+            widgetWorkAdmission(WidgetWorkKind.UPDATE, WidgetWorkKind.UPDATE),
+        )
+        assertEquals(
+            WidgetWorkAdmission.REPLACE_PENDING,
+            widgetWorkAdmission(WidgetWorkKind.UPDATE, WidgetWorkKind.APPLY),
+        )
+        assertEquals(
+            WidgetWorkAdmission.DROP_INCOMING,
+            widgetWorkAdmission(WidgetWorkKind.APPLY, WidgetWorkKind.UPDATE),
+        )
+        assertEquals(
+            WidgetWorkAdmission.REJECT_INCOMING,
+            widgetWorkAdmission(WidgetWorkKind.APPLY, WidgetWorkKind.APPLY),
+        )
+    }
+
+    @Test
+    fun defersImageGrantUntilApplyAndKeepsSharedUrisReferenced() {
+        val original = "content://example/original"
+        val replacement = "content://example/replacement"
+
+        assertFalse(requiresWidgetImageGrant(original, original))
+        assertTrue(requiresWidgetImageGrant(original, replacement))
+        assertTrue(
+            widgetImageUriReferenced(
+                mapOf("widget_settings_8_image_uri" to original),
+                original,
+            ),
+        )
     }
 }

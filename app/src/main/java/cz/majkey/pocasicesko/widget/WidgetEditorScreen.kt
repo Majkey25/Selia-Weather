@@ -71,7 +71,7 @@ internal fun WidgetEditorScreen(
 ) {
     var settings by rememberSaveable(stateSaver = WidgetSettingsSaver) { mutableStateOf(initial) }
     LaunchedEffect(pickedImageUri) {
-        if (pickedImageUri != null && pickedImageUri != settings.imageUri) {
+        if (pickedImageUri != null) {
             settings = settings.copy(imageUri = pickedImageUri)
         }
     }
@@ -213,7 +213,7 @@ private fun ColorInput(value: String, label: String, onValueChange: (String) -> 
     val invalid = !isWidgetColor(value)
     OutlinedTextField(
         value = value,
-        onValueChange = onValueChange,
+        onValueChange = { onValueChange(widgetColorInput(it)) },
         label = { Text(label) },
         isError = invalid,
         supportingText = { if (invalid) Text(stringResource(R.string.widget_invalid_hex)) },
@@ -378,11 +378,11 @@ private val WidgetSettingsSaver = listSaver<WidgetSettings, Any>(
     restore = { values ->
         WidgetSettings(
             backgroundMode = WidgetBackgroundMode.valueOf(values[0] as String),
-            backgroundStart = values[1] as String,
-            backgroundEnd = values[2] as String,
-            primaryColor = values[3] as String,
-            secondaryColor = values[4] as String,
-            accentColor = values[5] as String,
+            backgroundStart = widgetColorInput(values[1] as String),
+            backgroundEnd = widgetColorInput(values[2] as String),
+            primaryColor = widgetColorInput(values[3] as String),
+            secondaryColor = widgetColorInput(values[4] as String),
+            accentColor = widgetColorInput(values[5] as String),
             opacity = values[6] as Int,
             textScale = values[7] as Int,
             alignment = WidgetAlignment.valueOf(values[8] as String),

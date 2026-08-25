@@ -170,4 +170,16 @@ class WidgetSettingsTest {
         assertFalse(widgetImageUriReferenced(mapOf("widget_settings_7_city" to image), image))
         assertFalse(widgetImageUriReferenced(mapOf("widget_settings_7_image_uri" to image), "content://other"))
     }
+
+    @Test
+    fun boundsInvalidColorInputAndLetsOriginalImageReplacePendingImage() {
+        val original = "content://example/original"
+        val pending = "content://example/new"
+        val selection = selectWidgetImage(original, pending, original)
+
+        assertEquals("#12345678", widgetColorInput("#123456789"))
+        assertEquals(original, selection.editorUri)
+        assertEquals(null, selection.pendingGrantUri)
+        assertEquals(pending, selection.releasedGrantUri)
+    }
 }

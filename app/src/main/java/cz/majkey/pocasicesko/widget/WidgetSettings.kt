@@ -74,6 +74,11 @@ internal data class WidgetContentVisibility(
     val showDate: Boolean,
     val showUpdatedAt: Boolean,
 )
+internal data class WidgetImageSelection(
+    val editorUri: String,
+    val pendingGrantUri: String?,
+    val releasedGrantUri: String?,
+)
 
 internal fun widgetSize(minWidth: Int, minHeight: Int): WidgetSize = when {
     minWidth >= 320 -> WidgetSize.WIDE
@@ -95,6 +100,8 @@ internal fun WidgetSettings.normalized(): WidgetSettings = copy(
 )
 
 internal fun isWidgetColor(value: String): Boolean = WIDGET_COLOR.matches(value)
+
+internal fun widgetColorInput(value: String): String = value.take(MAX_WIDGET_COLOR_INPUT_LENGTH)
 
 internal fun normalizedWidgetColor(value: String, fallback: String): String {
     val trimmed = value.trim()
@@ -174,6 +181,16 @@ internal fun widgetImageUriReferenced(values: Map<String, *>, uri: String): Bool
         key.endsWith("_image_uri") && value == uri
     }
 
+internal fun selectWidgetImage(
+    initialUri: String,
+    pendingGrantUri: String?,
+    pickedUri: String,
+): WidgetImageSelection = WidgetImageSelection(
+    editorUri = pickedUri,
+    pendingGrantUri = pickedUri.takeUnless { it == initialUri },
+    releasedGrantUri = pendingGrantUri?.takeUnless { it == pickedUri },
+)
+
 internal fun widgetUpdatedAt(epochMillis: Long, zoneId: ZoneId, locale: Locale): String =
     Instant.ofEpochMilli(epochMillis)
         .atZone(zoneId)
@@ -224,3 +241,4 @@ internal const val DEFAULT_SECONDARY_COLOR = "#CCFFFFFF"
 internal const val DEFAULT_ACCENT_COLOR = "#FF66C9DF"
 internal const val LEGACY_LIGHT_PRIMARY_COLOR = "#FF173042"
 internal const val LEGACY_LIGHT_SECONDARY_COLOR = "#B3173042"
+internal const val MAX_WIDGET_COLOR_INPUT_LENGTH = 9

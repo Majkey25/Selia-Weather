@@ -18,7 +18,8 @@ import cz.majkey.pocasicesko.ui.WeatherTheme
 
 class WidgetConfigActivity : ComponentActivity() {
     private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
-    private var pendingImageUri by mutableStateOf<String?>(null)
+    private var selectedImageUri by mutableStateOf<String?>(null)
+    private var pendingGrantUri: String? = null
     private var initialImageUri = ""
     private var applied = false
 
@@ -28,9 +29,10 @@ class WidgetConfigActivity : ComponentActivity() {
             contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }.onSuccess {
             val value = uri.toString()
-            if (value == pendingImageUri) return@onSuccess
-            discardPendingImage()
-            pendingImageUri = value.takeUnless { it == initialImageUri }
+            val selection = selectWidgetImage(initialImageUri, pendingGrantUri, value)
+            selection.releasedGrantUri?.let { WeatherWidgetProvider.releaseImageIfUnused(this, it) }
+            pendingGrantUri = selection.pendingGrantUri
+            selectedImageUri = selection.editorUri
         }
     }
 
@@ -46,7 +48,8 @@ class WidgetConfigActivity : ComponentActivity() {
                 AppWidgetManager.EXTRA_APPWIDGET_ID,
                 AppWidgetManager.INVALID_APPWIDGET_ID,
             ) ?: AppWidgetManager.INVALID_APPWIDGET_ID
-        pendingImageUri = savedInstanceState?.getString(STATE_PENDING_IMAGE_URI)
+        selectedImageUri = savedInstanceState?.getString(STATE_SELECTED_IMAGE_URI)
+        pendingGrantUri = savedInstanceState?.getString(STATE_PENDING_GRANT_URI)
         initialImageUri = savedInstanceState?.getString(STATE_INITIAL_IMAGE_URI).orEmpty()
         if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) {
             finish()
@@ -64,15 +67,17 @@ class WidgetConfigActivity : ComponentActivity() {
             WeatherTheme {
                 WidgetEditorScreen(
                     initial = WeatherWidgetProvider.loadSettings(this, appWidgetId),
-                    pickedImageUri = pendingImageUri,
+                    pickedImageUri = selectedImageUri,
                     onPickImage = { imagePicker.launch(arrayOf("image/*")) },
                     onRemoveImage = { uri ->
-                        if (uri == pendingImageUri) discardPendingImage()
+                        if (uri == pendingGrantUri) discardPendingImage()
+                        selectedImageUri = null
                     },
                     onApply = { settings ->
                         WeatherWidgetProvider.saveSettings(this, appWidgetId, settings)
                         WeatherWidgetProvider.update(this, AppWidgetManager.getInstance(this), appWidgetId)
-                        pendingImageUri = null
+                        pendingGrantUri = null
+                        selectedImageUri = null
                         applied = true
                         setResult(
                             Activity.RESULT_OK,
@@ -87,7 +92,8 @@ class WidgetConfigActivity : ComponentActivity() {
 
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putInt(STATE_WIDGET_ID, appWidgetId)
-        outState.putString(STATE_PENDING_IMAGE_URI, pendingImageUri)
+        outState.putString(STATE_SELECTED_IMAGE_URI, selectedImageUri)
+        outState.putString(STATE_PENDING_GRANT_URI, pendingGrantUri)
         outState.putString(STATE_INITIAL_IMAGE_URI, initialImageUri)
         super.onSaveInstanceState(outState)
     }
@@ -98,13 +104,14 @@ class WidgetConfigActivity : ComponentActivity() {
     }
 
     private fun discardPendingImage() {
-        pendingImageUri?.let { WeatherWidgetProvider.releaseImageIfUnused(this, it) }
-        pendingImageUri = null
+        pendingGrantUri?.let { WeatherWidgetProvider.releaseImageIfUnused(this, it) }
+        pendingGrantUri = null
     }
 
     private companion object {
         const val STATE_WIDGET_ID = "widget_id"
-        const val STATE_PENDING_IMAGE_URI = "pending_image_uri"
+        const val STATE_SELECTED_IMAGE_URI = "selected_image_uri"
+        const val STATE_PENDING_GRANT_URI = "pending_grant_uri"
         const val STATE_INITIAL_IMAGE_URI = "initial_image_uri"
     }
 }

@@ -11,7 +11,13 @@ class LocationFavoritesCodecTest {
             CzechLocation("Brno", "Jihomoravský", 49.1951, 16.6068),
         )
 
-        assertEquals(locations, LocationFavoritesCodec.decode(LocationFavoritesCodec.encode(locations)))
+        assertEquals(
+            listOf(
+                CzechLocation("Praha", REGION_PRAGUE, 50.0755, 14.4378),
+                CzechLocation("Brno", REGION_SOUTH_MORAVIAN, 49.1951, 16.6068),
+            ),
+            LocationFavoritesCodec.decode(LocationFavoritesCodec.encode(locations)),
+        )
     }
 
     @Test
@@ -24,6 +30,9 @@ class LocationFavoritesCodecTest {
             ]
         """.trimIndent()
 
-        assertEquals(listOf(CzechLocation("Praha", "Praha", 50.1, 14.4)), LocationFavoritesCodec.decode(json))
+        assertEquals(
+            listOf(CzechLocation("Praha", REGION_CZECHIA, 50.1, 14.4)),
+            LocationFavoritesCodec.decode(json),
+        )
     }
 }

@@ -86,9 +86,6 @@ data class WeatherCondition(
     val kind: WeatherKind,
 )
 
-const val REGION_CZECHIA = "REGION_CZECHIA"
-const val REGION_PRAGUE = "REGION_PRAGUE"
-
 fun conditionFor(code: Int, isDay: Boolean = true): WeatherCondition = when (code) {
     0 -> WeatherCondition(if (isDay) WeatherConditionKey.CLEAR_DAY else WeatherConditionKey.CLEAR_NIGHT, WeatherKind.CLEAR)
     1, 2 -> WeatherCondition(WeatherConditionKey.PARTLY_CLOUDY, WeatherKind.PARTLY_CLOUDY)

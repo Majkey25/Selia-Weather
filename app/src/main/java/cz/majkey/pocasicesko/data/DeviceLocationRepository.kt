@@ -13,6 +13,7 @@ import android.location.LocationManager
 import android.os.Bundle
 import android.os.Looper
 import androidx.core.content.ContextCompat
+import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.locale.AppLocale
 import java.io.IOException
 import kotlin.coroutines.resume
@@ -98,8 +99,30 @@ class DeviceLocationRepository(context: Context) {
             ?: address?.subAdminArea
             ?: adminArea
             ?: "Czechia"
-        val region = adminArea ?: REGION_CZECHIA
+        val region = regionKeyForAdminArea(adminArea)
         return CzechLocation(name, region, location.latitude, location.longitude)
+    }
+
+    private fun regionKeyForAdminArea(adminArea: String?): String {
+        val localized = AppLocale.localized(appContext)
+        val labels = mapOf(
+            localized.getString(R.string.location_region_prague) to REGION_PRAGUE,
+            localized.getString(R.string.location_region_central_bohemia) to REGION_CENTRAL_BOHEMIA,
+            localized.getString(R.string.location_region_south_bohemian) to REGION_SOUTH_BOHEMIAN,
+            localized.getString(R.string.location_region_plzen) to REGION_PLZEN,
+            localized.getString(R.string.location_region_karlovy_vary) to REGION_KARLOVY_VARY,
+            localized.getString(R.string.location_region_usti_nad_labem) to REGION_USTI_NAD_LABEM,
+            localized.getString(R.string.location_region_liberec) to REGION_LIBEREC,
+            localized.getString(R.string.location_region_hradec_kralove) to REGION_HRADEC_KRALOVE,
+            localized.getString(R.string.location_region_pardubice) to REGION_PARDUBICE,
+            localized.getString(R.string.location_region_vysocina) to REGION_VYSOCINA,
+            localized.getString(R.string.location_region_south_moravian) to REGION_SOUTH_MORAVIAN,
+            localized.getString(R.string.location_region_olomouc) to REGION_OLOMOUC,
+            localized.getString(R.string.location_region_zlin) to REGION_ZLIN,
+            localized.getString(R.string.location_region_moravian_silesian) to REGION_MORAVIAN_SILESIAN,
+        )
+        return labels.entries.firstOrNull { (label, _) -> label.equals(adminArea, ignoreCase = true) }?.value
+            ?: normalizeRegionKey(adminArea.orEmpty())
     }
 
     companion object {

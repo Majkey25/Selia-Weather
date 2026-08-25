@@ -18,25 +18,33 @@ class WeatherRepository(context: Context) {
     private val appContext = context.applicationContext
     private val preferences = appContext.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
 
-    fun lastLocation(): CzechLocation = CzechLocation(
-        name = preferences.getString(KEY_LOCATION_NAME, null) ?: DEFAULT_LOCATION.name,
-        region = preferences.getString(KEY_LOCATION_REGION, null) ?: DEFAULT_LOCATION.region,
-        latitude = preferences.getString(KEY_LOCATION_LATITUDE, null)?.toDoubleOrNull() ?: DEFAULT_LOCATION.latitude,
-        longitude = preferences.getString(KEY_LOCATION_LONGITUDE, null)?.toDoubleOrNull() ?: DEFAULT_LOCATION.longitude,
-    )
+    fun lastLocation(): CzechLocation {
+        val location = CzechLocation(
+            name = preferences.getString(KEY_LOCATION_NAME, null) ?: DEFAULT_LOCATION.name,
+            region = preferences.getString(KEY_LOCATION_REGION, null) ?: DEFAULT_LOCATION.region,
+            latitude = preferences.getString(KEY_LOCATION_LATITUDE, null)?.toDoubleOrNull() ?: DEFAULT_LOCATION.latitude,
+            longitude = preferences.getString(KEY_LOCATION_LONGITUDE, null)?.toDoubleOrNull() ?: DEFAULT_LOCATION.longitude,
+        )
+        return normalizeLocationRegion(location).also { normalized ->
+            if (normalized != location) selectLocation(normalized)
+        }
+    }
 
     fun selectLocation(location: CzechLocation) {
         preferences.edit {
-            putString(KEY_LOCATION_NAME, location.name)
-            putString(KEY_LOCATION_REGION, location.region)
-            putString(KEY_LOCATION_LATITUDE, location.latitude.toString())
-            putString(KEY_LOCATION_LONGITUDE, location.longitude.toString())
+            val normalized = normalizeLocationRegion(location)
+            putString(KEY_LOCATION_NAME, normalized.name)
+            putString(KEY_LOCATION_REGION, normalized.region)
+            putString(KEY_LOCATION_LATITUDE, normalized.latitude.toString())
+            putString(KEY_LOCATION_LONGITUDE, normalized.longitude.toString())
         }
     }
 
     fun favoriteLocations(): List<CzechLocation> {
         val json = preferences.getString(KEY_FAVORITE_LOCATIONS, null) ?: return emptyList()
-        return runCatching { LocationFavoritesCodec.decode(json) }.getOrDefault(emptyList())
+        val locations = runCatching { LocationFavoritesCodec.decode(json) }.getOrElse { return emptyList() }
+        preferences.edit { putString(KEY_FAVORITE_LOCATIONS, LocationFavoritesCodec.encode(locations)) }
+        return locations
     }
 
     fun isFavorite(location: CzechLocation): Boolean = favoriteLocations().any { it.matches(location) }
@@ -97,7 +105,7 @@ class WeatherRepository(context: Context) {
                 add(
                     CzechLocation(
                         name = result.getString("name"),
-                        region = result.optString("admin1").ifBlank { REGION_CZECHIA },
+                        region = regionKeyForAdmin1Id(result.optInt("admin1_id")),
                         latitude = result.getDouble("latitude"),
                         longitude = result.getDouble("longitude"),
                     ),

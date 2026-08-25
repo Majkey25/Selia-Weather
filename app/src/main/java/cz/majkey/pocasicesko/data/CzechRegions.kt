@@ -45,22 +45,26 @@ internal fun normalizeLocationRegion(location: CzechLocation): CzechLocation =
 private val REGION_ALIASES = buildMap {
     fun aliases(key: String, vararg labels: String) {
         put(key.lowercase(Locale.ROOT), key)
-        labels.forEach { put(it.lowercase(Locale.ROOT), key) }
+        labels.forEach { label ->
+            val normalized = label.lowercase(Locale.ROOT)
+            val previous = put(normalized, key)
+            check(previous == null || previous == key) { "Region alias collision: $label" }
+        }
     }
 
     aliases(REGION_CZECHIA, "Czechia", "Česko")
-    aliases(REGION_PRAGUE, "Prague", "Capital City of Prague", "Hlavní město Praha")
-    aliases(REGION_CENTRAL_BOHEMIA, "Central Bohemia", "Central Bohemian Region", "Středočeský kraj")
-    aliases(REGION_SOUTH_BOHEMIAN, "South Bohemian Region", "Jihočeský kraj")
-    aliases(REGION_PLZEN, "Plzeň Region", "Pilsen Region", "Plzeňský kraj")
-    aliases(REGION_KARLOVY_VARY, "Carlsbad Region", "Karlovy Vary Region", "Karlovarský kraj")
-    aliases(REGION_USTI_NAD_LABEM, "Ústí nad Labem Region", "Ústecký kraj")
-    aliases(REGION_LIBEREC, "Liberec Region", "Liberecký kraj")
-    aliases(REGION_HRADEC_KRALOVE, "Hradec Králové Region", "Královéhradecký kraj")
-    aliases(REGION_PARDUBICE, "Pardubice Region", "Pardubický kraj")
-    aliases(REGION_VYSOCINA, "Vysocina", "Vysočina Region", "Kraj Vysočina")
-    aliases(REGION_SOUTH_MORAVIAN, "South Moravian", "South Moravian Region", "Jihomoravský", "Jihomoravský kraj")
-    aliases(REGION_OLOMOUC, "Olomouc Region", "Olomoucký kraj")
-    aliases(REGION_ZLIN, "Zlín", "Zlín Region", "Zlínský kraj")
-    aliases(REGION_MORAVIAN_SILESIAN, "Moravian-Silesian Region", "Moravskoslezský kraj")
+    aliases(REGION_PRAGUE, "Prague", "Capital City of Prague", "Hlavní město Praha", "Hauptstadt Prag", "Ciudad Capital de Praga", "Capitale Prague")
+    aliases(REGION_CENTRAL_BOHEMIA, "Central Bohemia", "Central Bohemian Region", "Středočeský kraj", "Mittelböhmische Region", "Región de Bohemia Central", "Région de Bohême-Centrale")
+    aliases(REGION_SOUTH_BOHEMIAN, "South Bohemian Region", "Jihočeský kraj", "Südböhmische Region", "Región de Bohemia Meridional", "Région de Bohême-du-Sud")
+    aliases(REGION_PLZEN, "Plzeň Region", "Pilsen Region", "Plzeňský kraj", "Region Pilsen", "Región de Pilsen", "Région de Plzeň")
+    aliases(REGION_KARLOVY_VARY, "Carlsbad Region", "Karlovy Vary Region", "Karlovarský kraj", "Region Karlsbad", "Región de Karlovy Vary", "Région de Karlovy Vary")
+    aliases(REGION_USTI_NAD_LABEM, "Ústí nad Labem Region", "Ústecký kraj", "Region Ústí nad Labem", "Región de Ústí nad Labem", "Région d'Ústí nad Labem")
+    aliases(REGION_LIBEREC, "Liberec Region", "Liberecký kraj", "Region Liberec", "Región de Liberec", "Région de Liberec")
+    aliases(REGION_HRADEC_KRALOVE, "Hradec Králové Region", "Královéhradecký kraj", "Region Hradec Králové", "Región de Hradec Králové", "Région de Hradec Králové")
+    aliases(REGION_PARDUBICE, "Pardubice Region", "Pardubický kraj", "Region Pardubice", "Región de Pardubice", "Région de Pardubice")
+    aliases(REGION_VYSOCINA, "Vysocina", "Vysočina Region", "Kraj Vysočina", "Region Vysočina", "Región de Vysočina", "Région de Vysočina")
+    aliases(REGION_SOUTH_MORAVIAN, "South Moravian", "South Moravian Region", "Jihomoravský", "Jihomoravský kraj", "Südmährische Region", "Región de Moravia Meridional", "Région de Moravie-du-Sud")
+    aliases(REGION_OLOMOUC, "Olomouc Region", "Olomoucký kraj", "Region Olomouc", "Región de Olomouc", "Région d'Olomouc")
+    aliases(REGION_ZLIN, "Zlín", "Zlín Region", "Zlínský kraj", "Region Zlín", "Región de Zlín", "Région de Zlín")
+    aliases(REGION_MORAVIAN_SILESIAN, "Moravian-Silesian Region", "Moravskoslezský kraj", "Mährisch-Schlesische Region", "Región de Moravia-Silesia", "Région de Moravie-Silésie")
 }

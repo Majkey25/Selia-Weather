@@ -45,4 +45,62 @@ class CzechRegionTest {
         assertEquals(REGION_PRAGUE, normalizeLocationRegion(location).region)
         assertEquals(R.string.location_region_prague, regionLabelResource(REGION_PRAGUE))
     }
+
+    @Test
+    fun normalizesEveryGermanSpanishAndFrenchLegacyRegionLabel() {
+        listOf(
+            mapOf(
+                "Hauptstadt Prag" to REGION_PRAGUE,
+                "Mittelböhmische Region" to REGION_CENTRAL_BOHEMIA,
+                "Südböhmische Region" to REGION_SOUTH_BOHEMIAN,
+                "Region Pilsen" to REGION_PLZEN,
+                "Region Karlsbad" to REGION_KARLOVY_VARY,
+                "Region Ústí nad Labem" to REGION_USTI_NAD_LABEM,
+                "Region Liberec" to REGION_LIBEREC,
+                "Region Hradec Králové" to REGION_HRADEC_KRALOVE,
+                "Region Pardubice" to REGION_PARDUBICE,
+                "Region Vysočina" to REGION_VYSOCINA,
+                "Südmährische Region" to REGION_SOUTH_MORAVIAN,
+                "Region Olomouc" to REGION_OLOMOUC,
+                "Region Zlín" to REGION_ZLIN,
+                "Mährisch-Schlesische Region" to REGION_MORAVIAN_SILESIAN,
+            ),
+            mapOf(
+                "Ciudad Capital de Praga" to REGION_PRAGUE,
+                "Región de Bohemia Central" to REGION_CENTRAL_BOHEMIA,
+                "Región de Bohemia Meridional" to REGION_SOUTH_BOHEMIAN,
+                "Región de Pilsen" to REGION_PLZEN,
+                "Región de Karlovy Vary" to REGION_KARLOVY_VARY,
+                "Región de Ústí nad Labem" to REGION_USTI_NAD_LABEM,
+                "Región de Liberec" to REGION_LIBEREC,
+                "Región de Hradec Králové" to REGION_HRADEC_KRALOVE,
+                "Región de Pardubice" to REGION_PARDUBICE,
+                "Región de Vysočina" to REGION_VYSOCINA,
+                "Región de Moravia Meridional" to REGION_SOUTH_MORAVIAN,
+                "Región de Olomouc" to REGION_OLOMOUC,
+                "Región de Zlín" to REGION_ZLIN,
+                "Región de Moravia-Silesia" to REGION_MORAVIAN_SILESIAN,
+            ),
+            mapOf(
+                "Capitale Prague" to REGION_PRAGUE,
+                "Région de Bohême-Centrale" to REGION_CENTRAL_BOHEMIA,
+                "Région de Bohême-du-Sud" to REGION_SOUTH_BOHEMIAN,
+                "Région de Plzeň" to REGION_PLZEN,
+                "Région de Karlovy Vary" to REGION_KARLOVY_VARY,
+                "Région d'Ústí nad Labem" to REGION_USTI_NAD_LABEM,
+                "Région de Liberec" to REGION_LIBEREC,
+                "Région de Hradec Králové" to REGION_HRADEC_KRALOVE,
+                "Région de Pardubice" to REGION_PARDUBICE,
+                "Région de Vysočina" to REGION_VYSOCINA,
+                "Région de Moravie-du-Sud" to REGION_SOUTH_MORAVIAN,
+                "Région d'Olomouc" to REGION_OLOMOUC,
+                "Région de Zlín" to REGION_ZLIN,
+                "Région de Moravie-Silésie" to REGION_MORAVIAN_SILESIAN,
+            ),
+        ).forEach { labels ->
+            labels.forEach { (label, key) -> assertEquals(key, normalizeRegionKey(label)) }
+            val location = CzechLocation("Brno", labels.entries.first { it.value == REGION_SOUTH_MORAVIAN }.key, 49.1951, 16.6068)
+            assertEquals(REGION_SOUTH_MORAVIAN, LocationFavoritesCodec.decode(LocationFavoritesCodec.encode(listOf(location))).single().region)
+        }
+    }
 }

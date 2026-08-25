@@ -18,14 +18,19 @@ import cz.majkey.pocasicesko.ui.WeatherTheme
 
 class WidgetConfigActivity : ComponentActivity() {
     private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
-    private var pickedImageUri by mutableStateOf<String?>(null)
+    private var pendingImageUri by mutableStateOf<String?>(null)
+    private var initialImageUri = ""
+    private var applied = false
 
     private val imagePicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri ?: return@registerForActivityResult
         runCatching {
             contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }.onSuccess {
-            pickedImageUri = uri.toString()
+            val value = uri.toString()
+            if (value == pendingImageUri) return@onSuccess
+            discardPendingImage()
+            pendingImageUri = value.takeUnless { it == initialImageUri }
         }
     }
 
@@ -41,10 +46,14 @@ class WidgetConfigActivity : ComponentActivity() {
                 AppWidgetManager.EXTRA_APPWIDGET_ID,
                 AppWidgetManager.INVALID_APPWIDGET_ID,
             ) ?: AppWidgetManager.INVALID_APPWIDGET_ID
-        pickedImageUri = savedInstanceState?.getString(STATE_PENDING_IMAGE_URI)
+        pendingImageUri = savedInstanceState?.getString(STATE_PENDING_IMAGE_URI)
+        initialImageUri = savedInstanceState?.getString(STATE_INITIAL_IMAGE_URI).orEmpty()
         if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) {
             finish()
             return
+        }
+        if (initialImageUri.isEmpty()) {
+            initialImageUri = WeatherWidgetProvider.loadSettings(this, appWidgetId).imageUri
         }
 
         enableEdgeToEdge(
@@ -55,11 +64,16 @@ class WidgetConfigActivity : ComponentActivity() {
             WeatherTheme {
                 WidgetEditorScreen(
                     initial = WeatherWidgetProvider.loadSettings(this, appWidgetId),
-                    pickedImageUri = pickedImageUri,
+                    pickedImageUri = pendingImageUri,
                     onPickImage = { imagePicker.launch(arrayOf("image/*")) },
+                    onRemoveImage = { uri ->
+                        if (uri == pendingImageUri) discardPendingImage()
+                    },
                     onApply = { settings ->
                         WeatherWidgetProvider.saveSettings(this, appWidgetId, settings)
                         WeatherWidgetProvider.update(this, AppWidgetManager.getInstance(this), appWidgetId)
+                        pendingImageUri = null
+                        applied = true
                         setResult(
                             Activity.RESULT_OK,
                             Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId),
@@ -73,12 +87,24 @@ class WidgetConfigActivity : ComponentActivity() {
 
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putInt(STATE_WIDGET_ID, appWidgetId)
-        outState.putString(STATE_PENDING_IMAGE_URI, pickedImageUri)
+        outState.putString(STATE_PENDING_IMAGE_URI, pendingImageUri)
+        outState.putString(STATE_INITIAL_IMAGE_URI, initialImageUri)
         super.onSaveInstanceState(outState)
+    }
+
+    override fun onDestroy() {
+        if (isFinishing && !applied) discardPendingImage()
+        super.onDestroy()
+    }
+
+    private fun discardPendingImage() {
+        pendingImageUri?.let { WeatherWidgetProvider.releaseImageIfUnused(this, it) }
+        pendingImageUri = null
     }
 
     private companion object {
         const val STATE_WIDGET_ID = "widget_id"
         const val STATE_PENDING_IMAGE_URI = "pending_image_uri"
+        const val STATE_INITIAL_IMAGE_URI = "initial_image_uri"
     }
 }

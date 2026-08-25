@@ -140,4 +140,34 @@ class WidgetSettingsTest {
 
         assertNotEquals(english, french)
     }
+
+    @Test
+    fun sharesPreviewVisibilityAndBitmapOpacityWithTheProvider() {
+        val settings = WidgetSettings(
+            backgroundMode = WidgetBackgroundMode.GRADIENT,
+            opacity = 60,
+            showLocation = false,
+            showCondition = false,
+            showRange = true,
+            showHourly = true,
+        )
+
+        val wide = widgetContentVisibility(settings, WidgetSize.WIDE, true, true, true)
+
+        assertEquals(153, widgetBackgroundAlpha(settings, 255))
+        assertFalse(wide.showLocation)
+        assertFalse(wide.showCondition)
+        assertTrue(wide.showRange)
+        assertTrue(wide.showHourly)
+        assertFalse(wide.showMetrics)
+    }
+
+    @Test
+    fun tracksOnlyWidgetImageReferences() {
+        val image = "content://example/image"
+
+        assertTrue(widgetImageUriReferenced(mapOf("widget_settings_7_image_uri" to image), image))
+        assertFalse(widgetImageUriReferenced(mapOf("widget_settings_7_city" to image), image))
+        assertFalse(widgetImageUriReferenced(mapOf("widget_settings_7_image_uri" to image), "content://other"))
+    }
 }

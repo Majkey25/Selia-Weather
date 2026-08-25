@@ -34,6 +34,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,11 +66,14 @@ internal fun WidgetEditorScreen(
     initial: WidgetSettings,
     pickedImageUri: String?,
     onPickImage: () -> Unit,
+    onRemoveImage: (String) -> Unit,
     onApply: (WidgetSettings) -> Unit,
 ) {
-    var settings by remember { mutableStateOf(initial) }
+    var settings by rememberSaveable(stateSaver = WidgetSettingsSaver) { mutableStateOf(initial) }
     LaunchedEffect(pickedImageUri) {
-        if (pickedImageUri != null) settings = settings.copy(imageUri = pickedImageUri)
+        if (pickedImageUri != null && pickedImageUri != settings.imageUri) {
+            settings = settings.copy(imageUri = pickedImageUri)
+        }
     }
     val invalidColors = listOf(
         settings.backgroundStart,
@@ -123,7 +128,10 @@ internal fun WidgetEditorScreen(
                         ImageControl(
                             hasImage = settings.imageUri.isNotBlank(),
                             onPick = onPickImage,
-                            onRemove = { settings = settings.copy(imageUri = "") },
+                            onRemove = {
+                                onRemoveImage(settings.imageUri)
+                                settings = settings.copy(imageUri = "")
+                            },
                         )
                     }
                 }
@@ -272,6 +280,14 @@ private fun WidgetPreview(settings: WidgetSettings) {
         }
     }
     val colors = WidgetBackground.previewColors(normalized, data.kind, data.isDay).map(::Color)
+    val backgroundAlpha = widgetBackgroundAlpha(normalized, 255) / 255f
+    val visibility = widgetContentVisibility(
+        settings = normalized,
+        size = WidgetSize.WIDE,
+        hourlyAvailable = true,
+        metricsAvailable = true,
+        hasUpdatedAt = true,
+    )
     val primary = Color(AndroidColor.parseColor(normalized.primaryColor))
     val secondary = Color(AndroidColor.parseColor(normalized.secondaryColor))
     val accent = Color(AndroidColor.parseColor(normalized.accentColor))
@@ -294,37 +310,99 @@ private fun WidgetPreview(settings: WidgetSettings) {
     Box(
         modifier = Modifier.fillMaxWidth().height(190.dp)
             .clip(androidx.compose.foundation.shape.RoundedCornerShape(28.dp))
-            .background(Brush.horizontalGradient(colors))
             .border(1.dp, accent.copy(alpha = 0.32f), androidx.compose.foundation.shape.RoundedCornerShape(28.dp))
             .padding(18.dp),
     ) {
+        if (image == null || normalized.backgroundMode != WidgetBackgroundMode.CUSTOM_IMAGE) {
+            Box(
+                Modifier.matchParentSize().background(
+                    Brush.horizontalGradient(colors.map { it.copy(alpha = it.alpha * backgroundAlpha) }),
+                ),
+            )
+        }
         if (image != null) Image(
             bitmap = image!!.asImageBitmap(),
             contentDescription = null,
             contentScale = ContentScale.Crop,
-            alpha = normalized.opacity / 100f,
+            alpha = backgroundAlpha,
             modifier = Modifier.matchParentSize(),
         )
         Column(modifier = Modifier.align(contentAlignment), horizontalAlignment = horizontal) {
-            if (normalized.customLabel.isNotBlank()) Text(normalized.customLabel, color = secondary, fontSize = 11.sp * scale, textAlign = textAlign)
-            if (normalized.showLocation) Text(data.city, color = secondary, fontSize = 13.sp * scale, fontWeight = FontWeight.SemiBold, textAlign = textAlign)
-            if (normalized.showTemperature) Text(data.temperature, color = primary, fontSize = 43.sp * scale, lineHeight = 48.sp * scale, fontWeight = FontWeight.SemiBold, textAlign = textAlign)
-            if (normalized.showCondition) Text(data.condition, color = primary, fontSize = 13.sp * scale, textAlign = textAlign)
-            if (normalized.showRange) Text(stringResource(R.string.widget_preview_range), color = secondary, fontSize = 12.sp * scale, textAlign = textAlign)
-            if (normalized.showHourly) Text(stringResource(R.string.widget_preview_hourly), color = accent, fontSize = 11.sp * scale, textAlign = textAlign)
-            if (normalized.showPrecipitation || normalized.showWind || normalized.showHumidity) Text(stringResource(R.string.widget_preview_metrics), color = secondary, fontSize = 11.sp * scale, textAlign = textAlign)
-            if (normalized.showUpdatedAt) Text(stringResource(R.string.widget_preview_updated), color = secondary, fontSize = 10.sp * scale, textAlign = textAlign)
+            if (visibility.showLabel) Text(normalized.customLabel, color = secondary, fontSize = 11.sp * scale, textAlign = textAlign)
+            if (visibility.showLocation) Text(data.city, color = secondary, fontSize = 13.sp * scale, fontWeight = FontWeight.SemiBold, textAlign = textAlign)
+            if (visibility.showTemperature) Text(data.temperature, color = primary, fontSize = 43.sp * scale, lineHeight = 48.sp * scale, fontWeight = FontWeight.SemiBold, textAlign = textAlign)
+            if (visibility.showCondition) Text(data.condition, color = primary, fontSize = 13.sp * scale, textAlign = textAlign)
+            if (visibility.showRange) Text(stringResource(R.string.widget_preview_range), color = secondary, fontSize = 12.sp * scale, textAlign = textAlign)
+            if (visibility.showHourly) Text(stringResource(R.string.widget_preview_hourly), color = accent, fontSize = 11.sp * scale, textAlign = textAlign)
+            if (visibility.showUpdatedAt) Text(stringResource(R.string.widget_preview_updated), color = secondary, fontSize = 10.sp * scale, textAlign = textAlign)
         }
         Column(modifier = Modifier.align(Alignment.TopEnd), horizontalAlignment = Alignment.End) {
-            if (normalized.showClock) Text(LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")), color = primary, fontSize = 14.sp * scale)
-            if (normalized.showDate) Text(LocalDate.now().format(DateTimeFormatter.ofPattern("d MMM")), color = secondary, fontSize = 10.sp * scale)
-            if (normalized.showIcon) {
+            if (visibility.showClock) Text(LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")), color = primary, fontSize = 14.sp * scale)
+            if (visibility.showDate) Text(LocalDate.now().format(DateTimeFormatter.ofPattern("d MMM")), color = secondary, fontSize = 10.sp * scale)
+            if (visibility.showIcon) {
                 Spacer(Modifier.height(8.dp))
                 WeatherIcon(kind = data.kind, isDay = data.isDay, contentDescription = data.condition, modifier = Modifier.size(38.dp), tint = primary)
             }
         }
     }
 }
+
+private val WidgetSettingsSaver = listSaver<WidgetSettings, Any>(
+    save = { settings ->
+        listOf(
+            settings.backgroundMode.name,
+            settings.backgroundStart,
+            settings.backgroundEnd,
+            settings.primaryColor,
+            settings.secondaryColor,
+            settings.accentColor,
+            settings.opacity,
+            settings.textScale,
+            settings.alignment.name,
+            settings.customLabel,
+            settings.imageUri,
+            settings.showClock,
+            settings.showDate,
+            settings.showLocation,
+            settings.showTemperature,
+            settings.showIcon,
+            settings.showCondition,
+            settings.showRange,
+            settings.showHourly,
+            settings.showPrecipitation,
+            settings.showWind,
+            settings.showHumidity,
+            settings.showUpdatedAt,
+        )
+    },
+    restore = { values ->
+        WidgetSettings(
+            backgroundMode = WidgetBackgroundMode.valueOf(values[0] as String),
+            backgroundStart = values[1] as String,
+            backgroundEnd = values[2] as String,
+            primaryColor = values[3] as String,
+            secondaryColor = values[4] as String,
+            accentColor = values[5] as String,
+            opacity = values[6] as Int,
+            textScale = values[7] as Int,
+            alignment = WidgetAlignment.valueOf(values[8] as String),
+            customLabel = values[9] as String,
+            imageUri = values[10] as String,
+            showClock = values[11] as Boolean,
+            showDate = values[12] as Boolean,
+            showLocation = values[13] as Boolean,
+            showTemperature = values[14] as Boolean,
+            showIcon = values[15] as Boolean,
+            showCondition = values[16] as Boolean,
+            showRange = values[17] as Boolean,
+            showHourly = values[18] as Boolean,
+            showPrecipitation = values[19] as Boolean,
+            showWind = values[20] as Boolean,
+            showHumidity = values[21] as Boolean,
+            showUpdatedAt = values[22] as Boolean,
+        ).normalized()
+    },
+)
 
 private data class WidgetPreviewData(
     val city: String,

@@ -81,7 +81,7 @@ internal object WidgetBackground {
     private fun applyImage(views: RemoteViews, settings: WidgetSettings, bitmap: Bitmap) {
         views.setInt(R.id.widget_root, "setBackgroundResource", android.R.color.transparent)
         views.setImageViewBitmap(R.id.widget_background_image, bitmap)
-        views.setInt(R.id.widget_background_image, "setImageAlpha", widgetOpacityAlpha(255, settings.opacity))
+        views.setInt(R.id.widget_background_image, "setImageAlpha", widgetBackgroundAlpha(settings, 255))
         views.setViewVisibility(R.id.widget_background_image, View.VISIBLE)
     }
 

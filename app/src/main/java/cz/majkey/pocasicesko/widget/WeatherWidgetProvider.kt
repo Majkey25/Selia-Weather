@@ -6,6 +6,7 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.util.SizeF
@@ -170,38 +171,42 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             views.setTextColor(R.id.widget_city, secondaryColor)
             views.setTextViewText(R.id.widget_condition, condition)
             views.setTextColor(R.id.widget_condition, primaryColor)
-            val showDetails = size != WidgetSize.COMPACT && (settings.showCondition || settings.showRange)
-            val showHourly = size == WidgetSize.WIDE && settings.showHourly &&
-                hourlyTimes.size >= 3 && hourlyTemperatures.size >= 3
-            val showMetrics = size == WidgetSize.TALL &&
-                (settings.showPrecipitation || settings.showWind || settings.showHumidity)
-            val showUpdate = settings.showUpdatedAt && size != WidgetSize.COMPACT && updatedAt > 0L
+            val visibility = widgetContentVisibility(
+                settings = settings,
+                size = size,
+                hourlyAvailable = hourlyTimes.size >= 3 && hourlyTemperatures.size >= 3,
+                metricsAvailable = true,
+                hasUpdatedAt = updatedAt > 0L,
+            )
             views.setViewVisibility(
                 R.id.widget_label,
-                if (size != WidgetSize.COMPACT && settings.customLabel.isNotBlank()) View.VISIBLE else View.GONE,
+                if (visibility.showLabel) View.VISIBLE else View.GONE,
             )
             views.setTextViewText(R.id.widget_label, settings.customLabel)
             views.setTextColor(R.id.widget_label, secondaryColor)
             views.setViewVisibility(
                 R.id.widget_city,
-                if (size != WidgetSize.COMPACT && settings.showLocation) View.VISIBLE else View.GONE,
+                if (visibility.showLocation) View.VISIBLE else View.GONE,
             )
-            views.setViewVisibility(R.id.widget_details, if (showDetails) View.VISIBLE else View.GONE)
+            views.setViewVisibility(
+                R.id.widget_details,
+                if (visibility.showCondition || visibility.showRange) View.VISIBLE else View.GONE,
+            )
             views.setViewVisibility(
                 R.id.widget_condition,
-                if (showDetails && settings.showCondition) View.VISIBLE else View.GONE,
+                if (visibility.showCondition) View.VISIBLE else View.GONE,
             )
             views.setViewVisibility(
                 R.id.widget_high_low,
-                if (showDetails && settings.showRange) View.VISIBLE else View.GONE,
+                if (visibility.showRange) View.VISIBLE else View.GONE,
             )
             views.setViewVisibility(
                 R.id.widget_temperature,
-                if (settings.showTemperature) View.VISIBLE else View.GONE,
+                if (visibility.showTemperature) View.VISIBLE else View.GONE,
             )
-            views.setViewVisibility(R.id.widget_clock, if (settings.showClock) View.VISIBLE else View.GONE)
+            views.setViewVisibility(R.id.widget_clock, if (visibility.showClock) View.VISIBLE else View.GONE)
             views.setTextColor(R.id.widget_clock, primaryColor)
-            views.setViewVisibility(R.id.widget_icon, if (settings.showIcon) View.VISIBLE else View.GONE)
+            views.setViewVisibility(R.id.widget_icon, if (visibility.showIcon) View.VISIBLE else View.GONE)
             views.setImageViewResource(R.id.widget_icon, iconFor(kind, isDay))
             views.setInt(R.id.widget_icon, "setColorFilter", primaryColor)
             views.setContentDescription(R.id.widget_icon, condition)
@@ -213,22 +218,22 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             }
             views.setTextViewText(R.id.widget_high_low, range)
             views.setTextColor(R.id.widget_high_low, secondaryColor)
-            views.setViewVisibility(R.id.widget_hourly, if (showHourly) View.VISIBLE else View.GONE)
-            views.setViewVisibility(R.id.widget_hourly_divider, if (showHourly) View.VISIBLE else View.GONE)
+            views.setViewVisibility(R.id.widget_hourly, if (visibility.showHourly) View.VISIBLE else View.GONE)
+            views.setViewVisibility(R.id.widget_hourly_divider, if (visibility.showHourly) View.VISIBLE else View.GONE)
             views.setInt(
                 R.id.widget_hourly_divider,
                 "setBackgroundColor",
                 android.graphics.Color.parseColor(settings.accentColor),
             )
-            views.setViewVisibility(R.id.widget_metrics, if (showMetrics) View.VISIBLE else View.GONE)
+            views.setViewVisibility(R.id.widget_metrics, if (visibility.showMetrics) View.VISIBLE else View.GONE)
             views.setViewVisibility(
                 R.id.widget_precipitation,
-                if (showMetrics && settings.showPrecipitation) View.VISIBLE else View.GONE,
+                if (visibility.showPrecipitation) View.VISIBLE else View.GONE,
             )
-            views.setViewVisibility(R.id.widget_wind, if (showMetrics && settings.showWind) View.VISIBLE else View.GONE)
+            views.setViewVisibility(R.id.widget_wind, if (visibility.showWind) View.VISIBLE else View.GONE)
             views.setViewVisibility(
                 R.id.widget_humidity,
-                if (showMetrics && settings.showHumidity) View.VISIBLE else View.GONE,
+                if (visibility.showHumidity) View.VISIBLE else View.GONE,
             )
             views.setTextViewText(
                 R.id.widget_precipitation,
@@ -247,7 +252,7 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             views.setTextColor(R.id.widget_humidity, secondaryColor)
             views.setViewVisibility(
                 R.id.widget_date,
-                if (size != WidgetSize.COMPACT && settings.showDate) View.VISIBLE else View.GONE,
+                if (visibility.showDate) View.VISIBLE else View.GONE,
             )
             views.setTextViewText(
                 R.id.widget_date,
@@ -256,8 +261,8 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                         .withLocale(localizedContext.resources.configuration.locales[0]),
                 ),
             )
-            views.setViewVisibility(R.id.widget_update_time, if (showUpdate) View.VISIBLE else View.GONE)
-            if (showUpdate) {
+            views.setViewVisibility(R.id.widget_update_time, if (visibility.showUpdatedAt) View.VISIBLE else View.GONE)
+            if (visibility.showUpdatedAt) {
                 views.setTextViewText(
                     R.id.widget_update_time,
                     widgetUpdatedAt(
@@ -367,7 +372,10 @@ class WeatherWidgetProvider : AppWidgetProvider() {
 
         fun saveSettings(context: Context, appWidgetId: Int, settings: WidgetSettings) {
             val normalized = settings.normalized()
-            context.getSharedPreferences(WeatherRepository.PREFERENCES_NAME, Context.MODE_PRIVATE).edit {
+            val preferences = context.getSharedPreferences(WeatherRepository.PREFERENCES_NAME, Context.MODE_PRIVATE)
+            val imageKey = widgetPreferenceKey(appWidgetId, "image_uri")
+            val oldImageUri = preferences.getString(imageKey, null).orEmpty()
+            preferences.edit {
                 putString(widgetPreferenceKey(appWidgetId, "background_mode"), normalized.backgroundMode.name)
                 putString(widgetPreferenceKey(appWidgetId, "background_start"), normalized.backgroundStart)
                 putString(widgetPreferenceKey(appWidgetId, "background_end"), normalized.backgroundEnd)
@@ -378,7 +386,7 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                 putInt(widgetPreferenceKey(appWidgetId, "text_scale"), normalized.textScale)
                 putString(widgetPreferenceKey(appWidgetId, "alignment"), normalized.alignment.name)
                 putString(widgetPreferenceKey(appWidgetId, "label"), normalized.customLabel)
-                putString(widgetPreferenceKey(appWidgetId, "image_uri"), normalized.imageUri)
+                putString(imageKey, normalized.imageUri)
                 putBoolean(widgetPreferenceKey(appWidgetId, "clock"), normalized.showClock)
                 putBoolean(widgetPreferenceKey(appWidgetId, "date"), normalized.showDate)
                 putBoolean(widgetPreferenceKey(appWidgetId, "location"), normalized.showLocation)
@@ -392,13 +400,28 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                 putBoolean(widgetPreferenceKey(appWidgetId, "humidity"), normalized.showHumidity)
                 putBoolean(widgetPreferenceKey(appWidgetId, "updated_at"), normalized.showUpdatedAt)
             }
+            if (oldImageUri != normalized.imageUri) releaseImageIfUnused(context, oldImageUri)
         }
 
         private fun deleteSettings(context: Context, appWidgetId: Int) {
             val preferences = context.getSharedPreferences(WeatherRepository.PREFERENCES_NAME, Context.MODE_PRIVATE)
             val prefix = "widget_settings_${appWidgetId}_"
+            val oldImageUri = preferences.getString(widgetPreferenceKey(appWidgetId, "image_uri"), null).orEmpty()
             preferences.edit {
                 preferences.all.keys.filter { it.startsWith(prefix) }.forEach(::remove)
+            }
+            releaseImageIfUnused(context, oldImageUri)
+        }
+
+        fun releaseImageIfUnused(context: Context, uriValue: String) {
+            if (uriValue.isBlank()) return
+            val preferences = context.getSharedPreferences(WeatherRepository.PREFERENCES_NAME, Context.MODE_PRIVATE)
+            if (widgetImageUriReferenced(preferences.all, uriValue)) return
+            runCatching {
+                context.contentResolver.releasePersistableUriPermission(
+                    Uri.parse(uriValue),
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                )
             }
         }
 

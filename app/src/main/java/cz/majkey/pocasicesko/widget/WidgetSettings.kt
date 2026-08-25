@@ -58,6 +58,22 @@ enum class WidgetSize {
 
 internal data class WidgetBitmapSize(val width: Int, val height: Int)
 internal data class WidgetAlignmentSpacers(val showLeft: Boolean, val showRight: Boolean)
+internal data class WidgetContentVisibility(
+    val showLabel: Boolean,
+    val showLocation: Boolean,
+    val showCondition: Boolean,
+    val showRange: Boolean,
+    val showTemperature: Boolean,
+    val showClock: Boolean,
+    val showIcon: Boolean,
+    val showHourly: Boolean,
+    val showMetrics: Boolean,
+    val showPrecipitation: Boolean,
+    val showWind: Boolean,
+    val showHumidity: Boolean,
+    val showDate: Boolean,
+    val showUpdatedAt: Boolean,
+)
 
 internal fun widgetSize(minWidth: Int, minHeight: Int): WidgetSize = when {
     minWidth >= 320 -> WidgetSize.WIDE
@@ -115,6 +131,48 @@ internal fun migratedWidgetColor(
 
 internal fun widgetOpacityAlpha(baseAlpha: Int, opacity: Int): Int =
     baseAlpha.coerceIn(0, 255) * opacity.coerceIn(0, 100) / 100
+
+internal fun widgetBackgroundAlpha(settings: WidgetSettings, baseAlpha: Int): Int = when (settings.backgroundMode) {
+    WidgetBackgroundMode.SOLID,
+    WidgetBackgroundMode.GRADIENT,
+    WidgetBackgroundMode.CUSTOM_IMAGE,
+    -> widgetOpacityAlpha(baseAlpha, settings.opacity)
+    else -> baseAlpha.coerceIn(0, 255)
+}
+
+internal fun widgetContentVisibility(
+    settings: WidgetSettings,
+    size: WidgetSize,
+    hourlyAvailable: Boolean,
+    metricsAvailable: Boolean,
+    hasUpdatedAt: Boolean,
+): WidgetContentVisibility {
+    val showDetails = size != WidgetSize.COMPACT && (settings.showCondition || settings.showRange)
+    val showHourly = size == WidgetSize.WIDE && settings.showHourly && hourlyAvailable
+    val showMetrics = size == WidgetSize.TALL && metricsAvailable &&
+        (settings.showPrecipitation || settings.showWind || settings.showHumidity)
+    return WidgetContentVisibility(
+        showLabel = size != WidgetSize.COMPACT && settings.customLabel.isNotBlank(),
+        showLocation = size != WidgetSize.COMPACT && settings.showLocation,
+        showCondition = showDetails && settings.showCondition,
+        showRange = showDetails && settings.showRange,
+        showTemperature = settings.showTemperature,
+        showClock = settings.showClock,
+        showIcon = settings.showIcon,
+        showHourly = showHourly,
+        showMetrics = showMetrics,
+        showPrecipitation = showMetrics && settings.showPrecipitation,
+        showWind = showMetrics && settings.showWind,
+        showHumidity = showMetrics && settings.showHumidity,
+        showDate = size != WidgetSize.COMPACT && settings.showDate,
+        showUpdatedAt = settings.showUpdatedAt && size != WidgetSize.COMPACT && hasUpdatedAt,
+    )
+}
+
+internal fun widgetImageUriReferenced(values: Map<String, *>, uri: String): Boolean =
+    uri.isNotBlank() && values.any { (key, value) ->
+        key.endsWith("_image_uri") && value == uri
+    }
 
 internal fun widgetUpdatedAt(epochMillis: Long, zoneId: ZoneId, locale: Locale): String =
     Instant.ofEpochMilli(epochMillis)

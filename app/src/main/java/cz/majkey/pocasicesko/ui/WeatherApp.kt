@@ -1,6 +1,7 @@
 package cz.majkey.pocasicesko.ui
 
 import android.Manifest
+import android.content.ActivityNotFoundException
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -119,6 +120,8 @@ fun WeatherApp(repository: WeatherRepository, onLanguage: (String) -> Unit) {
     var state by remember { mutableStateOf<WeatherUiState>(WeatherUiState.Loading) }
     val forecastLoadFailed = stringResource(R.string.forecast_load_failed)
     val serverError = stringResource(R.string.server_error)
+    val supportUnavailable = stringResource(R.string.support_unavailable)
+    var supportError by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(location, reloadKey) {
         val cached = withContext(Dispatchers.IO) { repository.cachedForecast(location) }
@@ -180,6 +183,15 @@ fun WeatherApp(repository: WeatherRepository, onLanguage: (String) -> Unit) {
                 SettingsSheet(
                     selectedTag = selectedLanguageTag(context),
                     onLanguage = onLanguage,
+                    onSupport = {
+                        try {
+                            context.startActivity(supportIntent())
+                            supportError = null
+                        } catch (_: ActivityNotFoundException) {
+                            supportError = supportUnavailable
+                        }
+                    },
+                    supportError = supportError,
                     onDismiss = { showSettings = false },
                 )
             }

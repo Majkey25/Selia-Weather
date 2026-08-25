@@ -59,6 +59,10 @@
     <string name="language_german">Alemán</string>
     <string name="language_spanish">Español</string>
     <string name="language_french">Francés</string>
+    <string name="about">Acerca de</string>
+    <string name="support_this_app">Apoya esta aplicación → Buy Me a Coffee</string>
+    <string name="support_note">El apoyo es opcional. No desbloquea funciones ni otorga prioridad.</string>
+    <string name="support_unavailable">No hay ninguna aplicación disponible para abrir este enlace.</string>
     <string name="condition_clear_day">Despejado</string>
     <string name="condition_clear_night">Noche despejada</string>
     <string name="condition_partly_cloudy">Parcialmente nublado</string>

@@ -59,6 +59,10 @@
     <string name="language_german">German</string>
     <string name="language_spanish">Spanish</string>
     <string name="language_french">French</string>
+    <string name="about">About</string>
+    <string name="support_this_app">Support this app → Buy Me a Coffee</string>
+    <string name="support_note">Optional support. It unlocks no features and gives no priority.</string>
+    <string name="support_unavailable">No app is available to open this link.</string>
     <string name="condition_clear_day">Clear</string>
     <string name="condition_clear_night">Clear night</string>
     <string name="condition_partly_cloudy">Partly cloudy</string>

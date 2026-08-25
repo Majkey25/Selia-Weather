@@ -1,8 +1,11 @@
 package cz.majkey.pocasicesko.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
@@ -10,6 +13,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,13 +28,19 @@ import cz.majkey.pocasicesko.locale.SupportedLanguage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsSheet(selectedTag: String, onLanguage: (String) -> Unit, onDismiss: () -> Unit) {
+fun SettingsSheet(
+    selectedTag: String,
+    onLanguage: (String) -> Unit,
+    onSupport: () -> Unit,
+    supportError: String?,
+    onDismiss: () -> Unit,
+) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = Color(0xFF101820),
         contentColor = Color.White,
     ) {
-        Column(Modifier.padding(bottom = 24.dp)) {
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
             Text(
                 text = stringResource(R.string.settings),
                 fontSize = 24.sp,
@@ -54,6 +64,29 @@ fun SettingsSheet(selectedTag: String, onLanguage: (String) -> Unit, onDismiss: 
                         .fillMaxWidth()
                         .clickable { onLanguage(language.tag) },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                )
+            }
+            Text(
+                text = stringResource(R.string.about),
+                color = Color.White.copy(alpha = 0.58f),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+            )
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.support_this_app)) },
+                supportingContent = { Text(stringResource(R.string.support_note)) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp)
+                    .clickable(onClick = onSupport),
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            )
+            supportError?.let { error ->
+                Text(
+                    text = error,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
                 )
             }
         }

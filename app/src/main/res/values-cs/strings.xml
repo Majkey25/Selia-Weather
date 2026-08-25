@@ -59,6 +59,10 @@
     <string name="language_german">Němčina</string>
     <string name="language_spanish">Španělština</string>
     <string name="language_french">Francouzština</string>
+    <string name="about">O aplikaci</string>
+    <string name="support_this_app">Podpořit tuto aplikaci → Buy Me a Coffee</string>
+    <string name="support_note">Podpora je dobrovolná. Neodemkne žádné funkce ani nepřináší žádnou prioritu.</string>
+    <string name="support_unavailable">Pro otevření tohoto odkazu není k dispozici žádná aplikace.</string>
     <string name="condition_clear_day">Jasno</string>
     <string name="condition_clear_night">Jasná noc</string>
     <string name="condition_partly_cloudy">Polojasno</string>

@@ -23,8 +23,6 @@ import cz.majkey.pocasicesko.data.WeatherRepository
 import cz.majkey.pocasicesko.locale.AppLocale
 import cz.majkey.pocasicesko.ui.labelResource
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.ThreadPoolExecutor
@@ -336,10 +334,7 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             )
             views.setTextViewText(
                 R.id.widget_date,
-                LocalDate.now().format(
-                    DateTimeFormatter.ofLocalizedDate(FormatStyle.SHORT)
-                        .withLocale(localizedContext.resources.configuration.locales[0]),
-                ),
+                widgetDate(LocalDate.now(), localizedContext.resources.configuration.locales[0]),
             )
             views.setViewVisibility(R.id.widget_update_time, if (visibility.showUpdatedAt) View.VISIBLE else View.GONE)
             if (visibility.showUpdatedAt) {
@@ -385,7 +380,7 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             context.packageName,
             R.layout.widget_adaptive,
         ).apply {
-            setInt(R.id.widget_root, "setBackgroundResource", R.drawable.widget_dark)
+            WidgetBackground.apply(context, this, WidgetSettings(backgroundMode = WidgetBackgroundMode.DARK), WeatherKind.UNKNOWN, true)
             setTextViewText(R.id.widget_temperature, context.getString(R.string.widget_placeholder_temperature))
             setTextViewText(R.id.widget_city, context.getString(R.string.widget_placeholder_city))
         }

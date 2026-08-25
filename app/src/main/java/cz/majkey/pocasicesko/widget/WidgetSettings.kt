@@ -2,6 +2,8 @@ package cz.majkey.pocasicesko.widget
 
 import kotlin.math.roundToInt
 import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -172,13 +174,8 @@ internal fun migratedWidgetColor(
 internal fun widgetOpacityAlpha(baseAlpha: Int, opacity: Int): Int =
     baseAlpha.coerceIn(0, 255) * opacity.coerceIn(0, 100) / 100
 
-internal fun widgetBackgroundAlpha(settings: WidgetSettings, baseAlpha: Int): Int = when (settings.backgroundMode) {
-    WidgetBackgroundMode.SOLID,
-    WidgetBackgroundMode.GRADIENT,
-    WidgetBackgroundMode.CUSTOM_IMAGE,
-    -> widgetOpacityAlpha(baseAlpha, settings.opacity)
-    else -> baseAlpha.coerceIn(0, 255)
-}
+internal fun widgetBackgroundAlpha(settings: WidgetSettings, baseAlpha: Int): Int =
+    widgetOpacityAlpha(baseAlpha, settings.opacity)
 
 internal fun widgetContentVisibility(
     settings: WidgetSettings,
@@ -268,6 +265,12 @@ internal fun widgetUpdatedAt(epochMillis: Long, zoneId: ZoneId, locale: Locale):
     Instant.ofEpochMilli(epochMillis)
         .atZone(zoneId)
         .format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(locale))
+
+internal fun widgetDate(date: LocalDate, locale: Locale): String =
+    date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.SHORT).withLocale(locale))
+
+internal fun widgetTime(time: LocalTime, locale: Locale): String =
+    time.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(locale))
 
 internal fun widgetPreferenceKey(appWidgetId: Int, name: String): String =
     "widget_settings_${appWidgetId}_$name"

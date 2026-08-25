@@ -6,6 +6,8 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.ZoneOffset
+import java.time.LocalDate
+import java.time.LocalTime
 import java.util.Locale
 
 class WidgetSettingsTest {
@@ -133,12 +135,32 @@ class WidgetSettingsTest {
     }
 
     @Test
+    fun appliesOpacityToEveryWidgetBackgroundMode() {
+        WidgetBackgroundMode.entries.forEach { mode ->
+            assertEquals(
+                mode.name,
+                153,
+                widgetBackgroundAlpha(WidgetSettings(backgroundMode = mode, opacity = 60), 255),
+            )
+        }
+    }
+
+    @Test
     fun formatsWidgetUpdateTimeWithTheSelectedLocale() {
         val epoch = 1_725_000_000_000L
         val english = widgetUpdatedAt(epoch, ZoneOffset.UTC, Locale.US)
         val french = widgetUpdatedAt(epoch, ZoneOffset.UTC, Locale.FRANCE)
 
         assertNotEquals(english, french)
+    }
+
+    @Test
+    fun formatsWidgetDateAndTimeWithTheSelectedLocale() {
+        val date = LocalDate.of(2026, 8, 25)
+        val time = LocalTime.of(13, 5)
+
+        assertNotEquals(widgetDate(date, Locale.US), widgetDate(date, Locale.FRANCE))
+        assertNotEquals(widgetTime(time, Locale.US), widgetTime(time, Locale.FRANCE))
     }
 
     @Test

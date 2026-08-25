@@ -17,29 +17,28 @@ import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.data.WeatherKind
 
 internal object WidgetBackground {
-    fun previewImage(context: Context, settings: WidgetSettings): Bitmap? =
-        customImage(context, settings.normalized())
+    fun previewBitmap(
+        context: Context,
+        settings: WidgetSettings,
+        kind: WeatherKind,
+        isDay: Boolean,
+    ): Bitmap = bitmapFor(context, settings.normalized(), kind, isDay)
 
-    fun previewColors(settings: WidgetSettings, kind: WeatherKind, isDay: Boolean): IntArray {
+    private fun bitmapFor(
+        context: Context,
+        settings: WidgetSettings,
+        kind: WeatherKind,
+        isDay: Boolean,
+    ): Bitmap {
         val normalized = settings.normalized()
         return when (normalized.backgroundMode) {
-            WidgetBackgroundMode.AUTOMATIC -> when {
-                !isDay -> intArrayOf(0xFF05070D.toInt(), 0xFF1A2850.toInt())
-                kind == WeatherKind.RAIN || kind == WeatherKind.STORM || kind == WeatherKind.SNOW ->
-                    intArrayOf(0xFF091117.toInt(), 0xFF3E5865.toInt())
-                else -> intArrayOf(0xFF0B1822.toInt(), 0xFF23657C.toInt())
-            }
-            WidgetBackgroundMode.LIGHT -> intArrayOf(0xFFF4F1EA.toInt(), 0xFFF4F1EA.toInt())
-            WidgetBackgroundMode.DARK -> intArrayOf(0xF20A0F14.toInt(), 0xF20A0F14.toInt())
-            WidgetBackgroundMode.TRANSPARENT -> intArrayOf(0x3D05090D, 0x3D05090D)
-            WidgetBackgroundMode.SOLID -> intArrayOf(
-                Color.parseColor(normalized.backgroundStart),
-                Color.parseColor(normalized.backgroundStart),
-            )
-            WidgetBackgroundMode.GRADIENT, WidgetBackgroundMode.CUSTOM_IMAGE -> intArrayOf(
-                Color.parseColor(normalized.backgroundStart),
-                Color.parseColor(normalized.backgroundEnd),
-            )
+            WidgetBackgroundMode.AUTOMATIC -> resourceBitmap(context, automaticResource(kind, isDay))
+            WidgetBackgroundMode.LIGHT -> resourceBitmap(context, R.drawable.widget_light)
+            WidgetBackgroundMode.DARK -> resourceBitmap(context, R.drawable.widget_dark)
+            WidgetBackgroundMode.TRANSPARENT -> resourceBitmap(context, R.drawable.widget_transparent)
+            WidgetBackgroundMode.SOLID -> solidBitmap(normalized.backgroundStart)
+            WidgetBackgroundMode.GRADIENT -> gradientBitmap(normalized)
+            WidgetBackgroundMode.CUSTOM_IMAGE -> customImage(context, normalized) ?: gradientBitmap(normalized)
         }
     }
 
@@ -51,31 +50,7 @@ internal object WidgetBackground {
         isDay: Boolean,
     ) {
         val normalized = settings.normalized()
-        when (normalized.backgroundMode) {
-            WidgetBackgroundMode.AUTOMATIC -> applyResource(views, automaticResource(kind, isDay))
-            WidgetBackgroundMode.LIGHT -> applyResource(views, R.drawable.widget_light)
-            WidgetBackgroundMode.DARK -> applyResource(views, R.drawable.widget_dark)
-            WidgetBackgroundMode.TRANSPARENT -> applyResource(views, R.drawable.widget_transparent)
-            WidgetBackgroundMode.SOLID -> applySolid(views, normalized)
-            WidgetBackgroundMode.GRADIENT -> applyGradient(views, normalized)
-            WidgetBackgroundMode.CUSTOM_IMAGE -> {
-                val image = customImage(context, normalized)
-                if (image == null) applyGradient(views, normalized) else applyImage(views, normalized, image)
-            }
-        }
-    }
-
-    private fun applyResource(views: RemoteViews, resource: Int) {
-        views.setViewVisibility(R.id.widget_background_image, View.GONE)
-        views.setInt(R.id.widget_root, "setBackgroundResource", resource)
-    }
-
-    private fun applySolid(views: RemoteViews, settings: WidgetSettings) {
-        applyImage(views, settings, solidBitmap(settings.backgroundStart))
-    }
-
-    private fun applyGradient(views: RemoteViews, settings: WidgetSettings) {
-        applyImage(views, settings, gradientBitmap(settings))
+        applyImage(views, normalized, bitmapFor(context, normalized, kind, isDay))
     }
 
     private fun applyImage(views: RemoteViews, settings: WidgetSettings, bitmap: Bitmap) {
@@ -83,6 +58,16 @@ internal object WidgetBackground {
         views.setImageViewBitmap(R.id.widget_background_image, bitmap)
         views.setInt(R.id.widget_background_image, "setImageAlpha", widgetBackgroundAlpha(settings, 255))
         views.setViewVisibility(R.id.widget_background_image, View.VISIBLE)
+    }
+
+    private fun resourceBitmap(context: Context, resource: Int): Bitmap = Bitmap.createBitmap(
+        MAX_BACKGROUND_WIDTH,
+        MAX_BACKGROUND_HEIGHT,
+        Bitmap.Config.ARGB_8888,
+    ).apply {
+        val drawable = requireNotNull(context.getDrawable(resource))
+        drawable.setBounds(0, 0, width, height)
+        drawable.draw(Canvas(this))
     }
 
     private fun gradientBitmap(settings: WidgetSettings): Bitmap = Bitmap.createBitmap(

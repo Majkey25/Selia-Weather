@@ -1,5 +1,6 @@
 package cz.majkey.pocasicesko.widget
 
+import cz.majkey.pocasicesko.data.WeatherKind
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -155,12 +156,38 @@ class WidgetSettingsTest {
     }
 
     @Test
-    fun formatsWidgetDateAndTimeWithTheSelectedLocale() {
+    fun formatsWidgetDateWithTheSelectedLocaleAndClockLikeTheHost() {
         val date = LocalDate.of(2026, 8, 25)
         val time = LocalTime.of(13, 5)
 
         assertNotEquals(widgetDate(date, Locale.US), widgetDate(date, Locale.FRANCE))
-        assertNotEquals(widgetTime(time, Locale.US), widgetTime(time, Locale.FRANCE))
+        assertEquals("13:05", widgetClock(time, is24Hour = true))
+        assertEquals("1:05", widgetClock(time, is24Hour = false))
+    }
+
+    @Test
+    fun derivesPreviewAvailabilityFromTheSameCachedWidgetDataAsTheProvider() {
+        assertEquals(
+            WidgetDataAvailability(true, true, true, true, true),
+            widgetDataAvailability(listOf("12:00", "13:00", "14:00"), listOf("10", "11", "12"), 20, 11f, 68, 1L),
+        )
+        assertEquals(
+            WidgetDataAvailability(false, false, false, false, false),
+            widgetDataAvailability(listOf("12:00", "13:00"), listOf("10", "11", "12"), -1, Float.NaN, -1, 0L),
+        )
+        assertEquals(
+            WidgetDataAvailability(false, false, false, false, true),
+            widgetDataAvailability(listOf("12:00", "13:00", ""), listOf("10", "11", "12"), 101, -1f, 101, 1L),
+        )
+    }
+
+    @Test
+    fun decodesPreviewBackgroundOnlyForBackgroundInputs() {
+        val settings = WidgetSettings(opacity = 60)
+        val key = widgetPreviewBackgroundKey(settings, WeatherKind.CLOUDY, isDay = true)
+
+        assertEquals(key, widgetPreviewBackgroundKey(settings.copy(showClock = false, textScale = 140), WeatherKind.CLOUDY, true))
+        assertNotEquals(key, widgetPreviewBackgroundKey(settings.copy(opacity = 61), WeatherKind.CLOUDY, true))
     }
 
     @Test
@@ -174,7 +201,13 @@ class WidgetSettingsTest {
             showHourly = true,
         )
 
-        val wide = widgetContentVisibility(settings, WidgetSize.WIDE, true, true, true)
+        val availability = WidgetDataAvailability(true, true, false, false, true)
+        val wide = widgetContentVisibility(settings, WidgetSize.WIDE, availability)
+        val tall = widgetContentVisibility(
+            settings.copy(showPrecipitation = true, showWind = true, showHumidity = true),
+            WidgetSize.TALL,
+            availability,
+        )
 
         assertEquals(153, widgetBackgroundAlpha(settings, 255))
         assertFalse(wide.showLocation)
@@ -182,6 +215,10 @@ class WidgetSettingsTest {
         assertTrue(wide.showRange)
         assertTrue(wide.showHourly)
         assertFalse(wide.showMetrics)
+        assertTrue(tall.showMetrics)
+        assertTrue(tall.showPrecipitation)
+        assertFalse(tall.showWind)
+        assertFalse(tall.showHumidity)
     }
 
     @Test

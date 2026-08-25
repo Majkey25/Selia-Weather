@@ -2,7 +2,9 @@ package cz.majkey.pocasicesko.widget
 
 import android.content.Context
 import android.graphics.Color as AndroidColor
+import android.text.format.DateFormat
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,11 +15,13 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
@@ -54,6 +58,7 @@ import cz.majkey.pocasicesko.locale.AppLocale
 import cz.majkey.pocasicesko.ui.WeatherIcon
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.ZoneId
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -280,45 +285,38 @@ private fun PreviewSizeSelector(selected: WidgetSize, onSelect: (WidgetSize) -> 
 @Composable
 private fun WidgetPreview(settings: WidgetSettings, size: WidgetSize) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val locale = LocalConfiguration.current.locales[0]
-    val data = remember(locale) { loadPreview(context) }
+    val configuration = LocalConfiguration.current
+    val localized = remember(context, configuration.locales[0]) { AppLocale.localized(context) }
+    val locale = localized.resources.configuration.locales[0]
+    val data = remember(localized, locale) { loadPreview(localized) }
     val normalized = settings.normalized()
+    val backgroundKey = widgetPreviewBackgroundKey(normalized, data.kind, data.isDay)
     val image by produceState<android.graphics.Bitmap?>(
         initialValue = null,
-        normalized,
-        data.kind,
-        data.isDay,
+        backgroundKey,
     ) {
         value = withContext(Dispatchers.IO) {
             WidgetBackground.previewBitmap(context, normalized, data.kind, data.isDay)
         }
     }
     val backgroundAlpha = widgetBackgroundAlpha(normalized, 255) / 255f
+    val availability = widgetDataAvailability(
+        data.hourlyTimes,
+        data.hourlyTemperatures,
+        data.precipitationProbability,
+        data.windSpeed,
+        data.humidityPercent,
+        data.updatedAt,
+    )
     val visibility = widgetContentVisibility(
         settings = normalized,
         size = size,
-        hourlyAvailable = true,
-        metricsAvailable = true,
-        hasUpdatedAt = true,
+        availability = availability,
     )
     val primary = androidx.compose.ui.graphics.Color(AndroidColor.parseColor(normalized.primaryColor))
     val secondary = androidx.compose.ui.graphics.Color(AndroidColor.parseColor(normalized.secondaryColor))
     val accent = androidx.compose.ui.graphics.Color(AndroidColor.parseColor(normalized.accentColor))
-    val textAlign = when (normalized.alignment) {
-        WidgetAlignment.LEFT -> TextAlign.Start
-        WidgetAlignment.CENTER -> TextAlign.Center
-        WidgetAlignment.RIGHT -> TextAlign.End
-    }
-    val horizontal = when (normalized.alignment) {
-        WidgetAlignment.LEFT -> Alignment.Start
-        WidgetAlignment.CENTER -> Alignment.CenterHorizontally
-        WidgetAlignment.RIGHT -> Alignment.End
-    }
-    val contentAlignment = when (normalized.alignment) {
-        WidgetAlignment.LEFT -> Alignment.CenterStart
-        WidgetAlignment.CENTER -> Alignment.Center
-        WidgetAlignment.RIGHT -> Alignment.CenterEnd
-    }
+    val spacers = widgetAlignmentSpacers(normalized.alignment)
     val scale = normalized.textScale / 100f * when (size) {
         WidgetSize.COMPACT -> 0.78f
         WidgetSize.STANDARD -> 0.9f
@@ -342,36 +340,69 @@ private fun WidgetPreview(settings: WidgetSettings, size: WidgetSize) {
             alpha = backgroundAlpha,
             modifier = Modifier.matchParentSize(),
         )
-        Column(
-            modifier = Modifier.align(contentAlignment).padding(18.dp),
-            horizontalAlignment = horizontal,
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f), horizontalAlignment = horizontal) {
-                    if (visibility.showLabel) Text(normalized.customLabel, color = secondary, fontSize = 11.sp * scale, textAlign = textAlign)
-                    if (visibility.showLocation) Text(data.city, color = secondary, fontSize = 13.sp * scale, fontWeight = FontWeight.SemiBold, textAlign = textAlign)
-                    if (visibility.showTemperature) Text(data.temperature, color = primary, fontSize = 43.sp * scale, lineHeight = 48.sp * scale, fontWeight = FontWeight.SemiBold, textAlign = textAlign)
-                    if (visibility.showCondition) Text(data.condition, color = primary, fontSize = 13.sp * scale, textAlign = textAlign)
-                    if (visibility.showRange) Text(stringResource(R.string.widget_preview_range), color = secondary, fontSize = 12.sp * scale, textAlign = textAlign)
-                }
-                Column(horizontalAlignment = horizontal) {
-                    if (visibility.showClock) Text(widgetTime(LocalTime.now(), locale), color = primary, fontSize = 14.sp * scale)
-                    if (visibility.showDate) Text(widgetDate(LocalDate.now(), locale), color = secondary, fontSize = 10.sp * scale)
+        Row(Modifier.fillMaxSize()) {
+            if (spacers.showLeft) Spacer(Modifier.weight(1f))
+            Column(
+                modifier = Modifier.fillMaxHeight().widthIn(min = 110.dp).padding(12.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        if (visibility.showLabel) Text(normalized.customLabel, color = secondary, fontSize = 11.sp * scale)
+                        if (visibility.showLocation) Text(data.city, color = secondary, fontSize = 12.sp * scale, fontWeight = FontWeight.SemiBold)
+                        if (visibility.showTemperature) Text(data.temperature, color = primary, fontSize = 34.sp * scale, lineHeight = 40.sp * scale, fontWeight = FontWeight.SemiBold)
+                    }
                     if (visibility.showIcon) {
-                        Spacer(Modifier.height(8.dp))
-                        WeatherIcon(kind = data.kind, isDay = data.isDay, contentDescription = data.condition, modifier = Modifier.size(38.dp), tint = primary)
+                        WeatherIcon(
+                            kind = data.kind,
+                            isDay = data.isDay,
+                            contentDescription = data.condition,
+                            modifier = Modifier.padding(horizontal = 8.dp).size(30.dp),
+                            tint = primary,
+                        )
+                    }
+                    if (visibility.showCondition || visibility.showRange) {
+                        Column(Modifier.weight(1f)) {
+                            if (visibility.showCondition) Text(data.condition, color = primary, fontSize = 12.sp * scale, fontWeight = FontWeight.SemiBold)
+                            if (visibility.showRange) Text(data.range, color = secondary, fontSize = 11.sp * scale)
+                        }
+                    }
+                    Column(horizontalAlignment = Alignment.End) {
+                        if (visibility.showClock) Text(widgetClock(LocalTime.now(), DateFormat.is24HourFormat(context)), color = primary, fontSize = 14.sp * scale, fontWeight = FontWeight.SemiBold)
+                        if (visibility.showDate) Text(widgetDate(LocalDate.now(), locale), color = secondary, fontSize = 10.sp * scale)
                     }
                 }
-            }
-            if (visibility.showMetrics) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    if (visibility.showPrecipitation) Text("${stringResource(R.string.precipitation)} 20%", color = secondary, fontSize = 10.sp * scale)
-                    if (visibility.showWind) Text("${stringResource(R.string.wind)} 11 km/h", color = secondary, fontSize = 10.sp * scale)
-                    if (visibility.showHumidity) Text("${stringResource(R.string.humidity)} 68%", color = secondary, fontSize = 10.sp * scale)
+                if (visibility.showMetrics) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        if (visibility.showPrecipitation) Text(data.precipitation, Modifier.weight(1f), color = secondary, fontSize = 10.sp * scale)
+                        if (visibility.showWind) Text(data.wind, Modifier.weight(1f), color = secondary, fontSize = 10.sp * scale, textAlign = TextAlign.Center)
+                        if (visibility.showHumidity) Text(data.humidity, Modifier.weight(1f), color = secondary, fontSize = 10.sp * scale, textAlign = TextAlign.End)
+                    }
                 }
+                if (visibility.showHourly) {
+                    Spacer(Modifier.height(5.dp))
+                    Box(Modifier.fillMaxWidth().height(1.dp).background(accent))
+                    Spacer(Modifier.height(5.dp))
+                    Row(Modifier.fillMaxWidth()) {
+                        repeat(3) { index ->
+                            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(data.hourlyTimes[index], color = secondary, fontSize = 11.sp * scale)
+                                Text("${data.hourlyTemperatures[index]}°", color = primary, fontSize = 14.sp * scale, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
+                }
+                if (visibility.showUpdatedAt) Text(
+                    widgetUpdatedAt(data.updatedAt, ZoneId.systemDefault(), locale),
+                    modifier = Modifier.fillMaxWidth(),
+                    color = secondary,
+                    fontSize = 9.sp * scale,
+                    textAlign = TextAlign.End,
+                )
             }
-            if (visibility.showHourly) Text(stringResource(R.string.widget_preview_hourly), color = accent, fontSize = 11.sp * scale, textAlign = textAlign)
-            if (visibility.showUpdatedAt) Text(stringResource(R.string.widget_preview_updated), color = secondary, fontSize = 10.sp * scale, textAlign = textAlign)
+            if (spacers.showRight) Spacer(Modifier.weight(1f))
         }
     }
 }
@@ -439,21 +470,47 @@ private data class WidgetPreviewData(
     val condition: String,
     val kind: WeatherKind,
     val isDay: Boolean,
+    val range: String,
+    val hourlyTimes: List<String>,
+    val hourlyTemperatures: List<String>,
+    val precipitation: String,
+    val precipitationProbability: Int,
+    val wind: String,
+    val windSpeed: Float,
+    val humidity: String,
+    val humidityPercent: Int,
+    val updatedAt: Long,
 )
 
 private fun loadPreview(context: Context): WidgetPreviewData {
-    val localized = AppLocale.localized(context)
-    val preferences = localized.getSharedPreferences(WeatherRepository.PREFERENCES_NAME, Context.MODE_PRIVATE)
+    val preferences = context.getSharedPreferences(WeatherRepository.PREFERENCES_NAME, Context.MODE_PRIVATE)
     val temperature = preferences.getFloat(WeatherRepository.KEY_WIDGET_TEMPERATURE, Float.NaN)
     val kind = runCatching {
         WeatherKind.valueOf(preferences.getString(WeatherRepository.KEY_WIDGET_KIND, "UNKNOWN").orEmpty())
     }.getOrDefault(WeatherKind.UNKNOWN)
+    val high = preferences.getFloat(WeatherRepository.KEY_WIDGET_HIGH, Float.NaN)
+    val low = preferences.getFloat(WeatherRepository.KEY_WIDGET_LOW, Float.NaN)
+    val hourlyTimes = preferences.getString(WeatherRepository.KEY_WIDGET_HOURLY_TIMES, null)?.split('|').orEmpty()
+    val hourlyTemperatures = preferences.getString(WeatherRepository.KEY_WIDGET_HOURLY_TEMPERATURES, null)?.split('|').orEmpty()
+    val precipitation = preferences.getInt(WeatherRepository.KEY_WIDGET_PRECIPITATION_PROBABILITY, -1)
+    val wind = preferences.getFloat(WeatherRepository.KEY_WIDGET_WIND_SPEED, Float.NaN)
+    val humidity = preferences.getInt(WeatherRepository.KEY_WIDGET_HUMIDITY, -1)
     return WidgetPreviewData(
-        city = preferences.getString(WeatherRepository.KEY_WIDGET_CITY, null) ?: localized.getString(R.string.widget_placeholder_city),
-        temperature = if (temperature.isNaN()) localized.getString(R.string.widget_placeholder_temperature) else "${temperature.roundToInt()}°",
-        condition = localized.widgetConditionLabel(preferences.getString(WeatherRepository.KEY_WIDGET_CONDITION_KEY, null), kind),
+        city = preferences.getString(WeatherRepository.KEY_WIDGET_CITY, null) ?: context.getString(R.string.widget_placeholder_city),
+        temperature = if (temperature.isNaN()) context.getString(R.string.widget_placeholder_temperature) else "${temperature.roundToInt()}°",
+        condition = context.widgetConditionLabel(preferences.getString(WeatherRepository.KEY_WIDGET_CONDITION_KEY, null), kind),
         kind = kind,
         isDay = preferences.getBoolean(WeatherRepository.KEY_WIDGET_IS_DAY, true),
+        range = if (high.isNaN() || low.isNaN()) context.getString(R.string.widget_placeholder_range) else "${high.roundToInt()}° / ${low.roundToInt()}°",
+        hourlyTimes = hourlyTimes,
+        hourlyTemperatures = hourlyTemperatures,
+        precipitation = if (precipitation < 0) "--" else "${context.getString(R.string.precipitation)} $precipitation%",
+        precipitationProbability = precipitation,
+        wind = if (wind.isNaN()) "--" else "${context.getString(R.string.wind)} ${wind.roundToInt()} km/h",
+        windSpeed = wind,
+        humidity = if (humidity < 0) "--" else "${context.getString(R.string.humidity)} $humidity%",
+        humidityPercent = humidity,
+        updatedAt = preferences.getLong(WeatherRepository.KEY_WIDGET_UPDATED_AT, 0L),
     )
 }
 

@@ -226,6 +226,14 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             val wind = weather.getFloat(WeatherRepository.KEY_WIDGET_WIND_SPEED, Float.NaN)
             val humidity = weather.getInt(WeatherRepository.KEY_WIDGET_HUMIDITY, -1)
             val updatedAt = weather.getLong(WeatherRepository.KEY_WIDGET_UPDATED_AT, 0L)
+            val availability = widgetDataAvailability(
+                hourlyTimes,
+                hourlyTemperatures,
+                precipitation,
+                wind,
+                humidity,
+                updatedAt,
+            )
             val primaryColor = android.graphics.Color.parseColor(settings.primaryColor)
             val secondaryColor = android.graphics.Color.parseColor(settings.secondaryColor)
             val spacers = widgetAlignmentSpacers(settings.alignment)
@@ -252,9 +260,7 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             val visibility = widgetContentVisibility(
                 settings = settings,
                 size = size,
-                hourlyAvailable = hourlyTimes.size >= 3 && hourlyTemperatures.size >= 3,
-                metricsAvailable = true,
-                hasUpdatedAt = updatedAt > 0L,
+                availability = availability,
             )
             views.setViewVisibility(
                 R.id.widget_label,

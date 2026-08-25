@@ -1,5 +1,6 @@
 package cz.majkey.pocasicesko.widget
 
+import cz.majkey.pocasicesko.data.WeatherKind
 import kotlin.math.roundToInt
 import java.time.Instant
 import java.time.LocalDate
@@ -98,6 +99,24 @@ internal class WidgetApplyState {
 
 internal data class WidgetBitmapSize(val width: Int, val height: Int)
 internal data class WidgetAlignmentSpacers(val showLeft: Boolean, val showRight: Boolean)
+internal data class WidgetDataAvailability(
+    val hourlyAvailable: Boolean,
+    val precipitationAvailable: Boolean,
+    val windAvailable: Boolean,
+    val humidityAvailable: Boolean,
+    val hasUpdatedAt: Boolean,
+)
+internal data class WidgetPreviewBackgroundKey(
+    val mode: WidgetBackgroundMode,
+    val start: String,
+    val end: String,
+    val opacity: Int,
+    val imageUri: String,
+    val kind: WeatherKind,
+    val isDay: Boolean,
+    val width: Int = MAX_BACKGROUND_WIDTH,
+    val height: Int = MAX_BACKGROUND_HEIGHT,
+)
 internal data class WidgetContentVisibility(
     val showLabel: Boolean,
     val showLocation: Boolean,
@@ -177,17 +196,49 @@ internal fun widgetOpacityAlpha(baseAlpha: Int, opacity: Int): Int =
 internal fun widgetBackgroundAlpha(settings: WidgetSettings, baseAlpha: Int): Int =
     widgetOpacityAlpha(baseAlpha, settings.opacity)
 
+internal fun widgetDataAvailability(
+    hourlyTimes: List<String>,
+    hourlyTemperatures: List<String>,
+    precipitation: Int,
+    wind: Float,
+    humidity: Int,
+    updatedAt: Long,
+): WidgetDataAvailability = WidgetDataAvailability(
+    hourlyAvailable = hourlyTimes.size >= 3 && hourlyTemperatures.size >= 3 &&
+        hourlyTimes.take(3).all(String::isNotBlank) && hourlyTemperatures.take(3).all(String::isNotBlank),
+    precipitationAvailable = precipitation in 0..100,
+    windAvailable = wind.isFinite() && wind >= 0f,
+    humidityAvailable = humidity in 0..100,
+    hasUpdatedAt = updatedAt > 0L,
+)
+
+internal fun widgetPreviewBackgroundKey(
+    settings: WidgetSettings,
+    kind: WeatherKind,
+    isDay: Boolean,
+): WidgetPreviewBackgroundKey = settings.normalized().let {
+    WidgetPreviewBackgroundKey(
+        mode = it.backgroundMode,
+        start = it.backgroundStart,
+        end = it.backgroundEnd,
+        opacity = it.opacity,
+        imageUri = it.imageUri,
+        kind = kind,
+        isDay = isDay,
+    )
+}
+
 internal fun widgetContentVisibility(
     settings: WidgetSettings,
     size: WidgetSize,
-    hourlyAvailable: Boolean,
-    metricsAvailable: Boolean,
-    hasUpdatedAt: Boolean,
+    availability: WidgetDataAvailability,
 ): WidgetContentVisibility {
     val showDetails = size != WidgetSize.COMPACT && (settings.showCondition || settings.showRange)
-    val showHourly = size == WidgetSize.WIDE && settings.showHourly && hourlyAvailable
-    val showMetrics = size == WidgetSize.TALL && metricsAvailable &&
-        (settings.showPrecipitation || settings.showWind || settings.showHumidity)
+    val showHourly = size == WidgetSize.WIDE && settings.showHourly && availability.hourlyAvailable
+    val showPrecipitation = size == WidgetSize.TALL && settings.showPrecipitation && availability.precipitationAvailable
+    val showWind = size == WidgetSize.TALL && settings.showWind && availability.windAvailable
+    val showHumidity = size == WidgetSize.TALL && settings.showHumidity && availability.humidityAvailable
+    val showMetrics = showPrecipitation || showWind || showHumidity
     return WidgetContentVisibility(
         showLabel = size != WidgetSize.COMPACT && settings.customLabel.isNotBlank(),
         showLocation = size != WidgetSize.COMPACT && settings.showLocation,
@@ -198,11 +249,11 @@ internal fun widgetContentVisibility(
         showIcon = settings.showIcon,
         showHourly = showHourly,
         showMetrics = showMetrics,
-        showPrecipitation = showMetrics && settings.showPrecipitation,
-        showWind = showMetrics && settings.showWind,
-        showHumidity = showMetrics && settings.showHumidity,
+        showPrecipitation = showPrecipitation,
+        showWind = showWind,
+        showHumidity = showHumidity,
         showDate = size != WidgetSize.COMPACT && settings.showDate,
-        showUpdatedAt = settings.showUpdatedAt && size != WidgetSize.COMPACT && hasUpdatedAt,
+        showUpdatedAt = settings.showUpdatedAt && size != WidgetSize.COMPACT && availability.hasUpdatedAt,
     )
 }
 
@@ -269,8 +320,8 @@ internal fun widgetUpdatedAt(epochMillis: Long, zoneId: ZoneId, locale: Locale):
 internal fun widgetDate(date: LocalDate, locale: Locale): String =
     date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.SHORT).withLocale(locale))
 
-internal fun widgetTime(time: LocalTime, locale: Locale): String =
-    time.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(locale))
+internal fun widgetClock(time: LocalTime, is24Hour: Boolean): String =
+    time.format(DateTimeFormatter.ofPattern(if (is24Hour) "HH:mm" else "h:mm"))
 
 internal fun widgetPreferenceKey(appWidgetId: Int, name: String): String =
     "widget_settings_${appWidgetId}_$name"

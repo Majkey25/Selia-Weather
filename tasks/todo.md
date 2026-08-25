@@ -43,3 +43,15 @@
 - [ ] Task 8: Verify and publish beta.2, prepare Play Console, and reclaim QA storage.
   - Acceptance: green CI, verified signed release, prepared Play entry, and safe emulator cleanup.
   - Verify: live GitHub release, hashes, signatures, Play state, and reclaimed byte count are recorded.
+
+## Czech calibrated ensemble
+
+- [ ] Research Task 1: Create locked Python package and verified model registry.
+- [ ] Research Task 2: Ingest independent ČHMÚ station and radar truth.
+- [ ] Research Task 3: Download and align issued forecast runs without leakage.
+- [ ] Research Task 4: Implement metrics and locked baselines.
+- [ ] Research Task 5: Train constrained hierarchical blends.
+- [ ] Research Task 6: Evaluate holdout, publish report, and export Android weights.
+- [ ] Android Tasks 1-8: Validate weights, blend forecasts, add complete detail/Moon/widget fields, and document.
+- [ ] Tile Tasks 1-4: Generate, deploy, display, and operationally validate 1-24h forecast precipitation.
+- [ ] Release Task: Signed emulator/Huawei QA, broad review, PR, release, Play preparation, and cleanup.

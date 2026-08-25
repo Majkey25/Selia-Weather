@@ -12,7 +12,7 @@ import pytest
 from aladin_ensemble.registry import (
     JsonValue,
     ModelRegistry,
-    estimate_request_budget,
+    estimate_http_request_budget,
 )
 from aladin_ensemble.sources import probe as probe_module
 from aladin_ensemble.sources.probe import (
@@ -143,14 +143,12 @@ def test_registry_json_is_deterministic_and_sorted() -> None:
 
 
 def test_request_budget_fails_closed_above_limit() -> None:
-    budget = estimate_request_budget(
+    budget = estimate_http_request_budget(
         candidate_count=17,
         location_count=7,
         run_count=180,
         variable_count=3,
         date_count=180,
-        location_batch_limit=7,
-        variable_batch_limit=3,
         provider_limit=10_000,
     )
     with pytest.raises(ValueError, match="reaches"):
@@ -158,17 +156,15 @@ def test_request_budget_fails_closed_above_limit() -> None:
 
 
 def test_request_budget_counts_probe_and_download_calls() -> None:
-    budget = estimate_request_budget(
+    budget = estimate_http_request_budget(
         candidate_count=2,
         location_count=7,
         run_count=3,
         variable_count=3,
         date_count=2,
-        location_batch_limit=7,
-        variable_batch_limit=3,
         provider_limit=100,
     )
-    assert budget.expected_calls == 14
+    assert budget.expected_http_requests == 16
     budget.require_within_limit()
 
 
@@ -243,7 +239,7 @@ def test_probe_registry_json_sorts_exclusions(tmp_path: Path) -> None:
 
 
 def test_main_writes_incomplete_registry_and_fails_on_operational_error(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     output = tmp_path / "model-registry.json"
     monkeypatch.setattr(
@@ -254,24 +250,34 @@ def test_main_writes_incomplete_registry_and_fails_on_operational_error(
     monkeypatch.setattr("sys.argv", ["probe", "--output", str(output)])
     assert probe_module.main() == 1
     assert '"status":"incomplete"' in output.read_text(encoding="utf-8")
+    summary = capsys.readouterr().out
+    assert "locations: 7" in summary
+    assert "variables: 3" in summary
+    assert "expected HTTP requests: 51" in summary
 
 
 def test_budget_batches_requests_and_rejects_free_limit_boundary() -> None:
-    budget = estimate_request_budget(
+    within_limit = estimate_http_request_budget(
         candidate_count=1,
         location_count=8,
         run_count=1,
         variable_count=4,
-        date_count=1,
-        location_batch_limit=7,
-        variable_batch_limit=3,
+        date_count=9_997,
         provider_limit=10_000,
     )
-    assert budget.expected_calls == 8
-    within_limit = replace(budget, expected_calls=9_999)
+    assert within_limit.expected_http_requests == 9_999
     within_limit.require_within_limit()
+    limit = estimate_http_request_budget(
+        candidate_count=1,
+        location_count=8,
+        run_count=1,
+        variable_count=4,
+        date_count=9_998,
+        provider_limit=10_000,
+    )
+    assert limit.expected_http_requests == 10_000
     with pytest.raises(ValueError, match="reaches"):
-        replace(budget, expected_calls=10_000).require_within_limit()
+        limit.require_within_limit()
 
 
 def test_probe_requires_archive_horizon_and_records_provenance() -> None:

@@ -17,9 +17,7 @@ class RequestBudget:
     run_count: int
     variable_count: int
     date_count: int
-    location_batch_limit: int
-    variable_batch_limit: int
-    expected_calls: int
+    expected_http_requests: int
     provider_limit: int
 
     def __post_init__(self) -> None:
@@ -29,17 +27,16 @@ class RequestBudget:
             self.run_count,
             self.variable_count,
             self.date_count,
-            self.location_batch_limit,
-            self.variable_batch_limit,
-            self.expected_calls,
+            self.expected_http_requests,
             self.provider_limit,
         ) < 0:
             raise ValueError("request budget values cannot be negative")
 
     def require_within_limit(self) -> None:
-        if self.expected_calls >= self.provider_limit:
+        if self.expected_http_requests >= self.provider_limit:
             raise ValueError(
-                f"expected calls {self.expected_calls} reaches provider limit {self.provider_limit}"
+                f"expected HTTP requests {self.expected_http_requests} reaches provider limit "
+                f"{self.provider_limit}"
             )
 
     def summary(self) -> str:
@@ -50,47 +47,30 @@ class RequestBudget:
                 f"runs: {self.run_count}",
                 f"variables: {self.variable_count}",
                 f"dates: {self.date_count}",
-                f"location batch limit: {self.location_batch_limit}",
-                f"variable batch limit: {self.variable_batch_limit}",
-                f"expected calls: {self.expected_calls}",
+                f"expected HTTP requests: {self.expected_http_requests}",
                 f"provider limit: {self.provider_limit}",
             )
         )
 
 
-def estimate_request_budget(
+def estimate_http_request_budget(
     *,
     candidate_count: int,
     location_count: int,
     run_count: int,
     variable_count: int,
     date_count: int,
-    location_batch_limit: int,
-    variable_batch_limit: int,
     provider_limit: int,
 ) -> RequestBudget:
-    if min(
-        candidate_count,
-        location_count,
-        run_count,
-        variable_count,
-        date_count,
-        location_batch_limit,
-        variable_batch_limit,
-    ) < 1:
-        raise ValueError("request budget counts and batch limits must be positive")
-    batches = (
-        (location_count + location_batch_limit - 1) // location_batch_limit
-    ) * ((variable_count + variable_batch_limit - 1) // variable_batch_limit)
+    if min(candidate_count, location_count, run_count, variable_count, date_count) < 1:
+        raise ValueError("request budget counts must be positive")
     return RequestBudget(
         candidate_count=candidate_count,
         location_count=location_count,
         run_count=run_count,
         variable_count=variable_count,
         date_count=date_count,
-        location_batch_limit=location_batch_limit,
-        variable_batch_limit=variable_batch_limit,
-        expected_calls=candidate_count * batches * (1 + date_count * run_count),
+        expected_http_requests=candidate_count * (2 + date_count * run_count),
         provider_limit=provider_limit,
     )
 

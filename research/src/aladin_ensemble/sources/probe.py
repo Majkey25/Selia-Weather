@@ -12,7 +12,7 @@ from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from aladin_ensemble.registry import JsonValue, ModelRegistry, estimate_request_budget
+from aladin_ensemble.registry import JsonValue, ModelRegistry, estimate_http_request_budget
 from aladin_ensemble.types import ModelCandidate, ResponseMetadata, SourceManifest
 
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
@@ -87,9 +87,6 @@ CZECH_SAMPLE_POINTS = (
     SamplePoint("high", 50.0833, 17.2300),
     SamplePoint("border-middle", 49.1951, 16.6068),
 )
-
-COVERAGE_LOCATION_BATCH_LIMIT = len(CZECH_SAMPLE_POINTS)
-VARIABLE_BATCH_LIMIT = len(REQUIRED_VARIABLES)
 
 FetchJson = Callable[[str], JsonValue]
 
@@ -363,18 +360,14 @@ def main() -> int:
     parser.add_argument("--output", type=Path, default=Path("model-registry.json"))
     parser.add_argument("--runs", type=int, default=1)
     parser.add_argument("--dates", type=int, default=1)
-    parser.add_argument("--location-batch-limit", type=int, default=COVERAGE_LOCATION_BATCH_LIMIT)
-    parser.add_argument("--variable-batch-limit", type=int, default=VARIABLE_BATCH_LIMIT)
     parser.add_argument("--provider-limit", type=int, default=FREE_DAILY_LIMIT)
     args = parser.parse_args()
-    budget = estimate_request_budget(
+    budget = estimate_http_request_budget(
         candidate_count=len(OFFICIAL_MODEL_SEEDS),
         location_count=len(CZECH_SAMPLE_POINTS),
         run_count=args.runs,
         variable_count=len(REQUIRED_VARIABLES),
         date_count=args.dates,
-        location_batch_limit=args.location_batch_limit,
-        variable_batch_limit=args.variable_batch_limit,
         provider_limit=args.provider_limit,
     )
     print(budget.summary())

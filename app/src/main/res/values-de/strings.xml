@@ -152,7 +152,4 @@
     <string name="widget_field_wind">Wind</string>
     <string name="widget_field_humidity">Luftfeuchtigkeit</string>
     <string name="widget_field_updated">Letzte Aktualisierung</string>
-    <string name="widget_preview_range">8° / 17°</string>
-    <string name="widget_preview_hourly">12:00  14°   15:00  15°</string>
-    <string name="widget_preview_updated">Gerade aktualisiert</string>
 </resources>

@@ -12,12 +12,11 @@ Each widget stores its settings under its Android widget ID. If you select a cus
 
 ## Location
 
-Approximate and precise location permission are optional. After you select **Use my location**, the app reads coordinates, checks that they are in Czechia, and uses them to name the place and request a forecast. The app does not track location in the background.
+Approximate and precise location permissions are optional. After you select **Use my location**, the app reads coordinates, checks that they are in Czechia, and sends them to Open-Meteo over HTTPS to request a forecast. Android's system Geocoder can also receive the coordinates to name the place. The app does not track location in the background.
 
 ## Network communication
 
-- Open-Meteo receives the place name you search for or the coordinates of the selected place. It provides geocoding and forecasts.
-- Android's system Geocoder can receive current-location coordinates to name the place.
+- Open-Meteo receives place search terms and selected coordinates. It provides geocoding and forecasts. The developer does not retain this data off-device. [Open-Meteo states](https://open-meteo.com/en/terms) that free API server logs may contain coordinates and are deleted after 90 days.
 - ČHMÚ provides radar, nowcast, lightning, and satellite images. Its servers process normal HTTPS technical data such as your IP address and request data.
 - Buy Me a Coffee receives data only if you choose the optional support action. The app opens the external HTTPS page `https://www.buymeacoffee.com/majkey` through Android.
 

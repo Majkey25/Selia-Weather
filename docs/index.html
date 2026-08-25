@@ -30,12 +30,11 @@
   <p>A custom widget image remains in its original location. The app stores only its Android content URI and reads a bounded copy when it renders the widget. Removing the widget removes its settings and releases its retained image permission when no other widget uses the URI.</p>
 
   <h2>Location</h2>
-  <p>Approximate and precise location permission are optional. After you select <strong>Use my location</strong>, the app reads coordinates, checks that they are in Czechia, and uses them to name the place and request a forecast. The app does not track location in the background.</p>
+  <p>Approximate and precise location permissions are optional. After you select <strong>Use my location</strong>, the app reads coordinates, checks that they are in Czechia, and sends them to Open-Meteo over HTTPS to request a forecast. Android's system Geocoder can also receive the coordinates to name the place. The app does not track location in the background.</p>
 
   <h2>Network communication</h2>
   <ul>
-    <li>Open-Meteo receives the place name you search for or the coordinates of the selected place. It provides geocoding and forecasts.</li>
-    <li>Android's system Geocoder can receive current-location coordinates to name the place.</li>
+    <li>Open-Meteo receives place search terms and selected coordinates. It provides geocoding and forecasts. The developer does not retain this data off-device. <a href="https://open-meteo.com/en/terms">Open-Meteo states</a> that free API server logs may contain coordinates and are deleted after 90 days.</li>
     <li>ČHMÚ provides radar, nowcast, lightning, and satellite images. Its servers process normal HTTPS technical data such as your IP address and request data.</li>
     <li>Buy Me a Coffee receives data only if you choose the optional external support action.</li>
   </ul>

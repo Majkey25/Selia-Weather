@@ -217,7 +217,7 @@ class WeatherRepository(context: Context) {
         private const val MINIMUM_SEARCH_LENGTH = 2
         private const val CONNECT_TIMEOUT_MILLIS = 10_000
         private const val READ_TIMEOUT_MILLIS = 15_000
-        private val USER_AGENT = "PocasiCesko/${BuildConfig.VERSION_NAME} (Android)"
+        private val USER_AGENT = "ALADIN-weather/${BuildConfig.VERSION_NAME} (Android; https://github.com/Majkey25/ALADIN-weather)"
 
         private const val CURRENT_VARIABLES =
             "temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation," +

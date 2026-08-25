@@ -68,7 +68,7 @@ The debug APK is at `app/build/outputs/apk/debug/app-debug.apk`.
 
 ## Privacy
 
-The app has no analytics, account, or advertising SDK. It keeps the selected place, favourites, widget settings, and forecast cache in internal app storage. Current location is optional and is used only to request the forecast for your area. Read the [privacy policy](https://majkey25.github.io/ALADIN-weather/).
+The app has no analytics, account, or advertising SDK. It keeps the selected place, favourites, widget settings, and forecast cache in internal app storage. Current location is optional. Its coordinates are sent to Open-Meteo over HTTPS to request the forecast. Read the [privacy policy](https://majkey25.github.io/ALADIN-weather/).
 
 ## Status
 

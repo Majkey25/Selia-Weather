@@ -35,7 +35,8 @@
   - Verify: independent English and French widgets persist through launcher and app restart.
 - [x] Adaptive Task 6: Add localized optional Buy Me a Coffee support.
   - Acceptance: settings opens the exact published HTTPS URL and grants no feature.
-  - Verify: English, Czech, external routing, and missing-handler paths pass.
+  - Verify: English, Czech, and external routing pass.
+  - Remaining: Task 8 must verify the signed-release missing-handler negative.
 - [x] Task 7: Publish English-first docs and five localized Play listings.
   - Acceptance: product identity, package, and `Majkey25/ALADIN-weather` links are consistent across repo, Pages, and Play metadata.
   - Verify: Play text limits and Pages HTTP 200 check pass.

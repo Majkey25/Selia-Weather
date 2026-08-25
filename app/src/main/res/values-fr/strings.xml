@@ -37,6 +37,8 @@
     <string name="location_purpose">Votre position sert à afficher la météo locale.</string>
     <string name="current_location">Position actuelle</string>
     <string name="favorites">Favoris</string>
+    <string name="location_region_czechia">Tchéquie</string>
+    <string name="location_region_prague">Capitale Prague</string>
     <string name="search_in_czechia">Rechercher en Tchéquie</string>
     <string name="city_or_municipality">Ville ou commune</string>
     <string name="no_czech_result">Aucun résultat trouvé en Tchéquie</string>

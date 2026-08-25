@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.core.content.edit
 import cz.majkey.pocasicesko.BuildConfig
+import cz.majkey.pocasicesko.locale.AppLocale
 import cz.majkey.pocasicesko.widget.WeatherWidgetProvider
 import java.io.IOException
 import java.net.HttpURLConnection
@@ -96,7 +97,7 @@ class WeatherRepository(context: Context) {
                 add(
                     CzechLocation(
                         name = result.getString("name"),
-                        region = result.optString("admin1").ifBlank { "Česko" },
+                        region = result.optString("admin1").ifBlank { REGION_CZECHIA },
                         latitude = result.getDouble("latitude"),
                         longitude = result.getDouble("longitude"),
                     ),
@@ -180,7 +181,7 @@ class WeatherRepository(context: Context) {
         .appendPath("search")
         .appendQueryParameter("name", query)
         .appendQueryParameter("count", "8")
-        .appendQueryParameter("language", "cs")
+        .appendQueryParameter("language", AppLocale.languageTag(appContext))
         .appendQueryParameter("countryCode", "CZ")
         .appendQueryParameter("format", "json")
         .build()
@@ -229,7 +230,7 @@ class WeatherRepository(context: Context) {
 
         val DEFAULT_LOCATION = CzechLocation(
             name = "Praha",
-            region = "Hlavní město Praha",
+            region = REGION_PRAGUE,
             latitude = 50.0755,
             longitude = 14.4378,
         )

@@ -37,6 +37,8 @@
     <string name="location_purpose">La ubicación se usa para mostrar el tiempo local.</string>
     <string name="current_location">Ubicación actual</string>
     <string name="favorites">Favoritos</string>
+    <string name="location_region_czechia">Chequia</string>
+    <string name="location_region_prague">Ciudad Capital de Praga</string>
     <string name="search_in_czechia">Buscar en Chequia</string>
     <string name="city_or_municipality">Ciudad o municipio</string>
     <string name="no_czech_result">No se encontró ningún resultado en Chequia</string>

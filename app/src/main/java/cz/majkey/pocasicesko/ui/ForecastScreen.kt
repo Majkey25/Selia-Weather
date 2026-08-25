@@ -196,7 +196,7 @@ private fun LocationHeader(
             }
         }
         Text(
-            text = location.region,
+            text = location.localizedRegion(),
             color = Color.White.copy(alpha = 0.55f),
             fontSize = 12.sp,
             modifier = Modifier.padding(top = 7.dp),

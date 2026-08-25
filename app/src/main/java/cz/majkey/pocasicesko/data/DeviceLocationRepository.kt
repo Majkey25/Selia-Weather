@@ -13,8 +13,8 @@ import android.location.LocationManager
 import android.os.Bundle
 import android.os.Looper
 import androidx.core.content.ContextCompat
+import cz.majkey.pocasicesko.locale.AppLocale
 import java.io.IOException
-import java.util.Locale
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.Dispatchers
@@ -85,7 +85,7 @@ class DeviceLocationRepository(context: Context) {
     private fun resolveName(location: Location): CzechLocation {
         val address = if (Geocoder.isPresent()) {
             runCatching {
-                Geocoder(appContext, Locale.forLanguageTag("cs-CZ"))
+                Geocoder(appContext, AppLocale.locale(appContext))
                     .getFromLocation(location.latitude, location.longitude, 1)
                     ?.firstOrNull()
             }.getOrNull()
@@ -98,7 +98,7 @@ class DeviceLocationRepository(context: Context) {
             ?: address?.subAdminArea
             ?: adminArea
             ?: "Czechia"
-        val region = adminArea ?: "Czechia"
+        val region = adminArea ?: REGION_CZECHIA
         return CzechLocation(name, region, location.latitude, location.longitude)
     }
 

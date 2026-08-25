@@ -22,6 +22,11 @@ internal fun normalizeLanguageTag(tag: String?): String {
     return SupportedLanguage.entries.firstOrNull { it.tag == language }?.tag.orEmpty()
 }
 
+internal fun effectiveLanguageTag(selectedTag: String?, systemTag: String?): String =
+    normalizeLanguageTag(selectedTag).ifBlank {
+        normalizeLanguageTag(systemTag).ifBlank { SupportedLanguage.ENGLISH.tag }
+    }
+
 object AppLocale {
     private const val PREFERENCES = "app_locale"
     private const val LANGUAGE_TAG = "language_tag"
@@ -55,4 +60,11 @@ object AppLocale {
         }
         return context.createConfigurationContext(configuration)
     }
+
+    fun languageTag(context: Context): String = effectiveLanguageTag(
+        context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).getString(LANGUAGE_TAG, null),
+        context.resources.configuration.locales[0].toLanguageTag(),
+    )
+
+    fun locale(context: Context): Locale = Locale.forLanguageTag(languageTag(context))
 }

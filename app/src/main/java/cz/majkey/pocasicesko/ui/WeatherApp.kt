@@ -658,7 +658,7 @@ private fun LocationRow(
         headlineContent = {
             Text(location.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
         },
-        supportingContent = { Text(location.region) },
+        supportingContent = { Text(location.localizedRegion()) },
         leadingContent = { Icon(Icons.Rounded.LocationOn, contentDescription = null) },
         trailingContent = {
             IconButton(onClick = onFavorite) {

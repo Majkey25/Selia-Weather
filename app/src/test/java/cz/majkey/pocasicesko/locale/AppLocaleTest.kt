@@ -14,4 +14,12 @@ class AppLocaleTest {
         assertEquals("", normalizeLanguageTag("pl"))
         assertEquals("", normalizeLanguageTag(null))
     }
+
+    @Test
+    fun usesTheSelectedOrSupportedSystemLanguageForProviderQueries() {
+        assertEquals("en", effectiveLanguageTag("en", "cs-CZ"))
+        assertEquals("cs", effectiveLanguageTag("", "cs-CZ"))
+        assertEquals("de", effectiveLanguageTag(null, "de-AT"))
+        assertEquals("en", effectiveLanguageTag("", "pl-PL"))
+    }
 }

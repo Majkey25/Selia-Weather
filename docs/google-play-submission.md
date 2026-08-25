@@ -26,3 +26,7 @@
 - The optional Buy Me a Coffee action opens an external HTTPS page. It grants no app feature, entitlement, or priority.
 
 The location disclosure covers coordinates sent to Open-Meteo and Android Geocoder only after the user selects **Use my location**. ČHMÚ radar and satellite requests use normal HTTPS connections.
+
+## Assets
+
+`en-US` owns the icon, feature graphic, and phone screenshots. The `cs-CZ`, `de-DE`, `es-ES`, and `fr-FR` listings contain localised text only and omit image directories. Google Play inherits the default English assets for those listings, which avoids mismatched screenshots or feature graphics.

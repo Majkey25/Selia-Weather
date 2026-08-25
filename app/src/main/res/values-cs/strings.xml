@@ -37,6 +37,8 @@
     <string name="location_purpose">Vaše poloha slouží k zobrazení místního počasí.</string>
     <string name="current_location">Aktuální poloha</string>
     <string name="favorites">Oblíbené</string>
+    <string name="location_region_czechia">Česko</string>
+    <string name="location_region_prague">Hlavní město Praha</string>
     <string name="search_in_czechia">Hledat v Česku</string>
     <string name="city_or_municipality">Město nebo obec</string>
     <string name="no_czech_result">V Česku nebyl nalezen žádný výsledek</string>

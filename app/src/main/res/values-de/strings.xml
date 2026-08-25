@@ -37,6 +37,8 @@
     <string name="location_purpose">Ihr Standort wird für lokales Wetter verwendet.</string>
     <string name="current_location">Aktueller Standort</string>
     <string name="favorites">Favoriten</string>
+    <string name="location_region_czechia">Tschechien</string>
+    <string name="location_region_prague">Hauptstadt Prag</string>
     <string name="search_in_czechia">In Tschechien suchen</string>
     <string name="city_or_municipality">Stadt oder Gemeinde</string>
     <string name="no_czech_result">Kein Ergebnis in Tschechien gefunden</string>

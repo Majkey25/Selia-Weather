@@ -37,6 +37,8 @@
     <string name="location_purpose">Your location is used to show local weather.</string>
     <string name="current_location">Current location</string>
     <string name="favorites">Favorites</string>
+    <string name="location_region_czechia">Czechia</string>
+    <string name="location_region_prague">Capital City of Prague</string>
     <string name="search_in_czechia">Search in Czechia</string>
     <string name="city_or_municipality">City or municipality</string>
     <string name="no_czech_result">No result found in Czechia</string>

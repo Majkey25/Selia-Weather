@@ -1,1 +1,1 @@
-Česká předpověď ALADIN, radar ČHMÚ, družice a chytrý widget.
+Předpověď ALADIN, radar ČHMÚ, blesky a vlastní widget.

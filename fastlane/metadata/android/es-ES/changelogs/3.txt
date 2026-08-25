@@ -1,0 +1,1 @@
+ALADIN weather añade una vista de 20 horas, rayos independientes en el radar y un widget personalizable.

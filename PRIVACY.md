@@ -1,29 +1,32 @@
-# Zásady ochrany soukromí
+# Privacy policy
 
-Platnost od: 24. srpna 2026
+Effective date: 25 August 2026
 
-Počasí Česko nevyžaduje účet a neobsahuje analytiku, reklamy ani reklamní SDK. Vývojář neprodává osobní údaje a nepoužívá je k profilování.
+ALADIN weather, package `com.majkeylab.weatheraladin`, does not require an account. The app has no analytics, advertising, or advertising SDK. The developer does not sell personal data or use it for profiling.
 
-## Data v zařízení
+## Data on your device
 
-Aplikace ukládá poslední vybrané město, oblíbené lokality, poslední úspěšnou předpověď a nastavení widgetu do interního úložiště. Záloha Androidu a přenos do jiného zařízení jsou pro tato data zakázané. Vymazání dat nebo odinstalace aplikace je odstraní.
+The app stores the last selected place, favourite places, the last successful forecast, language preference, and widget settings in internal app storage. Android backup and device transfer are disabled for this data. Clearing app data or uninstalling the app deletes it.
 
-## Poloha
+Each widget stores its settings under its Android widget ID. If you select a custom image, the app stores only the selected Android content URI and retains Android read permission for that URI. The widget reads a bounded image copy only when it renders. Removing the widget removes its settings and releases its retained image permission when no other widget uses the URI.
 
-Oprávnění k přibližné nebo přesné poloze je volitelné. Po použití tlačítka „Použít moji polohu“ aplikace zjistí souřadnice, ověří, že leží v Česku, a použije je k pojmenování místa a načtení předpovědi. Aplikace nesleduje polohu na pozadí.
+## Location
 
-## Síťová komunikace
+Approximate and precise location permission are optional. After you select **Use my location**, the app reads coordinates, checks that they are in Czechia, and uses them to name the place and request a forecast. The app does not track location in the background.
 
-- Open-Meteo dostává hledaný název místa nebo souřadnice vybrané lokality a poskytuje geokódování a předpověď.
-- Systémová služba Android Geocoder může dostat souřadnice aktuální polohy za účelem pojmenování místa.
-- ČHMÚ poskytuje radarové, nowcastové, bleskové a družicové snímky. Tyto servery při běžném HTTPS spojení zpracují technické údaje, například IP adresu a údaje požadavku.
+## Network communication
 
-Veškerá síťová komunikace aplikace používá HTTPS. Aplikace neposílá jméno, e-mail, reklamní identifikátor, kontakty ani obsah zařízení.
+- Open-Meteo receives the place name you search for or the coordinates of the selected place. It provides geocoding and forecasts.
+- Android's system Geocoder can receive current-location coordinates to name the place.
+- ČHMÚ provides radar, nowcast, lightning, and satellite images. Its servers process normal HTTPS technical data such as your IP address and request data.
+- Buy Me a Coffee receives data only if you choose the optional support action. The app opens the external HTTPS page `https://www.buymeacoffee.com/majkey` through Android.
 
-## Uchování a volby uživatele
+All app network communication uses HTTPS. The app does not send your name, email address, advertising ID, contacts, or device content.
 
-Vývojář neprovozuje vlastní server pro ukládání údajů aplikace. Data v zařízení zůstávají do vymazání dat nebo odinstalace. Oprávnění k poloze lze kdykoli odebrat v nastavení Androidu. Zpracování na serverech Open-Meteo a ČHMÚ se řídí podmínkami těchto poskytovatelů.
+## Retention and choices
 
-## Kontakt
+The developer does not operate a server that stores app data. Data on your device remains until you clear app data or uninstall the app. You can remove location permission in Android settings at any time. You can remove image access by deleting the widget, changing its image, or managing the selected document in Android. Open-Meteo, ČHMÚ, and Buy Me a Coffee process data under their own terms when you contact their services.
 
-Dotazy k soukromí lze poslat přes [veřejný support formulář projektu](https://github.com/Majkey25/Pocasi-Cesko/issues/new).
+## Contact
+
+For privacy questions, open the [project support form](https://github.com/Majkey25/ALADIN-weather/issues/new).

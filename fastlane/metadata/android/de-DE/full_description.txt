@@ -1,0 +1,13 @@
+ALADIN weather zeigt das Wetter für Tschechien ohne Werbung, Konto oder API-Schlüssel.
+
+Die ersten drei Tage basieren auf dem Modell ALADIN CZ. Die Vorhersage reicht bis zu 14 Tage. Sie sehen aktuelle Werte, Niederschlag, Wind, Luftfeuchtigkeit, Druck, Sonnenzeiten und eine scrollbare Vorschau für 20 Stunden. Tippen Sie auf einen Tag für die stündlichen Details.
+
+Suchen Sie Orte in Tschechien, speichern Sie Favoriten oder verwenden Sie optional Ihren aktuellen Standort. Die letzte erfolgreiche Vorhersage bleibt offline verfügbar.
+
+Das ČHMÚ-Radar enthält Regen, Satellitenwolken, nowcast und Blitze. Regen und Wolken sind getrennte Grundebenen. Blitze bleiben über beiden Ebenen unabhängig ein- und ausschaltbar.
+
+Gestalten Sie Ihr eigenes Startbildschirm-Widget. Jedes Widget kann eigene Farben, Transparenz, Verlauf oder Hintergrundbild, Textgröße, Ausrichtung, Beschriftung und sichtbare Wetterdaten verwenden. Wenn Android ein Bild nicht mehr lesen kann, nutzt das Widget seinen Farbhintergrund und funktioniert weiter.
+
+ALADIN weather unterstützt Android 10 und neuer. Standardmäßig folgt die App der Systemsprache. In der App können Sie Englisch, Tschechisch, Deutsch, Spanisch oder Französisch wählen.
+
+Der optionale Buy-Me-a-Coffee-Link öffnet eine externe Seite. Er schaltet keine Funktionen frei und gibt keine Priorität.

@@ -1,0 +1,1 @@
+ALADIN weather adds a 20-hour outlook, independent radar lightning, and a fully customisable widget.

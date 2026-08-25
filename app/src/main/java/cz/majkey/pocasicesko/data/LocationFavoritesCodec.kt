@@ -6,7 +6,7 @@ import org.json.JSONObject
 object LocationFavoritesCodec {
     fun encode(locations: List<CzechLocation>): String {
         val array = JSONArray()
-        locations.forEach { location ->
+        locations.map(::normalizeLocationRegion).forEach { location ->
             array.put(
                 JSONObject()
                     .put("name", location.name)
@@ -29,7 +29,7 @@ object LocationFavoritesCodec {
                 val longitude = item.optDouble("longitude", Double.NaN)
                 if (name.isBlank() || region.isBlank() || !latitude.isFinite() || !longitude.isFinite()) continue
                 if (latitude !in -90.0..90.0 || longitude !in -180.0..180.0) continue
-                add(CzechLocation(name, region, latitude, longitude))
+                add(normalizeLocationRegion(CzechLocation(name, region, latitude, longitude)))
             }
         }
     }

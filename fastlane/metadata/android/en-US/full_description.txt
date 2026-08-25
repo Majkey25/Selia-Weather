@@ -1,0 +1,13 @@
+ALADIN weather gives you a clear weather view for Czechia without an account. The free version contains limited ads; either Premium option removes them.
+
+The first three days use the ALADIN CZ model. The forecast continues for up to 14 days. See current conditions, precipitation, cloud layers, wind, humidity, pressure, visibility, sun and Moon details, and a scrollable 20-hour outlook. Tap any day for its full hourly detail.
+
+Search Czech places, save favourites, choose an exact named point on the map, or use your optional current location. The last successful forecast remains available offline.
+
+ČHMÚ radar includes rain, satellite clouds, nowcast, and lightning. Rain and clouds are separate base layers. Turn lightning on or off independently over either layer.
+
+Build your own launcher widget. Each widget can use its own colours, transparency, gradient or custom-image background, text scale, alignment, label, and visible weather fields. If Android can no longer read a selected image, the widget uses its configured colour background and keeps working.
+
+ALADIN weather supports Android 10 and later. It follows your system language by default. You can select English, Czech, German, Spanish, or French in the app.
+
+The optional Buy Me a Coffee link opens an external page. It does not unlock features or provide priority.

@@ -1,0 +1,61 @@
+# ALADIN weather localization tasks
+
+- [x] Task 1: Change the app identity and add the locale contract.
+  - Acceptance: package, version, supported tags, persistence, and locale config match the spec.
+  - Verify: focused locale test and debug build pass.
+- [x] Task 2: Add complete English, Czech, German, Spanish, and French catalogs.
+  - Acceptance: every locale contains the same keys and valid formatting arguments.
+  - Verify: Android Lint reports no translation or resource errors.
+- [x] Task 3: Localize typed weather state and the forecast UI.
+  - Acceptance: no translated condition text is stored in the data layer or widget cache.
+  - Verify: all unit tests pass.
+- [x] Task 4: Add the persisted in-app language picker and localize location flows.
+  - Acceptance: system reset and manual overrides work on Android 10.
+  - Verify: restart persistence and Czech to English switching pass in the emulator.
+- [x] Task 5: Localize radar controls and status text.
+  - Acceptance: radar labels follow the selected language without changing data behavior.
+  - Verify: English, Czech, French, measured rain, clouds, lightning, and nowcast pass.
+- [x] Task 6: Localize widget rendering and configuration.
+  - Acceptance: widget placeholders, conditions, controls, and preview follow the selected language.
+  - Verify: English and French widget configuration and actual widget pass.
+- [x] Adaptive Task 1: Keep lightning available over rain and cloud layers.
+  - Acceptance: clouds never remove the lightning control or overlay state.
+  - Verify: measured rain, clouds with lightning, toggle, playback, and nowcast pass on API 29.
+- [x] Adaptive Task 2: Show 20 future hours and expand every daily row.
+  - Acceptance: the main panel has 20 scrollable hours and 14 richer daily rows.
+  - Verify: API 29 and API 35 show 20 hours, all 14 days, and a 24-hour complete-day detail.
+- [x] Adaptive Task 3: Fix hosted widget resize with one stable hierarchy.
+  - Acceptance: real launcher resize never shows `Error loading widget`.
+  - Verify: compact, standard, wide, tall, full-width, and reverse resize pass on API 29 and API 35.
+- [x] Adaptive Task 4: Add the customizable widget renderer.
+  - Acceptance: each widget stores independent colors, opacity, text, alignment, image URI, and field selection.
+  - Verify: invalid values and unreadable images fall back without breaking `RemoteViews`.
+- [x] Adaptive Task 5: Build the complete widget editor and image picker.
+  - Acceptance: preview and hosted widget interpret every setting the same way.
+  - Verify: independent English and French widgets persist through launcher and app restart.
+- [x] Adaptive Task 6: Add localized optional Buy Me a Coffee support.
+  - Acceptance: settings opens the exact published HTTPS URL and grants no feature.
+  - Verify: English, Czech, and external routing pass.
+  - Remaining: Task 8 must verify the signed-release missing-handler negative.
+- [x] Task 7: Publish English-first docs and five localized Play listings.
+  - Acceptance: product identity, package, and `Majkey25/ALADIN-weather` links are consistent across repo, Pages, and Play metadata.
+  - Verify: Play text limits and Pages HTTP 200 check pass.
+- [ ] Task 8: Verify and publish beta.2, prepare Play Console, and reclaim QA storage.
+  - Acceptance: green CI, verified signed release, prepared Play entry, and safe emulator cleanup.
+  - Verify: live GitHub release, hashes, signatures, Play state, and reclaimed byte count are recorded.
+
+## Czech calibrated ensemble
+
+- [x] Android exact-point task: choose/save a named WGS84 field point and disclose model-grid resolution.
+- [x] Android units task: Metric default plus Imperial display units in Settings and widgets.
+- [x] Research Task 1: Create locked Python package and verified model registry.
+- [x] Research Task 2: Ingest independent ČHMÚ station and radar truth.
+- [x] Research Task 3: Download and align issued forecast runs without leakage.
+- [x] Research Task 4: Implement metrics and locked baselines.
+- [x] Research Task 5: Train constrained hierarchical blends.
+- [ ] Research Task 6: Evaluator/export contract, complete 15-model registry, and status report are ready; real 90-day training, 30-day locked holdout, and Android weights remain gated by data volume and production licence.
+- [ ] Android Tasks 1-3: Validate and consume production ensemble weights after the research/licence gate passes.
+- [x] Android Tasks 4-7: Add nullable forecast details, offline Moon data, a complete detail sheet, and optional advanced widget fields.
+- [ ] Android Task 8: Finish signed runtime, Play data-safety, listing, and attribution acceptance.
+- [ ] Tile Tasks 1-4: Generate, deploy, display, and operationally validate 1-24h forecast precipitation.
+- [ ] Release Task: Signed emulator/Huawei QA, broad review, PR, release, Play preparation, and cleanup.

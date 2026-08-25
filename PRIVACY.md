@@ -1,29 +1,35 @@
-# Zásady ochrany soukromí
+# Privacy policy
 
-Platnost od: 24. srpna 2026
+Effective date: 25 August 2026
 
-Počasí Česko nevyžaduje účet a neobsahuje analytiku, reklamy ani reklamní SDK. Vývojář neprodává osobní údaje a nepoužívá je k profilování.
+ALADIN weather, package `com.majkeylab.weatheraladin`, does not require a developer account. The developer does not sell personal data or run a separate analytics service. The free version integrates Google Mobile Ads and Google User Messaging Platform (UMP). Premium purchases use Google Play Billing.
 
-## Data v zařízení
+## Data on your device
 
-Aplikace ukládá poslední vybrané město, oblíbené lokality, poslední úspěšnou předpověď a nastavení widgetu do interního úložiště. Záloha Androidu a přenos do jiného zařízení jsou pro tato data zakázané. Vymazání dat nebo odinstalace aplikace je odstraní.
+The app stores the last selected place, favourite places, the last successful forecast, language preference, and widget settings in internal app storage. Android backup and device transfer are disabled for this data. Clearing app data or uninstalling the app deletes it.
 
-## Poloha
+Each widget stores its settings under its Android widget ID. If you select a custom image, the app stores only the selected Android content URI and retains Android read permission for that URI. The widget reads a bounded image copy only when it renders. Removing the widget removes its settings and releases its retained image permission when no other widget uses the URI.
 
-Oprávnění k přibližné nebo přesné poloze je volitelné. Po použití tlačítka „Použít moji polohu“ aplikace zjistí souřadnice, ověří, že leží v Česku, a použije je k pojmenování místa a načtení předpovědi. Aplikace nesleduje polohu na pozadí.
+The app checks active Google Play purchases when Billing connects and when the app resumes. It uses the returned product IDs and purchase state to remove ads. Purchase tokens are used only to acknowledge purchases through Google Play and are not stored by the developer or sent to a developer server.
 
-## Síťová komunikace
+## Location
 
-- Open-Meteo dostává hledaný název místa nebo souřadnice vybrané lokality a poskytuje geokódování a předpověď.
-- Systémová služba Android Geocoder může dostat souřadnice aktuální polohy za účelem pojmenování místa.
-- ČHMÚ poskytuje radarové, nowcastové, bleskové a družicové snímky. Tyto servery při běžném HTTPS spojení zpracují technické údaje, například IP adresu a údaje požadavku.
+Approximate and precise location permissions are optional. After you select **Use my location**, the app reads coordinates, checks that they are in Czechia, and sends them to Open-Meteo over HTTPS to request a forecast. Android's system Geocoder can also receive the coordinates to name the place. The app does not track location in the background.
 
-Veškerá síťová komunikace aplikace používá HTTPS. Aplikace neposílá jméno, e-mail, reklamní identifikátor, kontakty ani obsah zařízení.
+## Network communication
 
-## Uchování a volby uživatele
+- Open-Meteo receives place search terms and forecast coordinates for every forecast request. This includes default Prague, a searched place, a favourite, and current location. Current location remains optional and starts only after you select **Use my location**. Open-Meteo provides geocoding and forecasts. The developer does not retain this data off-device. [Open-Meteo states](https://open-meteo.com/en/terms) that free API server logs may contain coordinates and are deleted after 90 days.
+- ČHMÚ provides radar, nowcast, lightning, and satellite images. Its servers process normal HTTPS technical data such as your IP address and request data.
+- Google Mobile Ads automatically collects and shares IP address, app interactions, diagnostic information, and device or account identifiers for advertising, analytics, and fraud prevention. Google UMP requests consent where required and exposes privacy choices in Settings. Ads remain hidden until consent permits an ad request and Google Play confirms the user does not have Premium.
+- Google Play processes product queries, purchases, subscription state, and purchase acknowledgements. Payment details stay in Google Play; the app does not receive card details.
+- Buy Me a Coffee receives data only if you choose the optional support action. The app opens the external HTTPS page `https://www.buymeacoffee.com/majkey` through Android.
 
-Vývojář neprovozuje vlastní server pro ukládání údajů aplikace. Data v zařízení zůstávají do vymazání dat nebo odinstalace. Oprávnění k poloze lze kdykoli odebrat v nastavení Androidu. Zpracování na serverech Open-Meteo a ČHMÚ se řídí podmínkami těchto poskytovatelů.
+All app network communication uses HTTPS. The app does not send contacts, messages, photos, audio, or the contents of a selected widget image.
 
-## Kontakt
+## Retention and choices
 
-Dotazy k soukromí lze poslat přes [veřejný support formulář projektu](https://github.com/Majkey25/Pocasi-Cesko/issues/new).
+The developer does not operate a server that stores app data or purchase tokens. Data on your device remains until you clear app data or uninstall the app. You can remove location permission in Android settings at any time. You can remove image access by deleting the widget, changing its image, or managing the selected document in Android. Privacy choices are available in Settings when required. Open-Meteo, ČHMÚ, Google, and Buy Me a Coffee process data under their own terms when you contact their services.
+
+## Contact
+
+For privacy questions, open the [project support form](https://github.com/Majkey25/ALADIN-weather/issues/new).

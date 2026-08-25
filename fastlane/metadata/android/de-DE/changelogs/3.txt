@@ -1,0 +1,1 @@
+ALADIN weather mit 20-Stunden-Vorschau, unabhängigen Radarblitzen und frei anpassbarem Widget.

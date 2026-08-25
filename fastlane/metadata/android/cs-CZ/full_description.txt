@@ -1,16 +1,13 @@
-Počasí Česko je jednoduchá aplikace pro přesnou a rychlou kontrolu počasí v České republice.
+ALADIN weather je přehledné počasí pro Česko bez účtu. Bezplatná verze obsahuje omezené reklamy; obě možnosti Premium je odstraní.
 
-První tři dny předpovědi používají český model ALADIN CZ. Navazující výhled rozšiřuje předpověď až na 14 dní. Vše bez účtu, reklam a API klíče.
+První tři dny vycházejí z modelu ALADIN CZ. Výhled pokračuje až na 14 dní. Na hlavní obrazovce najdete aktuální stav, srážky, vítr, vlhkost, tlak, časy slunce a posuvný přehled dalších 20 hodin. Po klepnutí na den uvidíte hodinový detail celého dne.
 
-• aktuální teplota, pocitová teplota a stav počasí
-• hodinový graf, 14denní předpověď a 24hodinový detail každého dne
-• srážky, vlhkost, vítr, tlak a časy slunce
-• hledání českých měst a obcí
-• oblíbené lokality a volitelná aktuální poloha
-• integrovaný radar, nowcast, blesky a družicová oblačnost ČHMÚ
-• resizovatelný widget s nastavitelným vzhledem
-• poslední úspěšná předpověď dostupná i bez připojení
+Vyhledávání vrací pouze místa v Česku. Můžete si uložit oblíbené lokality nebo volitelně použít aktuální polohu. Poslední úspěšná předpověď zůstane k dispozici offline.
 
-Rozhraní je navržené pro rychlé ovládání jednou rukou. Dynamické barvy reagují na den, noc a aktuální počasí, ale obsah zůstává čitelný a klidný.
+Radar ČHMÚ nabízí srážky, družicovou oblačnost, nowcast a blesky. Srážky a oblačnost jsou samostatné základní vrstvy. Blesky lze nezávisle zobrazit nad oběma vrstvami.
 
-Počasí Česko není oficiální aplikací ČHMÚ ani Open-Meteo. Data zůstávají označená svým zdrojem.
+Vlastní widget se přizpůsobí malé, široké i vysoké velikosti. Každý widget může mít vlastní barvy, průhlednost, gradient nebo obrázek, velikost textu, zarovnání, vlastní popisek a vybraná data. Pokud vybraný obrázek přestane být dostupný, widget dál funguje s nastaveným barevným pozadím.
+
+Aplikace podporuje Android 10 a novější. Výchozí jazyk odpovídá systému. V nastavení lze vybrat angličtinu, češtinu, němčinu, španělštinu nebo francouzštinu.
+
+Volitelný odkaz Buy Me a Coffee otevírá externí stránku a nezpřístupňuje žádné funkce ani výhody.

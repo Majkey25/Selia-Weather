@@ -1,0 +1,1 @@
+ALADIN weather: 20hodinový výhled, nezávislé blesky na radaru a plně upravitelný widget.

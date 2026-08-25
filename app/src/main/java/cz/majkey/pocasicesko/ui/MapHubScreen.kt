@@ -14,21 +14,26 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import cz.majkey.pocasicesko.R
 
 @Composable
 fun MapHubScreen(padding: PaddingValues) {
+    val languageTag = LocalConfiguration.current.locales[0]?.toLanguageTag()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(padding)
             .padding(start = 14.dp, top = 16.dp, end = 14.dp, bottom = 4.dp),
     ) {
-        Text("Radar ČHMÚ", fontSize = 27.sp, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.radar_title), fontSize = 27.sp, fontWeight = FontWeight.SemiBold)
         Text(
-            "Srážky, nowcast, blesky a družicová oblačnost",
+            stringResource(R.string.radar_subtitle),
             color = Color.White.copy(alpha = 0.58f),
             fontSize = 13.sp,
             modifier = Modifier.padding(top = 3.dp),
@@ -42,10 +47,10 @@ fun MapHubScreen(padding: PaddingValues) {
             shape = RoundedCornerShape(26.dp),
             border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
         ) {
-            ChmiWebScreen(RADAR_APP_URL)
+            ChmiWebScreen(localizedRadarUrl(languageTag))
         }
         Text(
-            "Měření po 5 minutách · nowcast +60 min · data ČHMÚ",
+            stringResource(R.string.radar_footer),
             color = Color.White.copy(alpha = 0.46f),
             fontSize = 11.sp,
             modifier = Modifier.padding(start = 5.dp, top = 7.dp),

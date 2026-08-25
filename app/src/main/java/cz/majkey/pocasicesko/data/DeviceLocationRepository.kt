@@ -13,8 +13,9 @@ import android.location.LocationManager
 import android.os.Bundle
 import android.os.Looper
 import androidx.core.content.ContextCompat
+import cz.majkey.pocasicesko.R
+import cz.majkey.pocasicesko.locale.AppLocale
 import java.io.IOException
-import java.util.Locale
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.Dispatchers
@@ -27,10 +28,10 @@ class DeviceLocationRepository(context: Context) {
     private val locationManager = appContext.getSystemService(LocationManager::class.java)
 
     suspend fun currentLocation(): CzechLocation {
-        if (!hasLocationPermission()) throw SecurityException("Poloha nebyla povolena.")
+        if (!hasLocationPermission()) throw LocationPermissionException()
         val location = recentLastKnownLocation() ?: requestSingleLocation()
         if (location.latitude !in CZECH_LATITUDE || location.longitude !in CZECH_LONGITUDE) {
-            throw IOException("Aktuální poloha je mimo Česko.")
+            throw LocationOutsideCzechiaException()
         }
         return withContext(Dispatchers.IO) { resolveName(location) }
     }
@@ -53,7 +54,7 @@ class DeviceLocationRepository(context: Context) {
         suspendCancellableCoroutine { continuation ->
             val provider = enabledProviders().firstOrNull()
             if (provider == null) {
-                continuation.resumeWithException(IOException("Zapněte polohu v systému."))
+                continuation.resumeWithException(SystemLocationDisabledException())
                 return@suspendCancellableCoroutine
             }
             val listener = object : LocationListener {
@@ -85,7 +86,7 @@ class DeviceLocationRepository(context: Context) {
     private fun resolveName(location: Location): CzechLocation {
         val address = if (Geocoder.isPresent()) {
             runCatching {
-                Geocoder(appContext, Locale.forLanguageTag("cs-CZ"))
+                Geocoder(appContext, AppLocale.locale(appContext))
                     .getFromLocation(location.latitude, location.longitude, 1)
                     ?.firstOrNull()
             }.getOrNull()
@@ -97,9 +98,31 @@ class DeviceLocationRepository(context: Context) {
             ?: adminArea?.takeIf { it == "Hlavní město Praha" }?.let { "Praha" }
             ?: address?.subAdminArea
             ?: adminArea
-            ?: "Moje poloha"
-        val region = adminArea ?: "Aktuální poloha"
+            ?: "Czechia"
+        val region = regionKeyForAdminArea(adminArea)
         return CzechLocation(name, region, location.latitude, location.longitude)
+    }
+
+    private fun regionKeyForAdminArea(adminArea: String?): String {
+        val localized = AppLocale.localized(appContext)
+        val labels = mapOf(
+            localized.getString(R.string.location_region_prague) to REGION_PRAGUE,
+            localized.getString(R.string.location_region_central_bohemia) to REGION_CENTRAL_BOHEMIA,
+            localized.getString(R.string.location_region_south_bohemian) to REGION_SOUTH_BOHEMIAN,
+            localized.getString(R.string.location_region_plzen) to REGION_PLZEN,
+            localized.getString(R.string.location_region_karlovy_vary) to REGION_KARLOVY_VARY,
+            localized.getString(R.string.location_region_usti_nad_labem) to REGION_USTI_NAD_LABEM,
+            localized.getString(R.string.location_region_liberec) to REGION_LIBEREC,
+            localized.getString(R.string.location_region_hradec_kralove) to REGION_HRADEC_KRALOVE,
+            localized.getString(R.string.location_region_pardubice) to REGION_PARDUBICE,
+            localized.getString(R.string.location_region_vysocina) to REGION_VYSOCINA,
+            localized.getString(R.string.location_region_south_moravian) to REGION_SOUTH_MORAVIAN,
+            localized.getString(R.string.location_region_olomouc) to REGION_OLOMOUC,
+            localized.getString(R.string.location_region_zlin) to REGION_ZLIN,
+            localized.getString(R.string.location_region_moravian_silesian) to REGION_MORAVIAN_SILESIAN,
+        )
+        return labels.entries.firstOrNull { (label, _) -> label.equals(adminArea, ignoreCase = true) }?.value
+            ?: normalizeRegionKey(adminArea.orEmpty())
     }
 
     companion object {
@@ -109,3 +132,11 @@ class DeviceLocationRepository(context: Context) {
         private const val LOCATION_TIMEOUT_MILLIS = 15_000L
     }
 }
+
+sealed class DeviceLocationException : IOException()
+
+class LocationPermissionException : DeviceLocationException()
+
+class LocationOutsideCzechiaException : DeviceLocationException()
+
+class SystemLocationDisabledException : DeviceLocationException()

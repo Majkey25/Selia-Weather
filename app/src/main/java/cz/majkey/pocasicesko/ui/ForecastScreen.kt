@@ -3,6 +3,7 @@ package cz.majkey.pocasicesko.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -20,11 +22,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -33,10 +37,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,23 +52,27 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
+import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.data.CzechLocation
 import cz.majkey.pocasicesko.data.DailyWeather
 import cz.majkey.pocasicesko.data.HourlyWeather
 import cz.majkey.pocasicesko.data.WeatherKind
 import cz.majkey.pocasicesko.data.WeatherSnapshot
 import cz.majkey.pocasicesko.data.conditionFor
+import cz.majkey.pocasicesko.units.MeasurementSystem
+import cz.majkey.pocasicesko.units.WeatherUnitFormatter
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.Locale
-import kotlin.math.roundToInt
+import java.time.format.FormatStyle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,12 +83,17 @@ fun ForecastScreen(
     fromCache: Boolean,
     refreshing: Boolean,
     refreshError: String?,
+    measurementSystem: MeasurementSystem,
     onSearch: () -> Unit,
     onRefresh: () -> Unit,
+    onSettings: () -> Unit,
 ) {
     val condition = conditionFor(snapshot.current.weatherCode, snapshot.current.isDay)
     val accent = conditionAccent(condition.kind, snapshot.current.isDay)
+    val locale = LocalConfiguration.current.locales[0]
+    val units = remember(measurementSystem, locale) { WeatherUnitFormatter(measurementSystem, locale) }
     var selectedDay by remember { mutableStateOf<DailyWeather?>(null) }
+    var showDetails by remember { mutableStateOf(false) }
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -94,27 +109,31 @@ fun ForecastScreen(
                 updatedAt = snapshot.updatedAtEpochMillis,
                 onSearch = onSearch,
                 onRefresh = onRefresh,
+                onSettings = onSettings,
             )
         }
         item {
-            WeatherHero(snapshot = snapshot, accent = accent)
+            WeatherHero(snapshot = snapshot, accent = accent, units = units)
         }
         item {
-            HourlyGraphPanel(snapshot = snapshot, accent = accent)
+            HourlyGraphPanel(snapshot = snapshot, accent = accent, units = units)
         }
         item {
-            CurrentMetrics(snapshot = snapshot, accent = accent)
+            CurrentMetrics(snapshot = snapshot, accent = accent, units = units)
+        }
+        item {
+            WeatherDetailAction { showDetails = true }
         }
         item {
             DailyForecastPanel(
                 days = snapshot.daily,
-                accent = accent,
+                units = units,
                 onDayClick = { selectedDay = it },
             )
         }
         item {
             Text(
-                text = "ALADIN CZ 1 km · první 3 dny\nNavazující ECMWF · data ČHMÚ přes Open-Meteo",
+                text = "ALADIN CZ 1 km · ECMWF · ČHMÚ · Open-Meteo",
                 color = Color.White.copy(alpha = 0.52f),
                 fontSize = 12.sp,
                 lineHeight = 17.sp,
@@ -125,8 +144,45 @@ fun ForecastScreen(
         DayDetailSheet(
             day = day,
             hours = hourlyForDay(snapshot.hourly, day.date),
+            units = units,
             onDismiss = { selectedDay = null },
         )
+    }
+    if (showDetails) {
+        WeatherDetailSheet(
+            snapshot = snapshot,
+            location = location,
+            units = units,
+            onDismiss = { showDetails = false },
+        )
+    }
+}
+
+@Composable
+private fun WeatherDetailAction(onClick: () -> Unit) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        color = Color(0xA61A252E),
+        shape = RoundedCornerShape(22.dp),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.09f)),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 15.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                stringResource(R.string.open_weather_details),
+                modifier = Modifier.weight(1f),
+                fontWeight = FontWeight.SemiBold,
+            )
+            Icon(
+                Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.58f),
+            )
+        }
     }
 }
 
@@ -138,9 +194,17 @@ private fun LocationHeader(
     updatedAt: Long,
     onSearch: () -> Unit,
     onRefresh: () -> Unit,
+    onSettings: () -> Unit,
 ) {
+    val locale = LocalConfiguration.current.locales[0]
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(Modifier.fillMaxWidth()) {
+            IconButton(
+                onClick = onSettings,
+                modifier = Modifier.align(Alignment.CenterStart),
+            ) {
+                Icon(Icons.Rounded.Settings, contentDescription = stringResource(R.string.open_settings))
+            }
             Surface(
                 modifier = Modifier
                     .align(Alignment.Center)
@@ -175,19 +239,19 @@ private fun LocationHeader(
                         strokeWidth = 2.dp,
                     )
                 } else {
-                    Icon(Icons.Rounded.Refresh, contentDescription = "Obnovit předpověď")
+                    Icon(Icons.Rounded.Refresh, contentDescription = stringResource(R.string.refresh_forecast))
                 }
             }
         }
         Text(
-            text = location.region,
+            text = location.localizedRegion(),
             color = Color.White.copy(alpha = 0.55f),
             fontSize = 12.sp,
             modifier = Modifier.padding(top = 7.dp),
         )
         if (fromCache) {
             Text(
-                text = "Uložená data · ${formatUpdatedAt(updatedAt)}",
+                text = stringResource(R.string.cached_data, formatUpdatedAt(updatedAt, locale)),
                 color = Color(0xFFFFD38B),
                 fontSize = 12.sp,
                 modifier = Modifier.padding(top = 4.dp),
@@ -197,8 +261,9 @@ private fun LocationHeader(
 }
 
 @Composable
-private fun WeatherHero(snapshot: WeatherSnapshot, accent: Color) {
+private fun WeatherHero(snapshot: WeatherSnapshot, accent: Color, units: WeatherUnitFormatter) {
     val condition = conditionFor(snapshot.current.weatherCode, snapshot.current.isDay)
+    val conditionLabel = stringResource(condition.labelResource())
     val today = snapshot.daily.first()
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -207,21 +272,21 @@ private fun WeatherHero(snapshot: WeatherSnapshot, accent: Color) {
         WeatherIcon(
             kind = condition.kind,
             isDay = snapshot.current.isDay,
-            contentDescription = condition.label,
+            contentDescription = conditionLabel,
             modifier = Modifier.size(58.dp),
             tint = accent,
         )
         Text(
-            text = "${snapshot.current.temperature.roundToInt()}°",
+            text = units.temperature(snapshot.current.temperature),
             fontSize = 104.sp,
             lineHeight = 112.sp,
             fontWeight = FontWeight.Normal,
             letterSpacing = (-4).sp,
         )
-        Text(condition.label, fontSize = 22.sp, fontWeight = FontWeight.Medium)
+        Text(conditionLabel, fontSize = 22.sp, fontWeight = FontWeight.Medium)
         Text(
-            text = "${today.temperatureMin.roundToInt()}° / ${today.temperatureMax.roundToInt()}°  ·  " +
-                "Pocitově ${snapshot.current.feelsLike.roundToInt()}°",
+            text = "${units.temperature(today.temperatureMin)} / ${units.temperature(today.temperatureMax)}  ·  " +
+                stringResource(R.string.feels_like_temperature, units.temperature(snapshot.current.feelsLike)),
             color = Color.White.copy(alpha = 0.65f),
             fontSize = 14.sp,
             modifier = Modifier.padding(top = 5.dp),
@@ -244,69 +309,83 @@ private fun WeatherHero(snapshot: WeatherSnapshot, accent: Color) {
 }
 
 @Composable
-private fun HourlyGraphPanel(snapshot: WeatherSnapshot, accent: Color) {
+private fun HourlyGraphPanel(snapshot: WeatherSnapshot, accent: Color, units: WeatherUnitFormatter) {
     val currentHour = snapshot.current.time.take(13)
-    val hours = snapshot.hourly.dropWhile { it.time.take(13) < currentHour }.take(6)
+    val hours = upcomingHours(snapshot.hourly, currentHour)
+    val scrollState = rememberScrollState()
+    val itemWidth = 68.dp
     Column {
-        SectionTitle("Dalších 6 hodin")
+        SectionTitle(stringResource(R.string.next_hours, 20))
         Spacer(Modifier.height(12.dp))
         WeatherPanel {
-            Column(Modifier.padding(horizontal = 14.dp, vertical = 16.dp)) {
-                EqualRow(hours) { hour, index ->
-                    Text(
-                        text = if (index == 0) "Teď" else hour.time.substringAfter('T').take(5),
-                        color = Color.White.copy(alpha = 0.58f),
-                        fontSize = 12.sp,
-                        textAlign = TextAlign.Center,
-                    )
-                }
-                Spacer(Modifier.height(9.dp))
-                EqualRow(hours) { hour, _ ->
-                    val condition = conditionFor(hour.weatherCode, hour.isDay)
-                    WeatherIcon(
-                        kind = condition.kind,
-                        isDay = hour.isDay,
-                        contentDescription = condition.label,
-                        modifier = Modifier.size(25.dp),
-                        tint = conditionAccent(condition.kind, hour.isDay),
-                    )
-                }
-                HourlyTemperatureLine(
-                    temperatures = hours.map { it.temperature },
-                    accent = accent,
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(scrollState),
+            ) {
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(66.dp)
-                        .padding(horizontal = 13.dp, vertical = 8.dp),
-                )
-                EqualRow(hours) { hour, _ ->
-                    Text(
-                        text = "${hour.temperature.roundToInt()}°",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        textAlign = TextAlign.Center,
+                        .width(itemWidth * hours.size)
+                        .padding(vertical = 16.dp),
+                ) {
+                    Row {
+                        hours.forEachIndexed { index, hour ->
+                            Text(
+                                text = if (index == 0) stringResource(R.string.now) else hour.time.substringAfter('T').take(5),
+                                modifier = Modifier.width(itemWidth),
+                                color = Color.White.copy(alpha = 0.58f),
+                                fontSize = 12.sp,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(9.dp))
+                    Row {
+                        hours.forEach { hour ->
+                            val condition = conditionFor(hour.weatherCode, hour.isDay)
+                            Box(Modifier.width(itemWidth), contentAlignment = Alignment.Center) {
+                                WeatherIcon(
+                                    kind = condition.kind,
+                                    isDay = hour.isDay,
+                                    contentDescription = stringResource(condition.labelResource()),
+                                    modifier = Modifier.size(25.dp),
+                                    tint = conditionAccent(condition.kind, hour.isDay),
+                                )
+                            }
+                        }
+                    }
+                    HourlyTemperatureLine(
+                        temperatures = hours.map { it.temperature },
+                        accent = accent,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(66.dp)
+                            .padding(horizontal = itemWidth / 2, vertical = 8.dp),
                     )
+                    Row {
+                        hours.forEach { hour ->
+                            Text(
+                                text = units.temperature(hour.temperature),
+                                modifier = Modifier.width(itemWidth),
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(5.dp))
+                    Row {
+                        hours.forEach { hour ->
+                            Text(
+                                text = if (hour.precipitationProbability > 0) "${hour.precipitationProbability} %" else "–",
+                                modifier = Modifier.width(itemWidth),
+                                color = Color(0xFF8EDCF0),
+                                fontSize = 11.sp,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
+                    }
                 }
-                Spacer(Modifier.height(5.dp))
-                EqualRow(hours) { hour, _ ->
-                    Text(
-                        text = if (hour.precipitationProbability > 0) "${hour.precipitationProbability} %" else "–",
-                        color = Color(0xFF8EDCF0),
-                        fontSize = 11.sp,
-                        textAlign = TextAlign.Center,
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun <T> EqualRow(items: List<T>, content: @Composable (T, Int) -> Unit) {
-    Row(Modifier.fillMaxWidth()) {
-        items.forEachIndexed { index, item ->
-            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                content(item, index)
             }
         }
     }
@@ -341,17 +420,25 @@ private fun HourlyTemperatureLine(temperatures: List<Double>, accent: Color, mod
 }
 
 @Composable
-private fun CurrentMetrics(snapshot: WeatherSnapshot, accent: Color) {
+private fun CurrentMetrics(snapshot: WeatherSnapshot, accent: Color, units: WeatherUnitFormatter) {
     val today = snapshot.daily.first()
     val metrics = listOf(
-        Triple("Srážky", "${snapshot.current.precipitation.formatOneDecimal()} mm", "teď"),
-        Triple("Vítr", "${snapshot.current.windSpeed.roundToInt()} km/h", windDirection(snapshot.current.windDirection)),
-        Triple("Vlhkost", "${snapshot.current.humidity} %", "relativní"),
-        Triple("Tlak", "${snapshot.current.pressure.roundToInt()} hPa", "u hladiny moře"),
-        Triple("Slunce", "${today.sunrise.takeLast(5)}–${today.sunset.takeLast(5)}", "dnes"),
+        Triple(
+            stringResource(R.string.precipitation),
+            units.precipitation(snapshot.current.precipitation),
+            stringResource(R.string.now),
+        ),
+        Triple(
+            stringResource(R.string.wind),
+            units.windSpeed(snapshot.current.windSpeed),
+            stringResource(windDirectionResource(snapshot.current.windDirection)),
+        ),
+        Triple(stringResource(R.string.humidity), "${snapshot.current.humidity} %", stringResource(R.string.relative)),
+        Triple(stringResource(R.string.pressure), units.pressure(snapshot.current.pressure), stringResource(R.string.sea_level)),
+        Triple(stringResource(R.string.sun), "${today.sunrise.takeLast(5)}–${today.sunset.takeLast(5)}", stringResource(R.string.today)),
     )
     Column {
-        SectionTitle("Teď podrobně")
+        SectionTitle(stringResource(R.string.current_details))
         Spacer(Modifier.height(12.dp))
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -393,13 +480,11 @@ private fun CurrentMetrics(snapshot: WeatherSnapshot, accent: Color) {
 @Composable
 private fun DailyForecastPanel(
     days: List<DailyWeather>,
-    accent: Color,
+    units: WeatherUnitFormatter,
     onDayClick: (DailyWeather) -> Unit,
 ) {
-    val globalMin = days.minOf { it.temperatureMin }
-    val globalMax = days.maxOf { it.temperatureMax }
     Column {
-        SectionTitle("14 dní")
+        SectionTitle(stringResource(R.string.days_14))
         Spacer(Modifier.height(12.dp))
         WeatherPanel {
             Column {
@@ -407,9 +492,7 @@ private fun DailyForecastPanel(
                     DailyRow(
                         day = day,
                         today = index == 0,
-                        globalMin = globalMin,
-                        globalMax = globalMax,
-                        accent = accent,
+                        units = units,
                         onClick = { onDayClick(day) },
                     )
                     if (index != days.lastIndex) {
@@ -428,65 +511,73 @@ private fun DailyForecastPanel(
 private fun DailyRow(
     day: DailyWeather,
     today: Boolean,
-    globalMin: Double,
-    globalMax: Double,
-    accent: Color,
+    units: WeatherUnitFormatter,
     onClick: () -> Unit,
 ) {
     val condition = conditionFor(day.weatherCode)
+    val conditionLabel = stringResource(condition.labelResource())
+    val locale = LocalConfiguration.current.locales[0]
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 15.dp, vertical = 13.dp),
+            .heightIn(min = 78.dp)
+            .padding(horizontal = 15.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = if (today) "Dnes" else formatDay(day.date),
-            modifier = Modifier.width(69.dp),
-            fontSize = 14.sp,
-            fontWeight = if (today) FontWeight.SemiBold else FontWeight.Normal,
-        )
+        Column(Modifier.width(74.dp)) {
+            Text(
+                text = if (today) stringResource(R.string.today) else formatDay(day.date, locale),
+                fontSize = 14.sp,
+                fontWeight = if (today) FontWeight.SemiBold else FontWeight.Normal,
+            )
+            Text(
+                text = LocalDate.parse(day.date).format(DateTimeFormatter.ofPattern("d MMM", locale)),
+                color = Color.White.copy(alpha = 0.48f),
+                fontSize = 11.sp,
+            )
+        }
         WeatherIcon(
             kind = condition.kind,
             isDay = true,
-            contentDescription = condition.label,
-            modifier = Modifier.size(23.dp),
+            contentDescription = conditionLabel,
+            modifier = Modifier.size(27.dp),
             tint = conditionAccent(condition.kind, true),
         )
-        Text(
-            text = if (day.precipitationProbability > 0) "${day.precipitationProbability}%" else "",
-            modifier = Modifier.width(45.dp),
-            color = Color(0xFF8EDCF0),
-            fontSize = 11.sp,
-            textAlign = TextAlign.Center,
-        )
-        Text(
-            text = "${day.temperatureMin.roundToInt()}°",
-            color = Color.White.copy(alpha = 0.5f),
-            fontSize = 14.sp,
-        )
-        TemperatureRangeBar(
-            low = day.temperatureMin,
-            high = day.temperatureMax,
-            globalMin = globalMin,
-            globalMax = globalMax,
-            accent = accent,
+        Column(
             modifier = Modifier
                 .weight(1f)
-                .padding(horizontal = 10.dp)
-                .height(10.dp),
-        )
-        Text(
-            text = "${day.temperatureMax.roundToInt()}°",
-            modifier = Modifier.width(31.dp),
-            fontSize = 14.sp,
-            fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.End,
-        )
+                .padding(start = 11.dp, end = 8.dp),
+        ) {
+            Text(
+                text = conditionLabel,
+                fontSize = 14.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = "${day.precipitationProbability}% · ${units.windSpeed(day.windSpeedMax)}",
+                color = Color(0xFF8EDCF0),
+                fontSize = 11.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                text = units.temperature(day.temperatureMin),
+                color = Color.White.copy(alpha = 0.5f),
+                fontSize = 14.sp,
+            )
+            Text(
+                text = units.temperature(day.temperatureMax),
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
         Icon(
             Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-            contentDescription = "Otevřít hodinový detail",
+            contentDescription = stringResource(R.string.open_hourly_detail),
             modifier = Modifier
                 .padding(start = 5.dp)
                 .size(17.dp),
@@ -497,23 +588,32 @@ private fun DailyRow(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DayDetailSheet(day: DailyWeather, hours: List<HourlyWeather>, onDismiss: () -> Unit) {
+private fun DayDetailSheet(
+    day: DailyWeather,
+    hours: List<HourlyWeather>,
+    units: WeatherUnitFormatter,
+    onDismiss: () -> Unit,
+) {
+    val locale = LocalConfiguration.current.locales[0]
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = Color(0xFF101820),
         contentColor = Color.White,
+        sheetState = sheetState,
+        sheetGesturesEnabled = false,
     ) {
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(max = 720.dp)
+                .fillMaxHeight()
                 .navigationBarsPadding(),
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 34.dp),
         ) {
             item {
-                Text(formatFullDay(day.date), fontSize = 25.sp, fontWeight = FontWeight.SemiBold)
+                Text(formatFullDay(day.date, locale), fontSize = 25.sp, fontWeight = FontWeight.SemiBold)
                 Text(
-                    "Celý den · ${hours.size} hodin",
+                    "${stringResource(R.string.whole_day_hours)} · ${hours.size}",
                     color = Color.White.copy(alpha = 0.56f),
                     fontSize = 13.sp,
                     modifier = Modifier.padding(top = 3.dp),
@@ -524,13 +624,14 @@ private fun DayDetailSheet(day: DailyWeather, hours: List<HourlyWeather>, onDism
                         .padding(top = 16.dp, bottom = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Text("${day.temperatureMin.roundToInt()}° / ${day.temperatureMax.roundToInt()}°", fontSize = 12.sp)
-                    Text("Srážky ${day.precipitationSum.formatOneDecimal()} mm", fontSize = 12.sp)
-                    Text("Vítr ${day.windSpeedMax.roundToInt()} km/h", fontSize = 12.sp)
+                    Text("${units.temperature(day.temperatureMin)} / ${units.temperature(day.temperatureMax)}", fontSize = 12.sp)
+                    Text(units.precipitation(day.precipitationSum), fontSize = 12.sp)
+                    Text(units.windSpeed(day.windSpeedMax), fontSize = 12.sp)
                 }
             }
-            items(hours, key = { it.time }) { hour ->
+            itemsIndexed(hours, key = { index, hour -> "${hour.time}-$index" }) { _, hour ->
                 val condition = conditionFor(hour.weatherCode, hour.isDay)
+                val conditionLabel = stringResource(condition.labelResource())
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -541,12 +642,12 @@ private fun DayDetailSheet(day: DailyWeather, hours: List<HourlyWeather>, onDism
                     WeatherIcon(
                         kind = condition.kind,
                         isDay = hour.isDay,
-                        contentDescription = condition.label,
+                        contentDescription = conditionLabel,
                         modifier = Modifier.size(26.dp),
                         tint = conditionAccent(condition.kind, hour.isDay),
                     )
                     Text(
-                        condition.label,
+                        conditionLabel,
                         modifier = Modifier
                             .weight(1f)
                             .padding(start = 12.dp),
@@ -561,7 +662,7 @@ private fun DayDetailSheet(day: DailyWeather, hours: List<HourlyWeather>, onDism
                         textAlign = TextAlign.End,
                     )
                     Text(
-                        "${hour.temperature.roundToInt()}°",
+                        units.temperature(hour.temperature),
                         modifier = Modifier
                             .width(48.dp)
                             .padding(start = 8.dp),
@@ -573,37 +674,6 @@ private fun DayDetailSheet(day: DailyWeather, hours: List<HourlyWeather>, onDism
                 HorizontalDivider(color = Color.White.copy(alpha = 0.06f))
             }
         }
-    }
-}
-
-@Composable
-private fun TemperatureRangeBar(
-    low: Double,
-    high: Double,
-    globalMin: Double,
-    globalMax: Double,
-    accent: Color,
-    modifier: Modifier = Modifier,
-) {
-    Canvas(modifier) {
-        val range = (globalMax - globalMin).coerceAtLeast(1.0)
-        val start = ((low - globalMin) / range).toFloat() * size.width
-        val end = ((high - globalMin) / range).toFloat() * size.width
-        val centerY = size.height / 2
-        drawLine(
-            color = Color.White.copy(alpha = 0.10f),
-            start = Offset(0f, centerY),
-            end = Offset(size.width, centerY),
-            strokeWidth = 6.dp.toPx(),
-            cap = StrokeCap.Round,
-        )
-        drawLine(
-            brush = Brush.horizontalGradient(listOf(Color(0xFF62C7E5), accent, Color(0xFFFFC15D))),
-            start = Offset(start, centerY),
-            end = Offset(end.coerceAtLeast(start + 1f), centerY),
-            strokeWidth = 6.dp.toPx(),
-            cap = StrokeCap.Round,
-        )
     }
 }
 
@@ -634,27 +704,38 @@ fun conditionAccent(kind: WeatherKind, isDay: Boolean): Color = when {
     else -> Color(0xFFA8C8D4)
 }
 
-private fun formatDay(date: String): String {
-    val formatter = DateTimeFormatter.ofPattern("EEE", Locale.forLanguageTag("cs-CZ"))
-    return LocalDate.parse(date).format(formatter).replaceFirstChar { it.uppercase() }
+internal fun formatDay(date: String, locale: java.util.Locale): String {
+    val formatter = DateTimeFormatter.ofPattern("EEE", locale)
+    return LocalDate.parse(date).format(formatter).replaceFirstChar { it.uppercase(locale) }
 }
 
-private fun formatFullDay(date: String): String {
-    val formatter = DateTimeFormatter.ofPattern("EEEE d. MMMM", Locale.forLanguageTag("cs-CZ"))
-    return LocalDate.parse(date).format(formatter).replaceFirstChar { it.uppercase() }
-}
+internal fun formatFullDay(date: String, locale: java.util.Locale): String =
+    LocalDate.parse(date).format(DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL).withLocale(locale))
 
 internal fun hourlyForDay(hourly: List<HourlyWeather>, date: String): List<HourlyWeather> =
-    hourly.filter { it.time.startsWith("${date}T") }
+    hourly.asSequence()
+        .filter { it.time.startsWith("${date}T") }
+        .sortedBy { it.time }
+        .toList()
 
-private fun formatUpdatedAt(epochMillis: Long): String {
-    val formatter = DateTimeFormatter.ofPattern("d. M. HH:mm", Locale.forLanguageTag("cs-CZ"))
-    return formatter.format(Instant.ofEpochMilli(epochMillis).atZone(ZoneId.of("Europe/Prague")))
+internal fun upcomingHours(
+    hourly: List<HourlyWeather>,
+    currentHour: String,
+    limit: Int = 20,
+): List<HourlyWeather> = hourly.dropWhile { it.time.take(13) < currentHour }.take(limit)
+
+internal fun formatUpdatedAt(epochMillis: Long, locale: java.util.Locale): String =
+    DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT)
+        .withLocale(locale)
+        .format(Instant.ofEpochMilli(epochMillis).atZone(ZoneId.of("Europe/Prague")))
+
+internal fun windDirectionResource(degrees: Int): Int = when ((Math.floorMod(degrees, 360) + 22) % 360 / 45) {
+    0 -> R.string.wind_direction_north
+    1 -> R.string.wind_direction_northeast
+    2 -> R.string.wind_direction_east
+    3 -> R.string.wind_direction_southeast
+    4 -> R.string.wind_direction_south
+    5 -> R.string.wind_direction_southwest
+    6 -> R.string.wind_direction_west
+    else -> R.string.wind_direction_northwest
 }
-
-private fun windDirection(degrees: Int): String {
-    val directions = listOf("S", "SV", "V", "JV", "J", "JZ", "Z", "SZ")
-    return directions[((degrees + 22) % 360) / 45]
-}
-
-private fun Double.formatOneDecimal(): String = String.format(Locale.US, "%.1f", this)

@@ -1,26 +1,44 @@
-# Google Play submission
+# Google Play submission reference
 
-- App name: `Počasí Česko: ALADIN`
-- Default language: Czech (`cs-CZ`)
+- App name: `ALADIN weather`
+- Package: `com.majkeylab.weatheraladin`
+- Default language: English (`en-US`)
 - Category: Weather
 - App or game: App
 - Free or paid: Free
-- Contains ads: No
-- Privacy policy: `https://majkey25.github.io/Pocasi-Cesko/`
-- App access: All functionality is available without login
-- Target age groups: 13–15, 16–17, 18+
+- Contains ads: Yes
+- Privacy policy: `https://majkey25.github.io/ALADIN-weather/`
+- App access: All functionality is available without login.
+- Target age groups: 13 to 15, 16 to 17, and 18 or older.
 - News app: No
 - Government app: No
 - Health features: No
 
 ## Data safety
 
-- Data encrypted in transit: Yes
-- Account creation: No
-- Location > Approximate location: collected, optional, not shared, app functionality
-- Location > Precise location: collected, optional, not shared, app functionality
-- Ephemeral processing: Yes for current-location lookup; selected coordinates remain locally as the chosen place
-- Deletion request: local app data can be deleted through Android settings or uninstall
-- No advertising, analytics, personalization, financial, health, contacts, messages, photos, files, audio, or device identifier data
+- Data is encrypted in transit: Yes.
+- Account creation: No.
+- Approximate location and precise location: collected and shared with Open-Meteo for every forecast request. The request sends the selected forecast coordinates, including default Prague, a search result, a favourite, or current location. The current-location permission is optional. The data supports app functionality and is encrypted in transit.
+- In-app search history: place search terms are collected and shared with Open-Meteo for geocoding. This data is optional, used for app functionality, and encrypted in transit.
+- Ephemeral processing: No. The app does not retain this data off-device, but [Open-Meteo states](https://open-meteo.com/en/terms) that free API server logs may contain coordinates and are deleted after 90 days.
+- Users can delete local app data in Android settings or by uninstalling the app.
+- Google Mobile Ads 25.4.0 collects and shares IP-derived approximate location, app interactions, diagnostics, and device or other identifiers for advertising, analytics, and fraud prevention. Transport is encrypted. UMP consent and privacy choices apply where required.
+- Google Play Billing accesses purchase history for app functionality. Payment-card details remain with Google Play and are not received by the app or developer.
+- The app has no separate analytics SDK and does not collect health, contacts, messages, photos, files, audio, or payment-card data.
+- A selected widget image stays on the device. The app retains read access to the Android document URI only while a configured widget uses it.
+- The optional Buy Me a Coffee action opens an external HTTPS page. It grants no app feature, entitlement, or priority.
 
-The location disclosure covers coordinates sent to Open-Meteo and the Android Geocoder only after the user selects “Použít moji polohu”.
+## Monetization
+
+- One-time product: `remove_ads_lifetime` — permanently removes ads.
+- Subscription: `premium_monthly` — monthly auto-renewing Premium that removes ads.
+- Either active product removes all banner and interstitial requests.
+- Pending or unknown entitlement hides ads until Google Play returns a conclusive state.
+- AdMob app, banner, and interstitial IDs must replace the debug test IDs before production upload.
+- A server-side Play Developer API verifier is recommended before public rollout; the current client-only beta rechecks active purchases on every Billing connection and resume.
+
+The location disclosure covers forecast coordinates sent to Open-Meteo for every forecast request. Android Geocoder can receive coordinates only after the user selects **Use my location**. ČHMÚ radar and satellite requests use normal HTTPS connections. Do not claim a service-provider or user-action exception for the Open-Meteo transfer.
+
+## Assets
+
+`en-US` owns the icon, feature graphic, and phone screenshots. The `cs-CZ`, `de-DE`, `es-ES`, and `fr-FR` listings contain localised text only and omit image directories. Google Play inherits the default English assets for those listings, which avoids mismatched screenshots or feature graphics.

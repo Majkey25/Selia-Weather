@@ -12,19 +12,7 @@ object WeatherParser {
         val dailyJson = root.getJSONObject("daily")
 
         val hourlyTimes = hourlyJson.getJSONArray("time")
-        validateLengths(
-            hourlyTimes,
-            hourlyJson,
-            "temperature_2m",
-            "relative_humidity_2m",
-            "precipitation_probability",
-            "precipitation",
-            "weather_code",
-            "pressure_msl",
-            "wind_speed_10m",
-            "wind_direction_10m",
-            "is_day",
-        )
+        validateLengths(hourlyTimes, hourlyJson, *HOURLY_FIELDS)
 
         val dailyTimes = dailyJson.getJSONArray("time")
         validateLengths(
@@ -44,6 +32,59 @@ object WeatherParser {
             throw JSONException("Předpověď neobsahuje žádná data.")
         }
 
+        val hourly = buildList {
+            for (index in 0 until hourlyTimes.length()) {
+                if (hourlyTimes.isNull(index) || HOURLY_FIELDS.any { hourlyJson.getJSONArray(it).isNull(index) }) {
+                    continue
+                }
+                add(
+                    HourlyWeather(
+                        time = hourlyTimes.requiredString(index, "time"),
+                        temperature = hourlyJson.getJSONArray("temperature_2m")
+                            .requiredDouble(index, "temperature_2m"),
+                        humidity = hourlyJson.getJSONArray("relative_humidity_2m")
+                            .requiredInt(index, "relative_humidity_2m"),
+                        precipitationProbability = hourlyJson.getJSONArray("precipitation_probability")
+                            .requiredInt(index, "precipitation_probability"),
+                        precipitation = hourlyJson.getJSONArray("precipitation")
+                            .requiredDouble(index, "precipitation"),
+                        weatherCode = hourlyJson.getJSONArray("weather_code")
+                            .requiredInt(index, "weather_code"),
+                        pressure = hourlyJson.getJSONArray("pressure_msl")
+                            .requiredDouble(index, "pressure_msl"),
+                        windSpeed = hourlyJson.getJSONArray("wind_speed_10m")
+                            .requiredDouble(index, "wind_speed_10m"),
+                        windDirection = hourlyJson.getJSONArray("wind_direction_10m")
+                            .requiredInt(index, "wind_direction_10m"),
+                        isDay = hourlyJson.getJSONArray("is_day").requiredInt(index, "is_day") == 1,
+                        apparentTemperature = hourlyJson.optionalDoubleAt("apparent_temperature", index),
+                        dewPoint = hourlyJson.optionalDoubleAt("dew_point_2m", index),
+                        wetBulbTemperature = hourlyJson.optionalDoubleAt("wet_bulb_temperature_2m", index),
+                        rain = hourlyJson.optionalDoubleAt("rain", index),
+                        snowfall = hourlyJson.optionalDoubleAt("snowfall", index),
+                        snowDepthWaterEquivalent = hourlyJson.optionalDoubleAt(
+                            "snow_depth_water_equivalent",
+                            index,
+                        ),
+                        cloudCoverLow = hourlyJson.optionalIntAt("cloud_cover_low", index),
+                        cloudCoverMid = hourlyJson.optionalIntAt("cloud_cover_mid", index),
+                        cloudCoverHigh = hourlyJson.optionalIntAt("cloud_cover_high", index),
+                        visibilityMeters = hourlyJson.optionalDoubleAt("visibility", index),
+                        surfacePressure = hourlyJson.optionalDoubleAt("surface_pressure", index),
+                        windGusts = hourlyJson.optionalDoubleAt("wind_gusts_10m", index),
+                        cape = hourlyJson.optionalDoubleAt("cape", index),
+                        vapourPressureDeficit = hourlyJson.optionalDoubleAt(
+                            "vapour_pressure_deficit",
+                            index,
+                        ),
+                        surfaceTemperature = hourlyJson.optionalDoubleAt("surface_temperature", index),
+                        et0 = hourlyJson.optionalDoubleAt("et0_fao_evapotranspiration", index),
+                    ),
+                )
+            }
+        }
+        if (hourly.isEmpty()) throw JSONException("Předpověď neobsahuje úplná hodinová data.")
+
         return WeatherSnapshot(
             timezone = root.getString("timezone"),
             current = CurrentWeather(
@@ -59,23 +100,21 @@ object WeatherParser {
                 windDirection = currentJson.requiredInt("wind_direction_10m"),
                 windGusts = currentJson.requiredDouble("wind_gusts_10m"),
                 isDay = currentJson.requiredInt("is_day") == 1,
+                dewPoint = currentJson.optionalDouble("dew_point_2m"),
+                wetBulbTemperature = currentJson.optionalDouble("wet_bulb_temperature_2m"),
+                rain = currentJson.optionalDouble("rain"),
+                snowfall = currentJson.optionalDouble("snowfall"),
+                snowDepthWaterEquivalent = currentJson.optionalDouble("snow_depth_water_equivalent"),
+                cloudCoverLow = currentJson.optionalInt("cloud_cover_low"),
+                cloudCoverMid = currentJson.optionalInt("cloud_cover_mid"),
+                cloudCoverHigh = currentJson.optionalInt("cloud_cover_high"),
+                visibilityMeters = currentJson.optionalDouble("visibility"),
+                surfacePressure = currentJson.optionalDouble("surface_pressure"),
+                cape = currentJson.optionalDouble("cape"),
+                vapourPressureDeficit = currentJson.optionalDouble("vapour_pressure_deficit"),
+                surfaceTemperature = currentJson.optionalDouble("surface_temperature"),
             ),
-            hourly = List(hourlyTimes.length()) { index ->
-                HourlyWeather(
-                    time = hourlyTimes.requiredString(index, "time"),
-                    temperature = hourlyJson.getJSONArray("temperature_2m").requiredDouble(index, "temperature_2m"),
-                    humidity = hourlyJson.getJSONArray("relative_humidity_2m").requiredInt(index, "relative_humidity_2m"),
-                    precipitationProbability = hourlyJson.getJSONArray("precipitation_probability")
-                        .requiredInt(index, "precipitation_probability"),
-                    precipitation = hourlyJson.getJSONArray("precipitation").requiredDouble(index, "precipitation"),
-                    weatherCode = hourlyJson.getJSONArray("weather_code").requiredInt(index, "weather_code"),
-                    pressure = hourlyJson.getJSONArray("pressure_msl").requiredDouble(index, "pressure_msl"),
-                    windSpeed = hourlyJson.getJSONArray("wind_speed_10m").requiredDouble(index, "wind_speed_10m"),
-                    windDirection = hourlyJson.getJSONArray("wind_direction_10m")
-                        .requiredInt(index, "wind_direction_10m"),
-                    isDay = hourlyJson.getJSONArray("is_day").requiredInt(index, "is_day") == 1,
-                )
-            },
+            hourly = hourly,
             daily = List(dailyTimes.length()) { index ->
                 DailyWeather(
                     date = dailyTimes.requiredString(index, "time"),
@@ -92,6 +131,17 @@ object WeatherParser {
                         .requiredInt(index, "precipitation_probability_max"),
                     windSpeedMax = dailyJson.getJSONArray("wind_speed_10m_max")
                         .requiredDouble(index, "wind_speed_10m_max"),
+                    apparentTemperatureMax = dailyJson.optionalDoubleAt("apparent_temperature_max", index),
+                    apparentTemperatureMin = dailyJson.optionalDoubleAt("apparent_temperature_min", index),
+                    daylightDurationSeconds = dailyJson.optionalDoubleAt("daylight_duration", index),
+                    sunshineDurationSeconds = dailyJson.optionalDoubleAt("sunshine_duration", index),
+                    rainSum = dailyJson.optionalDoubleAt("rain_sum", index),
+                    snowfallSum = dailyJson.optionalDoubleAt("snowfall_sum", index),
+                    precipitationHours = dailyJson.optionalDoubleAt("precipitation_hours", index),
+                    windGustsMax = dailyJson.optionalDoubleAt("wind_gusts_10m_max", index),
+                    dominantWindDirection = dailyJson.optionalIntAt("wind_direction_10m_dominant", index),
+                    shortwaveRadiationSum = dailyJson.optionalDoubleAt("shortwave_radiation_sum", index),
+                    et0 = dailyJson.optionalDoubleAt("et0_fao_evapotranspiration", index),
                 )
             },
             updatedAtEpochMillis = updatedAtEpochMillis,
@@ -131,4 +181,32 @@ object WeatherParser {
         if (isNull(index)) throw JSONException("Hodnota $name[$index] chybí.")
         return getString(index)
     }
+
+    private fun JSONObject.optionalDouble(name: String): Double? =
+        if (!has(name) || isNull(name)) null else getDouble(name)
+
+    private fun JSONObject.optionalInt(name: String): Int? =
+        if (!has(name) || isNull(name)) null else getInt(name)
+
+    private fun JSONObject.optionalDoubleAt(name: String, index: Int): Double? {
+        val values = optJSONArray(name) ?: return null
+        return if (index >= values.length() || values.isNull(index)) null else values.getDouble(index)
+    }
+
+    private fun JSONObject.optionalIntAt(name: String, index: Int): Int? {
+        val values = optJSONArray(name) ?: return null
+        return if (index >= values.length() || values.isNull(index)) null else values.getInt(index)
+    }
+
+    private val HOURLY_FIELDS = arrayOf(
+        "temperature_2m",
+        "relative_humidity_2m",
+        "precipitation_probability",
+        "precipitation",
+        "weather_code",
+        "pressure_msl",
+        "wind_speed_10m",
+        "wind_direction_10m",
+        "is_day",
+    )
 }

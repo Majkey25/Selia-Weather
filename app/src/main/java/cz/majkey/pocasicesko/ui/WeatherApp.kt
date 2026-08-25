@@ -1,6 +1,7 @@
 package cz.majkey.pocasicesko.ui
 
 import android.Manifest
+import android.content.ActivityNotFoundException
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -47,8 +48,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -70,12 +73,25 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 import cz.majkey.pocasicesko.data.CzechLocation
+import cz.majkey.pocasicesko.BuildConfig
 import cz.majkey.pocasicesko.data.DeviceLocationRepository
+import cz.majkey.pocasicesko.data.LocationOutsideCzechiaException
+import cz.majkey.pocasicesko.data.LocationPermissionException
+import cz.majkey.pocasicesko.data.SystemLocationDisabledException
 import cz.majkey.pocasicesko.data.WeatherKind
 import cz.majkey.pocasicesko.data.WeatherRepository
 import cz.majkey.pocasicesko.data.WeatherSnapshot
 import cz.majkey.pocasicesko.data.conditionFor
+import cz.majkey.pocasicesko.locale.AppLocale
+import cz.majkey.pocasicesko.monetization.AdsController
+import cz.majkey.pocasicesko.monetization.PremiumBillingController
+import cz.majkey.pocasicesko.monetization.shouldShowAds
+import cz.majkey.pocasicesko.units.MeasurementSystem
+import cz.majkey.pocasicesko.units.MeasurementUnits
+import cz.majkey.pocasicesko.widget.WeatherWidgetProvider
+import cz.majkey.pocasicesko.R
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -102,14 +118,31 @@ private sealed interface WeatherUiState {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WeatherApp(repository: WeatherRepository) {
+fun WeatherApp(
+    repository: WeatherRepository,
+    adsController: AdsController,
+    premiumBillingController: PremiumBillingController,
+    onLanguage: (String) -> Unit,
+) {
     val context = LocalContext.current
     val deviceLocationRepository = remember { DeviceLocationRepository(context) }
     var destination by remember { mutableStateOf(Destination.WEATHER) }
     var location by remember { mutableStateOf(repository.lastLocation()) }
     var reloadKey by remember { mutableIntStateOf(0) }
     var showLocationSearch by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
+    var measurementSystem by remember { mutableStateOf(MeasurementUnits.current(context)) }
     var state by remember { mutableStateOf<WeatherUiState>(WeatherUiState.Loading) }
+    val forecastLoadFailed = stringResource(R.string.forecast_load_failed)
+    val serverError = stringResource(R.string.server_error)
+    val supportUnavailable = stringResource(R.string.support_unavailable)
+    var supportError by remember { mutableStateOf<String?>(null) }
+    val entitlement by premiumBillingController.entitlement.collectAsState()
+    val premiumOffers by premiumBillingController.offers.collectAsState()
+    val billingMessage by premiumBillingController.message.collectAsState()
+    val adsInitialized by adsController.adsInitialized.collectAsState()
+    val privacyOptionsRequired by adsController.privacyOptionsRequired.collectAsState()
+    val showAds = shouldShowAds(entitlement, adsInitialized, BuildConfig.MONETIZATION_CONFIGURED)
 
     LaunchedEffect(location, reloadKey) {
         val cached = withContext(Dispatchers.IO) { repository.cachedForecast(location) }
@@ -119,7 +152,7 @@ fun WeatherApp(repository: WeatherRepository) {
             val fresh = repository.fetchForecast(location)
             state = WeatherUiState.Content(fresh, fromCache = false, refreshing = false)
         } catch (error: Exception) {
-            val message = error.message ?: "Předpověď se nepodařilo načíst."
+            val message = if (error is java.io.IOException) serverError else forecastLoadFailed
             state = cached?.let {
                 WeatherUiState.Content(it, fromCache = true, refreshing = false, refreshError = message)
             } ?: WeatherUiState.Error(message)
@@ -134,19 +167,30 @@ fun WeatherApp(repository: WeatherRepository) {
                 containerColor = Color.Transparent,
                 contentColor = Color.White,
                 bottomBar = {
-                    FloatingNavigation(
-                        destination = destination,
-                        onDestination = { destination = it },
-                    )
+                    Column {
+                        if (destination == Destination.WEATHER && showAds) AdaptiveBanner()
+                        FloatingNavigation(
+                            destination = destination,
+                            onDestination = { selected ->
+                                if (destination == Destination.MAPS && selected == Destination.WEATHER) {
+                                    adsController.maybeShowInterstitial(entitlement) { destination = selected }
+                                } else {
+                                    destination = selected
+                                }
+                            },
+                        )
+                    }
                 },
             ) { padding ->
                 when (destination) {
                     Destination.WEATHER -> WeatherDestination(
                         state = state,
                         location = location,
+                        measurementSystem = measurementSystem,
                         padding = padding,
                         onSearch = { showLocationSearch = true },
                         onRetry = { reloadKey++ },
+                        onSettings = { showSettings = true },
                     )
 
                     Destination.MAPS -> MapHubScreen(padding = padding)
@@ -166,6 +210,37 @@ fun WeatherApp(repository: WeatherRepository) {
                     },
                 )
             }
+            if (showSettings) {
+                SettingsSheet(
+                    selectedTag = AppLocale.selectedTag(context),
+                    selectedMeasurementSystem = measurementSystem,
+                    entitlement = entitlement,
+                    premiumOffers = premiumOffers,
+                    billingMessage = billingMessage,
+                    monetizationAvailable = BuildConfig.MONETIZATION_CONFIGURED,
+                    privacyOptionsRequired = privacyOptionsRequired,
+                    onLanguage = onLanguage,
+                    onMeasurementSystem = { selected ->
+                        MeasurementUnits.save(context, selected)
+                        measurementSystem = selected
+                        WeatherWidgetProvider.updateAll(context)
+                    },
+                    onSupport = {
+                        try {
+                            context.startActivity(supportIntent())
+                            supportError = null
+                        } catch (_: ActivityNotFoundException) {
+                            supportError = supportUnavailable
+                        }
+                    },
+                    supportError = supportError,
+                    onPurchase = premiumBillingController::launch,
+                    onRestorePurchases = premiumBillingController::refresh,
+                    onPrivacyOptions = adsController::showPrivacyOptions,
+                    onClearBillingMessage = premiumBillingController::clearMessage,
+                    onDismiss = { showSettings = false },
+                )
+            }
         }
     }
 }
@@ -174,9 +249,11 @@ fun WeatherApp(repository: WeatherRepository) {
 private fun WeatherDestination(
     state: WeatherUiState,
     location: CzechLocation,
+    measurementSystem: MeasurementSystem,
     padding: PaddingValues,
     onSearch: () -> Unit,
     onRetry: () -> Unit,
+    onSettings: () -> Unit,
 ) {
     when (state) {
         WeatherUiState.Loading -> Box(
@@ -192,6 +269,7 @@ private fun WeatherDestination(
             message = state.message,
             padding = padding,
             onRetry = onRetry,
+            onSettings = onSettings,
         )
 
         is WeatherUiState.Content -> ForecastScreen(
@@ -201,8 +279,10 @@ private fun WeatherDestination(
             fromCache = state.fromCache,
             refreshing = state.refreshing,
             refreshError = state.refreshError,
+            measurementSystem = measurementSystem,
             onSearch = onSearch,
             onRefresh = onRetry,
+            onSettings = onSettings,
         )
     }
 }
@@ -230,14 +310,14 @@ private fun FloatingNavigation(destination: Destination, onDestination: (Destina
             ) {
                 NavigationItem(
                     selected = destination == Destination.WEATHER,
-                    label = "Počasí",
+                    label = stringResource(R.string.nav_weather),
                     icon = { Icon(Icons.Rounded.WbSunny, contentDescription = null) },
                     modifier = Modifier.weight(1f),
                     onClick = { onDestination(Destination.WEATHER) },
                 )
                 NavigationItem(
                     selected = destination == Destination.MAPS,
-                    label = "Mapy",
+                    label = stringResource(R.string.nav_maps),
                     icon = { Icon(Icons.Rounded.Map, contentDescription = null) },
                     modifier = Modifier.weight(1f),
                     onClick = { onDestination(Destination.MAPS) },
@@ -351,7 +431,12 @@ private fun weatherPalette(snapshot: WeatherSnapshot?): WeatherPalette {
 }
 
 @Composable
-private fun ErrorState(message: String, padding: PaddingValues, onRetry: () -> Unit) {
+private fun ErrorState(
+    message: String,
+    padding: PaddingValues,
+    onRetry: () -> Unit,
+    onSettings: () -> Unit,
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -362,11 +447,14 @@ private fun ErrorState(message: String, padding: PaddingValues, onRetry: () -> U
     ) {
         Icon(Icons.Rounded.WbSunny, contentDescription = null, modifier = Modifier.size(56.dp))
         Spacer(Modifier.height(18.dp))
-        Text("Předpověď není dostupná", fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.forecast_unavailable), fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(8.dp))
         Text(message, color = Color.White.copy(alpha = 0.7f), textAlign = TextAlign.Center)
         Spacer(Modifier.height(14.dp))
-        TextButton(onClick = onRetry) { Text("Zkusit znovu") }
+        Row {
+            TextButton(onClick = onSettings) { Text(stringResource(R.string.settings)) }
+            TextButton(onClick = onRetry) { Text(stringResource(R.string.retry)) }
+        }
     }
 }
 
@@ -385,9 +473,26 @@ private fun LocationSearchSheet(
     var searching by remember { mutableStateOf(false) }
     var locating by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var pickingPoint by remember { mutableStateOf(false) }
+    var pinnedSaveError by remember { mutableStateOf<String?>(null) }
     val focusManager = LocalFocusManager.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val locationPermissionRequired = stringResource(R.string.location_permission_required)
+    val locationLookupFailed = stringResource(R.string.location_lookup_failed)
+    val locationOutsideCzechia = stringResource(R.string.location_outside_czechia)
+    val enableSystemLocation = stringResource(R.string.enable_system_location)
+    val favoriteLimit = stringResource(R.string.favorite_limit)
+    val searchFailed = stringResource(R.string.search_failed)
+    val searchInCzechia = stringResource(R.string.search_in_czechia)
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    fun locationError(failure: Exception): String = when (failure) {
+        is LocationPermissionException -> locationPermissionRequired
+        is LocationOutsideCzechiaException -> locationOutsideCzechia
+        is SystemLocationDisabledException -> enableSystemLocation
+        else -> locationLookupFailed
+    }
 
     fun loadDeviceLocation() {
         scope.launch {
@@ -396,7 +501,7 @@ private fun LocationSearchSheet(
             try {
                 onSelect(deviceLocationRepository.currentLocation())
             } catch (failure: Exception) {
-                error = failure.message ?: "Aktuální polohu se nepodařilo zjistit."
+                error = locationError(failure)
             } finally {
                 locating = false
             }
@@ -408,8 +513,19 @@ private fun LocationSearchSheet(
             repository.toggleFavorite(location)
             favorites = repository.favoriteLocations()
             error = null
-        } catch (failure: IllegalStateException) {
-            error = failure.message
+        } catch (_: IllegalStateException) {
+            error = "$favoriteLimit (12)"
+        }
+    }
+
+    fun savePinnedLocation(location: CzechLocation) {
+        try {
+            if (!favorites.containsLocation(location)) repository.toggleFavorite(location)
+            favorites = repository.favoriteLocations()
+            pinnedSaveError = null
+            onSelect(location)
+        } catch (_: IllegalStateException) {
+            pinnedSaveError = "$favoriteLimit (12)"
         }
     }
 
@@ -419,7 +535,7 @@ private fun LocationSearchSheet(
         if (grants.values.any { it }) {
             loadDeviceLocation()
         } else {
-            error = "Bez oprávnění nelze použít aktuální polohu."
+            error = locationPermissionRequired
         }
     }
 
@@ -458,7 +574,7 @@ private fun LocationSearchSheet(
             results = repository.searchLocations(cleaned)
         } catch (failure: Exception) {
             results = emptyList()
-            error = failure.message ?: "Hledání se nepodařilo."
+            error = searchFailed
         } finally {
             searching = false
         }
@@ -468,15 +584,26 @@ private fun LocationSearchSheet(
         onDismissRequest = onDismiss,
         containerColor = Color(0xFF101820),
         contentColor = Color.White,
+        sheetState = sheetState,
     ) {
-        Column(
+        if (pickingPoint) {
+            PinnedLocationPicker(
+                initialLocation = selectedLocation,
+                saveError = pinnedSaveError,
+                onBack = {
+                    pickingPoint = false
+                    pinnedSaveError = null
+                },
+                onSave = ::savePinnedLocation,
+            )
+        } else Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 30.dp),
         ) {
-            Text("Lokality", fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.locations), fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(14.dp))
             Surface(
                 modifier = Modifier
@@ -493,9 +620,9 @@ private fun LocationSearchSheet(
                     Icon(Icons.Rounded.MyLocation, contentDescription = null, tint = Color(0xFF83D6E8))
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("Použít moji polohu", fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.use_my_location), fontWeight = FontWeight.SemiBold)
                         Text(
-                            "Pouze pro výběr české předpovědi",
+                            stringResource(R.string.location_purpose),
                             color = Color.White.copy(alpha = 0.52f),
                             fontSize = 12.sp,
                         )
@@ -510,6 +637,35 @@ private fun LocationSearchSheet(
                 }
             }
 
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 10.dp)
+                    .clickable {
+                        pinnedSaveError = null
+                        pickingPoint = true
+                    },
+                color = Color(0xFF1A2A34),
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.09f)),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 15.dp, vertical = 13.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Rounded.Map, contentDescription = null, tint = Color(0xFF83D6E8))
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text(stringResource(R.string.choose_point_on_map), fontWeight = FontWeight.SemiBold)
+                        Text(
+                            stringResource(R.string.pinned_location_purpose),
+                            color = Color.White.copy(alpha = 0.52f),
+                            fontSize = 12.sp,
+                        )
+                    }
+                }
+            }
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -517,7 +673,7 @@ private fun LocationSearchSheet(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text("Aktuálně", color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
+                    Text(stringResource(R.string.current_location), color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
                     Text(selectedLocation.name, fontWeight = FontWeight.SemiBold)
                 }
                 IconButton(onClick = { toggleFavorite(selectedLocation) }) {
@@ -527,7 +683,7 @@ private fun LocationSearchSheet(
                         } else {
                             Icons.Rounded.StarBorder
                         },
-                        contentDescription = "Přepnout oblíbenou lokalitu",
+                        contentDescription = stringResource(R.string.toggle_favorite),
                         tint = Color(0xFFFFC766),
                     )
                 }
@@ -535,7 +691,7 @@ private fun LocationSearchSheet(
 
             if (favorites.isNotEmpty()) {
                 Text(
-                    "Oblíbené",
+                    stringResource(R.string.favorites),
                     modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
                     color = Color.White.copy(alpha = 0.58f),
                     fontSize = 12.sp,
@@ -552,7 +708,7 @@ private fun LocationSearchSheet(
             }
 
             Text(
-                "Vyhledat v Česku",
+                searchInCzechia,
                 modifier = Modifier.padding(top = 14.dp, bottom = 8.dp),
                 color = Color.White.copy(alpha = 0.58f),
                 fontSize = 12.sp,
@@ -563,8 +719,8 @@ private fun LocationSearchSheet(
                 onValueChange = { query = it },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .semantics { contentDescription = "Hledat české město" },
-                label = { Text("Město nebo obec") },
+                    .semantics { contentDescription = searchInCzechia },
+                label = { Text(stringResource(R.string.city_or_municipality)) },
                 leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -593,7 +749,7 @@ private fun LocationSearchSheet(
             }
             if (!searching && error == null && query.trim().length >= 2 && results.isEmpty()) {
                 Text(
-                    "V Česku jsme nic nenašli.",
+                    stringResource(R.string.no_czech_result),
                     color = Color.White.copy(alpha = 0.68f),
                     modifier = Modifier.padding(vertical = 14.dp),
                 )
@@ -613,13 +769,15 @@ private fun LocationRow(
         headlineContent = {
             Text(location.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
         },
-        supportingContent = { Text(location.region) },
+        supportingContent = { Text(location.localizedRegion()) },
         leadingContent = { Icon(Icons.Rounded.LocationOn, contentDescription = null) },
         trailingContent = {
             IconButton(onClick = onFavorite) {
                 Icon(
                     imageVector = if (favorite) Icons.Rounded.Star else Icons.Rounded.StarBorder,
-                    contentDescription = if (favorite) "Odebrat z oblíbených" else "Přidat do oblíbených",
+                    contentDescription = stringResource(
+                        if (favorite) R.string.remove_favorite else R.string.add_favorite,
+                    ),
                     tint = Color(0xFFFFC766),
                 )
             }

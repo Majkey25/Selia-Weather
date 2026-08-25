@@ -1,40 +1,36 @@
-# Počasí Česko: produktový návrh
+# Product design
 
-## Produkt
+## Purpose
 
-Počasí Česko je česká Android aplikace pro rychlou odpověď na jednu otázku: co bude dnes a v dalších dnech v mém městě. Cílí na lidi v Česku, kteří chtějí přesný lokální výhled bez reklam, účtu a složitého nastavování.
-
-Hlavní akce je změna české lokality. Předpověď se po otevření načte pro poslední vybrané město. Radar a widget jsou dostupné bez procházení menu.
+ALADIN weather answers a practical question for people in Czechia: what will the weather do in my place today and over the next days? The app keeps the first screen focused on current conditions, the 20-hour outlook, and the 14-day forecast. Search, favourites, current location, radar, and the widget remain one action away.
 
 ## Data
 
-- Open-Meteo CHMI Forecast API, model `chmi_aladin_seamless`.
-- ALADIN CZ 1 km pro první 3 dny. Open-Meteo navazuje ECMWF IFS HRES 9 km do 14 dnů.
-- Open-Meteo geocoding omezený na `countryCode=CZ`.
-- Integrovaný radar, nowcast, blesky a družicová oblačnost ČHMÚ. Zdroj i čas dat zůstávají viditelné.
-- Bez API klíče. Poslední úspěšná předpověď se uloží lokálně pro offline stav a widget.
+- Open-Meteo CHMI Forecast API uses `chmi_aladin_seamless` for the first three days.
+- ALADIN CZ provides the local model data. Open-Meteo continues the forecast with ECMWF IFS HRES data for up to 14 days.
+- Search is restricted to Czech places.
+- ČHMÚ provides rain radar, nowcast, lightning, and satellite cloud imagery.
+- The app stores the last successful forecast locally for offline display and widgets.
 
-## Informační architektura
+ALADIN weather identifies these providers but is not affiliated with them.
 
-Spodní navigace má dvě položky: Počasí a Mapy. Počasí obsahuje současný stav, dalších 24 hodin, 14denní seznam, detail vybraného dne a stručné metriky. Klepnutí na název města otevře hledání, oblíbené a aktuální polohu. Mapy mají přepínatelné srážky, blesky a družicovou oblačnost s časovou osou.
+## Information structure
 
-Widget je jedna resizovatelná komponenta. Kompaktní velikost ukáže čas a teplotu. Široká velikost přidá město, stav a denní maximum/minimum. Konfigurace nabídne automatické barvy podle dne a počasí, světlou, tmavou a průhlednou variantu plus přepínače času, ikony a detailu počasí.
+The bottom navigation has **Weather** and **Maps**. Weather shows current conditions, a horizontally scrollable 20-hour strip, metrics, a 14-day list, and a full hourly sheet for a selected day. Maps use rain and clouds as base layers. Lightning remains an independent overlay on either base layer.
 
-## Vizuální systém
+The adaptive widget is one stable launcher layout. It changes visible fields by size and lets each widget keep its own background, colours, transparency, text scale, alignment, label, image URI, and field selection.
 
-- Material 3, edge-to-edge, Android 10+.
-- Jedna souvislá plocha místo mřížky stejných karet.
-- Pozadí používá tlumený vertikální gradient podle dne, noci a typu počasí. Gradient nese stav, není dekorativní mlha.
-- Velká teplota je vstupní bod. Lokalita a stav jsou druhé. Hodinová předpověď je horizontální, denní výhled vertikální.
-- 4dp základní krok, 20dp boční okraj, 32dp mezery mezi hlavními sekcemi.
-- Výchozí systémové písmo. Čísla používají tabulární proporce, kde je to dostupné.
-- Rohy 18dp pouze pro ovládací plochy. Žádné zbytečné stíny, sklo ani řada nesouvisejících karet.
-- Minimální dotyková plocha 48dp, kontrastní text, čitelné popisky ikon a podpora zvětšeného písma.
+## Visual rules
 
-## Stavy a chyby
+- Material 3 with edge-to-edge layout and Android 10 support.
+- A restrained weather-reactive gradient carries the state. It is not decorative filler.
+- The current temperature leads. The place and condition follow. Time-based information scrolls horizontally. The day list scrolls vertically.
+- A 4 dp grid, 20 dp side padding, and at least 48 dp touch targets keep the UI usable.
+- System typography is preferred. Numeric values use tabular figures where available.
+- Only controls use rounded surfaces. The UI avoids stacks of unrelated cards and unnecessary shadows.
 
-Načítání zachová strukturu obrazovky a zobrazí jeden indikátor. Při síťové chybě zůstane poslední uložená předpověď s časem aktualizace. Bez cache aplikace ukáže konkrétní chybu a tlačítko Zkusit znovu. Prázdné hledání nic neodesílá. Výsledek mimo Česko se nezobrazí.
+## States and failures
 
-## Ověření
+Loading keeps the page structure and uses one indicator. A network failure leaves the last cached forecast visible with its update time. Without a cache, the app shows the error and a retry action. An empty search sends no request. A search result outside Czechia is not shown.
 
-Build musí projít přes repo Gradle wrapper. Jednotkové testy ověří mapování WMO kódů, parsování API, oblíbené lokality a hodinový detail dne. Emulator QA ověří Android 10 i aktuální Android, změnu města, polohu, radarové vrstvy, offline stav a widget. Vizuální kontrola probíhá pouze v emulátoru.
+Widget rendering has a safe fallback. If Android cannot read a custom image or a launcher resize causes rendering trouble, the widget uses its colour background and remains updateable.

@@ -1,0 +1,46 @@
+[project]
+name = "aladin-ensemble-research"
+version = "0.1.0"
+description = "Reproducible Czech forecast-model registry research"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "h5py==3.14.0",
+    "numpy==2.3.2",
+    "scipy==1.16.1",
+]
+
+[dependency-groups]
+dev = [
+    "pyright==1.1.405",
+    "pytest==8.4.1",
+    "ruff==0.12.10",
+]
+
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "strict"
+include = ["src", "tests"]
+extraPaths = ["src"]
+reportMissingTypeStubs = false
+venvPath = "."
+venv = ".venv"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = true

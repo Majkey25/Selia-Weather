@@ -30,9 +30,82 @@ class WeatherParserTest {
     }
 
     @Test
-    fun unknownWeatherCodeHasExplicitFallback() {
-        assertEquals(WeatherKind.UNKNOWN, conditionFor(404).kind)
-        assertEquals("Neznámý stav", conditionFor(404).label)
+    fun skipsPartialHourlyRowsWithoutInventingZeroValues() {
+        val partial = VALID_FORECAST.replace(
+            "\"temperature_2m\":[19.0,20.0]",
+            "\"temperature_2m\":[null,20.0]",
+        )
+
+        val snapshot = WeatherParser.parseForecast(partial, updatedAtEpochMillis = 123L)
+
+        assertEquals(1, snapshot.hourly.size)
+        assertEquals("2026-08-24T13:00", snapshot.hourly.single().time)
+        assertEquals(20.0, snapshot.hourly.single().temperature, 0.0)
+    }
+
+    @Test
+    fun rejectsForecastWhenEveryHourlyRowIsPartial() {
+        val partial = VALID_FORECAST.replace(
+            "\"temperature_2m\":[19.0,20.0]",
+            "\"temperature_2m\":[null,null]",
+        )
+
+        assertThrows(JSONException::class.java) {
+            WeatherParser.parseForecast(partial, updatedAtEpochMillis = 123L)
+        }
+    }
+
+    @Test
+    fun parsesAdvancedWeatherDetailsAndKeepsLegacyFieldsOptional() {
+        val advanced = VALID_FORECAST
+            .replace(
+                "\"is_day\":1",
+                """"is_day":1,"dew_point_2m":8.1,"wet_bulb_temperature_2m":13.2,
+                    "rain":0.2,"snowfall":0.0,"snow_depth_water_equivalent":0.0,
+                    "cloud_cover_low":10,"cloud_cover_mid":20,"cloud_cover_high":30,
+                    "visibility":24000.0,"surface_pressure":985.2,"cape":120.0,
+                    "vapour_pressure_deficit":0.7,"surface_temperature":20.4""".replace("\n", ""),
+            )
+            .replace(
+                "\"is_day\":[1,1]",
+                """"is_day":[1,1],"dew_point_2m":[8.1,8.2],
+                    "apparent_temperature":[18.2,19.0],"wet_bulb_temperature_2m":[13.2,13.5],
+                    "rain":[0.2,0.0],"snowfall":[0.0,0.0],
+                    "snow_depth_water_equivalent":[0.0,0.0],"cloud_cover_low":[10,11],
+                    "cloud_cover_mid":[20,21],"cloud_cover_high":[30,31],
+                    "visibility":[24000.0,25000.0],"surface_pressure":[985.2,984.9],
+                    "wind_gusts_10m":[16.2,17.0],"cape":[120.0,140.0],
+                    "vapour_pressure_deficit":[0.7,0.8],"surface_temperature":[20.4,21.1],
+                    "et0_fao_evapotranspiration":[0.1,0.2]""".replace("\n", ""),
+            )
+            .replace(
+                "\"wind_speed_10m_max\":[16.6]",
+                """"wind_speed_10m_max":[16.6],"apparent_temperature_max":[21.0],
+                    "apparent_temperature_min":[9.0],"daylight_duration":[50000.0],
+                    "sunshine_duration":[32000.0],"rain_sum":[0.2],"snowfall_sum":[0.0],
+                    "precipitation_hours":[1.0],"wind_gusts_10m_max":[24.0],
+                    "wind_direction_10m_dominant":[45],"shortwave_radiation_sum":[18.4],
+                    "et0_fao_evapotranspiration":[2.8]""".replace("\n", ""),
+            )
+
+        val snapshot = WeatherParser.parseForecast(advanced, updatedAtEpochMillis = 123L)
+
+        assertEquals(8.1, requireNotNull(snapshot.current.dewPoint), 0.0)
+        assertEquals(24000.0, requireNotNull(snapshot.current.visibilityMeters), 0.0)
+        assertEquals(16.2, requireNotNull(snapshot.hourly.first().windGusts), 0.0)
+        assertEquals(0.1, requireNotNull(snapshot.hourly.first().et0), 0.0)
+        assertEquals(50000.0, requireNotNull(snapshot.daily.first().daylightDurationSeconds), 0.0)
+        assertEquals(24.0, requireNotNull(snapshot.daily.first().windGustsMax), 0.0)
+        assertEquals(null, WeatherParser.parseForecast(VALID_FORECAST, 123L).current.dewPoint)
+    }
+
+    @Test
+    fun mapsWeatherCodesToTypedConditions() {
+        assertEquals(WeatherConditionKey.CLEAR_DAY, conditionFor(0, true).key)
+        assertEquals(WeatherConditionKey.DRIZZLE, conditionFor(51, true).key)
+        assertEquals(WeatherConditionKey.SHOWERS, conditionFor(80, true).key)
+        assertEquals(WeatherConditionKey.STORM, conditionFor(95, true).key)
+        assertEquals(WeatherConditionKey.UNKNOWN, conditionFor(999, true).key)
     }
 
     companion object {

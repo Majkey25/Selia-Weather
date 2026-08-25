@@ -1,0 +1,1 @@
+ALADIN weather ajoute une prévision sur 20 heures, la foudre indépendante et un widget personnalisable.

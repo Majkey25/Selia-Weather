@@ -1,0 +1,13 @@
+ALADIN weather muestra el tiempo de Chequia sin cuenta. La versión gratuita contiene anuncios limitados; ambas opciones Premium los eliminan.
+
+Los primeros tres días usan el modelo ALADIN CZ. La previsión llega hasta 14 días. Consulta las condiciones actuales, precipitación, viento, humedad, presión, horas de sol y una vista desplazable de 20 horas. Toca un día para ver su detalle horario.
+
+Busca lugares de Chequia, guarda favoritos o usa tu ubicación actual de forma opcional. La última previsión correcta queda disponible sin conexión.
+
+El radar de ČHMÚ incluye lluvia, nubes de satélite, nowcast y rayos. La lluvia y las nubes son capas base distintas. Los rayos se pueden activar o desactivar de forma independiente sobre ambas capas.
+
+Crea tu propio widget de inicio. Cada widget puede tener colores, transparencia, degradado o imagen de fondo, tamaño de texto, alineación, etiqueta y campos meteorológicos propios. Si Android no puede leer una imagen elegida, el widget usa el fondo de color configurado y sigue funcionando.
+
+ALADIN weather es compatible con Android 10 y versiones posteriores. Por defecto sigue el idioma del sistema. En la app puedes elegir inglés, checo, alemán, español o francés.
+
+El enlace opcional a Buy Me a Coffee abre una página externa. No desbloquea funciones ni da prioridad.

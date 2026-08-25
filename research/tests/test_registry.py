@@ -256,7 +256,7 @@ def test_main_writes_incomplete_registry_and_fails_on_operational_error(
     assert "expected HTTP requests: 51" in summary
 
 
-def test_budget_batches_requests_and_rejects_free_limit_boundary() -> None:
+def test_http_request_budget_rejects_free_limit_boundary() -> None:
     within_limit = estimate_http_request_budget(
         candidate_count=1,
         location_count=8,

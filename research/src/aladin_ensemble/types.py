@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from math import isfinite
+from typing import Literal
 
 
 def _require_utc(value: datetime, field_name: str) -> None:
@@ -60,11 +61,27 @@ class Observation:
     variable: str
     value: float | None
     unit: str
+    interval: timedelta | None = None
+    accumulation: Literal["instant", "interval", "cumulative"] = "instant"
+    flag: str | None = None
+    quality: int | None = None
 
     def __post_init__(self) -> None:
         _require_utc(self.valid_time, "valid_time")
         _require_coordinates(self.latitude, self.longitude, self.elevation_m)
         _require_value(self.value)
+        if self.interval is not None and self.interval.total_seconds() <= 0:
+            raise ValueError("interval must be positive")
+        if self.accumulation == "instant" and self.interval is not None:
+            raise ValueError("instant observation cannot have an interval")
+        if self.accumulation == "interval" and self.interval is None:
+            raise ValueError("interval observation requires an interval")
+        if self.flag is not None and not self.flag:
+            raise ValueError("flag cannot be empty")
+        if self.quality is not None and (
+            isinstance(self.quality, bool) or not isinstance(self.quality, int) or self.quality < 0
+        ):
+            raise ValueError("quality must be a non-negative integer")
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,11 +113,23 @@ class SourceManifest:
     archive_parameters: tuple[tuple[str, str], ...] = ()
     responses: tuple[ResponseMetadata, ...] = ()
     provider_model_id: str | None = None
+    source_url: str | None = None
+    checksum_sha256: str | None = None
+    source_timestamp: datetime | None = None
 
     def __post_init__(self) -> None:
         _require_utc(self.retrieved_at, "retrieved_at")
         if self.run_time is not None:
             _require_utc(self.run_time, "run_time")
+        if self.source_url is not None and not self.source_url:
+            raise ValueError("source_url cannot be empty")
+        if self.checksum_sha256 is not None and (
+            len(self.checksum_sha256) != 64
+            or any(character not in "0123456789abcdef" for character in self.checksum_sha256)
+        ):
+            raise ValueError("checksum_sha256 must be a lowercase SHA-256 digest")
+        if self.source_timestamp is not None:
+            _require_utc(self.source_timestamp, "source_timestamp")
 
 
 @dataclass(frozen=True, slots=True)

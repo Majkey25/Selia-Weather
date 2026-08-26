@@ -21,6 +21,12 @@ internal fun premiumProductGroups(): List<List<ProductSpec>> = listOf(
     listOf(ProductSpec(MONTHLY_PRODUCT_ID, ProductKind.SUBSCRIPTION)),
 )
 
+internal fun premiumOfferButtons(
+    offers: List<PremiumOffer>,
+): List<Pair<PremiumOfferType, String?>> = PremiumOfferType.entries.map { type ->
+    type to offers.firstOrNull { offer -> offer.type == type }?.price
+}
+
 internal fun shouldReportUnavailableCatalog(entitlement: EntitlementState, offerCount: Int): Boolean =
     entitlement != EntitlementState.PREMIUM && offerCount == 0
 

@@ -37,15 +37,13 @@ class MainActivity : ComponentActivity() {
                 onLanguage = { tag -> AppLocale.set(this, tag) },
             )
         }
-        if (BuildConfig.MONETIZATION_CONFIGURED) premiumBillingController.start()
+        premiumBillingController.start()
         adsController.start()
     }
 
     override fun onResume() {
         super.onResume()
-        if (::premiumBillingController.isInitialized && BuildConfig.MONETIZATION_CONFIGURED) {
-            premiumBillingController.start()
-        }
+        if (::premiumBillingController.isInitialized) premiumBillingController.start()
     }
 
     override fun onDestroy() {

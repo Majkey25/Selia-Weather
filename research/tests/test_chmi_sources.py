@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from io import StringIO
 from pathlib import Path
 
 import pytest
@@ -23,6 +25,11 @@ DOCUMENTATION_URL = "https://opendata.chmi.cz/meteorology/climate/Klimatologicka
 LICENSE_URL = (
     "https://www.chmi.cz/-/jak-mohu-pou%C5%BE%C3%ADvat-otev%C5%99en%C3%A1-data-%C4%8Dhm%C3%BA-"
 )
+
+
+class _TinyChunks(StringIO):
+    def read(self, size: int | None = -1) -> str:
+        return super().read(1 if size is not None and size > 0 else size)
 
 
 def _stations() -> dict[str, Station]:
@@ -69,12 +76,135 @@ def test_parses_utf8_station_and_hourly_observations() -> None:
     assert precipitation.accumulation == "interval"
 
 
+def test_station_metadata_accepts_documented_decimal_text(tmp_path: Path) -> None:
+    metadata = tmp_path / "meta1.json"
+    metadata.write_text(
+        json.dumps(
+            {
+                "datumVytvoreni": "2026-08-25T01:02:03Z",
+                "data": {
+                    "data": {
+                        "header": "WSI,FULL_NAME,GEOGR1,GEOGR2,ELEVATION",
+                        "values": [
+                            [
+                                "0-20000-0-11502",
+                                "Ústí nad Labem",
+                                "14.04",
+                                "50.68",
+                                "375.00",
+                            ]
+                        ],
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with metadata.open(encoding="utf-8") as source:
+        station = next(parse_station_metadata(source))
+
+    assert station.longitude == 14.04
+    assert station.latitude == 50.68
+    assert station.elevation_m == 375.0
+
+
+def test_station_metadata_skips_rows_missing_required_geography(tmp_path: Path) -> None:
+    metadata = tmp_path / "meta1.json"
+    metadata.write_text(
+        json.dumps(
+            {
+                "datumVytvoreni": "2026-08-25T01:02:03Z",
+                "data": {
+                    "data": {
+                        "header": "WSI,FULL_NAME,GEOGR1,GEOGR2,ELEVATION",
+                        "values": [
+                            ["0-20000-0-11501", "Incomplete", "14.0", "50.0", ""],
+                            ["0-20000-0-11502", "Complete", "14.04", "50.68", "375.00"],
+                        ],
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with metadata.open(encoding="utf-8") as source:
+        stations = tuple(parse_station_metadata(source))
+
+    assert tuple(station.wigos_id for station in stations) == ("0-20000-0-11502",)
+
+
+def test_station_stream_accepts_a_chunk_starting_with_row_separator() -> None:
+    payload = json.dumps(
+        {
+            "datumVytvoreni": "2026-08-25T01:02:03Z",
+            "data": {
+                "data": {
+                    "header": "WSI,FULL_NAME,GEOGR1,GEOGR2,ELEVATION",
+                    "values": [
+                        ["0-20000-0-11501", "First", "14.0", "50.0", "100"],
+                        ["0-20000-0-11502", "Second", "15.0", "49.0", "200"],
+                    ],
+                }
+            },
+        }
+    )
+
+    stations = tuple(parse_station_metadata(_TinyChunks(payload)))
+
+    assert tuple(station.name for station in stations) == ("First", "Second")
+
+
+def test_station_metadata_keeps_latest_history_record_per_wigos() -> None:
+    payload = json.dumps(
+        {
+            "datumVytvoreni": "2026-08-25T01:02:03Z",
+            "data": {
+                "data": {
+                    "header": "WSI,FULL_NAME,GEOGR1,GEOGR2,ELEVATION,BEGIN_DATE",
+                    "values": [
+                        [
+                            "0-20000-0-11502",
+                            "Old",
+                            "14.0",
+                            "50.0",
+                            "100",
+                            "2020-01-01T00:00:00Z",
+                        ],
+                        [
+                            "0-20000-0-11502",
+                            "Current",
+                            "14.1",
+                            "50.1",
+                            "200",
+                            "2026-01-01T00:00:00Z",
+                        ],
+                    ],
+                }
+            },
+        }
+    )
+
+    stations = tuple(parse_station_metadata(StringIO(payload)))
+
+    assert len(stations) == 1
+    assert stations[0].name == "Current"
+    assert stations[0].begin_time == datetime(2026, 1, 1, tzinfo=UTC)
+
+
 def test_preserves_missing_flag_and_quality_without_zero_substitution() -> None:
     missing = _observations()[2]
 
     assert missing.value is None
     assert missing.flag == "M"
     assert missing.quality == 4
+
+
+def test_observation_preserves_negative_relative_sensor_height() -> None:
+    pressure = replace(_observations()[0], measurement_height_m=-6.5)
+
+    assert pressure.measurement_height_m == -6.5
 
 
 def test_rejects_invalid_station_observation_range(tmp_path: Path) -> None:
@@ -93,6 +223,39 @@ def test_rejects_invalid_station_observation_range(tmp_path: Path) -> None:
                 source, _stations(), _metadata(), "10M", _manifest().checksum_sha256 or ""
             )
         )
+
+
+def test_element_metadata_accepts_documented_decimal_height_text(tmp_path: Path) -> None:
+    metadata = tmp_path / "meta2.json"
+    metadata.write_text(
+        """{"datumVytvoreni":"2026-08-25T01:02:03Z","data":{"data":{"header":"OBS_TYPE,WSI,EG_EL_ABBREVIATION,UN_DESCRIPTION,HEIGHT,SCHEDULE","values":[["10M","0-20000-0-11502","F","m/s","10.00","continuous"]]}}}""",
+        encoding="utf-8",
+    )
+
+    with metadata.open(encoding="utf-8") as source:
+        parsed = parse_element_metadata(source)
+
+    assert parsed[("10M", "0-20000-0-11502", "F")].height_m == 10.0
+
+    metadata.write_text(
+        metadata.read_text(encoding="utf-8").replace("10.00", "unknown"),
+        encoding="utf-8",
+    )
+    with metadata.open(encoding="utf-8") as source, pytest.raises(ValueError, match="HEIGHT"):
+        parse_element_metadata(source)
+
+
+def test_element_metadata_preserves_missing_height(tmp_path: Path) -> None:
+    metadata = tmp_path / "meta2.json"
+    metadata.write_text(
+        """{"datumVytvoreni":"2026-08-25T01:02:03Z","data":{"data":{"header":"OBS_TYPE,WSI,EG_EL_ABBREVIATION,UN_DESCRIPTION,HEIGHT,SCHEDULE","values":[["1H","0-20000-0-11502","C-C1Av","m","","continuous"]]}}}""",
+        encoding="utf-8",
+    )
+
+    with metadata.open(encoding="utf-8") as source:
+        parsed = parse_element_metadata(source)
+
+    assert parsed[("1H", "0-20000-0-11502", "C-C1Av")].height_m is None
 
 
 def test_manifest_records_checksum_and_source_timestamp() -> None:

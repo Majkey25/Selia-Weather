@@ -38,7 +38,7 @@
   - Verify: English, Czech, and external routing pass.
   - Remaining: Task 8 must verify the signed-release missing-handler negative.
 - [x] Task 7: Publish English-first docs and five localized Play listings.
-  - Acceptance: product identity, package, and `Majkey25/ALADIN-weather` links are consistent across repo, Pages, and Play metadata.
+  - Acceptance: product identity, package, and `Majkey25/Selia-Weather` links are consistent across repo, Pages, and Play metadata.
   - Verify: Play text limits and Pages HTTP 200 check pass.
 - [ ] Task 8: Verify and publish beta.2, prepare Play Console, and reclaim QA storage.
   - Acceptance: green CI, verified signed release, prepared Play entry, and safe emulator cleanup.

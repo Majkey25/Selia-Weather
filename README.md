@@ -7,8 +7,8 @@
 <p align="center">A focused Android weather app for Czechia with ALADIN forecasts, ČHMÚ radar, and an adaptive widget.</p>
 
 <p align="center">
-  <a href="https://github.com/Majkey25/ALADIN-weather/actions/workflows/android.yml"><img alt="Android CI" src="https://github.com/Majkey25/ALADIN-weather/actions/workflows/android.yml/badge.svg"></a>
-  <a href="https://github.com/Majkey25/ALADIN-weather/releases"><img alt="GitHub release" src="https://img.shields.io/github/v/release/Majkey25/ALADIN-weather?include_prereleases"></a>
+  <a href="https://github.com/Majkey25/Selia-Weather/actions/workflows/android.yml"><img alt="Android CI" src="https://github.com/Majkey25/Selia-Weather/actions/workflows/android.yml/badge.svg"></a>
+  <a href="https://github.com/Majkey25/Selia-Weather/releases"><img alt="GitHub release" src="https://img.shields.io/github/v/release/Majkey25/Selia-Weather?include_prereleases"></a>
   <img alt="Android 10 and later" src="https://img.shields.io/badge/Android-10%2B-3DDC84?logo=android&logoColor=white">
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-blue"></a>
 </p>
@@ -75,7 +75,7 @@ The debug APK is at `app/build/outputs/apk/debug/app-debug.apk`.
 
 ## Privacy
 
-The app has no developer account or separate analytics SDK. It keeps the selected place, favourites, widget settings, and forecast cache in internal app storage. Current location is optional. Its coordinates are sent to Open-Meteo over HTTPS to request the forecast. The free build uses Google Mobile Ads and UMP; purchases use Google Play Billing. Read the [privacy policy](https://majkey25.github.io/ALADIN-weather/).
+The app has no developer account or separate analytics SDK. It keeps the selected place, favourites, widget settings, and forecast cache in internal app storage. Current location is optional. Its coordinates are sent to Open-Meteo over HTTPS to request the forecast. The free build uses Google Mobile Ads and UMP; purchases use Google Play Billing. Read the [privacy policy](https://majkey25.github.io/Selia-Weather/).
 
 ## Status
 

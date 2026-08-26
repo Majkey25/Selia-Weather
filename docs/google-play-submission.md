@@ -8,7 +8,7 @@
 - App or game: App
 - Free or paid: Free
 - Contains ads: Yes
-- Privacy policy: `https://majkey25.github.io/ALADIN-weather/`
+- Privacy policy: `https://majkey25.github.io/Selia-Weather/`
 - App access: All functionality is available without login.
 - Target age groups: 13 to 15, 16 to 17, and 18 or older.
 - News app: No

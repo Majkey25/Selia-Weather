@@ -32,4 +32,4 @@ The developer does not operate a server that stores app data or purchase tokens.
 
 ## Contact
 
-For privacy questions, open the [project support form](https://github.com/Majkey25/ALADIN-weather/issues/new).
+For privacy questions, open the [project support form](https://github.com/Majkey25/Selia-Weather/issues/new).

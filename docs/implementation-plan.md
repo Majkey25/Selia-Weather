@@ -22,4 +22,4 @@ The Android app has one module. The public application ID is `com.majkeylab.weat
 
 The app follows the Android system language by default. English is the resource fallback. The settings screen offers English, Czech, German, Spanish, and French. The widget uses the same locale setting.
 
-The app stores settings and cached weather locally. A custom widget image remains at its selected Android content URI. See the [privacy policy](https://majkey25.github.io/ALADIN-weather/) for network and permission details.
+The app stores settings and cached weather locally. A custom widget image remains at its selected Android content URI. See the [privacy policy](https://majkey25.github.io/Selia-Weather/) for network and permission details.

@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.2.0-beta.5] - 2026-08-26
+
+- Makes the Lightning radar toggle visibly active while strikes remain layered over rain or clouds.
+- Adds accessible pressed-state semantics to the Lightning control.
+
 ## [0.2.0-beta.4] - 2026-08-26
 
 - Renamed the Play listing to Selia Weather and shortened the launcher label to Selia Wx.

@@ -22,6 +22,9 @@ class RadarScreenTest {
 
         assertTrue(source.contains("function layerVisibility(baseLayer, lightningVisible)"))
         assertTrue(source.contains("function layerStateSelfTest()"))
+        assertTrue(source.contains("id=\"lightning\" class=\"active\" type=\"button\" aria-pressed=\"true\""))
+        assertTrue(source.contains("lightningVisible ? 'active' : ''"))
+        assertTrue(source.contains("setAttribute('aria-pressed', String(lightningVisible))"))
         assertTrue(source.contains("document.getElementById('lightning').style.display = '';"))
         assertTrue(source.contains("var lightning = lightningVisible ? lightningUrl(frame.date) : null;"))
         assertTrue(source.contains("#strikes { z-index: 1; pointer-events: none; }"))

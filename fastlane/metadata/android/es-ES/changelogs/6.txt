@@ -1,0 +1,1 @@
+Los rayos ahora permanecen visiblemente activos sobre las capas de lluvia y nubes.

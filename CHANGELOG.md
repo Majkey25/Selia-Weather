@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0-beta.3] - 2026-08-26
+
+- Kept the complete launcher artwork inside the Android adaptive-icon safe zone on OEM launchers.
+- Fixed approximate and precise location fallback across enabled network and GPS providers.
+- Fixed widget host resizing and added Minimal, Material, Pixel, and Cupertino presets with selectable font styles.
+- Completed a locked 90-day training and 30-day holdout model backtest; rejected every unsafe precipitation blend and kept production weights disabled until nationwide truth coverage passes.
+
 ## [0.2.0-beta.2] - 2026-08-25
 
 - Rebranded the app as ALADIN weather with public package `com.majkeylab.weatheraladin`.

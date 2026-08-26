@@ -79,7 +79,7 @@ The app has no developer account or separate analytics SDK. It keeps the selecte
 
 ## Status
 
-`v0.2.0-beta.2` is the rebranded public identity. It uses `com.majkeylab.weatheraladin`, so it does not update installations of earlier beta packages. GitHub prereleases are for testing. Google Play uses a separate private upload key and Play App Signing.
+`v0.2.0-beta.3` fixes OEM launcher icon cropping, location-provider fallback, and widget resizing while keeping the public package `com.majkeylab.weatheraladin`. It does not update installations of earlier beta packages that used another application ID. GitHub prereleases are for testing. Google Play uses a separate private upload key and Play App Signing.
 
 ## License
 

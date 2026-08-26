@@ -1,14 +1,15 @@
 package cz.majkey.pocasicesko.widget
 
+import android.view.Gravity
 import cz.majkey.pocasicesko.data.WeatherKind
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.time.ZoneOffset
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.ZoneOffset
 import java.util.Locale
 
 class WidgetSettingsTest {
@@ -41,6 +42,7 @@ class WidgetSettingsTest {
         assertEquals("#FF66C9DF", settings.accentColor)
         assertEquals(100, settings.opacity)
         assertEquals(100, settings.textScale)
+        assertEquals(WidgetFontStyle.SYSTEM, settings.fontStyle)
         assertEquals(WidgetAlignment.LEFT, settings.alignment)
         assertTrue(settings.showClock)
         assertTrue(settings.showDate)
@@ -59,6 +61,48 @@ class WidgetSettingsTest {
         assertFalse(settings.showWindGusts)
         assertFalse(settings.showMoon)
         assertFalse(settings.showUpdatedAt)
+    }
+
+    @Test
+    fun presetsApplyDistinctSafeStylesAndPreserveUserContent() {
+        val current = WidgetSettings(
+            customLabel = "My field",
+            imageUri = "content://example/background",
+        )
+        val minimal = widgetPresetSettings(WidgetPreset.MINIMAL, current)
+        val material = widgetPresetSettings(WidgetPreset.MATERIAL, current)
+        val pixel = widgetPresetSettings(WidgetPreset.PIXEL, current)
+        val cupertino = widgetPresetSettings(WidgetPreset.CUPERTINO, current)
+
+        assertEquals(WidgetBackgroundMode.TRANSPARENT, minimal.backgroundMode)
+        assertEquals(WidgetFontStyle.LIGHT, minimal.fontStyle)
+        assertFalse(minimal.showIcon)
+        assertFalse(minimal.showHourly)
+        assertEquals(WidgetFontStyle.MATERIAL, material.fontStyle)
+        assertEquals(WidgetBackgroundMode.AUTOMATIC, material.backgroundMode)
+        assertEquals(WidgetFontStyle.ROUNDED, pixel.fontStyle)
+        assertEquals(WidgetBackgroundMode.GRADIENT, pixel.backgroundMode)
+        assertEquals(WidgetFontStyle.LIGHT, cupertino.fontStyle)
+        assertEquals(WidgetAlignment.CENTER, cupertino.alignment)
+        WidgetPreset.entries.forEach { preset ->
+            val settings = widgetPresetSettings(preset, current)
+            assertEquals("My field", settings.customLabel)
+            assertEquals("content://example/background", settings.imageUri)
+        }
+    }
+
+    @Test
+    fun unknownStoredFontFallsBackToSystem() {
+        assertEquals(WidgetFontStyle.ROUNDED, widgetFontStyle("ROUNDED"))
+        assertEquals(WidgetFontStyle.SYSTEM, widgetFontStyle("future-font"))
+        assertEquals(WidgetFontStyle.SYSTEM, widgetFontStyle(null))
+    }
+
+    @Test
+    fun everyWidgetFontUsesADistinctLauncherSafeTextAppearance() {
+        val appearances = WidgetFontStyle.entries.map(::widgetTextAppearance)
+
+        assertEquals(WidgetFontStyle.entries.size, appearances.distinct().size)
     }
 
     @Test
@@ -104,10 +148,11 @@ class WidgetSettingsTest {
     }
 
     @Test
-    fun alignsContentWithOnlyApi29SafeSpacerVisibility() {
-        assertEquals(WidgetAlignmentSpacers(showLeft = false, showRight = true), widgetAlignmentSpacers(WidgetAlignment.LEFT))
-        assertEquals(WidgetAlignmentSpacers(showLeft = true, showRight = true), widgetAlignmentSpacers(WidgetAlignment.CENTER))
-        assertEquals(WidgetAlignmentSpacers(showLeft = true, showRight = false), widgetAlignmentSpacers(WidgetAlignment.RIGHT))
+    fun resizedHostUsesCurrentBoundsAndTextGravity() {
+        assertEquals(WidgetHostSize(467, 104), widgetHostSize(467, 104))
+        assertEquals(Gravity.START, widgetTextGravity(WidgetAlignment.LEFT))
+        assertEquals(Gravity.CENTER_HORIZONTAL, widgetTextGravity(WidgetAlignment.CENTER))
+        assertEquals(Gravity.END, widgetTextGravity(WidgetAlignment.RIGHT))
     }
 
     @Test

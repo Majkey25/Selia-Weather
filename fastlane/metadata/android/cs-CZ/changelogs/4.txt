@@ -1,0 +1,1 @@
+Opravené ořezávání ikony na launcherech výrobců. Opravené přibližné i přesné určení polohy. Opravené změny velikosti widgetu a přidané presety Minimal, Material, Pixel a Cupertino s volbou písma. Neověřené modelové kombinace zůstávají vypnuté.

@@ -2,6 +2,7 @@ package cz.majkey.pocasicesko.widget
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.view.Gravity
 import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.astro.MoonPhaseKey
 import cz.majkey.pocasicesko.data.WeatherKind
@@ -33,6 +34,20 @@ enum class WidgetAlignment {
     RIGHT,
 }
 
+enum class WidgetFontStyle {
+    SYSTEM,
+    MATERIAL,
+    ROUNDED,
+    LIGHT,
+}
+
+enum class WidgetPreset {
+    MINIMAL,
+    MATERIAL,
+    PIXEL,
+    CUPERTINO,
+}
+
 data class WidgetSettings(
     val backgroundMode: WidgetBackgroundMode = WidgetBackgroundMode.AUTOMATIC,
     val backgroundStart: String = "#0C1922",
@@ -42,6 +57,7 @@ data class WidgetSettings(
     val accentColor: String = "#FF66C9DF",
     val opacity: Int = 100,
     val textScale: Int = 100,
+    val fontStyle: WidgetFontStyle = WidgetFontStyle.SYSTEM,
     val alignment: WidgetAlignment = WidgetAlignment.LEFT,
     val customLabel: String = "",
     val imageUri: String = "",
@@ -110,7 +126,7 @@ internal class WidgetApplyState {
 }
 
 internal data class WidgetBitmapSize(val width: Int, val height: Int)
-internal data class WidgetAlignmentSpacers(val showLeft: Boolean, val showRight: Boolean)
+internal data class WidgetHostSize(val width: Int, val height: Int)
 internal data class WidgetDataAvailability(
     val hourlyAvailable: Boolean,
     val precipitationAvailable: Boolean,
@@ -189,6 +205,125 @@ internal fun widgetBackgroundMode(value: String?, legacyTheme: String?): WidgetB
 internal fun widgetAlignment(value: String?): WidgetAlignment = runCatching {
     WidgetAlignment.valueOf(value.orEmpty())
 }.getOrDefault(WidgetAlignment.LEFT)
+
+internal fun widgetFontStyle(value: String?): WidgetFontStyle = runCatching {
+    WidgetFontStyle.valueOf(value.orEmpty())
+}.getOrDefault(WidgetFontStyle.SYSTEM)
+
+internal fun widgetPresetSettings(preset: WidgetPreset, current: WidgetSettings): WidgetSettings = when (preset) {
+    WidgetPreset.MINIMAL -> current.copy(
+        backgroundMode = WidgetBackgroundMode.TRANSPARENT,
+        primaryColor = "#FFFFFFFF",
+        secondaryColor = "#CCFFFFFF",
+        accentColor = "#00FFFFFF",
+        opacity = 100,
+        textScale = 100,
+        fontStyle = WidgetFontStyle.LIGHT,
+        alignment = WidgetAlignment.LEFT,
+        showClock = true,
+        showDate = true,
+        showLocation = true,
+        showTemperature = true,
+        showIcon = false,
+        showCondition = false,
+        showRange = false,
+        showHourly = false,
+        showPrecipitation = false,
+        showWind = false,
+        showHumidity = false,
+        showDewPoint = false,
+        showPressure = false,
+        showVisibility = false,
+        showWindGusts = false,
+        showMoon = false,
+        showUpdatedAt = false,
+    )
+    WidgetPreset.MATERIAL -> current.copy(
+        backgroundMode = WidgetBackgroundMode.AUTOMATIC,
+        primaryColor = DEFAULT_PRIMARY_COLOR,
+        secondaryColor = DEFAULT_SECONDARY_COLOR,
+        accentColor = DEFAULT_ACCENT_COLOR,
+        opacity = 100,
+        textScale = 100,
+        fontStyle = WidgetFontStyle.MATERIAL,
+        alignment = WidgetAlignment.LEFT,
+        showClock = true,
+        showDate = true,
+        showLocation = true,
+        showTemperature = true,
+        showIcon = true,
+        showCondition = true,
+        showRange = true,
+        showHourly = true,
+        showPrecipitation = false,
+        showWind = false,
+        showHumidity = false,
+        showDewPoint = false,
+        showPressure = false,
+        showVisibility = false,
+        showWindGusts = false,
+        showMoon = false,
+        showUpdatedAt = false,
+    )
+    WidgetPreset.PIXEL -> current.copy(
+        backgroundMode = WidgetBackgroundMode.GRADIENT,
+        backgroundStart = "#101A31",
+        backgroundEnd = "#324E7A",
+        primaryColor = "#FFFFFFFF",
+        secondaryColor = "#D9FFFFFF",
+        accentColor = "#FF8AB4F8",
+        opacity = 100,
+        textScale = 100,
+        fontStyle = WidgetFontStyle.ROUNDED,
+        alignment = WidgetAlignment.LEFT,
+        showClock = true,
+        showDate = true,
+        showLocation = true,
+        showTemperature = true,
+        showIcon = true,
+        showCondition = true,
+        showRange = true,
+        showHourly = true,
+        showPrecipitation = true,
+        showWind = true,
+        showHumidity = true,
+        showDewPoint = false,
+        showPressure = false,
+        showVisibility = false,
+        showWindGusts = false,
+        showMoon = false,
+        showUpdatedAt = false,
+    )
+    WidgetPreset.CUPERTINO -> current.copy(
+        backgroundMode = WidgetBackgroundMode.GRADIENT,
+        backgroundStart = "#243B55",
+        backgroundEnd = "#576A8C",
+        primaryColor = "#FFFFFFFF",
+        secondaryColor = "#D9FFFFFF",
+        accentColor = "#80FFFFFF",
+        opacity = 92,
+        textScale = 105,
+        fontStyle = WidgetFontStyle.LIGHT,
+        alignment = WidgetAlignment.CENTER,
+        showClock = true,
+        showDate = true,
+        showLocation = true,
+        showTemperature = true,
+        showIcon = true,
+        showCondition = false,
+        showRange = true,
+        showHourly = false,
+        showPrecipitation = false,
+        showWind = false,
+        showHumidity = false,
+        showDewPoint = false,
+        showPressure = false,
+        showVisibility = false,
+        showWindGusts = false,
+        showMoon = false,
+        showUpdatedAt = false,
+    )
+}.normalized()
 
 internal fun migratedWidgetVisibility(
     newValue: Boolean?,
@@ -402,10 +537,22 @@ internal fun backgroundBitmapSize(width: Int, height: Int): WidgetBitmapSize {
     )
 }
 
-internal fun widgetAlignmentSpacers(alignment: WidgetAlignment): WidgetAlignmentSpacers = when (alignment) {
-    WidgetAlignment.LEFT -> WidgetAlignmentSpacers(showLeft = false, showRight = true)
-    WidgetAlignment.CENTER -> WidgetAlignmentSpacers(showLeft = true, showRight = true)
-    WidgetAlignment.RIGHT -> WidgetAlignmentSpacers(showLeft = true, showRight = false)
+internal fun widgetHostSize(minWidth: Int, minHeight: Int): WidgetHostSize = WidgetHostSize(
+    minWidth.coerceAtLeast(1),
+    minHeight.coerceAtLeast(1),
+)
+
+internal fun widgetTextGravity(alignment: WidgetAlignment): Int = when (alignment) {
+    WidgetAlignment.LEFT -> Gravity.START
+    WidgetAlignment.CENTER -> Gravity.CENTER_HORIZONTAL
+    WidgetAlignment.RIGHT -> Gravity.END
+}
+
+internal fun widgetTextAppearance(fontStyle: WidgetFontStyle): Int = when (fontStyle) {
+    WidgetFontStyle.SYSTEM -> R.style.WidgetText_System
+    WidgetFontStyle.MATERIAL -> R.style.WidgetText_Material
+    WidgetFontStyle.ROUNDED -> R.style.WidgetText_Rounded
+    WidgetFontStyle.LIGHT -> R.style.WidgetText_Light
 }
 
 private fun backgroundModeOrNull(value: String): WidgetBackgroundMode? = runCatching {

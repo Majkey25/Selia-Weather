@@ -1,0 +1,1 @@
+Se corrigió el recorte del icono en lanzadores de fabricantes, la ubicación aproximada y precisa y el cambio de tamaño del widget. Se añadieron los ajustes Minimal, Material, Pixel y Cupertino con estilos de fuente seleccionables.

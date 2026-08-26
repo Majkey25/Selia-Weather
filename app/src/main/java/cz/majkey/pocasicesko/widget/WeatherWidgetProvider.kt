@@ -9,7 +9,6 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
-import android.util.SizeF
 import android.util.TypedValue
 import android.view.View
 import android.widget.RemoteViews
@@ -30,7 +29,6 @@ import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.math.roundToInt
 
 class WeatherWidgetProvider : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -96,6 +94,17 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             R.id.widget_hour_1_temp,
             R.id.widget_hour_2_temp,
             R.id.widget_hour_3_temp,
+        )
+        private val ALIGNED_TEXT_IDS = intArrayOf(
+            R.id.widget_label,
+            R.id.widget_city,
+            R.id.widget_temperature,
+            R.id.widget_condition,
+            R.id.widget_high_low,
+            R.id.widget_clock,
+            R.id.widget_date,
+            R.id.widget_advanced,
+            R.id.widget_update_time,
         )
         private val primaryTextSizes = arrayOf(
             R.id.widget_temperature to 34f,
@@ -202,12 +211,8 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             val options = manager.getAppWidgetOptions(appWidgetId)
             val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, COMPACT_WIDTH_DP)
             val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, COMPACT_HEIGHT_DP)
-            @Suppress("DEPRECATION")
-            val currentSize = options.getParcelableArrayList<SizeF>(AppWidgetManager.OPTION_APPWIDGET_SIZES)
-                ?.firstOrNull()
-            val width = currentSize?.width?.roundToInt() ?: minWidth
-            val height = currentSize?.height?.roundToInt() ?: minHeight
-            val size = widgetSize(width, height)
+            val hostSize = widgetHostSize(minWidth, minHeight)
+            val size = widgetSize(hostSize.width, hostSize.height)
             val views = RemoteViews(localizedContext.packageName, R.layout.widget_adaptive)
 
             val city = weather.getString(WeatherRepository.KEY_WIDGET_CITY, null)
@@ -247,17 +252,8 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             )
             val primaryColor = android.graphics.Color.parseColor(settings.primaryColor)
             val secondaryColor = android.graphics.Color.parseColor(settings.secondaryColor)
-            val spacers = widgetAlignmentSpacers(settings.alignment)
 
             WidgetBackground.apply(localizedContext, views, settings, kind, isDay)
-            views.setViewVisibility(
-                R.id.widget_alignment_left,
-                if (spacers.showLeft) View.VISIBLE else View.GONE,
-            )
-            views.setViewVisibility(
-                R.id.widget_alignment_right,
-                if (spacers.showRight) View.VISIBLE else View.GONE,
-            )
             views.setTextViewText(
                 R.id.widget_temperature,
                 if (temperature.isNaN()) localizedContext.getString(R.string.widget_placeholder_temperature)
@@ -386,7 +382,14 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                 views.setTextViewText(id, value)
                 views.setTextColor(id, primaryColor)
             }
-            applyTextStyle(views, settings.textScale, primaryColor, secondaryColor)
+            applyTextStyle(
+                views,
+                settings.textScale,
+                settings.fontStyle,
+                settings.alignment,
+                primaryColor,
+                secondaryColor,
+            )
 
             val openApp = Intent(context, MainActivity::class.java)
             val pendingIntent = PendingIntent.getActivity(
@@ -450,6 +453,9 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                     .orEmpty(),
                 opacity = preferences.getInt(widgetPreferenceKey(appWidgetId, "opacity"), 100),
                 textScale = preferences.getInt(widgetPreferenceKey(appWidgetId, "text_scale"), 100),
+                fontStyle = widgetFontStyle(
+                    preferences.getString(widgetPreferenceKey(appWidgetId, "font_style"), null),
+                ),
                 alignment = widgetAlignment(preferences.getString(widgetPreferenceKey(appWidgetId, "alignment"), null)),
                 customLabel = preferences.getString(widgetPreferenceKey(appWidgetId, "label"), "").orEmpty(),
                 imageUri = preferences.getString(widgetPreferenceKey(appWidgetId, "image_uri"), "").orEmpty(),
@@ -487,6 +493,7 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                 .putString(widgetPreferenceKey(appWidgetId, "accent_color"), normalized.accentColor)
                 .putInt(widgetPreferenceKey(appWidgetId, "opacity"), normalized.opacity)
                 .putInt(widgetPreferenceKey(appWidgetId, "text_scale"), normalized.textScale)
+                .putString(widgetPreferenceKey(appWidgetId, "font_style"), normalized.fontStyle.name)
                 .putString(widgetPreferenceKey(appWidgetId, "alignment"), normalized.alignment.name)
                 .putString(widgetPreferenceKey(appWidgetId, "label"), normalized.customLabel)
                 .putString(imageKey, normalized.imageUri)
@@ -551,9 +558,15 @@ class WeatherWidgetProvider : AppWidgetProvider() {
         private fun applyTextStyle(
             views: RemoteViews,
             textScale: Int,
+            fontStyle: WidgetFontStyle,
+            alignment: WidgetAlignment,
             primaryColor: Int,
             secondaryColor: Int,
         ) {
+            val appearance = widgetTextAppearance(fontStyle = fontStyle)
+            (primaryTextSizes + secondaryTextSizes).forEach { (id, _) ->
+                views.setInt(id, "setTextAppearance", appearance)
+            }
             primaryTextSizes.forEach { (id, size) ->
                 views.setTextViewTextSize(id, TypedValue.COMPLEX_UNIT_SP, size * textScale / 100f)
                 views.setTextColor(id, primaryColor)
@@ -562,6 +575,8 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                 views.setTextViewTextSize(id, TypedValue.COMPLEX_UNIT_SP, size * textScale / 100f)
                 views.setTextColor(id, secondaryColor)
             }
+            val gravity = widgetTextGravity(alignment)
+            ALIGNED_TEXT_IDS.forEach { id -> views.setInt(id, "setGravity", gravity) }
         }
 
         private fun iconFor(kind: WeatherKind, isDay: Boolean): Int = when (kind) {

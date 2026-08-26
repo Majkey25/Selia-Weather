@@ -1,0 +1,1 @@
+Fixed launcher icon cropping on OEM home screens. Fixed approximate and precise location fallback. Fixed widget resizing and added Minimal, Material, Pixel, and Cupertino presets with selectable font styles. Unsafe model blends remain disabled unless they pass the locked Czech holdout.

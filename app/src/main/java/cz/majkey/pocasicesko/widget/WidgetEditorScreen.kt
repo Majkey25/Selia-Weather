@@ -21,9 +21,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -116,6 +116,21 @@ internal fun WidgetEditorScreen(
                 WidgetPreview(settings, previewSize)
             }
             item {
+                EditorSection(stringResource(R.string.widget_editor_presets)) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        WidgetPreset.entries.forEach { preset ->
+                            AssistChip(
+                                onClick = { settings = widgetPresetSettings(preset, settings) },
+                                label = { Text(stringResource(preset.labelResource())) },
+                            )
+                        }
+                    }
+                }
+            }
+            item {
                 EditorSection(stringResource(R.string.widget_editor_background)) {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         WidgetBackgroundMode.entries.forEach { mode ->
@@ -169,6 +184,22 @@ internal fun WidgetEditorScreen(
                         value = settings.textScale,
                         range = 80..140,
                     ) { settings = settings.copy(textScale = it) }
+                    Text(
+                        stringResource(R.string.widget_font),
+                        fontWeight = FontWeight.Medium,
+                    )
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        WidgetFontStyle.entries.forEach { fontStyle ->
+                            FilterChip(
+                                selected = settings.fontStyle == fontStyle,
+                                onClick = { settings = settings.copy(fontStyle = fontStyle) },
+                                label = { Text(stringResource(fontStyle.labelResource())) },
+                            )
+                        }
+                    }
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         WidgetAlignment.entries.forEach { alignment ->
                             FilterChip(
@@ -324,7 +355,6 @@ private fun WidgetPreview(settings: WidgetSettings, size: WidgetSize) {
     val primary = androidx.compose.ui.graphics.Color(AndroidColor.parseColor(normalized.primaryColor))
     val secondary = androidx.compose.ui.graphics.Color(AndroidColor.parseColor(normalized.secondaryColor))
     val accent = androidx.compose.ui.graphics.Color(AndroidColor.parseColor(normalized.accentColor))
-    val spacers = widgetAlignmentSpacers(normalized.alignment)
     val scale = normalized.textScale / 100f * when (size) {
         WidgetSize.COMPACT -> 0.78f
         WidgetSize.STANDARD -> 0.9f
@@ -349,9 +379,8 @@ private fun WidgetPreview(settings: WidgetSettings, size: WidgetSize) {
             modifier = Modifier.matchParentSize(),
         )
         Row(Modifier.fillMaxSize()) {
-            if (spacers.showLeft) Spacer(Modifier.weight(1f))
             Column(
-                modifier = Modifier.fillMaxHeight().widthIn(min = 110.dp).padding(12.dp),
+                modifier = Modifier.fillMaxHeight().fillMaxWidth().padding(12.dp),
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth().weight(1f),
@@ -413,7 +442,6 @@ private fun WidgetPreview(settings: WidgetSettings, size: WidgetSize) {
                     textAlign = TextAlign.End,
                 )
             }
-            if (spacers.showRight) Spacer(Modifier.weight(1f))
         }
     }
 }
@@ -449,6 +477,7 @@ private val WidgetSettingsSaver = listSaver<WidgetSettings, Any>(
             settings.showVisibility,
             settings.showWindGusts,
             settings.showMoon,
+            settings.fontStyle.name,
         )
     },
     restore = { values ->
@@ -481,6 +510,7 @@ private val WidgetSettingsSaver = listSaver<WidgetSettings, Any>(
             showVisibility = values.getOrNull(25) as? Boolean ?: false,
             showWindGusts = values.getOrNull(26) as? Boolean ?: false,
             showMoon = values.getOrNull(27) as? Boolean ?: false,
+            fontStyle = widgetFontStyle(values.getOrNull(28) as? String),
         ).normalized()
     },
 )
@@ -556,6 +586,20 @@ private fun WidgetAlignment.labelResource(): Int = when (this) {
     WidgetAlignment.LEFT -> R.string.widget_alignment_left
     WidgetAlignment.CENTER -> R.string.widget_alignment_center
     WidgetAlignment.RIGHT -> R.string.widget_alignment_right
+}
+
+private fun WidgetPreset.labelResource(): Int = when (this) {
+    WidgetPreset.MINIMAL -> R.string.widget_preset_minimal
+    WidgetPreset.MATERIAL -> R.string.widget_preset_material
+    WidgetPreset.PIXEL -> R.string.widget_preset_pixel
+    WidgetPreset.CUPERTINO -> R.string.widget_preset_cupertino
+}
+
+private fun WidgetFontStyle.labelResource(): Int = when (this) {
+    WidgetFontStyle.SYSTEM -> R.string.widget_font_system
+    WidgetFontStyle.MATERIAL -> R.string.widget_font_material
+    WidgetFontStyle.ROUNDED -> R.string.widget_font_rounded
+    WidgetFontStyle.LIGHT -> R.string.widget_font_light
 }
 
 private fun WidgetSize.labelResource(): Int = when (this) {

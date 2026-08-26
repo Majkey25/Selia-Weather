@@ -1,0 +1,1 @@
+Lightning now stays visibly enabled over rain and cloud radar layers.

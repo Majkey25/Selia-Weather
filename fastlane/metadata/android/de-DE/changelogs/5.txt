@@ -1,0 +1,1 @@
+Die App heißt jetzt Selia Weather und verwendet auf dem Startbildschirm den kurzen Namen Selia Wx. Die Schaltflächen für einmaliges und monatliches Premium bleiben beim Laden der Google-Play-Preise sichtbar.

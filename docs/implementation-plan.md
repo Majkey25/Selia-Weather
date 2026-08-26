@@ -1,6 +1,6 @@
 # Implementation reference
 
-This document records the shipped structure of ALADIN weather. It is not a release checklist.
+This document records the shipped structure of Selia Weather. It is not a release checklist.
 
 ## App foundation
 

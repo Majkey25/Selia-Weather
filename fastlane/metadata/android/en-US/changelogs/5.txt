@@ -1,0 +1,1 @@
+Renamed the app to Selia Weather with the short Selia Wx launcher label. One-time and monthly Premium buttons now remain visible while Google Play pricing loads.

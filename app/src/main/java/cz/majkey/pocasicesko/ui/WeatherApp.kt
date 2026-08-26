@@ -217,7 +217,6 @@ fun WeatherApp(
                     entitlement = entitlement,
                     premiumOffers = premiumOffers,
                     billingMessage = billingMessage,
-                    monetizationAvailable = BuildConfig.MONETIZATION_CONFIGURED,
                     privacyOptionsRequired = privacyOptionsRequired,
                     onLanguage = onLanguage,
                     onMeasurementSystem = { selected ->

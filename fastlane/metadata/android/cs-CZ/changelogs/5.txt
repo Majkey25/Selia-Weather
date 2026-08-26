@@ -1,0 +1,1 @@
+Aplikace se nově jmenuje Selia Weather a na ploše používá krátký název Selia Wx. Tlačítka pro jednorázové i měsíční Premium zůstávají viditelná při načítání cen Google Play.

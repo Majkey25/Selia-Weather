@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.0-beta.4] - 2026-08-26
+
+- Renamed the Play listing to Selia Weather and shortened the launcher label to Selia Wx.
+- Always show separate one-time and monthly Premium buttons, even while Google Play pricing is loading.
+- Decoupled Play Billing from AdMob configuration while keeping advertising disabled without production IDs.
+
 ## [0.2.0-beta.3] - 2026-08-26
 
 - Kept the complete launcher artwork inside the Android adaptive-icon safe zone on OEM launchers.

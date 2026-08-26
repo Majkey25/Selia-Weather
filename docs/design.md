@@ -2,7 +2,7 @@
 
 ## Purpose
 
-ALADIN weather answers a practical question for people in Czechia: what will the weather do in my place today and over the next days? The app keeps the first screen focused on current conditions, the 20-hour outlook, and the 14-day forecast. Search, favourites, current location, radar, and the widget remain one action away.
+Selia Weather answers a practical question for people in Czechia: what will the weather do in my place today and over the next days? The app keeps the first screen focused on current conditions, the 20-hour outlook, and the 14-day forecast. Search, favourites, current location, radar, and the widget remain one action away.
 
 ## Data
 
@@ -12,7 +12,7 @@ ALADIN weather answers a practical question for people in Czechia: what will the
 - ČHMÚ provides rain radar, nowcast, lightning, and satellite cloud imagery.
 - The app stores the last successful forecast locally for offline display and widgets.
 
-ALADIN weather identifies these providers but is not affiliated with them.
+Selia Weather identifies these providers but is not affiliated with them.
 
 ## Information structure
 

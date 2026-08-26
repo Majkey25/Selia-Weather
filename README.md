@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="fastlane/metadata/android/en-US/images/icon.png" width="96" alt="ALADIN weather icon">
+  <img src="fastlane/metadata/android/en-US/images/icon.png" width="96" alt="Selia Weather icon">
 </p>
 
-<h1 align="center">ALADIN weather</h1>
+<h1 align="center">Selia Weather</h1>
 
 <p align="center">A focused Android weather app for Czechia with ALADIN forecasts, ČHMÚ radar, and an adaptive widget.</p>
 
@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/01-weather.png" width="240" alt="ALADIN weather forecast">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/01-weather.png" width="240" alt="Selia Weather forecast">
   &nbsp;&nbsp;
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/03-radar.png" width="240" alt="ČHMÚ radar with controls">
   &nbsp;&nbsp;
@@ -41,11 +41,11 @@ The first three days use Open-Meteo `chmi_aladin_seamless`. In Czechia, this pro
 - [ČHMÚ radar](https://produkty.chmi.cz/radar/)
 - [ČHMÚ satellite data](https://opendata.chmi.cz/meteorology/weather/satellite/geo/vis-ir/)
 
-ALADIN weather is not an official ČHMÚ or Open-Meteo app. Each provider remains identified in the app.
+Selia Weather is not an official ČHMÚ or Open-Meteo app. Each provider remains identified in the app.
 
 ## Language and requirements
 
-ALADIN weather supports Android 10 and later. It follows the Android system language by default. English is the fallback for unsupported system languages. You can select English, Czech, German, Spanish, or French in the app.
+Selia Weather supports Android 10 and later. It follows the Android system language by default. English is the fallback for unsupported system languages. You can select English, Czech, German, Spanish, or French in the app.
 
 The public application ID is `com.majkeylab.weatheraladin`. A network connection is required for fresh forecasts, search, and radar. Build locally with JDK 17 and Android SDK 36.
 
@@ -79,7 +79,7 @@ The app has no developer account or separate analytics SDK. It keeps the selecte
 
 ## Status
 
-`v0.2.0-beta.3` fixes OEM launcher icon cropping, location-provider fallback, and widget resizing while keeping the public package `com.majkeylab.weatheraladin`. It does not update installations of earlier beta packages that used another application ID. GitHub prereleases are for testing. Google Play uses a separate private upload key and Play App Signing.
+`v0.2.0-beta.4` uses the store identity Selia Weather and the short launcher label Selia Wx. It keeps the public package `com.majkeylab.weatheraladin`, so existing Play installations update normally. GitHub prereleases are for testing. Google Play uses a separate private upload key and Play App Signing.
 
 ## License
 

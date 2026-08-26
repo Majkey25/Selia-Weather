@@ -37,6 +37,7 @@ import cz.majkey.pocasicesko.monetization.BillingMessage
 import cz.majkey.pocasicesko.monetization.EntitlementState
 import cz.majkey.pocasicesko.monetization.PremiumOffer
 import cz.majkey.pocasicesko.monetization.PremiumOfferType
+import cz.majkey.pocasicesko.monetization.premiumOfferButtons
 import cz.majkey.pocasicesko.units.MeasurementSystem
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -47,7 +48,6 @@ fun SettingsSheet(
     entitlement: EntitlementState,
     premiumOffers: List<PremiumOffer>,
     billingMessage: BillingMessage,
-    monetizationAvailable: Boolean,
     privacyOptionsRequired: Boolean,
     onLanguage: (String) -> Unit,
     onMeasurementSystem: (MeasurementSystem) -> Unit,
@@ -110,88 +110,88 @@ fun SettingsSheet(
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                 )
             }
-            if (monetizationAvailable) {
-                Text(
-                    text = stringResource(R.string.premium),
-                    color = Color.White.copy(alpha = 0.58f),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+            Text(
+                text = stringResource(R.string.premium),
+                color = Color.White.copy(alpha = 0.58f),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+            )
+            if (entitlement == EntitlementState.PREMIUM) {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.premium_active)) },
+                    supportingContent = { Text(stringResource(R.string.premium_active_summary)) },
+                    trailingContent = { Icon(Icons.Rounded.Check, contentDescription = null) },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                 )
-                if (entitlement == EntitlementState.PREMIUM) {
-                    ListItem(
-                        headlineContent = { Text(stringResource(R.string.premium_active)) },
-                        supportingContent = { Text(stringResource(R.string.premium_active_summary)) },
-                        trailingContent = { Icon(Icons.Rounded.Check, contentDescription = null) },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                    )
-                } else {
-                    Text(
-                        text = stringResource(R.string.premium_summary),
-                        color = Color.White.copy(alpha = 0.68f),
-                        fontSize = 13.sp,
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
-                    )
-                    premiumOffers.forEach { offer ->
-                        OutlinedButton(
-                            onClick = {
-                                onClearBillingMessage()
-                                onPurchase(offer.type)
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 20.dp, vertical = 4.dp)
-                                .heightIn(min = 52.dp),
-                        ) {
-                            Text(
-                                "${stringResource(offer.type.labelResource())} · ${offer.price}",
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                        }
+            } else {
+                Text(
+                    text = stringResource(R.string.premium_summary),
+                    color = Color.White.copy(alpha = 0.68f),
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+                )
+                premiumOfferButtons(premiumOffers).forEach { (type, price) ->
+                    val label = stringResource(type.labelResource())
+                    OutlinedButton(
+                        onClick = {
+                            onClearBillingMessage()
+                            onPurchase(type)
+                        },
+                        enabled = price != null,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 4.dp)
+                            .heightIn(min = 52.dp),
+                    ) {
+                        Text(
+                            price?.let { "$label · $it" } ?: label,
+                            fontWeight = FontWeight.SemiBold,
+                        )
                     }
                 }
+            }
+            OutlinedButton(
+                onClick = {
+                    onClearBillingMessage()
+                    onRestorePurchases()
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 4.dp)
+                    .heightIn(min = 48.dp),
+            ) {
+                Text(stringResource(R.string.restore_purchases))
+            }
+            if (privacyOptionsRequired) {
                 OutlinedButton(
-                    onClick = {
-                        onClearBillingMessage()
-                        onRestorePurchases()
-                    },
+                    onClick = onPrivacyOptions,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp, vertical = 4.dp)
                         .heightIn(min = 48.dp),
                 ) {
-                    Text(stringResource(R.string.restore_purchases))
+                    Text(stringResource(R.string.privacy_choices))
                 }
-                if (privacyOptionsRequired) {
-                    OutlinedButton(
-                        onClick = onPrivacyOptions,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 4.dp)
-                            .heightIn(min = 48.dp),
-                    ) {
-                        Text(stringResource(R.string.privacy_choices))
-                    }
-                }
-                if (billingMessage != BillingMessage.NONE) {
-                    Text(
-                        text = stringResource(billingMessage.labelResource()),
-                        color = if (billingMessage == BillingMessage.COMPLETE) {
-                            Color(0xFF83D6E8)
-                        } else {
-                            Color.White.copy(alpha = 0.68f)
-                        },
-                        fontSize = 12.sp,
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
-                    )
-                } else if (entitlement == EntitlementState.CHECKING) {
-                    Text(
-                        text = stringResource(R.string.billing_checking),
-                        color = Color.White.copy(alpha = 0.68f),
-                        fontSize = 12.sp,
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
-                    )
-                }
+            }
+            if (billingMessage != BillingMessage.NONE) {
+                Text(
+                    text = stringResource(billingMessage.labelResource()),
+                    color = if (billingMessage == BillingMessage.COMPLETE) {
+                        Color(0xFF83D6E8)
+                    } else {
+                        Color.White.copy(alpha = 0.68f)
+                    },
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                )
+            } else if (entitlement == EntitlementState.CHECKING) {
+                Text(
+                    text = stringResource(R.string.billing_checking),
+                    color = Color.White.copy(alpha = 0.68f),
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                )
             }
             Text(
                 text = stringResource(R.string.about),

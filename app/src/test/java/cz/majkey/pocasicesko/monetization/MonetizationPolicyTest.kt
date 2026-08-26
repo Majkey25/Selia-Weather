@@ -1,7 +1,7 @@
 package cz.majkey.pocasicesko.monetization
 
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -45,5 +45,19 @@ class MonetizationPolicyTest {
         assertTrue(shouldReportUnavailableCatalog(EntitlementState.FREE, offerCount = 0))
         assertFalse(shouldReportUnavailableCatalog(EntitlementState.PREMIUM, offerCount = 0))
         assertFalse(shouldReportUnavailableCatalog(EntitlementState.FREE, offerCount = 1))
+    }
+
+    @Test
+    fun bothPremiumButtonsExistBeforePlayCatalogLoads() {
+        assertEquals(
+            listOf(PremiumOfferType.LIFETIME to null, PremiumOfferType.MONTHLY to null),
+            premiumOfferButtons(emptyList()),
+        )
+        assertEquals(
+            listOf(PremiumOfferType.LIFETIME to "CZK 99.00", PremiumOfferType.MONTHLY to null),
+            premiumOfferButtons(
+                listOf(PremiumOffer(PremiumOfferType.LIFETIME, "CZK 99.00")),
+            ),
+        )
     }
 }

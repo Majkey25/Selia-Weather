@@ -1,0 +1,1 @@
+L’app s’appelle désormais Selia Weather et utilise le nom court Selia Wx sur l’écran d’accueil. Les boutons Premium mensuel et achat unique restent visibles pendant le chargement des prix.

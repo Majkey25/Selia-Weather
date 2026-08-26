@@ -8,6 +8,23 @@ import javax.xml.parsers.DocumentBuilderFactory
 
 class LauncherIconTest {
     @Test
+    fun launcherLabelStaysShortInEveryAppLocale() {
+        val root = File(System.getProperty("user.dir"), "src/main/res")
+        val factory = DocumentBuilderFactory.newInstance()
+        for (directory in listOf("values", "values-cs", "values-de", "values-es", "values-fr")) {
+            val document = factory.newDocumentBuilder().parse(File(root, "$directory/strings.xml"))
+            val strings = document.getElementsByTagName("string")
+            val label = (0 until strings.length)
+                .map { strings.item(it) }
+                .single { it.attributes.getNamedItem("name").nodeValue == "app_name" }
+                .textContent
+
+            assertEquals("Selia Wx", label)
+            assertTrue(label.length <= 10)
+        }
+    }
+
+    @Test
     fun adaptiveForegroundStaysInsideOemSafeZone() {
         val safeForeground = File(
             System.getProperty("user.dir"),

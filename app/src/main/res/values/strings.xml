@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">ALADIN weather</string>
+    <string name="app_name">Selia Wx</string>
     <string name="widget_description">Time and weather for the selected Czech city</string>
     <string name="weather_icon">Weather icon</string>
     <string name="widget_placeholder_city">Open the app</string>
@@ -154,8 +154,8 @@
     <string name="premium_summary">Remove ads forever with one purchase, or choose monthly Premium. Monthly Premium renews until cancelled.</string>
     <string name="premium_active">Premium active</string>
     <string name="premium_active_summary">Ads are removed for this Google Play account.</string>
-    <string name="premium_lifetime">Remove ads forever</string>
-    <string name="premium_monthly">Monthly Premium</string>
+    <string name="premium_lifetime">Buy Premium once</string>
+    <string name="premium_monthly">Buy Premium monthly</string>
     <string name="restore_purchases">Restore purchases</string>
     <string name="privacy_choices">Privacy choices</string>
     <string name="billing_checking">Checking Google Play…</string>

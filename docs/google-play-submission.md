@@ -1,6 +1,7 @@
 # Google Play submission reference
 
-- App name: `ALADIN weather`
+- Store name: `Selia Weather: Czech Forecast`
+- Launcher name: `Selia Wx`
 - Package: `com.majkeylab.weatheraladin`
 - Default language: English (`en-US`)
 - Category: Weather

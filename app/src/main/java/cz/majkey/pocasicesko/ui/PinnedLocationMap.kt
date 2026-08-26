@@ -119,4 +119,4 @@ private fun downloadLocationMap(): Bitmap {
 
 private const val MAP_URL = "https://produkty.chmi.cz/radar/und/pacz2gmaps6.und3.png"
 private val USER_AGENT =
-    "ALADIN-weather/${BuildConfig.VERSION_NAME} (Android; https://github.com/Majkey25/ALADIN-weather)"
+    "Selia-Weather/${BuildConfig.VERSION_NAME} (Android; https://github.com/Majkey25/Selia-Weather)"

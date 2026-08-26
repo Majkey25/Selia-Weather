@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import cast
 from urllib.request import Request
@@ -12,12 +12,17 @@ import pytest
 from aladin_ensemble.sources.open_meteo_runs import (
     SINGLE_RUNS_URL,
     CachedDownloader,
+    ForecastPoint,
     HttpResponse,
     IssuedRunRequest,
+    PreviousRunsRequest,
+    build_previous_runs_batch_url,
     build_previous_runs_url,
     build_single_run_url,
     estimate_download_budget,
+    estimate_previous_runs_budget,
     parse_forecast_values,
+    parse_previous_run_values,
     sanitize_request_parameters,
 )
 
@@ -226,3 +231,201 @@ def test_manifest_parameters_redact_future_credentials() -> None:
     assert sanitize_request_parameters(
         (("latitude", "50.0"), ("token", "secret"), ("API_KEY", "secret"))
     ) == (("API_KEY", "[redacted]"), ("latitude", "50.0"), ("token", "[redacted]"))
+
+
+def _previous_request(*, lead_days: int = 2) -> PreviousRunsRequest:
+    return PreviousRunsRequest(
+        model_id="dwd_icon_eu",
+        points=(
+            ForecastPoint("prague", 50.0755, 14.4378),
+            ForecastPoint("brno", 49.1951, 16.6068),
+        ),
+        variables=("temperature_2m", "precipitation"),
+        start_date=date(2026, 7, 1),
+        end_date=date(2026, 7, 1),
+        lead_days=lead_days,
+    )
+
+
+def _previous_payload() -> bytes:
+    times = [
+        int(datetime(2026, 7, 1, 0, tzinfo=UTC).timestamp()),
+        int(datetime(2026, 7, 1, 1, tzinfo=UTC).timestamp()),
+    ]
+    rows = []
+    for latitude, longitude, elevation, temperatures, precipitation in (
+        (50.08, 14.44, 240.0, [18.0, 19.0], [0.0, 0.2]),
+        (49.20, 16.61, 250.0, [17.0, 18.0], [0.1, None]),
+    ):
+        rows.append(
+            {
+                "latitude": latitude,
+                "longitude": longitude,
+                "elevation": elevation,
+                "hourly_units": {
+                    "time": "unixtime",
+                    "temperature_2m_previous_day2": "°C",
+                    "precipitation_previous_day2": "mm",
+                },
+                "hourly": {
+                    "time": times,
+                    "temperature_2m_previous_day2": temperatures,
+                    "precipitation_previous_day2": precipitation,
+                },
+            }
+        )
+    return json.dumps(rows).encode()
+
+
+def test_previous_runs_batches_czech_points_and_preserves_fixed_lead() -> None:
+    request = _previous_request()
+
+    url, parameters = build_previous_runs_batch_url(request)
+    values = parse_previous_run_values(_previous_payload(), request)
+
+    assert "latitude=50.0755%2C49.1951" in url
+    assert "longitude=14.4378%2C16.6068" in url
+    assert ("models", "dwd_icon_eu") in parameters
+    assert ("hourly", "temperature_2m_previous_day2,precipitation_previous_day2") in parameters
+    assert len(values) == 8
+    assert values[0].requested_point_id == "prague"
+    assert values[0].valid_time == datetime(2026, 7, 1, 0, tzinfo=UTC)
+    assert values[0].run_time == datetime(2026, 6, 29, 0, tzinfo=UTC)
+    assert values[-1].requested_point_id == "brno"
+    assert values[-1].value is None
+
+
+def test_previous_runs_treats_nonphysical_negative_precipitation_as_missing() -> None:
+    payload = cast(list[dict[str, object]], json.loads(_previous_payload()))
+    hourly = cast(dict[str, object], payload[0]["hourly"])
+    hourly["precipitation_previous_day2"] = [-0.2, 0.2]
+
+    values = parse_previous_run_values(json.dumps(payload).encode(), _previous_request())
+    rain = [
+        value
+        for value in values
+        if value.requested_point_id == "prague" and value.variable == "precipitation"
+    ]
+
+    assert [value.value for value in rain] == [None, 0.2]
+
+
+def test_previous_runs_rejects_invalid_boundaries_and_response_shape() -> None:
+    with pytest.raises(ValueError, match="unique"):
+        PreviousRunsRequest(
+            "dwd_icon_eu",
+            (ForecastPoint("prague", 50.0, 14.0), ForecastPoint("prague", 49.0, 16.0)),
+            ("temperature_2m",),
+            date(2026, 7, 1),
+            date(2026, 7, 2),
+            1,
+        )
+    with pytest.raises(ValueError, match="lead_days"):
+        _previous_request(lead_days=0)
+    with pytest.raises(ValueError, match="row count"):
+        parse_previous_run_values(
+            json.dumps(json.loads(_previous_payload())[:1]).encode(),
+            _previous_request(),
+        )
+
+    outside = cast(list[dict[str, object]], json.loads(_previous_payload()))
+    hourly = cast(dict[str, object], outside[0]["hourly"])
+    hourly["time"] = [
+        int(datetime(2026, 6, 30, 23, tzinfo=UTC).timestamp()),
+        int(datetime(2026, 7, 1, 0, tzinfo=UTC).timestamp()),
+    ]
+    with pytest.raises(ValueError, match="date range"):
+        parse_previous_run_values(json.dumps(outside).encode(), _previous_request())
+
+
+def test_previous_parser_filters_hours_before_materializing_rows() -> None:
+    values = parse_previous_run_values(
+        _previous_payload(),
+        _previous_request(),
+        sample_hours=(1,),
+    )
+
+    assert len(values) == 4
+    assert {value.valid_time.hour for value in values} == {1}
+    with pytest.raises(ValueError, match="sample_hours"):
+        parse_previous_run_values(_previous_payload(), _previous_request(), sample_hours=())
+
+
+def test_previous_runs_budget_counts_batched_requests_not_points() -> None:
+    requests = (_previous_request(lead_days=1), _previous_request(lead_days=2))
+
+    budget = estimate_previous_runs_budget(requests, provider_limit=10)
+
+    assert budget.candidate_count == 1
+    assert budget.location_count == 2
+    assert budget.expected_http_requests == 2
+    budget.require_within_limit()
+    with pytest.raises(ValueError, match="reaches"):
+        estimate_previous_runs_budget(requests, provider_limit=2).require_within_limit()
+
+
+def test_downloader_caches_batched_previous_runs(tmp_path: Path) -> None:
+    body = _previous_payload()
+    calls: list[Request] = []
+
+    def fetch(request: Request) -> HttpResponse:
+        calls.append(request)
+        if len(calls) == 1:
+            return HttpResponse(200, {"ETag": '"previous"'}, body)
+        return HttpResponse(304, {}, b"")
+
+    downloader = CachedDownloader(tmp_path, fetch=fetch, now=lambda: RUN_TIME)
+
+    first = downloader.download_previous(_previous_request())
+    second = downloader.download_previous(_previous_request())
+
+    assert first.path.read_bytes() == body
+    assert second.path == first.path
+    assert first.manifest.run_time is None
+    assert first.manifest.request_endpoint is not None
+    assert first.manifest.request_endpoint.startswith("https://previous-runs-api.open-meteo.com")
+    assert calls[1].get_header("If-none-match") == '"previous"'
+
+
+def test_previous_downloader_retries_only_operational_failure(tmp_path: Path) -> None:
+    calls = 0
+
+    def transient(_: Request) -> HttpResponse:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise RuntimeError("request failed: reset")
+        return HttpResponse(200, {}, _previous_payload())
+
+    downloader = CachedDownloader(
+        tmp_path,
+        fetch=transient,
+        now=lambda: RUN_TIME,
+        retry_delay_seconds=0,
+    )
+
+    response = downloader.download_previous(_previous_request())
+
+    assert response.path.is_file()
+    assert calls == 2
+
+
+def test_previous_downloader_reads_verified_archive_cache_offline(tmp_path: Path) -> None:
+    request = _previous_request()
+    downloader = CachedDownloader(
+        tmp_path,
+        fetch=lambda _: HttpResponse(200, {}, _previous_payload()),
+        now=lambda: RUN_TIME,
+    )
+    downloaded = downloader.download_previous(request)
+    offline = CachedDownloader(
+        tmp_path,
+        fetch=lambda _: (_ for _ in ()).throw(RuntimeError("network must not run")),
+        now=lambda: RUN_TIME,
+    )
+
+    cached = offline.cached_previous(request)
+
+    assert cached is not None
+    assert cached.path == downloaded.path
+    assert cached.checksum_sha256 == downloaded.checksum_sha256

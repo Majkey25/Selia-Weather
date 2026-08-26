@@ -48,12 +48,22 @@ def align_station_forecasts(
     indexed = _index_observations(observations)
     aligned: list[AlignedForecast] = []
     for forecast in forecasts:
-        matches = indexed.get((forecast.valid_time, forecast.variable), ())
+        matches = tuple(
+            observation
+            for variable in _station_variables(forecast.variable)
+            for observation in indexed.get((forecast.valid_time, variable), ())
+        )
         matches = tuple(
             observation
             for observation in matches
             if _compatible_observation(forecast.variable, observation)
         )
+        if forecast.requested_point_id is not None:
+            matches = tuple(
+                observation
+                for observation in matches
+                if observation.station_id == forecast.requested_point_id
+            )
         if not matches:
             continue
         observation = min(
@@ -175,6 +185,16 @@ def _compatible_observation(variable: str, observation: Observation) -> bool:
     if variable == "precipitation":
         return observation.accumulation == "interval" and observation.interval == timedelta(hours=1)
     return observation.accumulation == "instant" and observation.interval is None
+
+
+def _station_variables(variable: str) -> tuple[str, ...]:
+    station_variable = {
+        "temperature": "temperature_2m",
+        "dew_point": "dew_point_2m",
+        "wind_speed": "wind_speed_10m",
+        "wind_direction": "wind_direction_10m",
+    }.get(variable, variable)
+    return (station_variable,) if station_variable == variable else (station_variable, variable)
 
 
 def _distance_km(

@@ -23,6 +23,7 @@ class Station:
     latitude: float
     longitude: float
     elevation_m: float
+    begin_time: datetime | None = None
 
     def __post_init__(self) -> None:
         if not self.wigos_id or not self.name:
@@ -38,6 +39,11 @@ class Station:
             raise ValueError("station coordinates are outside WGS84 range")
         if not -500 <= self.elevation_m <= 10_000:
             raise ValueError("station elevation is outside supported range")
+        if self.begin_time is not None and (
+            self.begin_time.tzinfo is None
+            or self.begin_time.utcoffset() != UTC.utcoffset(self.begin_time)
+        ):
+            raise ValueError("station begin_time must be timezone-aware UTC")
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,7 +52,7 @@ class ElementMetadata:
     wigos_id: str
     element: str
     unit: str
-    height_m: float
+    height_m: float | None
     schedule: str
 
 
@@ -95,7 +101,7 @@ class _JsonStream:
 
     def value(self) -> object:
         while True:
-            self._buffer = self._buffer.lstrip(" \t\r\n:")
+            self._buffer = self._buffer.lstrip(" \t\r\n:,")
             try:
                 value, end = self._decoder.raw_decode(self._buffer)
             except json.JSONDecodeError:
@@ -116,6 +122,9 @@ class _JsonStream:
         self._buffer = self._buffer[1:]
         while True:
             self._buffer = self._buffer.lstrip(" \t\r\n,")
+            while not self._buffer and not self._ended:
+                self._read()
+                self._buffer = self._buffer.lstrip(" \t\r\n,")
             if self._buffer.startswith("]"):
                 return
             row = self.value()
@@ -161,6 +170,24 @@ def _number(value: object, field_name: str) -> float:
     return float(value)
 
 
+def _metadata_number(value: object, field_name: str) -> float | None:
+    if value == "" or value is None:
+        return None
+    if isinstance(value, str):
+        try:
+            value = float(value)
+        except ValueError as error:
+            raise ValueError(f"{field_name} must be finite") from error
+    return _number(value, field_name)
+
+
+def _required_metadata_number(value: object, field_name: str) -> float:
+    parsed = _metadata_number(value, field_name)
+    if parsed is None:
+        raise ValueError(f"{field_name} must be finite")
+    return parsed
+
+
 def _row_values(row: list[object], fields: tuple[str, ...]) -> dict[str, object]:
     if len(row) != len(fields):
         raise ValueError("ČHMÚ JSON row length does not match header")
@@ -172,19 +199,40 @@ def parse_station_metadata(source: TextIO) -> Iterator[Station]:
     required = ("WSI", "FULL_NAME", "GEOGR1", "GEOGR2", "ELEVATION")
     if any(field not in fields for field in required):
         raise ValueError("ČHMÚ station metadata columns are incomplete")
+    latest: dict[str, Station] = {}
     for row in rows:
         values = _row_values(row, fields)
+        if any(values[field] in ("", None) for field in ("GEOGR1", "GEOGR2", "ELEVATION")):
+            continue
         wigos_id = values["WSI"]
         name = values["FULL_NAME"]
         if not isinstance(wigos_id, str) or not isinstance(name, str):
             raise ValueError("ČHMÚ station identity is invalid")
-        yield Station(
+        begin_time = (
+            _timestamp(values["BEGIN_DATE"], "BEGIN_DATE")
+            if "BEGIN_DATE" in values and values["BEGIN_DATE"] not in ("", None)
+            else None
+        )
+        station = Station(
             wigos_id=wigos_id,
             name=name,
-            latitude=_number(values["GEOGR2"], "GEOGR2"),
-            longitude=_number(values["GEOGR1"], "GEOGR1"),
-            elevation_m=_number(values["ELEVATION"], "ELEVATION"),
+            latitude=_required_metadata_number(values["GEOGR2"], "GEOGR2"),
+            longitude=_required_metadata_number(values["GEOGR1"], "GEOGR1"),
+            elevation_m=_required_metadata_number(values["ELEVATION"], "ELEVATION"),
+            begin_time=begin_time,
         )
+        previous = latest.get(wigos_id)
+        previous_start = (
+            previous.begin_time
+            if previous and previous.begin_time
+            else datetime.min.replace(tzinfo=UTC)
+        )
+        station_start = begin_time or datetime.min.replace(tzinfo=UTC)
+        if previous is None or station_start > previous_start:
+            latest[wigos_id] = station
+        elif station_start == previous_start and station != previous:
+            raise ValueError(f"conflicting ČHMÚ station metadata {wigos_id}")
+    yield from (latest[wigos_id] for wigos_id in sorted(latest))
 
 
 def parse_element_metadata(source: TextIO) -> dict[tuple[str, str, str], ElementMetadata]:
@@ -221,7 +269,7 @@ def parse_element_metadata(source: TextIO) -> dict[tuple[str, str, str], Element
             wigos_id=wigos_id,
             element=element,
             unit=unit,
-            height_m=_number(values["HEIGHT"], "HEIGHT"),
+            height_m=_metadata_number(values["HEIGHT"], "HEIGHT"),
             schedule=schedule,
         )
     return metadata
@@ -255,6 +303,8 @@ def parse_station_observations(
             raise ValueError(f"ČHMÚ observation has no metadata for {element_name}")
         if metadata.unit not in element.declared_units:
             raise ValueError(f"ČHMÚ metadata unit is invalid for {element_name}")
+        if element_name in {"T", "Td", "D", "F"} and metadata.height_m is None:
+            raise ValueError(f"ČHMÚ metadata height is missing for {element_name}")
         value = _optional_value(values["VAL"], element)
         flag = _optional_flag(values["FLAG"])
         yield Observation(
@@ -276,7 +326,7 @@ def parse_station_observations(
         )
 
 
-def _variable(element_name: str, variable: str, height_m: float) -> str:
+def _variable(element_name: str, variable: str, height_m: float | None) -> str:
     if element_name in {"D", "F"} and height_m == 10.0:
         return f"{variable}_10m"
     if element_name in {"T", "Td"} and height_m == 2.0:

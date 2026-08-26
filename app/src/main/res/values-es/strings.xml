@@ -202,6 +202,16 @@
     <string name="widget_editor_colors">Colores</string>
     <string name="widget_editor_layout">Diseño</string>
     <string name="widget_editor_content">Contenido</string>
+    <string name="widget_editor_presets">Preajustes</string>
+    <string name="widget_preset_minimal">Minimal</string>
+    <string name="widget_preset_material">Material</string>
+    <string name="widget_preset_pixel">Pixel</string>
+    <string name="widget_preset_cupertino">Cupertino</string>
+    <string name="widget_font">Fuente</string>
+    <string name="widget_font_system">Sistema</string>
+    <string name="widget_font_material">Material</string>
+    <string name="widget_font_rounded">Redondeada</string>
+    <string name="widget_font_light">Ligera</string>
     <string name="widget_background_automatic">Automático</string>
     <string name="widget_background_light">Claro</string>
     <string name="widget_background_dark">Oscuro</string>

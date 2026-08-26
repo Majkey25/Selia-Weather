@@ -202,6 +202,16 @@
     <string name="widget_editor_colors">Barvy</string>
     <string name="widget_editor_layout">Rozložení</string>
     <string name="widget_editor_content">Obsah</string>
+    <string name="widget_editor_presets">Předvolby</string>
+    <string name="widget_preset_minimal">Minimalistický</string>
+    <string name="widget_preset_material">Material</string>
+    <string name="widget_preset_pixel">Pixel</string>
+    <string name="widget_preset_cupertino">Cupertino</string>
+    <string name="widget_font">Písmo</string>
+    <string name="widget_font_system">Systémové</string>
+    <string name="widget_font_material">Material</string>
+    <string name="widget_font_rounded">Zaoblené</string>
+    <string name="widget_font_light">Lehké</string>
     <string name="widget_background_automatic">Automatické</string>
     <string name="widget_background_light">Světlé</string>
     <string name="widget_background_dark">Tmavé</string>

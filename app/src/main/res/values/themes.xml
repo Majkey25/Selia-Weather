@@ -7,4 +7,22 @@
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowActionModeOverlay">true</item>
     </style>
+
+    <style name="WidgetText" />
+
+    <style name="WidgetText.System">
+        <item name="android:fontFamily">sans-serif</item>
+    </style>
+
+    <style name="WidgetText.Material">
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <style name="WidgetText.Rounded">
+        <item name="android:fontFamily">sans-serif-rounded</item>
+    </style>
+
+    <style name="WidgetText.Light">
+        <item name="android:fontFamily">sans-serif-light</item>
+    </style>
 </resources>

@@ -23,6 +23,22 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 
+internal enum class DeviceLocationProvider {
+    NETWORK,
+    GPS,
+}
+
+internal fun locationProviderOrder(
+    coarseGranted: Boolean,
+    fineGranted: Boolean,
+    networkEnabled: Boolean,
+    gpsEnabled: Boolean,
+): List<DeviceLocationProvider> = buildList {
+    if (!coarseGranted && !fineGranted) return@buildList
+    if (networkEnabled) add(DeviceLocationProvider.NETWORK)
+    if (fineGranted && gpsEnabled) add(DeviceLocationProvider.GPS)
+}
+
 class DeviceLocationRepository(context: Context) {
     private val appContext = context.applicationContext
     private val locationManager = appContext.getSystemService(LocationManager::class.java)
@@ -36,30 +52,36 @@ class DeviceLocationRepository(context: Context) {
         return withContext(Dispatchers.IO) { resolveName(location) }
     }
 
-    private fun hasLocationPermission(): Boolean = ContextCompat.checkSelfPermission(
+    private fun hasLocationPermission(): Boolean = coarsePermissionGranted() || finePermissionGranted()
+
+    private fun coarsePermissionGranted(): Boolean = ContextCompat.checkSelfPermission(
         appContext,
         Manifest.permission.ACCESS_COARSE_LOCATION,
-    ) == PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(
+    ) == PackageManager.PERMISSION_GRANTED
+
+    private fun finePermissionGranted(): Boolean = ContextCompat.checkSelfPermission(
         appContext,
         Manifest.permission.ACCESS_FINE_LOCATION,
     ) == PackageManager.PERMISSION_GRANTED
 
     @SuppressLint("MissingPermission")
     private fun recentLastKnownLocation(): Location? = enabledProviders()
-        .mapNotNull { provider -> runCatching { locationManager.getLastKnownLocation(provider) }.getOrNull() }
+        .mapNotNull { provider ->
+            runCatching { locationManager.getLastKnownLocation(provider.systemName) }.getOrNull()
+        }
         .filter { System.currentTimeMillis() - it.time <= MAX_LAST_KNOWN_AGE_MILLIS }
         .maxByOrNull { it.time }
 
     private suspend fun requestSingleLocation(): Location = withTimeout(LOCATION_TIMEOUT_MILLIS) {
         suspendCancellableCoroutine { continuation ->
-            val provider = enabledProviders().firstOrNull()
-            if (provider == null) {
+            val providers = enabledProviders()
+            if (providers.isEmpty()) {
                 continuation.resumeWithException(SystemLocationDisabledException())
                 return@suspendCancellableCoroutine
             }
             val listener = object : LocationListener {
                 override fun onLocationChanged(location: Location) {
-                    locationManager.removeUpdates(this)
+                    runCatching { locationManager.removeUpdates(this) }
                     if (continuation.isActive) continuation.resume(location)
                 }
 
@@ -67,20 +89,39 @@ class DeviceLocationRepository(context: Context) {
                 override fun onProviderEnabled(provider: String) = Unit
                 override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) = Unit
             }
-            try {
-                // Android 10 fallback; getCurrentLocation starts at API 30.
-                locationManager.requestSingleUpdate(provider, listener, Looper.getMainLooper())
-                continuation.invokeOnCancellation { locationManager.removeUpdates(listener) }
-            } catch (error: SecurityException) {
-                continuation.resumeWithException(error)
+            var registered = false
+            providers.forEach { provider ->
+                try {
+                    // Android 10 fallback; getCurrentLocation starts at API 30.
+                    locationManager.requestSingleUpdate(
+                        provider.systemName,
+                        listener,
+                        Looper.getMainLooper(),
+                    )
+                    registered = true
+                } catch (_: SecurityException) {
+                    Unit
+                }
+            }
+            if (!registered) {
+                continuation.resumeWithException(LocationPermissionException())
+                return@suspendCancellableCoroutine
+            }
+            continuation.invokeOnCancellation {
+                runCatching { locationManager.removeUpdates(listener) }
             }
         }
     }
 
-    private fun enabledProviders(): List<String> = listOf(
-        LocationManager.GPS_PROVIDER,
-        LocationManager.NETWORK_PROVIDER,
-    ).filter { provider -> runCatching { locationManager.isProviderEnabled(provider) }.getOrDefault(false) }
+    private fun enabledProviders(): List<DeviceLocationProvider> = locationProviderOrder(
+        coarseGranted = coarsePermissionGranted(),
+        fineGranted = finePermissionGranted(),
+        networkEnabled = providerEnabled(LocationManager.NETWORK_PROVIDER),
+        gpsEnabled = providerEnabled(LocationManager.GPS_PROVIDER),
+    )
+
+    private fun providerEnabled(provider: String): Boolean =
+        runCatching { locationManager.isProviderEnabled(provider) }.getOrDefault(false)
 
     @Suppress("DEPRECATION")
     private fun resolveName(location: Location): CzechLocation {
@@ -132,6 +173,12 @@ class DeviceLocationRepository(context: Context) {
         private const val LOCATION_TIMEOUT_MILLIS = 15_000L
     }
 }
+
+private val DeviceLocationProvider.systemName: String
+    get() = when (this) {
+        DeviceLocationProvider.NETWORK -> LocationManager.NETWORK_PROVIDER
+        DeviceLocationProvider.GPS -> LocationManager.GPS_PROVIDER
+    }
 
 sealed class DeviceLocationException : IOException()
 

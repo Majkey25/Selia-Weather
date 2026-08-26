@@ -1,0 +1,1 @@
+Correction du recadrage de l’icône sur les lanceurs des fabricants, de la localisation approximative et précise, et du redimensionnement du widget. Ajout des styles Minimal, Material, Pixel et Cupertino avec des polices sélectionnables.

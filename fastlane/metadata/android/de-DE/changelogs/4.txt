@@ -1,0 +1,1 @@
+Das Zuschneiden des App-Symbols auf OEM-Startbildschirmen wurde behoben. Die ungefähre und genaue Standortermittlung sowie die Größenänderung des Widgets wurden korrigiert. Neue Presets: Minimal, Material, Pixel und Cupertino, jeweils mit wählbaren Schriftstilen.

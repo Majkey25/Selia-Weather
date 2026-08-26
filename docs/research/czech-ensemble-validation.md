@@ -2,8 +2,53 @@
 
 ## Result
 
-The calibrated Czech ensemble is not ready for production. The repository does not contain
-`app/src/main/assets/ensemble_weights.json`.
+The calibrated Czech ensemble is not ready for nationwide production. The repository deliberately
+does not contain `app/src/main/assets/ensemble_weights.json`.
+
+The first locked Previous Runs backtest completed on 26 August 2026. It used 90 training dates
+(2 April through 30 June), a separate 30-date holdout (1 through 30 July), 15 Czech stations,
+276 immutable Open-Meteo payloads, 120 ČHMÚ monthly truth payloads, and 496,800 parsed forecast
+values. Every input is recorded by SHA-256 in the generated dataset manifest.
+
+Six of 21 scalar lead segments passed every holdout rule:
+
+- temperature at 24, 48, 72, and 120 hours;
+- wind speed at 24 and 168 hours.
+
+All seven precipitation blends failed. They were worse than or statistically indistinguishable
+from the training-selected fallback and often degraded at least one region. They must not ship.
+Temperature truth covered 10 selected stations and wind truth covered 5, while precipitation
+covered all 15. The accepted temperature and wind results are therefore evidence for those station
+cohorts, not proof of nationwide Czech accuracy. Wind direction was not evaluated by this scalar
+run and still requires the existing vector fitter.
+
+One archived CHMI ALADIN CZ value reported non-physical `-0.2 mm` precipitation at a 48-hour lead.
+The Previous Runs parser records such values as missing; the live forecast parser remains strict
+and rejects negative precipitation.
+
+| Variable | Lead | Holdout samples | Blend MAE | Training-selected fallback | Fallback MAE | Ship |
+|---|---:|---:|---:|---|---:|---|
+| Precipitation | 24 h | 450 | 0.2234 mm | KNMI HARMONIE | 0.2033 mm | No |
+| Precipitation | 48 h | 450 | 0.2218 mm | CMC GEM | 0.2216 mm | No |
+| Precipitation | 72 h | 450 | 0.2293 mm | ARPEGE Europe | 0.2047 mm | No |
+| Precipitation | 96 h | 450 | 0.1996 mm | Best Match | 0.1924 mm | No |
+| Precipitation | 120 h | 450 | 0.2317 mm | GFS | 0.2042 mm | No |
+| Precipitation | 144 h | 450 | 0.2170 mm | GFS | 0.1867 mm | No |
+| Precipitation | 168 h | 450 | 0.2133 mm | GFS | 0.1760 mm | No |
+| Temperature | 24 h | 300 | 1.0865 °C | Best Match | 1.2643 °C | Yes |
+| Temperature | 48 h | 300 | 1.3492 °C | Best Match | 1.4910 °C | Yes |
+| Temperature | 72 h | 300 | 1.5302 °C | ECMWF AIFS | 1.7243 °C | Yes |
+| Temperature | 96 h | 300 | 1.6382 °C | ECMWF IFS | 1.8393 °C | No |
+| Temperature | 120 h | 300 | 1.9010 °C | ECMWF IFS 0.25° | 2.1160 °C | Yes |
+| Temperature | 144 h | 300 | 2.2245 °C | ECMWF AIFS | 2.1307 °C | No |
+| Temperature | 168 h | 300 | 2.5329 °C | Best Match | 2.8673 °C | No |
+| Wind speed | 24 h | 150 | 4.3190 km/h | ICON-EU | 4.6839 km/h | Yes |
+| Wind speed | 48 h | 150 | 4.4903 km/h | ECMWF AIFS | 4.6443 km/h | No |
+| Wind speed | 72 h | 150 | 4.4294 km/h | ECMWF AIFS | 4.6315 km/h | No |
+| Wind speed | 96 h | 150 | 4.5102 km/h | ECMWF AIFS | 4.6573 km/h | No |
+| Wind speed | 120 h | 150 | 4.4831 km/h | ECMWF AIFS | 4.5849 km/h | No |
+| Wind speed | 144 h | 150 | 4.1529 km/h | ECMWF AIFS | 4.6715 km/h | No |
+| Wind speed | 168 h | 150 | 4.4792 km/h | ECMWF AIFS | 4.8928 km/h | Yes |
 
 The live model probe on 25 August 2026 checked 17 candidates at 7 Czech points for 3 required
 variables. The final bounded retry budget was 85 HTTP requests, below the configured limit of
@@ -35,8 +80,8 @@ The research package now implements these checks:
 - an immutable holdout lock with at least 90 training days and 30 holdout days;
 - export rules that reject an incomplete registry and any segment that fails a ship rule.
 
-The current issued-run fixture contains one CHMI ALADIN CZ run for one location and one day. This
-fixture proves the parser contract. It cannot measure long-term accuracy.
+The small issued-run fixture still proves only the parser contract. Long-term accuracy evidence now
+comes from the separate 90-day training and 30-day holdout run above.
 
 ## Acceptance rules
 
@@ -55,11 +100,12 @@ model resolution, and maximum run age.
 
 ## Work required before production
 
-1. Download at least 90 complete training days and lock the newest 30 complete days for holdout.
-2. Re-run the source licence gate before any release with advertising or paid features.
-3. Fit each variable and lead segment without reading the holdout.
-4. Evaluate the locked holdout once. Do not tune a failed segment against the holdout.
-5. Export `ensemble_weights.json` only when the dataset and every artifact validation pass.
+1. Expand independent temperature and wind truth to a representative nationwide station cohort.
+2. Run wind direction through the east/north vector fitter and precipitation through the separate
+   occurrence and positive-amount pipeline.
+3. Lock a new untouched holdout before changing any failed model or segment selection.
+4. Re-run the source licence gate before any release with advertising or paid features.
+5. Export `ensemble_weights.json` only when nationwide coverage and every artifact rule pass.
 
 Open-Meteo documents issued model runs in the
 [Single Runs API](https://open-meteo.com/en/docs/single-runs-api) and fixed lead comparisons in the
@@ -84,4 +130,6 @@ Run these commands from the repository root:
 & 'C:\Users\mates\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -m uv run --project research pyright
 ```
 
-The current verified result is 75 passing tests, Ruff clean, and zero Pyright errors.
+The current verified result is 108 passing tests and Ruff clean. Strict Pyright is clean for the
+changed backtest modules; the repository-wide run still reports existing unknown-type debt in
+scientific dependencies and older tests.

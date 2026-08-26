@@ -32,6 +32,21 @@ def _require_value(value: float | None) -> None:
 
 
 @dataclass(frozen=True, slots=True)
+class ForecastPoint:
+    point_id: str
+    latitude: float
+    longitude: float
+
+    def __post_init__(self) -> None:
+        if not self.point_id:
+            raise ValueError("point_id is required")
+        _require_finite(self.latitude, "latitude")
+        _require_finite(self.longitude, "longitude")
+        if not -90 <= self.latitude <= 90 or not -180 <= self.longitude <= 180:
+            raise ValueError("point coordinates are outside WGS84 range")
+
+
+@dataclass(frozen=True, slots=True)
 class ForecastValue:
     model_id: str
     run_time: datetime
@@ -42,12 +57,15 @@ class ForecastValue:
     variable: str
     value: float | None
     unit: str
+    requested_point_id: str | None = None
 
     def __post_init__(self) -> None:
         _require_utc(self.run_time, "run_time")
         _require_utc(self.valid_time, "valid_time")
         _require_coordinates(self.latitude, self.longitude, self.elevation_m)
         _require_value(self.value)
+        if self.requested_point_id is not None and not self.requested_point_id:
+            raise ValueError("requested_point_id cannot be empty")
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,13 +99,11 @@ class Observation:
         if self.flag is not None and not self.flag:
             raise ValueError("flag cannot be empty")
         if self.quality is not None and (
-            isinstance(self.quality, bool) or not isinstance(self.quality, int) or self.quality < 0
+            isinstance(self.quality, bool) or self.quality < 0
         ):
             raise ValueError("quality must be a non-negative integer")
         if self.measurement_height_m is not None:
             _require_finite(self.measurement_height_m, "measurement_height_m")
-            if self.measurement_height_m < 0:
-                raise ValueError("measurement_height_m must be non-negative")
         _require_checksum(self.source_checksum, "source_checksum")
 
 

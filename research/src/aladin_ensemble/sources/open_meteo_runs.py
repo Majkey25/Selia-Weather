@@ -7,12 +7,14 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from math import isfinite
 from pathlib import Path
+from time import sleep
+from typing import cast
 from urllib.error import HTTPError
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from urllib.request import Request, urlopen
 
 from aladin_ensemble.registry import JsonValue, RequestBudget
-from aladin_ensemble.types import ForecastValue, SourceManifest
+from aladin_ensemble.types import ForecastPoint, ForecastValue, SourceManifest
 
 SINGLE_RUNS_URL = "https://single-runs-api.open-meteo.com/v1/forecast"
 PREVIOUS_RUNS_URL = "https://previous-runs-api.open-meteo.com/v1/forecast"
@@ -45,9 +47,9 @@ class IssuedRunRequest:
     def __post_init__(self) -> None:
         if not self.model_id:
             raise ValueError("model_id is required")
-        if not isinstance(self.run_time, datetime) or (
-            self.run_time.tzinfo is None
-            or self.run_time.utcoffset() != UTC.utcoffset(self.run_time)
+        run_time = cast(object, self.run_time)
+        if not isinstance(run_time, datetime) or (
+            run_time.tzinfo is None or run_time.utcoffset() != UTC.utcoffset(run_time)
         ):
             raise ValueError("run_time must be timezone-aware UTC")
         if self.run_time.minute or self.run_time.second or self.run_time.microsecond:
@@ -62,6 +64,33 @@ class IssuedRunRequest:
             raise ValueError("unsupported Open-Meteo variable")
         if not 1 <= self.forecast_days <= 16:
             raise ValueError("forecast_days must be from 1 through 16")
+
+
+@dataclass(frozen=True, slots=True)
+class PreviousRunsRequest:
+    model_id: str
+    points: tuple[ForecastPoint, ...]
+    variables: tuple[str, ...]
+    start_date: date
+    end_date: date
+    lead_days: int
+
+    def __post_init__(self) -> None:
+        if not self.model_id:
+            raise ValueError("model_id is required")
+        if not self.points:
+            raise ValueError("points must be non-empty")
+        point_ids = tuple(point.point_id for point in self.points)
+        if len(set(point_ids)) != len(point_ids):
+            raise ValueError("point IDs must be unique")
+        if not self.variables or len(set(self.variables)) != len(self.variables):
+            raise ValueError("variables must be non-empty and unique")
+        if any(variable not in _VARIABLES for variable in self.variables):
+            raise ValueError("unsupported Open-Meteo variable")
+        if self.start_date > self.end_date:
+            raise ValueError("start_date must not follow end_date")
+        if not 1 <= self.lead_days <= 7:
+            raise ValueError("lead_days must be from 1 through 7")
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,6 +110,7 @@ class CachedResponse:
 
 Fetch = Callable[[Request], HttpResponse]
 Clock = Callable[[], datetime]
+Sleeper = Callable[[float], None]
 
 
 def build_single_run_url(request: IssuedRunRequest) -> tuple[str, tuple[tuple[str, str], ...]]:
@@ -91,23 +121,32 @@ def build_single_run_url(request: IssuedRunRequest) -> tuple[str, tuple[tuple[st
 def build_previous_runs_url(
     request: IssuedRunRequest, *, start_date: str, end_date: str, lead_days: int
 ) -> tuple[str, tuple[tuple[str, str], ...]]:
-    if not 1 <= lead_days <= 7:
-        raise ValueError("lead_days must be from 1 through 7")
-    _date(start_date, "start_date")
-    _date(end_date, "end_date")
-    if start_date > end_date:
-        raise ValueError("start_date must not follow end_date")
+    batch = PreviousRunsRequest(
+        request.model_id,
+        (ForecastPoint("requested", request.latitude, request.longitude),),
+        request.variables,
+        _date(start_date, "start_date"),
+        _date(end_date, "end_date"),
+        lead_days,
+    )
+    return build_previous_runs_batch_url(batch)
+
+
+def build_previous_runs_batch_url(
+    request: PreviousRunsRequest,
+) -> tuple[str, tuple[tuple[str, str], ...]]:
     parameters = tuple(
         sorted(
             {
-                "end_date": end_date,
+                "end_date": request.end_date.isoformat(),
                 "hourly": ",".join(
-                    f"{variable}_previous_day{lead_days}" for variable in request.variables
+                    f"{variable}_previous_day{request.lead_days}"
+                    for variable in request.variables
                 ),
-                "latitude": str(request.latitude),
-                "longitude": str(request.longitude),
+                "latitude": ",".join(str(point.latitude) for point in request.points),
+                "longitude": ",".join(str(point.longitude) for point in request.points),
                 "models": request.model_id,
-                "start_date": start_date,
+                "start_date": request.start_date.isoformat(),
                 "timeformat": "unixtime",
             }.items()
         )
@@ -131,6 +170,33 @@ def estimate_download_budget(
     )
 
 
+def estimate_previous_runs_budget(
+    requests: Sequence[PreviousRunsRequest], *, provider_limit: int
+) -> RequestBudget:
+    if not requests:
+        raise ValueError("at least one previous-runs request is required")
+    dates = {
+        request.start_date + timedelta(days=offset)
+        for request in requests
+        for offset in range((request.end_date - request.start_date).days + 1)
+    }
+    return RequestBudget(
+        candidate_count=len({request.model_id for request in requests}),
+        location_count=len(
+            {
+                (point.latitude, point.longitude)
+                for request in requests
+                for point in request.points
+            }
+        ),
+        run_count=len({(request.model_id, request.lead_days) for request in requests}),
+        variable_count=len({variable for request in requests for variable in request.variables}),
+        date_count=len(dates),
+        expected_http_requests=len(requests),
+        provider_limit=provider_limit,
+    )
+
+
 def sanitize_request_parameters(
     parameters: Sequence[tuple[str, str]],
 ) -> tuple[tuple[str, str], ...]:
@@ -149,10 +215,20 @@ class CachedDownloader:
         *,
         fetch: Fetch | None = None,
         now: Clock | None = None,
+        retry_attempts: int = 2,
+        retry_delay_seconds: float = 1.0,
+        sleeper: Sleeper | None = None,
     ) -> None:
+        if retry_attempts <= 0:
+            raise ValueError("retry_attempts must be positive")
+        if not isfinite(retry_delay_seconds) or retry_delay_seconds < 0:
+            raise ValueError("retry_delay_seconds must be finite and non-negative")
         self._root = root
         self._fetch = fetch or _fetch
         self._now = now or (lambda: datetime.now(UTC))
+        self._retry_attempts = retry_attempts
+        self._retry_delay_seconds = retry_delay_seconds
+        self._sleep = sleeper or sleep
 
     def download(self, request: IssuedRunRequest) -> CachedResponse:
         url, parameters = build_single_run_url(request)
@@ -167,7 +243,7 @@ class CachedDownloader:
                 headers["If-None-Match"] = etag
             if modified is not None:
                 headers["If-Modified-Since"] = modified
-        response = self._fetch(Request(url, headers=headers))
+        response = self._request(Request(url, headers=headers))
         if response.status == 304:
             if cached is None:
                 raise RuntimeError("HTTP 304 without cached response")
@@ -196,6 +272,105 @@ class CachedDownloader:
             _source_manifest(request, _sanitized_url(url), safe_parameters, checksum, retrieved_at),
         )
 
+    def download_previous(self, request: PreviousRunsRequest) -> CachedResponse:
+        url, parameters = build_previous_runs_batch_url(request)
+        safe_parameters = sanitize_request_parameters(parameters)
+        manifest_path = self._manifest_path(PREVIOUS_RUNS_URL, safe_parameters)
+        cached = self._cached_manifest(manifest_path)
+        headers = {"User-Agent": "aladin-ensemble-research/0.1"}
+        if cached is not None:
+            etag = _text(cached.get("etag"), "etag", allow_none=True)
+            modified = _text(cached.get("last_modified"), "last_modified", allow_none=True)
+            if etag is not None:
+                headers["If-None-Match"] = etag
+            if modified is not None:
+                headers["If-Modified-Since"] = modified
+        response = self._request(Request(url, headers=headers))
+        if response.status == 304:
+            if cached is None:
+                raise RuntimeError("HTTP 304 without cached response")
+            return self._previous_from_cached(
+                request,
+                _sanitized_url(url),
+                safe_parameters,
+                manifest_path,
+                cached,
+            )
+        if response.status != 200:
+            raise RuntimeError(f"HTTP {response.status}")
+        checksum = hashlib.sha256(response.body).hexdigest()
+        raw_path = self._raw_path(checksum)
+        self._write_immutable(raw_path, response.body)
+        retrieved_at = self._now()
+        if retrieved_at.tzinfo is None or retrieved_at.utcoffset() != UTC.utcoffset(retrieved_at):
+            raise ValueError("now must return timezone-aware UTC")
+        payload: dict[str, JsonValue] = {
+            "checksum_sha256": checksum,
+            "etag": _header(response.headers, "etag"),
+            "last_modified": _header(response.headers, "last-modified"),
+            "request_endpoint": PREVIOUS_RUNS_URL,
+            "request_parameters": [list(item) for item in safe_parameters],
+            "retrieved_at": retrieved_at.isoformat(),
+        }
+        self._write_manifest(manifest_path, payload)
+        return CachedResponse(
+            raw_path,
+            manifest_path,
+            checksum,
+            _previous_source_manifest(
+                request,
+                _sanitized_url(url),
+                safe_parameters,
+                checksum,
+                retrieved_at,
+            ),
+        )
+
+    def cached_previous(self, request: PreviousRunsRequest) -> CachedResponse | None:
+        url, parameters = build_previous_runs_batch_url(request)
+        safe_parameters = sanitize_request_parameters(parameters)
+        manifest_path = self._manifest_path(PREVIOUS_RUNS_URL, safe_parameters)
+        cached = self._cached_manifest(manifest_path)
+        if cached is None:
+            return None
+        return self._previous_from_cached(
+            request,
+            _sanitized_url(url),
+            safe_parameters,
+            manifest_path,
+            cached,
+        )
+
+    def _previous_from_cached(
+        self,
+        request: PreviousRunsRequest,
+        source_url: str,
+        parameters: Sequence[tuple[str, str]],
+        manifest_path: Path,
+        payload: Mapping[str, JsonValue],
+    ) -> CachedResponse:
+        checksum = _text(payload.get("checksum_sha256"), "checksum_sha256")
+        assert checksum is not None
+        raw_path = self._raw_path(checksum)
+        if (
+            not raw_path.is_file()
+            or hashlib.sha256(raw_path.read_bytes()).hexdigest() != checksum
+        ):
+            raise ValueError("cached response checksum is invalid")
+        retrieved_at = _timestamp(payload.get("retrieved_at"), "retrieved_at")
+        return CachedResponse(
+            raw_path,
+            manifest_path,
+            checksum,
+            _previous_source_manifest(
+                request,
+                source_url,
+                parameters,
+                checksum,
+                retrieved_at,
+            ),
+        )
+
     def _manifest_path(
         self, endpoint: str, parameters: Sequence[tuple[str, str]]
     ) -> Path:
@@ -203,6 +378,19 @@ class CachedDownloader:
             {"endpoint": endpoint, "parameters": parameters}, sort_keys=True, separators=(",", ":")
         ).encode("utf-8")
         return self._root / "manifests" / f"{hashlib.sha256(encoded).hexdigest()}.json"
+
+    def _request(self, request: Request) -> HttpResponse:
+        for attempt in range(self._retry_attempts):
+            try:
+                response = self._fetch(request)
+            except RuntimeError:
+                if attempt + 1 == self._retry_attempts:
+                    raise
+            else:
+                if response.status < 500 or attempt + 1 == self._retry_attempts:
+                    return response
+            self._sleep(self._retry_delay_seconds)
+        raise RuntimeError("request retry loop ended unexpectedly")
 
     def _raw_path(self, checksum: str) -> Path:
         return self._root / "raw" / f"{checksum}.json"
@@ -318,6 +506,92 @@ def parse_forecast_values(raw: bytes, request: IssuedRunRequest) -> tuple[Foreca
     return tuple(parsed)
 
 
+def parse_previous_run_values(
+    raw: bytes,
+    request: PreviousRunsRequest,
+    *,
+    sample_hours: Sequence[int] | None = None,
+) -> tuple[ForecastValue, ...]:
+    if sample_hours is not None and (
+        not sample_hours
+        or len(set(sample_hours)) != len(sample_hours)
+        or any(hour not in range(24) for hour in sample_hours)
+    ):
+        raise ValueError("sample_hours must be non-empty, unique UTC hours")
+    selected_hours = None if sample_hours is None else frozenset(sample_hours)
+    value = _json_value(json.loads(raw.decode("utf-8")))
+    rows = value if isinstance(value, list) else [value]
+    if any(not isinstance(row, dict) for row in rows):
+        raise ValueError("Open-Meteo response must contain objects")
+    if len(rows) != len(request.points):
+        raise ValueError("Open-Meteo response row count does not match requested points")
+    parsed: list[ForecastValue] = []
+    seen: set[tuple[str, str, datetime, str]] = set()
+    expected_units: dict[str, str] = {}
+    for point, row in zip(request.points, rows, strict=True):
+        assert isinstance(row, dict)
+        latitude = _number(row.get("latitude"), "latitude")
+        longitude = _number(row.get("longitude"), "longitude")
+        elevation = _number(row.get("elevation"), "elevation")
+        hourly = _mapping(row.get("hourly"), "hourly")
+        units = _mapping(row.get("hourly_units"), "hourly_units")
+        timestamps = _timestamps(hourly, units)
+        if any(
+            not request.start_date <= timestamp.date() <= request.end_date
+            for timestamp in timestamps
+        ):
+            raise ValueError("Open-Meteo timestamp is outside the requested date range")
+        for requested in request.variables:
+            response_name = f"{requested}_previous_day{request.lead_days}"
+            raw_unit = _text(units.get(response_name), f"hourly_units.{response_name}")
+            assert raw_unit is not None
+            previous_unit = expected_units.setdefault(requested, raw_unit)
+            if previous_unit != raw_unit:
+                raise ValueError(f"mixed unit for {requested}")
+            values = hourly.get(response_name)
+            if not isinstance(values, list) or len(values) != len(timestamps):
+                raise ValueError(f"Open-Meteo response is partial for {response_name}")
+            variable, unit = _VARIABLES[requested]
+            for valid_time, raw_value in zip(timestamps, values, strict=True):
+                if selected_hours is not None and valid_time.hour not in selected_hours:
+                    continue
+                if (
+                    variable == "precipitation"
+                    and not isinstance(raw_value, bool)
+                    and isinstance(raw_value, int | float)
+                    and isfinite(raw_value)
+                    and raw_value < 0
+                ):
+                    raw_value = None
+                forecast = ForecastValue(
+                    request.model_id,
+                    valid_time - timedelta(days=request.lead_days),
+                    valid_time,
+                    latitude,
+                    longitude,
+                    elevation,
+                    variable,
+                    canonical_value(
+                        variable,
+                        _optional_number(raw_value, response_name),
+                        raw_unit,
+                    ),
+                    unit,
+                    point.point_id,
+                )
+                key = (
+                    point.point_id,
+                    forecast.model_id,
+                    forecast.valid_time,
+                    forecast.variable,
+                )
+                if key in seen:
+                    raise ValueError("duplicate point/model/valid forecast row")
+                seen.add(key)
+                parsed.append(forecast)
+    return tuple(parsed)
+
+
 def canonical_value(variable: str, value: float | None, unit: str) -> float | None:
     if value is None:
         return None
@@ -395,6 +669,28 @@ def _source_manifest(
     )
 
 
+def _previous_source_manifest(
+    request: PreviousRunsRequest,
+    source_url: str,
+    parameters: Sequence[tuple[str, str]],
+    checksum: str,
+    retrieved_at: datetime,
+) -> SourceManifest:
+    return SourceManifest(
+        provider="Open-Meteo",
+        documentation_url="https://open-meteo.com/en/docs/previous-runs-api",
+        license_name="Open-Meteo Free API (non-commercial; under 10,000 calls/day)",
+        license_url=TERMS_URL,
+        retrieved_at=retrieved_at,
+        run_time=None,
+        request_endpoint=PREVIOUS_RUNS_URL,
+        request_parameters=tuple(parameters),
+        requested_model_id=request.model_id,
+        source_url=source_url,
+        checksum_sha256=checksum,
+    )
+
+
 def _timestamps(
     hourly: Mapping[str, JsonValue], units: Mapping[str, JsonValue]
 ) -> tuple[datetime, ...]:
@@ -454,10 +750,10 @@ def _json_value(value: object) -> JsonValue:
     if value is None or isinstance(value, str | int | float | bool):
         return value
     if isinstance(value, list):
-        return [_json_value(item) for item in value]
+        return [_json_value(item) for item in cast(list[object], value)]
     if isinstance(value, dict):
         result: dict[str, JsonValue] = {}
-        for key, item in value.items():
+        for key, item in cast(dict[object, object], value).items():
             if not isinstance(key, str):
                 raise ValueError("Open-Meteo JSON object key is invalid")
             result[key] = _json_value(item)

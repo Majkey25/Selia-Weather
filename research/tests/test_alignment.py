@@ -64,6 +64,49 @@ def test_aligns_station_truth_by_valid_utc_hour_and_converts_units() -> None:
     assert aligned[0].elevation_difference_m == 50.0
 
 
+def test_alignment_maps_canonical_variable_and_keeps_requested_station() -> None:
+    forecast = ForecastValue(
+        "dwd_icon_eu",
+        datetime(2026, 6, 29, tzinfo=UTC),
+        datetime(2026, 7, 1, tzinfo=UTC),
+        50.0,
+        14.0,
+        250.0,
+        "temperature",
+        20.0,
+        "°C",
+        "requested",
+    )
+    requested = Observation(
+        "CHMI_STATION",
+        "requested",
+        forecast.valid_time,
+        50.2,
+        14.2,
+        300.0,
+        "temperature_2m",
+        19.0,
+        "°C",
+    )
+    nearer = Observation(
+        "CHMI_STATION",
+        "nearer",
+        forecast.valid_time,
+        50.01,
+        14.01,
+        250.0,
+        "temperature_2m",
+        99.0,
+        "°C",
+    )
+
+    aligned = align_station_forecasts((forecast,), (nearer, requested))
+
+    assert len(aligned) == 1
+    assert aligned[0].station_id == "requested"
+    assert aligned[0].truth_value == 19.0
+
+
 def test_alignment_rejects_future_run_duplicate_forecast_and_dst_ambiguity() -> None:
     with pytest.raises(ValueError, match="future"):
         align_station_forecasts(

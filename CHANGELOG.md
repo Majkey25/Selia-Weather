@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.2.0-beta.7] - 2026-08-28
+
+- Enabled the production AdMob interstitial while keeping banner ads removed.
+- Activated both one-time and monthly Google Play Premium products.
+
 ## [0.2.0-beta.6] - 2026-08-28
 
 - Expanded the home forecast to the next 24 hours across midnight.

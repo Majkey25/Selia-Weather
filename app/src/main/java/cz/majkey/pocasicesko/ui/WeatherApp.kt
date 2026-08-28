@@ -75,7 +75,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
 import cz.majkey.pocasicesko.data.CzechLocation
-import cz.majkey.pocasicesko.BuildConfig
 import cz.majkey.pocasicesko.data.DeviceLocationRepository
 import cz.majkey.pocasicesko.data.LocationOutsideCzechiaException
 import cz.majkey.pocasicesko.data.LocationPermissionException
@@ -87,7 +86,6 @@ import cz.majkey.pocasicesko.data.conditionFor
 import cz.majkey.pocasicesko.locale.AppLocale
 import cz.majkey.pocasicesko.monetization.AdsController
 import cz.majkey.pocasicesko.monetization.PremiumBillingController
-import cz.majkey.pocasicesko.monetization.shouldShowAds
 import cz.majkey.pocasicesko.units.MeasurementSystem
 import cz.majkey.pocasicesko.units.MeasurementUnits
 import cz.majkey.pocasicesko.widget.WeatherWidgetProvider
@@ -140,9 +138,7 @@ fun WeatherApp(
     val entitlement by premiumBillingController.entitlement.collectAsState()
     val premiumOffers by premiumBillingController.offers.collectAsState()
     val billingMessage by premiumBillingController.message.collectAsState()
-    val adsInitialized by adsController.adsInitialized.collectAsState()
     val privacyOptionsRequired by adsController.privacyOptionsRequired.collectAsState()
-    val showAds = shouldShowAds(entitlement, adsInitialized, BuildConfig.MONETIZATION_CONFIGURED)
 
     LaunchedEffect(location, reloadKey) {
         val cached = withContext(Dispatchers.IO) { repository.cachedForecast(location) }
@@ -167,19 +163,16 @@ fun WeatherApp(
                 containerColor = Color.Transparent,
                 contentColor = Color.White,
                 bottomBar = {
-                    Column {
-                        if (destination == Destination.WEATHER && showAds) AdaptiveBanner()
-                        FloatingNavigation(
-                            destination = destination,
-                            onDestination = { selected ->
-                                if (destination == Destination.MAPS && selected == Destination.WEATHER) {
-                                    adsController.maybeShowInterstitial(entitlement) { destination = selected }
-                                } else {
-                                    destination = selected
-                                }
-                            },
-                        )
-                    }
+                    FloatingNavigation(
+                        destination = destination,
+                        onDestination = { selected ->
+                            if (destination == Destination.MAPS && selected == Destination.WEATHER) {
+                                adsController.maybeShowInterstitial(entitlement) { destination = selected }
+                            } else {
+                                destination = selected
+                            }
+                        },
+                    )
                 },
             ) { padding ->
                 when (destination) {

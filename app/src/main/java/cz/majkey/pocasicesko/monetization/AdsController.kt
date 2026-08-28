@@ -17,8 +17,7 @@ import kotlinx.coroutines.flow.asStateFlow
 
 class AdsController(private val activity: Activity) {
     private val consentInformation = UserMessagingPlatform.getConsentInformation(activity)
-    private val mutableAdsInitialized = MutableStateFlow(false)
-    val adsInitialized: StateFlow<Boolean> = mutableAdsInitialized.asStateFlow()
+    private var adsInitialized = false
 
     private val mutablePrivacyOptionsRequired = MutableStateFlow(false)
     val privacyOptionsRequired: StateFlow<Boolean> = mutablePrivacyOptionsRequired.asStateFlow()
@@ -57,7 +56,7 @@ class AdsController(private val activity: Activity) {
         val visit = preferences.getInt(KEY_MAP_VISITS, 0) % INTERSTITIAL_FREQUENCY + 1
         preferences.edit().putInt(KEY_MAP_VISITS, visit).apply()
         val ad = interstitialAd
-        if (!shouldShowAds(entitlement, mutableAdsInitialized.value, BuildConfig.MONETIZATION_CONFIGURED) ||
+        if (!shouldShowAds(entitlement, adsInitialized, BuildConfig.MONETIZATION_CONFIGURED) ||
             !shouldShowInterstitial(visit) || ad == null
         ) {
             onContinue()
@@ -86,18 +85,18 @@ class AdsController(private val activity: Activity) {
 
     private fun initializeAdsIfAllowed() {
         if (!BuildConfig.MONETIZATION_CONFIGURED || !consentInformation.canRequestAds() ||
-            mutableAdsInitialized.value || initializing
+            adsInitialized || initializing
         ) return
         initializing = true
         MobileAds.initialize(activity) {
             initializing = false
-            mutableAdsInitialized.value = true
+            adsInitialized = true
             loadInterstitial()
         }
     }
 
     private fun loadInterstitial() {
-        if (interstitialAd != null || !mutableAdsInitialized.value) return
+        if (interstitialAd != null || !adsInitialized) return
         InterstitialAd.load(
             activity,
             BuildConfig.INTERSTITIAL_AD_UNIT_ID,

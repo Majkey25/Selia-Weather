@@ -1,6 +1,7 @@
 package cz.majkey.pocasicesko.ui
 
 import cz.majkey.pocasicesko.R
+import cz.majkey.pocasicesko.data.DailyWeather
 import cz.majkey.pocasicesko.data.HourlyWeather
 import java.time.Instant
 import java.util.Locale
@@ -9,14 +10,34 @@ import org.junit.Test
 
 class ForecastDayTest {
     @Test
-    fun selectsTwentyHoursFromCurrentHour() {
-        val hours = (0..23).map { hour("2026-08-24T%02d:00".format(it)) }
+    fun selectsTwentyFourHoursAcrossMidnight() {
+        val hours = (0..23).map { hour("2026-08-24T%02d:00".format(it)) } +
+            (0..23).map { hour("2026-08-25T%02d:00".format(it)) }
 
-        val selected = upcomingHours(hours, "2026-08-24T03", 20)
+        val selected = upcomingHours(hours, "2026-08-24T03")
 
-        assertEquals(20, selected.size)
+        assertEquals(24, selected.size)
         assertEquals("2026-08-24T03:00", selected.first().time)
-        assertEquals("2026-08-24T22:00", selected.last().time)
+        assertEquals("2026-08-25T02:00", selected.last().time)
+    }
+
+    @Test
+    fun keepsShortFuturePayloadWithoutFabricatingHours() {
+        val hours = listOf(hour("2026-08-24T22:00"), hour("2026-08-24T23:00"))
+
+        val selected = upcomingHours(hours, "2026-08-24T22")
+
+        assertEquals(listOf("2026-08-24T22:00", "2026-08-24T23:00"), selected.map { it.time })
+    }
+
+    @Test
+    fun dayPagesStopAtForecastBoundaries() {
+        val days = listOf(day("2026-08-24"), day("2026-08-25"))
+
+        assertEquals(days[0], dayForPage(days, 0))
+        assertEquals(days[1], dayForPage(days, 1))
+        assertEquals(null, dayForPage(days, -1))
+        assertEquals(null, dayForPage(days, 2))
     }
 
     @Test
@@ -106,5 +127,17 @@ class ForecastDayTest {
         windSpeed = 5.0,
         windDirection = 0,
         isDay = true,
+    )
+
+    private fun day(date: String) = DailyWeather(
+        date = date,
+        weatherCode = 0,
+        temperatureMax = 22.0,
+        temperatureMin = 12.0,
+        sunrise = "06:00",
+        sunset = "20:00",
+        precipitationSum = 0.0,
+        precipitationProbability = 0,
+        windSpeedMax = 10.0,
     )
 }

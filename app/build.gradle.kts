@@ -30,8 +30,8 @@ android {
         applicationId = "com.majkeylab.weatheraladin"
         minSdk = 29
         targetSdk = 36
-        versionCode = 7
-        versionName = "0.2.0-beta.6"
+        versionCode = 8
+        versionName = "0.2.0-beta.7"
 
         manifestPlaceholders["adMobAppId"] = adMobAppId ?: testAdMobAppId
         buildConfigField("boolean", "MONETIZATION_CONFIGURED", monetizationConfigured.toString())

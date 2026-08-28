@@ -1,7 +1,6 @@
 import java.util.Properties
 
 val testAdMobAppId = "ca-app-pub-3940256099942544~3347511713"
-val testBannerAdUnitId = "ca-app-pub-3940256099942544/9214589741"
 val testInterstitialAdUnitId = "ca-app-pub-3940256099942544/1033173712"
 
 plugins {
@@ -15,15 +14,12 @@ val signingProperties = Properties().apply {
     if (signingPropertiesFile.exists()) signingPropertiesFile.inputStream().use(::load)
 }
 val adMobAppId = providers.gradleProperty("ALADIN_ADMOB_APP_ID").orNull
-val bannerAdUnitId = providers.gradleProperty("ALADIN_BANNER_AD_UNIT_ID").orNull
 val interstitialAdUnitId = providers.gradleProperty("ALADIN_INTERSTITIAL_AD_UNIT_ID").orNull
-val monetizationValues = listOf(adMobAppId, bannerAdUnitId, interstitialAdUnitId)
+val monetizationValues = listOf(adMobAppId, interstitialAdUnitId)
 val monetizationConfigured = adMobAppId?.matches(Regex("^ca-app-pub-\\d{16}~\\d{10}$")) == true &&
-    listOf(bannerAdUnitId, interstitialAdUnitId).all {
-        it?.matches(Regex("^ca-app-pub-\\d{16}/\\d{10}$")) == true
-    }
+    interstitialAdUnitId?.matches(Regex("^ca-app-pub-\\d{16}/\\d{10}$")) == true
 require(monetizationValues.all { it == null } || monetizationConfigured) {
-    "AdMob app, banner, and interstitial IDs must all be valid or all be absent."
+    "AdMob app and interstitial IDs must both be valid or both be absent."
 }
 
 android {
@@ -34,12 +30,11 @@ android {
         applicationId = "com.majkeylab.weatheraladin"
         minSdk = 29
         targetSdk = 36
-        versionCode = 6
-        versionName = "0.2.0-beta.5"
+        versionCode = 7
+        versionName = "0.2.0-beta.6"
 
         manifestPlaceholders["adMobAppId"] = adMobAppId ?: testAdMobAppId
         buildConfigField("boolean", "MONETIZATION_CONFIGURED", monetizationConfigured.toString())
-        buildConfigField("String", "BANNER_AD_UNIT_ID", "\"${bannerAdUnitId ?: testBannerAdUnitId}\"")
         buildConfigField(
             "String",
             "INTERSTITIAL_AD_UNIT_ID",
@@ -53,7 +48,6 @@ android {
         debug {
             manifestPlaceholders["adMobAppId"] = testAdMobAppId
             buildConfigField("boolean", "MONETIZATION_CONFIGURED", "true")
-            buildConfigField("String", "BANNER_AD_UNIT_ID", "\"$testBannerAdUnitId\"")
             buildConfigField("String", "INTERSTITIAL_AD_UNIT_ID", "\"$testInterstitialAdUnitId\"")
         }
         release {

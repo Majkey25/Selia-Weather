@@ -23,6 +23,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
@@ -74,6 +76,8 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
+private const val HOURLY_OUTLOOK_COUNT = 24
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ForecastScreen(
@@ -92,7 +96,7 @@ fun ForecastScreen(
     val accent = conditionAccent(condition.kind, snapshot.current.isDay)
     val locale = LocalConfiguration.current.locales[0]
     val units = remember(measurementSystem, locale) { WeatherUnitFormatter(measurementSystem, locale) }
-    var selectedDay by remember { mutableStateOf<DailyWeather?>(null) }
+    var selectedDayIndex by remember { mutableStateOf<Int?>(null) }
     var showDetails by remember { mutableStateOf(false) }
     LazyColumn(
         modifier = Modifier
@@ -128,7 +132,7 @@ fun ForecastScreen(
             DailyForecastPanel(
                 days = snapshot.daily,
                 units = units,
-                onDayClick = { selectedDay = it },
+                onDayClick = { selectedDayIndex = it },
             )
         }
         item {
@@ -140,12 +144,13 @@ fun ForecastScreen(
             )
         }
     }
-    selectedDay?.let { day ->
+    selectedDayIndex?.let { initialPage ->
         DayDetailSheet(
-            day = day,
-            hours = hourlyForDay(snapshot.hourly, day.date),
+            days = snapshot.daily,
+            hourly = snapshot.hourly,
+            initialPage = initialPage,
             units = units,
-            onDismiss = { selectedDay = null },
+            onDismiss = { selectedDayIndex = null },
         )
     }
     if (showDetails) {
@@ -315,7 +320,7 @@ private fun HourlyGraphPanel(snapshot: WeatherSnapshot, accent: Color, units: We
     val scrollState = rememberScrollState()
     val itemWidth = 68.dp
     Column {
-        SectionTitle(stringResource(R.string.next_hours, 20))
+        SectionTitle(stringResource(R.string.next_hours, HOURLY_OUTLOOK_COUNT))
         Spacer(Modifier.height(12.dp))
         WeatherPanel {
             Row(
@@ -481,7 +486,7 @@ private fun CurrentMetrics(snapshot: WeatherSnapshot, accent: Color, units: Weat
 private fun DailyForecastPanel(
     days: List<DailyWeather>,
     units: WeatherUnitFormatter,
-    onDayClick: (DailyWeather) -> Unit,
+    onDayClick: (Int) -> Unit,
 ) {
     Column {
         SectionTitle(stringResource(R.string.days_14))
@@ -493,7 +498,7 @@ private fun DailyForecastPanel(
                         day = day,
                         today = index == 0,
                         units = units,
-                        onClick = { onDayClick(day) },
+                        onClick = { onDayClick(index) },
                     )
                     if (index != days.lastIndex) {
                         HorizontalDivider(
@@ -589,13 +594,19 @@ private fun DailyRow(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DayDetailSheet(
-    day: DailyWeather,
-    hours: List<HourlyWeather>,
+    days: List<DailyWeather>,
+    hourly: List<HourlyWeather>,
+    initialPage: Int,
     units: WeatherUnitFormatter,
     onDismiss: () -> Unit,
 ) {
+    if (days.isEmpty()) return
     val locale = LocalConfiguration.current.locales[0]
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val pagerState = rememberPagerState(
+        initialPage = initialPage.coerceIn(days.indices),
+        pageCount = { days.size },
+    )
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = Color(0xFF101820),
@@ -603,75 +614,85 @@ private fun DayDetailSheet(
         sheetState = sheetState,
         sheetGesturesEnabled = false,
     ) {
-        LazyColumn(
+        HorizontalPager(
+            state = pagerState,
+            reverseLayout = true,
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight()
-                .navigationBarsPadding(),
-            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 34.dp),
-        ) {
-            item {
-                Text(formatFullDay(day.date, locale), fontSize = 25.sp, fontWeight = FontWeight.SemiBold)
-                Text(
-                    "${stringResource(R.string.whole_day_hours)} · ${hours.size}",
-                    color = Color.White.copy(alpha = 0.56f),
-                    fontSize = 13.sp,
-                    modifier = Modifier.padding(top = 3.dp),
-                )
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp, bottom = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text("${units.temperature(day.temperatureMin)} / ${units.temperature(day.temperatureMax)}", fontSize = 12.sp)
-                    Text(units.precipitation(day.precipitationSum), fontSize = 12.sp)
-                    Text(units.windSpeed(day.windSpeedMax), fontSize = 12.sp)
-                }
-            }
-            itemsIndexed(hours, key = { index, hour -> "${hour.time}-$index" }) { _, hour ->
-                val condition = conditionFor(hour.weatherCode, hour.isDay)
-                val conditionLabel = stringResource(condition.labelResource())
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(62.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(hour.time.takeLast(5), modifier = Modifier.width(55.dp), fontWeight = FontWeight.SemiBold)
-                    WeatherIcon(
-                        kind = condition.kind,
-                        isDay = hour.isDay,
-                        contentDescription = conditionLabel,
-                        modifier = Modifier.size(26.dp),
-                        tint = conditionAccent(condition.kind, hour.isDay),
-                    )
+                .fillMaxHeight(),
+        ) { page ->
+            val day = dayForPage(days, page) ?: return@HorizontalPager
+            val hours = hourlyForDay(hourly, day.date)
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight()
+                    .navigationBarsPadding(),
+                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 34.dp),
+            ) {
+                item {
+                    Text(formatFullDay(day.date, locale), fontSize = 25.sp, fontWeight = FontWeight.SemiBold)
                     Text(
-                        conditionLabel,
+                        "${stringResource(R.string.whole_day_hours)} · ${hours.size}",
+                        color = Color.White.copy(alpha = 0.56f),
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(top = 3.dp),
+                    )
+                    Row(
                         modifier = Modifier
-                            .weight(1f)
-                            .padding(start = 12.dp),
-                        color = Color.White.copy(alpha = 0.72f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        if (hour.precipitationProbability > 0) "${hour.precipitationProbability}%" else "–",
-                        modifier = Modifier.width(44.dp),
-                        color = Color(0xFF8EDCF0),
-                        textAlign = TextAlign.End,
-                    )
-                    Text(
-                        units.temperature(hour.temperature),
-                        modifier = Modifier
-                            .width(48.dp)
-                            .padding(start = 8.dp),
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        textAlign = TextAlign.End,
-                    )
+                            .fillMaxWidth()
+                            .padding(top = 16.dp, bottom = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text("${units.temperature(day.temperatureMin)} / ${units.temperature(day.temperatureMax)}", fontSize = 12.sp)
+                        Text(units.precipitation(day.precipitationSum), fontSize = 12.sp)
+                        Text(units.windSpeed(day.windSpeedMax), fontSize = 12.sp)
+                    }
                 }
-                HorizontalDivider(color = Color.White.copy(alpha = 0.06f))
+                itemsIndexed(hours, key = { index, hour -> "${hour.time}-$index" }) { _, hour ->
+                    val condition = conditionFor(hour.weatherCode, hour.isDay)
+                    val conditionLabel = stringResource(condition.labelResource())
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(62.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(hour.time.takeLast(5), modifier = Modifier.width(55.dp), fontWeight = FontWeight.SemiBold)
+                        WeatherIcon(
+                            kind = condition.kind,
+                            isDay = hour.isDay,
+                            contentDescription = conditionLabel,
+                            modifier = Modifier.size(26.dp),
+                            tint = conditionAccent(condition.kind, hour.isDay),
+                        )
+                        Text(
+                            conditionLabel,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(start = 12.dp),
+                            color = Color.White.copy(alpha = 0.72f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            if (hour.precipitationProbability > 0) "${hour.precipitationProbability}%" else "–",
+                            modifier = Modifier.width(44.dp),
+                            color = Color(0xFF8EDCF0),
+                            textAlign = TextAlign.End,
+                        )
+                        Text(
+                            units.temperature(hour.temperature),
+                            modifier = Modifier
+                                .width(48.dp)
+                                .padding(start = 8.dp),
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            textAlign = TextAlign.End,
+                        )
+                    }
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.06f))
+                }
             }
         }
     }
@@ -718,11 +739,12 @@ internal fun hourlyForDay(hourly: List<HourlyWeather>, date: String): List<Hourl
         .sortedBy { it.time }
         .toList()
 
+internal fun dayForPage(days: List<DailyWeather>, page: Int): DailyWeather? = days.getOrNull(page)
+
 internal fun upcomingHours(
     hourly: List<HourlyWeather>,
     currentHour: String,
-    limit: Int = 20,
-): List<HourlyWeather> = hourly.dropWhile { it.time.take(13) < currentHour }.take(limit)
+): List<HourlyWeather> = hourly.dropWhile { it.time.take(13) < currentHour }.take(HOURLY_OUTLOOK_COUNT)
 
 internal fun formatUpdatedAt(epochMillis: Long, locale: java.util.Locale): String =
     DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT)

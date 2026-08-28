@@ -79,7 +79,7 @@ The app has no developer account or separate analytics SDK. It keeps the selecte
 
 ## Status
 
-`v0.2.0-beta.5` uses the store identity Selia Weather and the short launcher label Selia Wx. It keeps the public package `com.majkeylab.weatheraladin`, so existing Play installations update normally. GitHub prereleases are for testing. Google Play uses a separate private upload key and Play App Signing.
+`v0.2.0-beta.6` uses the store identity Selia Weather and the short launcher label Selia Wx. It keeps the public package `com.majkeylab.weatheraladin`, so existing Play installations update normally. GitHub prereleases are for testing. Google Play uses a separate private upload key and Play App Signing.
 
 ## License
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0-beta.6] - 2026-08-28
+
+- Expanded the home forecast to the next 24 hours across midnight.
+- Added bounded left/right paging between full-day hourly forecasts.
+- Fixed Settings scrolling so every language, Premium, privacy, and support control stays reachable.
+- Removed banner ads and retained only the fourth-return Maps interstitial for free users.
+
 ## [0.2.0-beta.5] - 2026-08-26
 
 - Makes the Lightning radar toggle visibly active while strikes remain layered over rain or clouds.

@@ -57,7 +57,7 @@ def manifest() -> FeedManifest:
             state="diagnostic",
         ),
         sources=(source(),),
-        tile_checksums=(("tiles/20260829T120000Z/0/0.json", "a" * 64),),
+        tile_checksums=(("tiles/20260829T120000Z/0/0.json.gz", "a" * 64),),
     )
 
 
@@ -144,7 +144,7 @@ def test_manifest_rejects_tile_from_another_run() -> None:
     with pytest.raises(ValueError, match="current run"):
         replace(
             manifest(),
-            tile_checksums=(("tiles/20260829T060000Z/0/0.json", "a" * 64),),
+            tile_checksums=(("tiles/20260829T060000Z/0/0.json.gz", "a" * 64),),
         )
 
 

@@ -1,7 +1,9 @@
 package cz.majkey.pocasicesko.data
 
+import java.io.ByteArrayOutputStream
 import java.security.MessageDigest
 import java.time.Instant
+import java.util.zip.GZIPOutputStream
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -10,8 +12,8 @@ import org.junit.Test
 class StaticForecastTileParserTest {
     @Test
     fun verifiesChecksumAndParsesSourceSeparatedValues() {
-        val bytes = TILE.toByteArray()
-        val tile = StaticForecastParser.parseTile(bytes, manifest(checksum(bytes)))
+        val bytes = gzip(TILE.toByteArray())
+        val tile = StaticForecastParser.parseTile(bytes, manifest(checksum(bytes)), PATH)
 
         assertEquals("20260829T120000Z", tile.runId)
         assertEquals(2, tile.values.size)
@@ -21,29 +23,33 @@ class StaticForecastTileParserTest {
 
     @Test
     fun rejectsChecksumUnknownSourceAndDuplicateIdentity() {
-        val bytes = TILE.toByteArray()
+        val bytes = gzip(TILE.toByteArray())
         assertFails("checksum") {
-            StaticForecastParser.parseTile(bytes, manifest("a".repeat(64)))
+            StaticForecastParser.parseTile(bytes, manifest("a".repeat(64)), PATH)
         }
         assertFails("source") {
             val invalid = TILE.replace("dwd-icon-eu", "unknown-source")
-            StaticForecastParser.parseTile(invalid.toByteArray(), manifest(checksum(invalid.toByteArray())))
+            val compressed = gzip(invalid.toByteArray())
+            StaticForecastParser.parseTile(compressed, manifest(checksum(compressed)), PATH)
         }
         assertFails("duplicate") {
             val row = TILE.substringAfter("\"values\":[").substringBefore("},") + "}"
             val invalid = TILE.replace("\"values\":[", "\"values\":[$row,")
-            StaticForecastParser.parseTile(invalid.toByteArray(), manifest(checksum(invalid.toByteArray())))
+            val compressed = gzip(invalid.toByteArray())
+            StaticForecastParser.parseTile(compressed, manifest(checksum(compressed)), PATH)
         }
     }
 
     @Test
     fun rejectsRowsOutsideDeclaredTile() {
         val invalid = TILE.replaceFirst("\"longitude\":14.0", "\"longitude\":13.5")
+        val compressed = gzip(invalid.toByteArray())
 
         assertFails("tile coordinates") {
             StaticForecastParser.parseTile(
-                invalid.toByteArray(),
-                manifest(checksum(invalid.toByteArray())),
+                compressed,
+                manifest(checksum(compressed)),
+                PATH,
             )
         }
     }
@@ -51,11 +57,13 @@ class StaticForecastTileParserTest {
     @Test
     fun rejectsMixedUnitsForOneVariable() {
         val invalid = TILE.replaceFirst("\"unit\":\"°C\"", "\"unit\":\"K\"")
+        val compressed = gzip(invalid.toByteArray())
 
         assertFails("mixed units") {
             StaticForecastParser.parseTile(
-                invalid.toByteArray(),
-                manifest(checksum(invalid.toByteArray())),
+                compressed,
+                manifest(checksum(compressed)),
+                PATH,
             )
         }
     }
@@ -77,6 +85,11 @@ class StaticForecastTileParserTest {
         .digest(value)
         .joinToString("") { "%02x".format(it) }
 
+    private fun gzip(value: ByteArray): ByteArray = ByteArrayOutputStream().use { output ->
+        GZIPOutputStream(output).use { it.write(value) }
+        output.toByteArray()
+    }
+
     private fun assertFails(message: String, block: () -> Unit) {
         val error = runCatching(block).exceptionOrNull()
         assertTrue("Expected IllegalArgumentException, got $error", error is IllegalArgumentException)
@@ -87,7 +100,7 @@ class StaticForecastTileParserTest {
     }
 
     companion object {
-        private const val PATH = "tiles/20260829T120000Z/1/4.json"
+        private const val PATH = "tiles/20260829T120000Z/1/4.json.gz"
         private val TILE = """
             {
               "schema_version":1,

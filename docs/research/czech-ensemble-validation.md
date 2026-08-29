@@ -200,5 +200,5 @@ Run these commands from the repository root:
 & 'C:\Users\mates\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -m uv run --project research pyright
 ```
 
-The current verified result is 200 passing tests, Ruff clean, and zero repository-wide Pyright
+The current verified result is 201 passing tests, Ruff clean, and zero repository-wide Pyright
 errors.

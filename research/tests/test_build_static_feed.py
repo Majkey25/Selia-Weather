@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gzip
 import json
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -122,10 +123,23 @@ def test_builder_writes_deterministic_source_separated_tile(tmp_path: Path) -> N
     assert (first / "manifest.json").read_bytes() == (second / "manifest.json").read_bytes()
     tile = Path(first_manifest.tile_checksums[0][0])
     assert (first / tile).read_bytes() == (second / tile).read_bytes()
-    text = (first / tile).read_text(encoding="utf-8")
+    text = gzip.decompress((first / tile).read_bytes()).decode("utf-8")
     assert '"source_id":"source-a"' in text
     assert '"source_id":"source-b"' in text
     assert (first / "licences.json").is_file()
+
+
+def test_builder_compresses_tiles_losslessly_and_deterministically(tmp_path: Path) -> None:
+    output = tmp_path / "feed"
+
+    manifest = build(output, fixture_values())
+    relative = manifest.tile_checksums[0][0]
+    compressed = (output / relative).read_bytes()
+
+    assert relative.endswith(".json.gz")
+    decoded = gzip.decompress(compressed).decode("utf-8")
+    assert '"source_id":"source-a"' in decoded
+    assert len(compressed) < len(decoded.encode("utf-8"))
 
 
 def test_builder_refuses_production_without_calibration(tmp_path: Path) -> None:

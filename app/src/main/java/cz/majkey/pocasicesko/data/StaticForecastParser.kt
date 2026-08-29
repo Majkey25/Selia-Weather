@@ -1,7 +1,10 @@
 package cz.majkey.pocasicesko.data
 
+import java.io.ByteArrayInputStream
+import java.io.IOException
 import java.time.Instant
 import java.security.MessageDigest
+import java.util.zip.GZIPInputStream
 import kotlin.math.abs
 import kotlin.math.floor
 import org.json.JSONException
@@ -65,18 +68,22 @@ internal object StaticForecastParser {
         throw IllegalArgumentException("Malformed static forecast manifest.", error)
     }
 
-    fun parseTile(bytes: ByteArray, manifest: StaticForecastManifest): StaticForecastTile = try {
-        val root = JSONObject(bytes.toString(Charsets.UTF_8))
+    fun parseTile(
+        bytes: ByteArray,
+        manifest: StaticForecastManifest,
+        path: String,
+    ): StaticForecastTile = try {
+        val expectedChecksum = manifest.tileChecksums[path]
+            ?: throw IllegalArgumentException("Tile is absent from manifest checksums.")
+        require(sha256(bytes) == expectedChecksum) { "Tile checksum mismatch." }
+        val root = JSONObject(decompressTile(bytes).toString(Charsets.UTF_8))
         require(root.getInt("schema_version") == SCHEMA_VERSION) { "Unsupported tile schema." }
         val runId = root.getString("run_id")
         require(runId == manifest.runId) { "Tile run does not match manifest." }
         val tileX = root.getInt("tile_x")
         val tileY = root.getInt("tile_y")
         require(tileX >= 0 && tileY >= 0) { "Tile coordinates are invalid." }
-        val path = "tiles/$runId/$tileY/$tileX.json"
-        val expectedChecksum = manifest.tileChecksums[path]
-            ?: throw IllegalArgumentException("Tile is absent from manifest checksums.")
-        require(sha256(bytes) == expectedChecksum) { "Tile checksum mismatch." }
+        require(path == "tiles/$runId/$tileY/$tileX.json.gz") { "Tile path is invalid." }
         val sources = manifest.sources.associateBy(StaticFeedSource::sourceId)
         val valuesJson = root.getJSONArray("values")
         val identities = mutableSetOf<String>()
@@ -138,6 +145,14 @@ internal object StaticForecastParser {
         throw IllegalArgumentException("Malformed static forecast tile.", error)
     }
 
+    private fun decompressTile(bytes: ByteArray): ByteArray = try {
+        GZIPInputStream(ByteArrayInputStream(bytes)).use {
+            readLimited(it, MAX_DECOMPRESSED_TILE_BYTES)
+        }
+    } catch (error: IOException) {
+        throw IllegalArgumentException("Malformed compressed forecast tile.", error)
+    }
+
     private fun parseGrid(value: JSONObject): StaticFeedGrid {
         val grid = StaticFeedGrid(
             south = value.getDouble("south"),
@@ -182,6 +197,7 @@ internal object StaticForecastParser {
         .joinToString("") { "%02x".format(it) }
 
     private const val SCHEMA_VERSION = 1
+    private const val MAX_DECOMPRESSED_TILE_BYTES = 50_000_000
     private const val GRID_EPSILON = 1e-8
     private val RUN_ID = Regex("[0-9]{8}T[0-9]{6}Z")
     private val CHECKSUM = Regex("[0-9a-f]{64}")

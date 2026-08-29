@@ -24,7 +24,7 @@ class StaticForecastParserTest {
         assertFalse(manifest.isUsableAt(Instant.parse("2026-08-29T18:00:00Z")))
         assertEquals(
             "a".repeat(64),
-            manifest.tileChecksums.getValue("tiles/20260829T120000Z/0/0.json"),
+            manifest.tileChecksums.getValue("tiles/20260829T120000Z/0/0.json.gz"),
         )
     }
 
@@ -75,7 +75,7 @@ class StaticForecastParserTest {
               "grid":{"south":48.45,"north":51.2,"west":11.9,"east":19.0,"step":0.05,"tile_step":0.5},
               "run":{"run_id":"20260829T120000Z","generated_at":"2026-08-29T12:00:00Z","expires_at":"2026-08-29T18:00:00Z","state":"production"},
               "sources":$SOURCES,
-              "tile_checksums":{"tiles/20260829T120000Z/0/0.json":"${"a".repeat(64)}"}
+              "tile_checksums":{"tiles/20260829T120000Z/0/0.json.gz":"${"a".repeat(64)}"}
             }
         """.trimIndent()
     }

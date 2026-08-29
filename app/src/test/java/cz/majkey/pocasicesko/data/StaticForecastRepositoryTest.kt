@@ -1,8 +1,10 @@
 package cz.majkey.pocasicesko.data
 
 import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.security.MessageDigest
 import java.time.Instant
+import java.util.zip.GZIPOutputStream
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -36,8 +38,8 @@ class StaticForecastRepositoryTest {
 
     @Test
     fun fetchesAndInterpolatesTheRequiredTile() {
-        val tile = TILE.toByteArray()
-        val path = "tiles/20260829T120000Z/1/4.json"
+        val tile = gzip(TILE.toByteArray())
+        val path = "tiles/20260829T120000Z/1/4.json.gz"
         val requestedTiles = mutableListOf<String>()
         val repository = StaticForecastRepository(
             fetchText = { manifest("production", checksum(tile), path) },
@@ -65,10 +67,10 @@ class StaticForecastRepositoryTest {
 
         assertEquals(
             listOf(
-                "tiles/20260829T120000Z/0/0.json",
-                "tiles/20260829T120000Z/0/1.json",
-                "tiles/20260829T120000Z/1/0.json",
-                "tiles/20260829T120000Z/1/1.json",
+                "tiles/20260829T120000Z/0/0.json.gz",
+                "tiles/20260829T120000Z/0/1.json.gz",
+                "tiles/20260829T120000Z/1/0.json.gz",
+                "tiles/20260829T120000Z/1/1.json.gz",
             ),
             paths,
         )
@@ -99,7 +101,7 @@ class StaticForecastRepositoryTest {
             state = "production",
             calibration = "\"${"b".repeat(64)}\"",
             dataset = "\"${"c".repeat(64)}\"",
-            tiles = "{\"tiles/20260829T120000Z/0/0.json\":\"${"a".repeat(64)}\"}",
+            tiles = "{\"tiles/20260829T120000Z/0/0.json.gz\":\"${"a".repeat(64)}\"}",
         )
 
         private fun manifest(state: String, checksum: String, path: String): String = manifest(
@@ -124,6 +126,11 @@ class StaticForecastRepositoryTest {
         private fun checksum(value: ByteArray): String = MessageDigest.getInstance("SHA-256")
             .digest(value)
             .joinToString("") { "%02x".format(it) }
+
+        private fun gzip(value: ByteArray): ByteArray = ByteArrayOutputStream().use { output ->
+            GZIPOutputStream(output).use { it.write(value) }
+            output.toByteArray()
+        }
 
         private val TILE = """
             {

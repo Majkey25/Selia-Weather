@@ -447,5 +447,5 @@ SCHEMA_VERSION = 1
 SOURCE_ID = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 VARIABLE = re.compile(r"[a-z][a-z0-9_]*")
 RUN_ID = re.compile(r"[0-9]{8}T[0-9]{6}Z")
-TILE_PATH = re.compile(r"tiles/[0-9]{8}T[0-9]{6}Z/[0-9]+/[0-9]+\.json")
+TILE_PATH = re.compile(r"tiles/[0-9]{8}T[0-9]{6}Z/[0-9]+/[0-9]+\.json\.gz")
 CHECKSUM = re.compile(r"[0-9a-f]{64}")

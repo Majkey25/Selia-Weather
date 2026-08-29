@@ -30,7 +30,7 @@ internal class StaticForecastRepository(
         val manifest = fetchUsableManifest(now)
         val values = requiredTilePaths(manifest, latitude, longitude).flatMap { path ->
             require(path in manifest.tileChecksums) { "Required forecast tile is absent from the manifest." }
-            StaticForecastParser.parseTile(fetchBytes(BASE_URL + path), manifest).values
+            StaticForecastParser.parseTile(fetchBytes(BASE_URL + path), manifest, path).values
         }
         return interpolateStaticValues(values, manifest.grid, latitude, longitude)
     }
@@ -82,7 +82,7 @@ internal fun requiredTilePaths(
         longitudes.map { gridLongitude ->
             val tileY = floor((gridLatitude - grid.south) / grid.tileStep).toInt()
             val tileX = floor((gridLongitude - grid.west) / grid.tileStep).toInt()
-            "tiles/${manifest.runId}/$tileY/$tileX.json"
+            "tiles/${manifest.runId}/$tileY/$tileX.json.gz"
         }
     }.distinct().sorted()
 }

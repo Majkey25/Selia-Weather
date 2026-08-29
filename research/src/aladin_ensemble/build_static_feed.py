@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gzip
 import hashlib
 import json
 from collections import defaultdict
@@ -114,7 +115,7 @@ def build_static_feed(
             calibration_checksum = hashlib.sha256(calibration).hexdigest()
         checksums: list[tuple[str, str]] = []
         for (tile_y, tile_x), tile_values in sorted(tiles.items()):
-            relative = Path("tiles") / run.run_id / str(tile_y) / f"{tile_x}.json"
+            relative = Path("tiles") / run.run_id / str(tile_y) / f"{tile_x}.json.gz"
             payload = _encode_tile(run.run_id, tile_y, tile_x, tile_values)
             target = staging / relative
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -259,7 +260,7 @@ def _encode_tile(
         "values": rows,
     }
     text = json.dumps(document, ensure_ascii=False, separators=(",", ":"), sort_keys=True) + "\n"
-    return text.encode("utf-8")
+    return gzip.compress(text.encode("utf-8"), compresslevel=9, mtime=0)
 
 
 def _value_key(value: tuple[FeedSource, ForecastValue]) -> tuple[object, ...]:

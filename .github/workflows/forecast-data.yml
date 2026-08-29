@@ -33,6 +33,9 @@ jobs:
         with:
           version: "0.12.5"
 
+      - name: Install ecCodes
+        run: sudo apt-get update && sudo apt-get install --yes libeccodes-tools
+
       - name: Install locked research environment
         run: uv sync --project research --frozen
 

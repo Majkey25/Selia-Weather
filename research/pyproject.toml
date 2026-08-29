@@ -5,6 +5,7 @@ description = "Reproducible Czech forecast-model registry research"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "eccodes==2.48.0",
     "ecmwf-opendata==0.3.34",
     "h5py==3.14.0",
     "numpy==2.3.2",

@@ -14,6 +14,7 @@ from urllib.parse import urlencode
 from urllib.request import urlopen
 
 from ..types import ForecastValue
+from .grib_points import convert_grib_unit
 
 HttpGet = Callable[[str, float, int], bytes]
 PayloadLoader = Callable[[], bytes]
@@ -63,6 +64,8 @@ class DwdIconRequest:
             raise ValueError("DWD ICON-EU lead_hour must be between 0 and 120")
         if self.variable not in DWD_VARIABLES:
             raise ValueError(f"unsupported DWD variable: {self.variable}")
+        if self.variable == "surface_elevation" and self.lead_hour != 0:
+            raise ValueError("DWD surface_elevation is time invariant")
 
 
 @dataclass(frozen=True, slots=True)
@@ -183,6 +186,12 @@ def build_grib_get_data_command(path: Path) -> tuple[str, ...]:
 def build_dwd_icon_url(request: DwdIconRequest) -> str:
     folder, code = DWD_VARIABLES[request.variable]
     run = request.run_time
+    if request.variable == "surface_elevation":
+        filename = (
+            "icon-eu_europe_regular-lat-lon_time-invariant_"
+            f"{run:%Y%m%d}00_{code}.grib2.bz2"
+        )
+        return f"{DWD_ICON_ROOT}/00/{folder}/{filename}"
     filename = (
         f"icon-eu_europe_regular-lat-lon_single-level_{run:%Y%m%d%H}_"
         f"{request.lead_hour:03d}_{code}.grib2.bz2"
@@ -205,10 +214,10 @@ def build_noaa_gfs_url(request: NoaaGfsRequest) -> str:
         (variable, "on"),
         (level, "on"),
         ("subregion", ""),
-        ("leftlon", "11.9"),
-        ("rightlon", "19"),
-        ("toplat", "51.2"),
-        ("bottomlat", "48.45"),
+        ("leftlon", NOAA_SUBSET_BOUNDS[0]),
+        ("rightlon", NOAA_SUBSET_BOUNDS[1]),
+        ("toplat", NOAA_SUBSET_BOUNDS[2]),
+        ("bottomlat", NOAA_SUBSET_BOUNDS[3]),
         ("dir", f"/gfs.{run:%Y%m%d}/{run:%H}/atmos"),
     )
     return f"{NOAA_GFS_FILTER}?{urlencode(parameters)}"
@@ -223,10 +232,10 @@ def build_noaa_gefs_url(request: NoaaGefsRequest) -> str:
         (variable, "on"),
         (level, "on"),
         ("subregion", ""),
-        ("leftlon", "11.9"),
-        ("rightlon", "19"),
-        ("toplat", "51.2"),
-        ("bottomlat", "48.45"),
+        ("leftlon", NOAA_SUBSET_BOUNDS[0]),
+        ("rightlon", NOAA_SUBSET_BOUNDS[1]),
+        ("toplat", NOAA_SUBSET_BOUNDS[2]),
+        ("bottomlat", NOAA_SUBSET_BOUNDS[3]),
         ("dir", f"/gefs.{run:%Y%m%d}/{run:%H}/atmos/pgrb2ap5"),
     )
     return f"{NOAA_GEFS_FILTER}?{urlencode(parameters)}"
@@ -374,7 +383,11 @@ def parse_grib_get_data(
             converted = None
         else:
             try:
-                converted = _convert(float(raw), field.source_unit, field.canonical_unit)
+                converted = convert_grib_unit(
+                    float(raw),
+                    field.source_unit,
+                    field.canonical_unit,
+                )
             except ValueError as error:
                 raise ValueError("grib_get_data value is invalid") from error
         values.append(
@@ -393,21 +406,6 @@ def parse_grib_get_data(
     if not values:
         raise ValueError("grib_get_data contains no values")
     return tuple(sorted(values, key=lambda value: (value.latitude, value.longitude)))
-
-
-def _convert(value: float, source_unit: str, canonical_unit: str) -> float:
-    if source_unit == canonical_unit:
-        return value
-    conversion = (source_unit, canonical_unit)
-    if conversion == ("K", "°C"):
-        return value - 273.15
-    if conversion == ("m/s", "km/h"):
-        return value * 3.6
-    if conversion == ("Pa", "hPa"):
-        return value / 100.0
-    if conversion == ("kg/m²", "mm"):
-        return value
-    raise ValueError(f"unsupported unit conversion: {source_unit} to {canonical_unit}")
 
 
 def _http_get(url: str, timeout: float, max_bytes: int) -> bytes:
@@ -579,6 +577,7 @@ def _require_utc(value: datetime, name: str) -> None:
 DWD_ICON_ROOT = "https://opendata.dwd.de/weather/nwp/icon-eu/grib"
 DWD_VARIABLES = {
     "precipitation": ("tot_prec", "TOT_PREC"),
+    "surface_elevation": ("hsurf", "HSURF"),
     "temperature_2m": ("t_2m", "T_2M"),
     "wind_u_10m": ("u_10m", "U_10M"),
     "wind_v_10m": ("v_10m", "V_10M"),
@@ -596,6 +595,7 @@ CHMI_ALADIN_VARIABLES = {
 }
 NOAA_GFS_FILTER = "https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl"
 NOAA_GEFS_FILTER = "https://nomads.ncep.noaa.gov/cgi-bin/filter_gefs_atmos_0p50a.pl"
+NOAA_SUBSET_BOUNDS = ("11.4", "19.5", "51.7", "47.95")
 NOAA_GFS_VARIABLES = {
     "precipitation": ("var_APCP", "lev_surface"),
     "pressure_msl": ("var_PRMSL", "lev_mean_sea_level"),

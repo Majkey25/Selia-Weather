@@ -79,5 +79,6 @@ def test_forecast_workflow_builds_and_deploys_pages_site() -> None:
     assert 'cron: "17 */6 * * *"' in source
     assert "pages: write" in source
     assert "id-token: write" in source
+    assert "libeccodes-tools" in source
     assert "python -m aladin_ensemble.run_static_feed" in source
     assert "actions/deploy-pages@v4" in source

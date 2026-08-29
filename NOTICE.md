@@ -13,6 +13,18 @@ Source: Czech Hydrometeorological Institute (ČHMÚ). The application is not an 
 product. Dataset identities, download URLs, licence links, and metadata records are pinned in
 `research/static-source-registry.json`.
 
+## ecCodes Python 2.48.0
+
+The research pipeline uses `eccodes==2.48.0` for bounded batch sampling of official GRIB fields.
+
+- Copyright 2017–2026 ECMWF.
+- Software licence: Apache License 2.0.
+- Source: <https://github.com/ecmwf/eccodes-python>
+- Windows CPython 3.12 wheel SHA-256:
+  `ae555c99abe13331d5f4a5dd4b4b6ca2ac39aefdc68037b7ebb623df16963778`.
+- Platform-neutral wheel SHA-256:
+  `470eed1c5ba0aa9062a345ac0806cb887e5395263243b2d93c88e45002a035aa`.
+
 ## ecmwf-opendata 0.3.34
 
 The research pipeline uses `ecmwf-opendata==0.3.34` to retrieve selected IFS and AIFS fields from

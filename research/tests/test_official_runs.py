@@ -72,6 +72,18 @@ def test_dwd_icon_url_uses_verified_operational_filename() -> None:
     )
 
 
+def test_dwd_surface_elevation_uses_static_hsurf_field() -> None:
+    request = DwdIconRequest(
+        run_time=datetime(2026, 8, 29, 6, tzinfo=UTC),
+        lead_hour=0,
+        variable="surface_elevation",
+    )
+
+    assert build_dwd_icon_url(request) == (
+        "https://opendata.dwd.de/weather/nwp/icon-eu/grib/00/hsurf/"
+        "icon-eu_europe_regular-lat-lon_time-invariant_2026082900_HSURF.grib2.bz2"
+    )
+
 def test_chmi_aladin_url_uses_verified_operational_filename() -> None:
     request = ChmiAladinRequest(
         run_time=datetime(2026, 8, 28, 0, tzinfo=UTC),
@@ -123,7 +135,7 @@ def test_noaa_gfs_url_uses_czech_subregion_filter() -> None:
     assert build_noaa_gfs_url(request) == (
         "https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?"
         "file=gfs.t06z.pgrb2.0p25.f003&var_TMP=on&lev_2_m_above_ground=on&"
-        "subregion=&leftlon=11.9&rightlon=19&toplat=51.2&bottomlat=48.45&"
+        "subregion=&leftlon=11.4&rightlon=19.5&toplat=51.7&bottomlat=47.95&"
         "dir=%2Fgfs.20260829%2F06%2Fatmos"
     )
 
@@ -156,7 +168,7 @@ def test_noaa_gefs_url_uses_extended_ensemble_mean() -> None:
     assert build_noaa_gefs_url(request) == (
         "https://nomads.ncep.noaa.gov/cgi-bin/filter_gefs_atmos_0p50a.pl?"
         "file=geavg.t00z.pgrb2a.0p50.f840&var_TMP=on&lev_2_m_above_ground=on&"
-        "subregion=&leftlon=11.9&rightlon=19&toplat=51.2&bottomlat=48.45&"
+        "subregion=&leftlon=11.4&rightlon=19.5&toplat=51.7&bottomlat=47.95&"
         "dir=%2Fgefs.20260829%2F00%2Fatmos%2Fpgrb2ap5"
     )
 

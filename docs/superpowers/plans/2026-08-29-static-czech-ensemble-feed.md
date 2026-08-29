@@ -117,16 +117,16 @@ feat(research): define static forecast feed
 - Consumes: canonical `ForecastValue` rows, a complete source registry, and an optional validated calibration artifact.
 - Produces: `data/v1/manifest.json`, `data/v1/tiles/{run_id}/{tile_y}/{tile_x}.json`, and `data/v1/licences.json`.
 
-- [ ] Write a failing golden test with two models, four grid points, three validity hours, and temperature/wind/precipitation values.
-- [ ] Verify RED because no tile builder exists.
-- [ ] Group values by tile, source, variable, validity time, and grid point. Reject duplicates, mixed units, mixed validity axes, missing run metadata, and points outside the declared grid.
-- [ ] Keep source series separate. Do not pre-average values in the feed.
-- [ ] Quantise only after a round-trip error test proves these maximum errors: temperature `0.05 °C`, speed `0.1 km/h`, pressure `0.1 hPa`, humidity/cloud/probability `1%`, and precipitation `0.01 mm`.
-- [ ] Hash every tile byte sequence. Write the manifest only after every tile and size check passes.
-- [ ] Refuse `state=production` when calibration is absent, diagnostic, references an unlicensed source, or fails its manifest hash.
-- [ ] Test deterministic bytes, one corrupted tile, partial generation cleanup, 800 MB size refusal, and diagnostic-to-production refusal.
-- [ ] Run pytest, Ruff, and focused Pyright.
-- [ ] Commit `feat(research): build forecast feed tiles`.
+- [x] Write a failing golden test with two models, four grid points, three validity hours, and temperature/wind/precipitation values.
+- [x] Verify RED because no tile builder exists.
+- [x] Group values by tile, source, variable, validity time, and grid point. Reject duplicates, mixed units, mixed validity axes, missing run metadata, and points outside the declared grid.
+- [x] Keep source series separate. Do not pre-average values in the feed.
+- [x] Keep full precision. Quantisation stays disabled until a size measurement justifies it and a round-trip test proves the required error bounds.
+- [x] Hash every tile byte sequence. Write the manifest only after every tile and size check passes.
+- [x] Refuse `state=production` when calibration is absent, references an unlicensed source, or does not match its dataset manifest hash.
+- [x] Test deterministic bytes, one corrupted tile, partial generation cleanup, 800 MB size refusal, and diagnostic-to-production refusal.
+- [x] Run pytest, Ruff, and focused Pyright.
+- [x] Commit `feat(research): build forecast feed tiles`.
 
 ---
 

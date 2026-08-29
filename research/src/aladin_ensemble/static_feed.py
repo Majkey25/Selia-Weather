@@ -121,6 +121,8 @@ class FeedManifest:
     run: FeedRun
     sources: tuple[FeedSource, ...]
     tile_checksums: tuple[tuple[str, str], ...]
+    calibration_checksum: str | None = None
+    dataset_manifest_hash: str | None = None
 
     def __post_init__(self) -> None:
         if self.schema_version != SCHEMA_VERSION:
@@ -128,6 +130,14 @@ class FeedManifest:
         validate_source_registry(self.sources, production=self.run.state == "production")
         if self.run.state == "production" and not self.tile_checksums:
             raise ValueError("production manifest requires tiles")
+        if self.run.state == "production" and self.calibration_checksum is None:
+            raise ValueError("production manifest requires calibration")
+        if self.run.state == "production" and self.dataset_manifest_hash is None:
+            raise ValueError("production manifest requires dataset manifest hash")
+        if self.calibration_checksum is not None:
+            _require_checksum(self.calibration_checksum)
+        if self.dataset_manifest_hash is not None:
+            _require_checksum(self.dataset_manifest_hash)
         paths: set[str] = set()
         for path, checksum in self.tile_checksums:
             if not TILE_PATH.fullmatch(path) or ".." in path:
@@ -177,6 +187,8 @@ def decode_source_registry(value: str) -> tuple[FeedSource, ...]:
 
 def encode_manifest(manifest: FeedManifest) -> str:
     document = {
+        "calibration_checksum": manifest.calibration_checksum,
+        "dataset_manifest_hash": manifest.dataset_manifest_hash,
         "grid": {
             "east": manifest.grid.east,
             "north": manifest.grid.north,
@@ -192,29 +204,43 @@ def encode_manifest(manifest: FeedManifest) -> str:
             "state": manifest.run.state,
         },
         "schema_version": manifest.schema_version,
-        "sources": [
-            {
-                "attribution": source.attribution,
-                "commercial_redistribution": source.commercial_redistribution,
-                "data_url": source.data_url,
-                "documentation_url": source.documentation_url,
-                "enabled": source.enabled,
-                "forecast_horizon_hours": source.forecast_horizon_hours,
-                "licence_name": source.licence_name,
-                "licence_url": source.licence_url,
-                "model_id": source.model_id,
-                "native_resolution_km": source.native_resolution_km,
-                "provider": source.provider,
-                "source_kind": source.source_kind,
-                "source_id": source.source_id,
-                "update_interval_minutes": source.update_interval_minutes,
-                "variables": list(source.variables),
-            }
-            for source in sorted(manifest.sources, key=lambda value: value.source_id)
-        ],
+        "sources": [_source_document(source) for source in _sorted_sources(manifest.sources)],
         "tile_checksums": dict(sorted(manifest.tile_checksums)),
     }
     return json.dumps(document, ensure_ascii=False, separators=(",", ":"), sort_keys=True) + "\n"
+
+
+def encode_source_registry(sources: tuple[FeedSource, ...]) -> str:
+    validate_source_registry(sources, production=False)
+    document = {
+        "schema_version": SCHEMA_VERSION,
+        "sources": [_source_document(source) for source in _sorted_sources(sources)],
+    }
+    return json.dumps(document, ensure_ascii=False, separators=(",", ":"), sort_keys=True) + "\n"
+
+
+def _sorted_sources(sources: tuple[FeedSource, ...]) -> tuple[FeedSource, ...]:
+    return tuple(sorted(sources, key=lambda value: value.source_id))
+
+
+def _source_document(source: FeedSource) -> dict[str, object]:
+    return {
+        "attribution": source.attribution,
+        "commercial_redistribution": source.commercial_redistribution,
+        "data_url": source.data_url,
+        "documentation_url": source.documentation_url,
+        "enabled": source.enabled,
+        "forecast_horizon_hours": source.forecast_horizon_hours,
+        "licence_name": source.licence_name,
+        "licence_url": source.licence_url,
+        "model_id": source.model_id,
+        "native_resolution_km": source.native_resolution_km,
+        "provider": source.provider,
+        "source_kind": source.source_kind,
+        "source_id": source.source_id,
+        "update_interval_minutes": source.update_interval_minutes,
+        "variables": list(source.variables),
+    }
 
 
 def decode_manifest(value: str) -> FeedManifest:
@@ -222,7 +248,18 @@ def decode_manifest(value: str) -> FeedManifest:
         root = _object(cast(object, json.loads(value)), "manifest")
     except json.JSONDecodeError as error:
         raise ValueError("manifest is not valid JSON") from error
-    _require_fields(root, {"grid", "run", "schema_version", "sources", "tile_checksums"})
+    _require_fields(
+        root,
+        {
+            "calibration_checksum",
+            "dataset_manifest_hash",
+            "grid",
+            "run",
+            "schema_version",
+            "sources",
+            "tile_checksums",
+        },
+    )
     grid = _object(root["grid"], "grid")
     _require_fields(grid, {"east", "north", "south", "step", "tile_step", "west"})
     run = _object(root["run"], "run")
@@ -251,6 +288,12 @@ def decode_manifest(value: str) -> FeedManifest:
                 (_text(path, "tile path"), _text(checksum, "checksum"))
                 for path, checksum in checksums.items()
             )
+        ),
+        calibration_checksum=_optional_text(
+            root["calibration_checksum"], "calibration_checksum"
+        ),
+        dataset_manifest_hash=_optional_text(
+            root["dataset_manifest_hash"], "dataset_manifest_hash"
         ),
     )
 
@@ -337,6 +380,10 @@ def _boolean(value: object, name: str) -> bool:
     if not isinstance(value, bool):
         raise ValueError(f"{name} must be a boolean")
     return value
+
+
+def _optional_text(value: object, name: str) -> str | None:
+    return None if value is None else _text(value, name)
 
 
 def _number(value: object, name: str) -> float:

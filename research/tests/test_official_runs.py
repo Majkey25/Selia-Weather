@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import bz2
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -10,6 +12,7 @@ from aladin_ensemble.sources.official_runs import (
     GribField,
     build_dwd_icon_url,
     build_grib_get_data_command,
+    download_dwd_icon,
     parse_grib_get_data,
 )
 
@@ -123,4 +126,60 @@ def test_parser_requires_matching_orography() -> None:
             "Latitude Longitude Value\n49 14 293.15\n",
             field(),
             elevation_by_point={},
+        )
+
+
+def test_dwd_download_decompresses_and_reuses_verified_cache(tmp_path: Path) -> None:
+    request = DwdIconRequest(datetime(2026, 8, 29, 6, tzinfo=UTC), 0, "temperature_2m")
+    compressed = bz2.compress(b"GRIBfixture7777")
+    calls = 0
+
+    def http_get(url: str, timeout: float, max_bytes: int) -> bytes:
+        nonlocal calls
+        assert url == build_dwd_icon_url(request)
+        assert timeout == 15.0
+        assert max_bytes > len(compressed)
+        calls += 1
+        return compressed
+
+    first = download_dwd_icon(request, tmp_path, http_get=http_get)
+    second = download_dwd_icon(request, tmp_path, http_get=http_get)
+
+    assert first.path.read_bytes() == b"GRIBfixture7777"
+    assert second == replace(first, from_cache=True)
+    assert calls == 1
+
+
+def test_dwd_download_rejects_corrupt_cache(tmp_path: Path) -> None:
+    request = DwdIconRequest(datetime(2026, 8, 29, 6, tzinfo=UTC), 0, "temperature_2m")
+    result = download_dwd_icon(
+        request,
+        tmp_path,
+        http_get=lambda _url, _timeout, _max_bytes: bz2.compress(b"GRIBfixture7777"),
+    )
+    result.path.write_bytes(b"corrupt")
+
+    with pytest.raises(ValueError, match="cache checksum"):
+        download_dwd_icon(
+            request,
+            tmp_path,
+            http_get=lambda _url, _timeout, _max_bytes: b"should not download",
+        )
+
+
+def test_dwd_download_rejects_invalid_or_oversized_payload(tmp_path: Path) -> None:
+    request = DwdIconRequest(datetime(2026, 8, 29, 6, tzinfo=UTC), 0, "temperature_2m")
+
+    with pytest.raises(ValueError, match="bzip2"):
+        download_dwd_icon(
+            request,
+            tmp_path / "invalid",
+            http_get=lambda _url, _timeout, _max_bytes: b"not bzip2",
+        )
+    with pytest.raises(ValueError, match="decompressed size"):
+        download_dwd_icon(
+            request,
+            tmp_path / "large",
+            http_get=lambda _url, _timeout, _max_bytes: bz2.compress(b"GRIB" + b"x" * 100),
+            max_decompressed_bytes=32,
         )

@@ -64,7 +64,7 @@
       "provider": "Deutscher Wetterdienst",
       "source_id": "dwd-icon-eu",
       "source_kind": "forecast",
-      "update_interval_minutes": 360,
+      "update_interval_minutes": 180,
       "variables": [
         "cloud_cover",
         "precipitation",

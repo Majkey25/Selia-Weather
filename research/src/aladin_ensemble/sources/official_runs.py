@@ -1,11 +1,25 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+import bz2
+import hashlib
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from urllib.request import urlopen
 
 from ..types import ForecastValue
+
+HttpGet = Callable[[str, float, int], bytes]
+
+
+@dataclass(frozen=True, slots=True)
+class CachedGrib:
+    path: Path
+    checksum: str
+    source_url: str
+    from_cache: bool
+
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,6 +85,48 @@ def build_dwd_icon_url(request: DwdIconRequest) -> str:
         f"{request.lead_hour:03d}_{code}.grib2.bz2"
     )
     return f"{DWD_ICON_ROOT}/{run:%H}/{folder}/{filename}"
+
+
+def download_dwd_icon(
+    request: DwdIconRequest,
+    cache_root: Path,
+    *,
+    http_get: HttpGet | None = None,
+    timeout: float = 15.0,
+    max_compressed_bytes: int = 2_000_000,
+    max_decompressed_bytes: int = 20_000_000,
+) -> CachedGrib:
+    if timeout <= 0 or max_compressed_bytes <= 0 or max_decompressed_bytes <= 0:
+        raise ValueError("download limits must be positive")
+    url = build_dwd_icon_url(request)
+    key = hashlib.sha256(url.encode()).hexdigest()
+    cache_root.mkdir(parents=True, exist_ok=True)
+    path = cache_root / f"{key}.grib2"
+    checksum_path = cache_root / f"{key}.sha256"
+    if path.exists() or checksum_path.exists():
+        if not path.is_file() or not checksum_path.is_file():
+            raise ValueError("DWD cache is incomplete")
+        expected = checksum_path.read_text(encoding="ascii").strip()
+        actual = hashlib.sha256(path.read_bytes()).hexdigest()
+        if expected != actual:
+            raise ValueError("DWD cache checksum mismatch")
+        return CachedGrib(path, actual, url, True)
+
+    getter = http_get or _http_get
+    compressed = getter(url, timeout, max_compressed_bytes)
+    if len(compressed) > max_compressed_bytes:
+        raise ValueError("DWD compressed payload exceeds size limit")
+    payload = _decompress_bz2(compressed, max_decompressed_bytes)
+    if not payload.startswith(b"GRIB") or not payload.endswith(b"7777"):
+        raise ValueError("DWD decompressed payload is not GRIB")
+    checksum = hashlib.sha256(payload).hexdigest()
+    temporary_path = path.with_suffix(".grib2.tmp")
+    temporary_checksum = checksum_path.with_suffix(".sha256.tmp")
+    temporary_path.write_bytes(payload)
+    temporary_checksum.write_text(checksum + "\n", encoding="ascii")
+    temporary_path.replace(path)
+    temporary_checksum.replace(checksum_path)
+    return CachedGrib(path, checksum, url, False)
 
 
 def parse_grib_get_data(
@@ -139,6 +195,33 @@ def _convert(value: float, source_unit: str, canonical_unit: str) -> float:
     if conversion == ("kg/m²", "mm"):
         return value
     raise ValueError(f"unsupported unit conversion: {source_unit} to {canonical_unit}")
+
+
+def _http_get(url: str, timeout: float, max_bytes: int) -> bytes:
+    with urlopen(url, timeout=timeout) as response:
+        payload = response.read(max_bytes + 1)
+    if len(payload) > max_bytes:
+        raise ValueError("HTTP payload exceeds size limit")
+    return payload
+
+
+def _decompress_bz2(value: bytes, max_bytes: int) -> bytes:
+    decoder = bz2.BZ2Decompressor()
+    output = bytearray()
+    try:
+        for offset in range(0, len(value), 64 * 1024):
+            chunk = value[offset : offset + 64 * 1024]
+            while (chunk or not decoder.needs_input) and not decoder.eof:
+                decoded = decoder.decompress(chunk, max_length=max_bytes - len(output) + 1)
+                chunk = b""
+                output.extend(decoded)
+                if len(output) > max_bytes:
+                    raise ValueError("DWD decompressed size exceeds limit")
+        if not decoder.eof:
+            raise ValueError("DWD payload is incomplete bzip2 data")
+    except OSError as error:
+        raise ValueError("DWD payload is invalid bzip2 data") from error
+    return bytes(output)
 
 
 def _normalise_longitude(value: float) -> float:

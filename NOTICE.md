@@ -1,5 +1,18 @@
 # Third-party notices
 
+## Czech Hydrometeorological Institute open data
+
+The forecast research and runtime pipeline uses the following ČHMÚ datasets under Creative
+Commons Attribution 4.0 International:
+
+- ALADIN CZ 1 km numerical forecast data;
+- current meteorological station observations;
+- MERGE1h radar and rain-gauge precipitation estimates.
+
+Source: Czech Hydrometeorological Institute (ČHMÚ). The application is not an official ČHMÚ
+product. Dataset identities, download URLs, licence links, and metadata records are pinned in
+`research/static-source-registry.json`.
+
 ## ecmwf-opendata 0.3.34
 
 The research pipeline uses `ecmwf-opendata==0.3.34` to retrieve selected IFS and AIFS fields from

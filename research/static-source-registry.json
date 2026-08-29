@@ -128,14 +128,14 @@
       ]
     },
     {
-      "attribution": "Source: Czech Hydrometeorological Institute",
-      "commercial_redistribution": false,
+      "attribution": "Source: Czech Hydrometeorological Institute (ČHMÚ)",
+      "commercial_redistribution": true,
       "data_url": "https://opendata.chmi.cz/meteorology/weather/nwp_aladin/CZ_1km/",
-      "documentation_url": "https://opendata.chmi.cz/meteorology/weather/nwp_aladin/",
-      "enabled": false,
+      "documentation_url": "https://geoportal.gov.cz/php/micka/record/basic/664b4599-3354-43e6-a1e4-314efcc0a8017c",
+      "enabled": true,
       "forecast_horizon_hours": 72,
-      "licence_name": "ČHMÚ open data terms require product-specific review",
-      "licence_url": "https://www.chmi.cz/files/portal/docs/meteo/ok/open_data_2023/Podminky_uziti_udaju.pdf",
+      "licence_name": "Creative Commons Attribution 4.0 International",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
       "model_id": "chmi_aladin_cz_1km",
       "native_resolution_km": 1.0,
       "provider": "Czech Hydrometeorological Institute",
@@ -154,14 +154,14 @@
       ]
     },
     {
-      "attribution": "Source: Czech Hydrometeorological Institute",
-      "commercial_redistribution": false,
+      "attribution": "Source: Czech Hydrometeorological Institute (ČHMÚ)",
+      "commercial_redistribution": true,
       "data_url": "https://opendata.chmi.cz/meteorology/climate/now/data/",
-      "documentation_url": "https://www.chmi.cz/namerena-data",
-      "enabled": false,
+      "documentation_url": "https://geoportal.gov.cz/php/micka/record/basic/665d7b94-80c8-4999-954d-38ac71c0a8017c",
+      "enabled": true,
       "forecast_horizon_hours": null,
-      "licence_name": "ČHMÚ open measurement data terms",
-      "licence_url": "https://www.chmi.cz/files/portal/docs/meteo/ok/open_data_2023/Podminky_uziti_udaju.pdf",
+      "licence_name": "Creative Commons Attribution 4.0 International",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
       "model_id": "chmi_current_stations",
       "native_resolution_km": null,
       "provider": "Czech Hydrometeorological Institute",
@@ -175,6 +175,25 @@
         "temperature_2m",
         "wind_direction_10m",
         "wind_speed_10m"
+      ]
+    },
+    {
+      "attribution": "Source: Czech Hydrometeorological Institute (ČHMÚ)",
+      "commercial_redistribution": true,
+      "data_url": "https://opendata.chmi.cz/meteorology/weather/radar/composite/merge1h/hdf5/",
+      "documentation_url": "https://geoportal.gov.cz/php/micka/record/basic/66545a65-0420-4fb1-a023-34e3dfc0a8017c",
+      "enabled": true,
+      "forecast_horizon_hours": null,
+      "licence_name": "Creative Commons Attribution 4.0 International",
+      "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+      "model_id": "chmi_merge1h",
+      "native_resolution_km": 1.0,
+      "provider": "Czech Hydrometeorological Institute",
+      "source_id": "chmi-radar-merge1h",
+      "source_kind": "observation",
+      "update_interval_minutes": 10,
+      "variables": [
+        "precipitation"
       ]
     }
   ]

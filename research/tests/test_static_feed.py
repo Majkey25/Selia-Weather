@@ -110,14 +110,16 @@ def test_bundled_source_registry_is_production_safe() -> None:
 
     validate_source_registry(sources, production=True)
     assert {item.source_id for item in sources if item.enabled} == {
+        "chmi-aladin-cz-1km",
+        "chmi-current-stations",
+        "chmi-radar-merge1h",
         "dwd-icon-eu",
         "ecmwf-aifs-open",
         "ecmwf-ifs-open",
         "noaa-gefs",
         "noaa-gfs",
     }
-    assert any(item.source_id == "chmi-current-stations" and not item.enabled for item in sources)
-    assert any(item.source_id == "chmi-aladin-cz-1km" and not item.enabled for item in sources)
+    assert all(item.commercial_redistribution for item in sources if item.enabled)
 
 
 def test_manifest_json_round_trip_is_deterministic() -> None:

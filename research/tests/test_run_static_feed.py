@@ -35,8 +35,8 @@ def test_pages_site_preserves_docs_and_publishes_diagnostic_contract(tmp_path: P
     licences = decode_source_registry(
         (output / "data/v1/licences.json").read_text(encoding="utf-8")
     )
-    assert len(licences) > len(manifest.sources)
-    assert all(source.enabled for source in manifest.sources)
+    assert licences == manifest.sources
+    assert all(source.enabled and source.commercial_redistribution for source in manifest.sources)
 
 
 def test_pages_site_is_deterministic_for_same_time(tmp_path: Path) -> None:

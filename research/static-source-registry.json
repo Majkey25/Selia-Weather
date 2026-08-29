@@ -22,9 +22,9 @@
         "pressure_msl",
         "relative_humidity_2m",
         "temperature_2m",
-        "wind_direction_10m",
         "wind_gusts_10m",
-        "wind_speed_10m"
+        "wind_u_10m",
+        "wind_v_10m"
       ]
     },
     {
@@ -46,8 +46,8 @@
         "precipitation",
         "pressure_msl",
         "temperature_2m",
-        "wind_direction_10m",
-        "wind_speed_10m"
+        "wind_u_10m",
+        "wind_v_10m"
       ]
     },
     {
@@ -71,9 +71,9 @@
         "pressure_msl",
         "relative_humidity_2m",
         "temperature_2m",
-        "wind_direction_10m",
         "wind_gusts_10m",
-        "wind_speed_10m"
+        "wind_u_10m",
+        "wind_v_10m"
       ]
     },
     {
@@ -97,9 +97,9 @@
         "pressure_msl",
         "relative_humidity_2m",
         "temperature_2m",
-        "wind_direction_10m",
         "wind_gusts_10m",
-        "wind_speed_10m"
+        "wind_u_10m",
+        "wind_v_10m"
       ]
     },
     {
@@ -123,8 +123,8 @@
         "pressure_msl",
         "relative_humidity_2m",
         "temperature_2m",
-        "wind_direction_10m",
-        "wind_speed_10m"
+        "wind_u_10m",
+        "wind_v_10m"
       ]
     },
     {
@@ -148,9 +148,9 @@
         "pressure_msl",
         "relative_humidity_2m",
         "temperature_2m",
-        "wind_direction_10m",
         "wind_gusts_10m",
-        "wind_speed_10m"
+        "wind_u_10m",
+        "wind_v_10m"
       ]
     },
     {

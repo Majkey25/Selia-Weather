@@ -120,6 +120,10 @@ def test_bundled_source_registry_is_production_safe() -> None:
         "noaa-gfs",
     }
     assert all(item.commercial_redistribution for item in sources if item.enabled)
+    for item in sources:
+        if item.enabled and item.source_kind == "forecast":
+            assert {"wind_u_10m", "wind_v_10m"}.issubset(item.variables)
+            assert "wind_direction_10m" not in item.variables
 
 
 def test_manifest_json_round_trip_is_deterministic() -> None:

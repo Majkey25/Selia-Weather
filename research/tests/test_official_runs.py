@@ -9,12 +9,15 @@ import pytest
 
 from aladin_ensemble.sources.official_runs import (
     DwdIconRequest,
+    EcmwfOpenRequest,
     GribField,
     NoaaGfsRequest,
     build_dwd_icon_url,
+    build_ecmwf_request,
     build_grib_get_data_command,
     build_noaa_gfs_url,
     download_dwd_icon,
+    download_ecmwf,
     download_noaa_gfs,
     parse_grib_get_data,
 )
@@ -107,6 +110,61 @@ def test_noaa_request_rejects_unsupported_contract(
 ) -> None:
     with pytest.raises(ValueError):
         NoaaGfsRequest(run_time, lead_hour, variable)
+
+
+def test_ecmwf_request_preserves_model_run_and_field() -> None:
+    request = EcmwfOpenRequest(
+        model="ifs",
+        run_time=datetime(2026, 8, 29, 6, tzinfo=UTC),
+        lead_hour=3,
+        variable="temperature_2m",
+    )
+
+    assert build_ecmwf_request(request) == {
+        "date": "20260829",
+        "param": "2t",
+        "step": 3,
+        "stream": "oper",
+        "time": 6,
+        "type": "fc",
+    }
+
+
+@pytest.mark.parametrize(
+    "model, lead_hour",
+    (("ifs", 2), ("aifs-single", 3), ("unknown", 6), ("ifs", 363)),
+)
+def test_ecmwf_request_rejects_unsupported_contract(model: str, lead_hour: int) -> None:
+    with pytest.raises(ValueError):
+        EcmwfOpenRequest(
+            model=model,
+            run_time=datetime(2026, 8, 29, 6, tzinfo=UTC),
+            lead_hour=lead_hour,
+            variable="temperature_2m",
+        )
+
+
+def test_ecmwf_download_reuses_verified_cache(tmp_path: Path) -> None:
+    ecmwf_request = EcmwfOpenRequest(
+        "ifs",
+        datetime(2026, 8, 29, 6, tzinfo=UTC),
+        3,
+        "temperature_2m",
+    )
+    calls: list[tuple[str, dict[str, object]]] = []
+
+    class Client:
+        def retrieve(self, request: dict[str, object], target: str) -> object:
+            calls.append((ecmwf_request.model, request))
+            Path(target).write_bytes(b"GRIBfixture7777")
+            return None
+
+    first = download_ecmwf(ecmwf_request, tmp_path, client_factory=lambda _model: Client())
+    second = download_ecmwf(ecmwf_request, tmp_path, client_factory=lambda _model: Client())
+
+    assert first.path.read_bytes() == b"GRIBfixture7777"
+    assert second == replace(first, from_cache=True)
+    assert calls == [("ifs", build_ecmwf_request(ecmwf_request))]
 
 
 def test_parser_converts_kelvin_and_keeps_missing_values() -> None:

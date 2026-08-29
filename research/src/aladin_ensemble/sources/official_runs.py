@@ -6,6 +6,8 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from tempfile import TemporaryDirectory
+from typing import Protocol, cast
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
@@ -13,6 +15,13 @@ from ..types import ForecastValue
 
 HttpGet = Callable[[str, float, int], bytes]
 PayloadLoader = Callable[[], bytes]
+
+
+class EcmwfClient(Protocol):
+    def retrieve(self, request: dict[str, object], target: str) -> object: ...
+
+
+EcmwfClientFactory = Callable[[str], EcmwfClient]
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,6 +67,28 @@ class NoaaGfsRequest:
             raise ValueError("NOAA GFS lead_hour must be between 0 and 384")
         if self.variable not in NOAA_GFS_VARIABLES:
             raise ValueError(f"unsupported NOAA GFS variable: {self.variable}")
+
+
+@dataclass(frozen=True, slots=True)
+class EcmwfOpenRequest:
+    model: str
+    run_time: datetime
+    lead_hour: int
+    variable: str
+
+    def __post_init__(self) -> None:
+        _require_utc(self.run_time, "run_time")
+        if self.model not in ("ifs", "aifs-single"):
+            raise ValueError(f"unsupported ECMWF model: {self.model}")
+        if self.run_time.minute or self.run_time.second or self.run_time.microsecond:
+            raise ValueError("ECMWF run_time must use a whole hour")
+        if self.run_time.hour not in (0, 6, 12, 18):
+            raise ValueError("ECMWF run hour must be 00, 06, 12, or 18 UTC")
+        step = 3 if self.model == "ifs" else 6
+        if self.lead_hour not in range(0, 361, step):
+            raise ValueError(f"ECMWF {self.model} lead_hour is invalid")
+        if self.variable not in ECMWF_VARIABLES:
+            raise ValueError(f"unsupported ECMWF variable: {self.variable}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -124,6 +155,17 @@ def build_noaa_gfs_url(request: NoaaGfsRequest) -> str:
     return f"{NOAA_GFS_FILTER}?{urlencode(parameters)}"
 
 
+def build_ecmwf_request(request: EcmwfOpenRequest) -> dict[str, object]:
+    return {
+        "date": request.run_time.strftime("%Y%m%d"),
+        "param": ECMWF_VARIABLES[request.variable],
+        "step": request.lead_hour,
+        "stream": "oper",
+        "time": request.run_time.hour,
+        "type": "fc",
+    }
+
+
 def download_dwd_icon(
     request: DwdIconRequest,
     cache_root: Path,
@@ -167,6 +209,33 @@ def download_noaa_gfs(
         return _require_grib(payload)
 
     return _cached_grib(url, cache_root, load)
+
+
+def download_ecmwf(
+    request: EcmwfOpenRequest,
+    cache_root: Path,
+    *,
+    client_factory: EcmwfClientFactory | None = None,
+    max_bytes: int = 20_000_000,
+) -> CachedGrib:
+    if max_bytes <= 0:
+        raise ValueError("max_bytes must be positive")
+    parameters = build_ecmwf_request(request)
+    identity = f"{ECMWF_OPEN_ROOT}?{urlencode(_query_values(request.model, parameters))}"
+    factory = client_factory or _default_ecmwf_client
+
+    def load() -> bytes:
+        client = factory(request.model)
+        with TemporaryDirectory(dir=cache_root) as temporary:
+            target = Path(temporary) / "field.grib2"
+            client.retrieve(parameters, str(target))
+            if not target.is_file():
+                raise ValueError("ECMWF client did not create the target")
+            if target.stat().st_size > max_bytes:
+                raise ValueError("ECMWF payload exceeds size limit")
+            return _require_grib(target.read_bytes())
+
+    return _cached_grib(identity, cache_root, load)
 
 
 def parse_grib_get_data(
@@ -245,6 +314,26 @@ def _http_get(url: str, timeout: float, max_bytes: int) -> bytes:
     return payload
 
 
+def _default_ecmwf_client(model: str) -> EcmwfClient:
+    from ecmwf.opendata import Client
+
+    return cast(
+        EcmwfClient,
+        Client(
+            source="ecmwf",
+            model=model,
+            resol="0p25",
+            maximum_retries=5,
+            retry_after=10,
+        ),
+    )
+
+
+def _query_values(model: str, parameters: dict[str, object]) -> tuple[tuple[str, str], ...]:
+    values = tuple((key, str(value)) for key, value in parameters.items())
+    return tuple(sorted((("model", model),) + values))
+
+
 def _cached_grib(url: str, cache_root: Path, load: PayloadLoader) -> CachedGrib:
     key = hashlib.sha256(url.encode()).hexdigest()
     cache_root.mkdir(parents=True, exist_ok=True)
@@ -318,4 +407,13 @@ NOAA_GFS_VARIABLES = {
     "temperature_2m": ("var_TMP", "lev_2_m_above_ground"),
     "wind_u_10m": ("var_UGRD", "lev_10_m_above_ground"),
     "wind_v_10m": ("var_VGRD", "lev_10_m_above_ground"),
+}
+ECMWF_OPEN_ROOT = "https://data.ecmwf.int/forecasts/"
+ECMWF_VARIABLES = {
+    "cloud_cover": "tcc",
+    "precipitation": "tp",
+    "pressure_msl": "msl",
+    "temperature_2m": "2t",
+    "wind_u_10m": "10u",
+    "wind_v_10m": "10v",
 }

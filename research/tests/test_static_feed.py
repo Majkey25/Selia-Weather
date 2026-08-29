@@ -113,9 +113,11 @@ def test_bundled_source_registry_is_production_safe() -> None:
         "dwd-icon-eu",
         "ecmwf-aifs-open",
         "ecmwf-ifs-open",
+        "noaa-gefs",
         "noaa-gfs",
     }
     assert any(item.source_id == "chmi-current-stations" and not item.enabled for item in sources)
+    assert any(item.source_id == "chmi-aladin-cz-1km" and not item.enabled for item in sources)
 
 
 def test_manifest_json_round_trip_is_deterministic() -> None:

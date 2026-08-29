@@ -52,6 +52,21 @@ class DwdIconRequest:
 
 
 @dataclass(frozen=True, slots=True)
+class ChmiAladinRequest:
+    run_time: datetime
+    variable: str
+
+    def __post_init__(self) -> None:
+        _require_utc(self.run_time, "run_time")
+        if self.run_time.minute or self.run_time.second or self.run_time.microsecond:
+            raise ValueError("CHMI ALADIN run_time must use a whole hour")
+        if self.run_time.hour not in (0, 6, 12, 18):
+            raise ValueError("CHMI ALADIN run hour must be 00, 06, 12, or 18 UTC")
+        if self.variable not in CHMI_ALADIN_VARIABLES:
+            raise ValueError(f"unsupported CHMI ALADIN variable: {self.variable}")
+
+
+@dataclass(frozen=True, slots=True)
 class NoaaGfsRequest:
     run_time: datetime
     lead_hour: int
@@ -67,6 +82,29 @@ class NoaaGfsRequest:
             raise ValueError("NOAA GFS lead_hour must be between 0 and 384")
         if self.variable not in NOAA_GFS_VARIABLES:
             raise ValueError(f"unsupported NOAA GFS variable: {self.variable}")
+
+
+@dataclass(frozen=True, slots=True)
+class NoaaGefsRequest:
+    statistic: str
+    run_time: datetime
+    lead_hour: int
+    variable: str
+
+    def __post_init__(self) -> None:
+        _require_utc(self.run_time, "run_time")
+        if self.statistic not in ("mean", "spread"):
+            raise ValueError(f"unsupported NOAA GEFS statistic: {self.statistic}")
+        if self.run_time.minute or self.run_time.second or self.run_time.microsecond:
+            raise ValueError("NOAA GEFS run_time must use a whole hour")
+        if self.run_time.hour not in (0, 6, 12, 18):
+            raise ValueError("NOAA GEFS run hour must be 00, 06, 12, or 18 UTC")
+        if self.lead_hour not in range(0, 841, 3):
+            raise ValueError("NOAA GEFS lead_hour must be a three-hour step through 840")
+        if self.lead_hour > 384 and self.run_time.hour != 0:
+            raise ValueError("NOAA GEFS extended range is available only for the 00 UTC run")
+        if self.variable not in NOAA_GFS_VARIABLES:
+            raise ValueError(f"unsupported NOAA GEFS variable: {self.variable}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,6 +176,13 @@ def build_dwd_icon_url(request: DwdIconRequest) -> str:
     return f"{DWD_ICON_ROOT}/{run:%H}/{folder}/{filename}"
 
 
+def build_chmi_aladin_url(request: ChmiAladinRequest) -> str:
+    code = CHMI_ALADIN_VARIABLES[request.variable]
+    run = request.run_time
+    filename = f"ALADCZ1K4opendata_{run:%Y%m%d%H}_{code}.grb.bz2"
+    return f"{CHMI_ALADIN_ROOT}/{run:%H}/{filename}"
+
+
 def build_noaa_gfs_url(request: NoaaGfsRequest) -> str:
     variable, level = NOAA_GFS_VARIABLES[request.variable]
     run = request.run_time
@@ -153,6 +198,24 @@ def build_noaa_gfs_url(request: NoaaGfsRequest) -> str:
         ("dir", f"/gfs.{run:%Y%m%d}/{run:%H}/atmos"),
     )
     return f"{NOAA_GFS_FILTER}?{urlencode(parameters)}"
+
+
+def build_noaa_gefs_url(request: NoaaGefsRequest) -> str:
+    variable, level = NOAA_GFS_VARIABLES[request.variable]
+    run = request.run_time
+    prefix = "geavg" if request.statistic == "mean" else "gespr"
+    parameters = (
+        ("file", f"{prefix}.t{run:%H}z.pgrb2a.0p50.f{request.lead_hour:03d}"),
+        (variable, "on"),
+        (level, "on"),
+        ("subregion", ""),
+        ("leftlon", "11.9"),
+        ("rightlon", "19"),
+        ("toplat", "51.2"),
+        ("bottomlat", "48.45"),
+        ("dir", f"/gefs.{run:%Y%m%d}/{run:%H}/atmos/pgrb2ap5"),
+    )
+    return f"{NOAA_GEFS_FILTER}?{urlencode(parameters)}"
 
 
 def build_ecmwf_request(request: EcmwfOpenRequest) -> dict[str, object]:
@@ -175,18 +238,33 @@ def download_dwd_icon(
     max_compressed_bytes: int = 2_000_000,
     max_decompressed_bytes: int = 20_000_000,
 ) -> CachedGrib:
-    if timeout <= 0 or max_compressed_bytes <= 0 or max_decompressed_bytes <= 0:
-        raise ValueError("download limits must be positive")
-    url = build_dwd_icon_url(request)
-    getter = http_get or _http_get
+    return _download_bz2_grib(
+        build_dwd_icon_url(request),
+        cache_root,
+        http_get=http_get,
+        timeout=timeout,
+        max_compressed_bytes=max_compressed_bytes,
+        max_decompressed_bytes=max_decompressed_bytes,
+    )
 
-    def load() -> bytes:
-        compressed = getter(url, timeout, max_compressed_bytes)
-        if len(compressed) > max_compressed_bytes:
-            raise ValueError("DWD compressed payload exceeds size limit")
-        return _require_grib(_decompress_bz2(compressed, max_decompressed_bytes))
 
-    return _cached_grib(url, cache_root, load)
+def download_chmi_aladin(
+    request: ChmiAladinRequest,
+    cache_root: Path,
+    *,
+    http_get: HttpGet | None = None,
+    timeout: float = 30.0,
+    max_compressed_bytes: int = 40_000_000,
+    max_decompressed_bytes: int = 200_000_000,
+) -> CachedGrib:
+    return _download_bz2_grib(
+        build_chmi_aladin_url(request),
+        cache_root,
+        http_get=http_get,
+        timeout=timeout,
+        max_compressed_bytes=max_compressed_bytes,
+        max_decompressed_bytes=max_decompressed_bytes,
+    )
 
 
 def download_noaa_gfs(
@@ -197,18 +275,30 @@ def download_noaa_gfs(
     timeout: float = 15.0,
     max_bytes: int = 5_000_000,
 ) -> CachedGrib:
-    if timeout <= 0 or max_bytes <= 0:
-        raise ValueError("download limits must be positive")
-    url = build_noaa_gfs_url(request)
-    getter = http_get or _http_get
+    return _download_noaa(
+        build_noaa_gfs_url(request),
+        cache_root,
+        http_get=http_get,
+        timeout=timeout,
+        max_bytes=max_bytes,
+    )
 
-    def load() -> bytes:
-        payload = getter(url, timeout, max_bytes)
-        if len(payload) > max_bytes:
-            raise ValueError("NOAA payload exceeds size limit")
-        return _require_grib(payload)
 
-    return _cached_grib(url, cache_root, load)
+def download_noaa_gefs(
+    request: NoaaGefsRequest,
+    cache_root: Path,
+    *,
+    http_get: HttpGet | None = None,
+    timeout: float = 15.0,
+    max_bytes: int = 5_000_000,
+) -> CachedGrib:
+    return _download_noaa(
+        build_noaa_gefs_url(request),
+        cache_root,
+        http_get=http_get,
+        timeout=timeout,
+        max_bytes=max_bytes,
+    )
 
 
 def download_ecmwf(
@@ -314,6 +404,49 @@ def _http_get(url: str, timeout: float, max_bytes: int) -> bytes:
     return payload
 
 
+def _download_noaa(
+    url: str,
+    cache_root: Path,
+    *,
+    http_get: HttpGet | None,
+    timeout: float,
+    max_bytes: int,
+) -> CachedGrib:
+    if timeout <= 0 or max_bytes <= 0:
+        raise ValueError("download limits must be positive")
+    getter = http_get or _http_get
+
+    def load() -> bytes:
+        payload = getter(url, timeout, max_bytes)
+        if len(payload) > max_bytes:
+            raise ValueError("NOAA payload exceeds size limit")
+        return _require_grib(payload)
+
+    return _cached_grib(url, cache_root, load)
+
+
+def _download_bz2_grib(
+    url: str,
+    cache_root: Path,
+    *,
+    http_get: HttpGet | None,
+    timeout: float,
+    max_compressed_bytes: int,
+    max_decompressed_bytes: int,
+) -> CachedGrib:
+    if timeout <= 0 or max_compressed_bytes <= 0 or max_decompressed_bytes <= 0:
+        raise ValueError("download limits must be positive")
+    getter = http_get or _http_get
+
+    def load() -> bytes:
+        compressed = getter(url, timeout, max_compressed_bytes)
+        if len(compressed) > max_compressed_bytes:
+            raise ValueError("compressed payload exceeds size limit")
+        return _require_grib(_decompress_bz2(compressed, max_decompressed_bytes))
+
+    return _cached_grib(url, cache_root, load)
+
+
 def _default_ecmwf_client(model: str) -> EcmwfClient:
     from ecmwf.opendata import Client
 
@@ -399,7 +532,19 @@ DWD_VARIABLES = {
     "wind_u_10m": ("u_10m", "U_10M"),
     "wind_v_10m": ("v_10m", "V_10M"),
 }
+CHMI_ALADIN_ROOT = "https://opendata.chmi.cz/meteorology/weather/nwp_aladin/CZ_1km"
+CHMI_ALADIN_VARIABLES = {
+    "cloud_cover": "SURFNEBUL_TOTALE",
+    "humidity_2m": "CLSHUMI_RELATIVE",
+    "precipitation": "SURFPREC_TOTAL",
+    "pressure_msl": "MSLPRESSURE",
+    "temperature_2m": "CLSTEMPERATURE",
+    "wind_direction_10m": "CLSWIND_DIREC",
+    "wind_gusts_10m": "CLSRAFAL_MOD_XFU",
+    "wind_speed_10m": "CLSWIND_SPEED",
+}
 NOAA_GFS_FILTER = "https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl"
+NOAA_GEFS_FILTER = "https://nomads.ncep.noaa.gov/cgi-bin/filter_gefs_atmos_0p50a.pl"
 NOAA_GFS_VARIABLES = {
     "precipitation": ("var_APCP", "lev_surface"),
     "pressure_msl": ("var_PRMSL", "lev_mean_sea_level"),

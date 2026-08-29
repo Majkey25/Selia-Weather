@@ -8,16 +8,22 @@ from pathlib import Path
 import pytest
 
 from aladin_ensemble.sources.official_runs import (
+    ChmiAladinRequest,
     DwdIconRequest,
     EcmwfOpenRequest,
     GribField,
+    NoaaGefsRequest,
     NoaaGfsRequest,
+    build_chmi_aladin_url,
     build_dwd_icon_url,
     build_ecmwf_request,
     build_grib_get_data_command,
+    build_noaa_gefs_url,
     build_noaa_gfs_url,
+    download_chmi_aladin,
     download_dwd_icon,
     download_ecmwf,
+    download_noaa_gefs,
     download_noaa_gfs,
     parse_grib_get_data,
 )
@@ -61,6 +67,30 @@ def test_dwd_icon_url_uses_verified_operational_filename() -> None:
         "https://opendata.dwd.de/weather/nwp/icon-eu/grib/06/t_2m/"
         "icon-eu_europe_regular-lat-lon_single-level_2026082906_003_T_2M.grib2.bz2"
     )
+
+
+def test_chmi_aladin_url_uses_verified_operational_filename() -> None:
+    request = ChmiAladinRequest(
+        run_time=datetime(2026, 8, 28, 0, tzinfo=UTC),
+        variable="temperature_2m",
+    )
+
+    assert build_chmi_aladin_url(request) == (
+        "https://opendata.chmi.cz/meteorology/weather/nwp_aladin/CZ_1km/00/"
+        "ALADCZ1K4opendata_2026082800_CLSTEMPERATURE.grb.bz2"
+    )
+
+
+@pytest.mark.parametrize(
+    "run_hour, variable",
+    ((7, "temperature_2m"), (0, "unknown")),
+)
+def test_chmi_aladin_request_rejects_unsupported_contract(
+    run_hour: int,
+    variable: str,
+) -> None:
+    with pytest.raises(ValueError):
+        ChmiAladinRequest(datetime(2026, 8, 28, run_hour, tzinfo=UTC), variable)
 
 
 @pytest.mark.parametrize(
@@ -110,6 +140,51 @@ def test_noaa_request_rejects_unsupported_contract(
 ) -> None:
     with pytest.raises(ValueError):
         NoaaGfsRequest(run_time, lead_hour, variable)
+
+
+def test_noaa_gefs_url_uses_extended_ensemble_mean() -> None:
+    request = NoaaGefsRequest(
+        statistic="mean",
+        run_time=datetime(2026, 8, 29, 0, tzinfo=UTC),
+        lead_hour=840,
+        variable="temperature_2m",
+    )
+
+    assert build_noaa_gefs_url(request) == (
+        "https://nomads.ncep.noaa.gov/cgi-bin/filter_gefs_atmos_0p50a.pl?"
+        "file=geavg.t00z.pgrb2a.0p50.f840&var_TMP=on&lev_2_m_above_ground=on&"
+        "subregion=&leftlon=11.9&rightlon=19&toplat=51.2&bottomlat=48.45&"
+        "dir=%2Fgefs.20260829%2F00%2Fatmos%2Fpgrb2ap5"
+    )
+
+
+def test_noaa_gefs_url_uses_ensemble_spread() -> None:
+    request = NoaaGefsRequest(
+        statistic="spread",
+        run_time=datetime(2026, 8, 29, 0, tzinfo=UTC),
+        lead_hour=24,
+        variable="temperature_2m",
+    )
+
+    assert "file=gespr.t00z.pgrb2a.0p50.f024" in build_noaa_gefs_url(request)
+
+
+@pytest.mark.parametrize(
+    "statistic, run_hour, lead_hour",
+    (("unknown", 0, 24), ("mean", 6, 840), ("mean", 0, 841), ("mean", 0, 25)),
+)
+def test_noaa_gefs_rejects_unsupported_contract(
+    statistic: str,
+    run_hour: int,
+    lead_hour: int,
+) -> None:
+    with pytest.raises(ValueError):
+        NoaaGefsRequest(
+            statistic,
+            datetime(2026, 8, 29, run_hour, tzinfo=UTC),
+            lead_hour,
+            "temperature_2m",
+        )
 
 
 def test_ecmwf_request_preserves_model_run_and_field() -> None:
@@ -278,6 +353,23 @@ def test_dwd_download_rejects_invalid_or_oversized_payload(tmp_path: Path) -> No
         )
 
 
+def test_chmi_aladin_download_reuses_verified_cache(tmp_path: Path) -> None:
+    request = ChmiAladinRequest(datetime(2026, 8, 28, 0, tzinfo=UTC), "temperature_2m")
+    calls = 0
+
+    def http_get(url: str, _timeout: float, _max_bytes: int) -> bytes:
+        nonlocal calls
+        assert url == build_chmi_aladin_url(request)
+        calls += 1
+        return bz2.compress(b"GRIBfixture7777")
+
+    first = download_chmi_aladin(request, tmp_path, http_get=http_get)
+    second = download_chmi_aladin(request, tmp_path, http_get=http_get)
+
+    assert second == replace(first, from_cache=True)
+    assert calls == 1
+
+
 def test_noaa_download_reuses_verified_cache(tmp_path: Path) -> None:
     request = NoaaGfsRequest(datetime(2026, 8, 29, 6, tzinfo=UTC), 3, "temperature_2m")
     calls = 0
@@ -294,5 +386,27 @@ def test_noaa_download_reuses_verified_cache(tmp_path: Path) -> None:
     second = download_noaa_gfs(request, tmp_path, http_get=http_get)
 
     assert first.path.read_bytes() == b"GRIBfixture7777"
+    assert second == replace(first, from_cache=True)
+    assert calls == 1
+
+
+def test_noaa_gefs_download_reuses_verified_cache(tmp_path: Path) -> None:
+    request = NoaaGefsRequest(
+        "mean",
+        datetime(2026, 8, 29, 0, tzinfo=UTC),
+        24,
+        "temperature_2m",
+    )
+    calls = 0
+
+    def http_get(url: str, _timeout: float, _max_bytes: int) -> bytes:
+        nonlocal calls
+        assert url == build_noaa_gefs_url(request)
+        calls += 1
+        return b"GRIBfixture7777"
+
+    first = download_noaa_gefs(request, tmp_path, http_get=http_get)
+    second = download_noaa_gefs(request, tmp_path, http_get=http_get)
+
     assert second == replace(first, from_cache=True)
     assert calls == 1

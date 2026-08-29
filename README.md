@@ -24,6 +24,8 @@
 ## What it does
 
 - Shows current and apparent temperature, dew point, wet-bulb temperature, precipitation, cloud layers, visibility, pressure, wind, sun, and Moon details.
+- Adds UV, freezing-level, boundary-layer, atmospheric-water, instability, showers, and ground details.
+- Shows an on-demand 5 by 5 Local rain field for the next 24 hours. It samples 25 nearby forecast points inside a 20 km radius and is not observed radar.
 - Shows a horizontal 24-hour outlook, a 14-day forecast, and an hourly detail for each day. A complete day normally has 24 hours.
 - Searches places worldwide, stores favourites, can use your optional current location, and can save an exact named point on an interactive world map or by coordinate.
 - Includes ČHMÚ rain radar, satellite clouds, nowcast, and lightning. Rain and clouds are base layers. Lightning is an independent overlay on either layer.

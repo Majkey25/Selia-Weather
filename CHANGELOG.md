@@ -8,6 +8,8 @@
 - Added a verified six-model operational diagnostic feed pipeline with compressed, checksummed tiles.
 - Added an unreleased on-device model-consensus prototype. It uses a robust median only when at least three model values are present, derives rain probability and sky condition locally, and falls back to Best Match. It is not a production calibration or an accuracy claim.
 - Fixed the radar card aspect ratio so rain and cloud imagery stays undistorted without large letterbox gaps.
+- Added an on-demand 24-hour Local rain field with 25 surrounding forecast points, model agreement, precipitation type, and Metric or Imperial details.
+- Added UV, freezing-level, boundary-layer, integrated-water-vapour, instability, showers, and ground values to Weather details.
 
 ## [0.2.0-beta.8] - 2026-08-29
 

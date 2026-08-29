@@ -19,7 +19,7 @@
 
 - Data is encrypted in transit: Yes.
 - Account creation: No.
-- Approximate location and precise location: collected and shared with Open-Meteo for every forecast request. The request sends the selected forecast coordinates, including default Prague, a search result, a favourite, or current location. The current-location permission is optional. The data supports app functionality and is encrypted in transit.
+- Approximate location and precise location: collected and shared with Open-Meteo for every forecast request. The request sends the selected forecast coordinates, including default Prague, a search result, a favourite, or current location. Opening **Weather details** also sends 25 forecast coordinates inside a 20 km radius around the selected location for the Local rain field. The current-location permission is optional. The data supports app functionality and is encrypted in transit.
 - In-app search history: place search terms are collected and shared with Open-Meteo for geocoding. This data is optional, used for app functionality, and encrypted in transit.
 - Ephemeral processing: No. The app does not retain this data off-device, but [Open-Meteo states](https://open-meteo.com/en/terms) that free API server logs may contain coordinates and are deleted after 90 days.
 - Users can delete local app data in Android settings or by uninstalling the app.

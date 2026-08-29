@@ -7,7 +7,9 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from time import sleep
 from typing import Protocol, cast
+from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
@@ -15,6 +17,18 @@ from ..types import ForecastValue
 
 HttpGet = Callable[[str, float, int], bytes]
 PayloadLoader = Callable[[], bytes]
+
+
+class HttpResponse(Protocol):
+    def __enter__(self) -> HttpResponse: ...
+
+    def __exit__(self, *args: object) -> object: ...
+
+    def read(self, limit: int) -> bytes: ...
+
+
+HttpOpen = Callable[[str, float], HttpResponse]
+Sleeper = Callable[[float], object]
 
 
 class EcmwfClient(Protocol):
@@ -397,11 +411,48 @@ def _convert(value: float, source_unit: str, canonical_unit: str) -> float:
 
 
 def _http_get(url: str, timeout: float, max_bytes: int) -> bytes:
-    with urlopen(url, timeout=timeout) as response:
-        payload = response.read(max_bytes + 1)
+    return download_http_with_retry(url, timeout=timeout, max_bytes=max_bytes)
+
+
+def download_http_with_retry(
+    url: str,
+    *,
+    timeout: float,
+    max_bytes: int,
+    open_url: HttpOpen | None = None,
+    sleeper: Sleeper = sleep,
+    attempts: int = 3,
+) -> bytes:
+    if timeout <= 0 or max_bytes <= 0 or attempts <= 0:
+        raise ValueError("HTTP limits must be positive")
+    opener = open_url or _open_url
+    for attempt in range(attempts):
+        try:
+            with opener(url, timeout) as response:
+                payload = response.read(max_bytes + 1)
+            break
+        except HTTPError as error:
+            if error.code not in RETRYABLE_HTTP_STATUS or attempt + 1 == attempts:
+                raise
+            retry_after = error.headers.get("Retry-After")
+            sleeper(_retry_delay(retry_after))
+    else:
+        raise RuntimeError("HTTP retry loop ended without a result")
     if len(payload) > max_bytes:
         raise ValueError("HTTP payload exceeds size limit")
     return payload
+
+
+def _open_url(url: str, timeout: float) -> HttpResponse:
+    return cast(HttpResponse, urlopen(url, timeout=timeout))
+
+
+def _retry_delay(value: str | None) -> float:
+    try:
+        delay = float(value) if value is not None else 1.0
+    except ValueError:
+        return 1.0
+    return min(max(delay, 0.0), 60.0)
 
 
 def _download_noaa(
@@ -562,3 +613,4 @@ ECMWF_VARIABLES = {
     "wind_u_10m": "10u",
     "wind_v_10m": "10v",
 }
+RETRYABLE_HTTP_STATUS = frozenset({408, 429, 500, 502, 503, 504})

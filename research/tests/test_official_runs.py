@@ -3,7 +3,9 @@ from __future__ import annotations
 import bz2
 from dataclasses import replace
 from datetime import UTC, datetime
+from email.message import Message
 from pathlib import Path
+from urllib.error import HTTPError
 
 import pytest
 
@@ -23,6 +25,7 @@ from aladin_ensemble.sources.official_runs import (
     download_chmi_aladin,
     download_dwd_icon,
     download_ecmwf,
+    download_http_with_retry,
     download_noaa_gefs,
     download_noaa_gfs,
     parse_grib_get_data,
@@ -410,3 +413,40 @@ def test_noaa_gefs_download_reuses_verified_cache(tmp_path: Path) -> None:
 
     assert second == replace(first, from_cache=True)
     assert calls == 1
+
+
+def test_http_download_honours_retry_after() -> None:
+    calls = 0
+    delays: list[float] = []
+    headers = Message()
+    headers["Retry-After"] = "2"
+
+    class Response:
+        def __enter__(self) -> Response:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def read(self, _limit: int) -> bytes:
+            return b"GRIBfixture7777"
+
+    def open_url(url: str, _timeout: float) -> Response:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise HTTPError(url, 429, "rate limited", headers, None)
+        return Response()
+
+    payload = download_http_with_retry(
+        "https://example.com/field.grib2",
+        timeout=10.0,
+        max_bytes=1_000,
+        open_url=open_url,
+        sleeper=delays.append,
+        attempts=2,
+    )
+
+    assert payload == b"GRIBfixture7777"
+    assert calls == 2
+    assert delays == [2.0]

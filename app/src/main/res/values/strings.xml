@@ -108,6 +108,7 @@
     <string name="rain_field_probability">Probability</string>
     <string name="rain_field_agreement">Agreement</string>
     <string name="rain_field_models">models</string>
+    <string name="rain_field_range">Range</string>
     <string name="rain_field_north">N</string>
     <string name="rain_field_east">E</string>
     <string name="rain_field_south">S</string>

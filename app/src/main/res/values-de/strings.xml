@@ -107,6 +107,7 @@
     <string name="rain_field_probability">Wahrscheinlichkeit</string>
     <string name="rain_field_agreement">Übereinstimmung</string>
     <string name="rain_field_models">Modelle</string>
+    <string name="rain_field_range">Spanne</string>
     <string name="rain_field_north">N</string>
     <string name="rain_field_east">O</string>
     <string name="rain_field_south">S</string>

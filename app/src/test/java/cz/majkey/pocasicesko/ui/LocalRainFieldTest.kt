@@ -36,7 +36,7 @@ class LocalRainFieldTest {
             LABELS,
         )
 
-        listOf("Selected location", "20:00", "0.4 mm", "Rain", "67%", "3 models").forEach {
+        listOf("Selected location", "20:00", "0.4 mm", "Range 0.4 mm–0.4 mm", "Rain", "67%", "3 models").forEach {
             assertTrue(centre.contains(it))
         }
         listOf("NE", "6.2 mi", "1.00 in", "21:00").forEach { assertTrue(neighbour.contains(it)) }
@@ -84,6 +84,7 @@ class LocalRainFieldTest {
             probability = "Probability",
             agreement = "Agreement",
             models = "models",
+            range = "Range",
             north = "N",
             east = "E",
             south = "S",

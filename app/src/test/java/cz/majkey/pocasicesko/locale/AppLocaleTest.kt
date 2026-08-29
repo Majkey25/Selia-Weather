@@ -74,6 +74,7 @@ class AppLocaleTest {
             "rain_field_probability",
             "rain_field_agreement",
             "rain_field_models",
+            "rain_field_range",
             "rain_field_north",
             "rain_field_east",
             "rain_field_south",

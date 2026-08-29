@@ -107,6 +107,7 @@
     <string name="rain_field_probability">Probabilidad</string>
     <string name="rain_field_agreement">Coincidencia</string>
     <string name="rain_field_models">modelos</string>
+    <string name="rain_field_range">Rango</string>
     <string name="rain_field_north">N</string>
     <string name="rain_field_east">E</string>
     <string name="rain_field_south">S</string>

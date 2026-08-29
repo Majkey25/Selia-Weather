@@ -107,6 +107,7 @@
     <string name="rain_field_probability">Pravděpodobnost</string>
     <string name="rain_field_agreement">Shoda</string>
     <string name="rain_field_models">modelů</string>
+    <string name="rain_field_range">Rozsah</string>
     <string name="rain_field_north">S</string>
     <string name="rain_field_east">V</string>
     <string name="rain_field_south">J</string>

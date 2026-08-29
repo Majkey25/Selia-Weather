@@ -57,6 +57,7 @@ internal data class RainFieldLabels(
     val probability: String,
     val agreement: String,
     val models: String,
+    val range: String,
     val north: String,
     val east: String,
     val south: String,
@@ -272,6 +273,8 @@ internal fun rainFieldCellDescription(
         PrecipitationKind.UNAVAILABLE -> labels.unavailable
     }
     return "$place$distance · $timeLabel · ${units.precipitation(requireNotNull(cell.precipitationMm))}" +
+        " · ${labels.range} ${units.precipitation(requireNotNull(cell.minimumMm))}–" +
+        units.precipitation(requireNotNull(cell.maximumMm)) +
         " · $kind · ${labels.probability} ${cell.probabilityPercent}%" +
         " · ${labels.agreement} ${cell.agreementPercent}% · ${cell.contributorCount} ${labels.models}"
 }
@@ -307,6 +310,7 @@ private fun rainFieldLabels() = RainFieldLabels(
     probability = stringResource(R.string.rain_field_probability),
     agreement = stringResource(R.string.rain_field_agreement),
     models = stringResource(R.string.rain_field_models),
+    range = stringResource(R.string.rain_field_range),
     north = stringResource(R.string.rain_field_north),
     east = stringResource(R.string.rain_field_east),
     south = stringResource(R.string.rain_field_south),

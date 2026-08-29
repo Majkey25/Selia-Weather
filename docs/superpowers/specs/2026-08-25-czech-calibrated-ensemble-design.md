@@ -85,6 +85,8 @@ Use full issued runs or fixed previous-run lead times. Do not evaluate a five-da
 
 Open-Meteo Free API is limited to non-commercial use and fewer than 10,000 calls per day. An advertising or subscription release cannot use that free endpoint.
 
+GitHub Actions must not proxy or cache the Open-Meteo Free API for the monetised app. Moving the request from Android to GitHub does not change the licence purpose.
+
 Before a public monetized Play rollout, satisfy one of these conditions:
 
 1. use a paid commercial endpoint whose credentials are not embedded in the Android client;
@@ -210,12 +212,29 @@ If a blend does not pass, ship the best eligible single model for that variable 
 
 ## Runtime forecast architecture
 
+### Static GitHub data service
+
+A public GitHub Actions workflow performs the bounded heavy data preparation. GitHub Pages serves immutable forecast tiles and one small current manifest. Pages does not execute code per request.
+
+- The workflow runs every six hours and supports `workflow_dispatch` recovery.
+- The workflow ingests only direct official data whose licence permits commercial redistribution. The first source set is ČHMÚ open data, DWD Open Data, ECMWF Open Data, and NOAA public data. A source enters production only after its exact product licence and attribution pass the registry gate.
+- The workflow never calls the Open-Meteo Free API for production data.
+- The output grid covers latitude `48.45..51.20` and longitude `11.90..19.00` at `0.05°` spacing. The manifest records the grid, native source resolution, and interpolation method.
+- A `0.50°` tile contains the aligned per-model values needed for the four grid points around a selected coordinate. Android downloads one tile and computes the exact point result locally.
+- The short and medium product covers hourly values through day 15. The extended product covers daily ensemble statistics through day 35.
+- Each tile records schema version, model runs, validity times, units, source licences, calibration version, SHA-256, and generated and expiry timestamps.
+- The deployment contains only the current complete run. Android keeps the last valid tile for offline fallback.
+- The workflow refuses deployment when a required licence, attribution, model run, checksum, grid dimension, or freshness check fails.
+- The deployed site stays below GitHub Pages' 1 GB published-site limit. The workflow prints total bytes and fails above 800 MB.
+
+The service is a free availability layer, not a reliability guarantee. GitHub can delay scheduled workflows, disable inactive schedules, rate-limit Pages, or enforce bandwidth limits. Android must retain the last valid forecast and show a degraded source state.
+
 ### Point forecast pipeline
 
-The client requests only the selected WGS84 coordinate. It does not download European grids.
+The client requests only the tile that contains the selected WGS84 coordinate. It does not download European grids.
 
-- The short and medium-range request returns separate time series for each eligible deterministic model.
-- The extended request returns ensemble means and spread through day 35.
+- The short and medium-range tile returns separate time series for each eligible deterministic model.
+- The extended tile returns ensemble means and spread through day 35.
 - The ČHMÚ request selects nearby station IDs locally and downloads their current public observations.
 - The parser retains provider and model IDs. A combined provider response must never lose the source boundary.
 - The blend runs after all bounded requests finish or time out. One failed provider does not cancel usable sources.
@@ -549,3 +568,7 @@ None. The user approved the calibrated ensemble direction on 25 August 2026 and 
 - [Open-Meteo Forecast API](https://open-meteo.com/en/docs) documents explicit multi-model selection and a maximum 16-day deterministic forecast.
 - [Open-Meteo Ensemble API](https://open-meteo.com/en/docs/ensemble-api) documents ensemble members and forecast horizons up to 36 days.
 - [Open-Meteo Ensemble Mean API](https://open-meteo.com/en/docs/ensemble-mean-api) documents extended ensemble means up to 35 days.
+- [Open-Meteo terms](https://open-meteo.com/en/terms) prohibit subscriptions and advertising with the Free API.
+- [GitHub Pages limits](https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits) define the published-site, bandwidth, and deployment limits.
+- [GitHub Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions) states that standard GitHub-hosted runners are free for public repositories.
+- [ECMWF Open Data terms](https://apps.ecmwf.int/datasets/licences/general/) publish open products under CC BY 4.0.

@@ -162,6 +162,11 @@ If a segment fails a rule, the export contract selects its recorded best single 
 stores the rejection reasons, sample count, score interval, fallback model, minimum source count,
 model resolution, and maximum run age.
 
+The 29 August operational GRIB sampler decoded 8,008 Czech grid points from a bounded NOAA GFS
+field in 0.468 seconds. Building the first DWD ICON-EU nearest-point index took 67.766 seconds;
+decoding the same full grid through the verified `md5GridSection` index took 0.125 seconds. Later
+DWD fields reuse that index and fail closed if their grid hash differs.
+
 ## Work required before production
 
 1. After 30 August is complete, lock an untouched August holdout and evaluate the corrected
@@ -195,5 +200,5 @@ Run these commands from the repository root:
 & 'C:\Users\mates\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -m uv run --project research pyright
 ```
 
-The current verified result is 198 passing tests, Ruff clean, and zero repository-wide Pyright
+The current verified result is 200 passing tests, Ruff clean, and zero repository-wide Pyright
 errors.

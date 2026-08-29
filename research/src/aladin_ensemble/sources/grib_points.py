@@ -79,6 +79,40 @@ class SampledMessage:
             raise ValueError("sampled GRIB message metadata is invalid")
 
 
+@dataclass(frozen=True, slots=True)
+class IndexedPoint:
+    latitude: float
+    longitude: float
+    source_latitude: float
+    source_longitude: float
+    distance_km: float
+    index: int
+
+    def __post_init__(self) -> None:
+        if not all(
+            isfinite(item)
+            for item in (
+                self.latitude,
+                self.longitude,
+                self.source_latitude,
+                self.source_longitude,
+                self.distance_km,
+            )
+        ) or self.distance_km < 0 or self.index < 0:
+            raise ValueError("indexed GRIB point is invalid")
+
+
+@dataclass(frozen=True, slots=True)
+class GribPointIndex:
+    grid_hash: str
+    points: tuple[IndexedPoint, ...]
+
+    def __post_init__(self) -> None:
+        coordinates = tuple((point.latitude, point.longitude) for point in self.points)
+        if not self.grid_hash or not self.points or len(set(coordinates)) != len(coordinates):
+            raise ValueError("GRIB point index is invalid")
+
+
 class NearestPoint(Protocol):
     @property
     def lat(self) -> float: ...
@@ -109,6 +143,13 @@ class EccodesApi(Protocol):
         longitudes: tuple[float, ...],
     ) -> Sequence[NearestPoint]: ...
 
+    def get_elements(
+        self,
+        handle: int,
+        key: str,
+        indexes: tuple[int, ...],
+    ) -> Sequence[float]: ...
+
     def release(self, handle: int) -> None: ...
 
 
@@ -117,6 +158,7 @@ def decode_grib_points(
     points: tuple[GeoPoint, ...],
     *,
     api: EccodesApi | None = None,
+    point_index: GribPointIndex | None = None,
 ) -> tuple[SampledMessage, ...]:
     if not path.is_file():
         raise ValueError("GRIB path is not a file")
@@ -141,21 +183,13 @@ def decode_grib_points(
                 step_type = _text(decoder.get(handle, "stepType"), "stepType")
                 start_step = _step_hours(decoder.get(handle, "startStep"), "startStep")
                 end_step = _step_hours(decoder.get(handle, "endStep"), "endStep")
-                nearest = tuple(
-                    decoder.find_nearest_multiple(handle, False, latitudes, longitudes)
-                )
-                if len(nearest) != len(points):
-                    raise ValueError("ecCodes returned the wrong point count")
-                values = tuple(
-                    SampledPoint(
-                        latitude=point.latitude,
-                        longitude=point.longitude,
-                        source_latitude=result.lat,
-                        source_longitude=result.lon,
-                        distance_km=result.distance,
-                        value=result.value,
-                    )
-                    for point, result in zip(points, nearest, strict=True)
+                values = _sample_values(
+                    decoder,
+                    handle,
+                    points,
+                    latitudes,
+                    longitudes,
+                    point_index,
                 )
                 messages.append(
                     SampledMessage(
@@ -173,6 +207,103 @@ def decode_grib_points(
     if not messages:
         raise ValueError("GRIB file contains no messages")
     return tuple(messages)
+
+
+def build_grib_point_index(
+    path: Path,
+    points: tuple[GeoPoint, ...],
+    *,
+    api: EccodesApi | None = None,
+) -> GribPointIndex:
+    if not path.is_file():
+        raise ValueError("GRIB path is not a file")
+    if not points or len(set(points)) != len(points):
+        raise ValueError("GRIB points must be non-empty and unique")
+    decoder = api or _DefaultEccodesApi()
+    with path.open("rb") as source:
+        handle = decoder.new_from_file(source)
+        if handle is None:
+            raise ValueError("GRIB file contains no messages")
+        try:
+            nearest = tuple(
+                decoder.find_nearest_multiple(
+                    handle,
+                    False,
+                    tuple(point.latitude for point in points),
+                    tuple(point.longitude for point in points),
+                )
+            )
+            if len(nearest) != len(points):
+                raise ValueError("ecCodes returned the wrong point count")
+            return GribPointIndex(
+                grid_hash=_text(decoder.get(handle, "md5GridSection"), "md5GridSection"),
+                points=tuple(
+                    IndexedPoint(
+                        latitude=point.latitude,
+                        longitude=point.longitude,
+                        source_latitude=result.lat,
+                        source_longitude=result.lon,
+                        distance_km=result.distance,
+                        index=result.index,
+                    )
+                    for point, result in zip(points, nearest, strict=True)
+                ),
+            )
+        finally:
+            decoder.release(handle)
+
+
+def _sample_values(
+    decoder: EccodesApi,
+    handle: int,
+    points: tuple[GeoPoint, ...],
+    latitudes: tuple[float, ...],
+    longitudes: tuple[float, ...],
+    point_index: GribPointIndex | None,
+) -> tuple[SampledPoint, ...]:
+    if point_index is None:
+        nearest = tuple(decoder.find_nearest_multiple(handle, False, latitudes, longitudes))
+        if len(nearest) != len(points):
+            raise ValueError("ecCodes returned the wrong point count")
+        return tuple(
+            SampledPoint(
+                latitude=point.latitude,
+                longitude=point.longitude,
+                source_latitude=result.lat,
+                source_longitude=result.lon,
+                distance_km=result.distance,
+                value=result.value,
+            )
+            for point, result in zip(points, nearest, strict=True)
+        )
+    indexed_coordinates = tuple(
+        GeoPoint(point.latitude, point.longitude) for point in point_index.points
+    )
+    if indexed_coordinates != points:
+        raise ValueError("GRIB point index coordinates do not match")
+    grid_hash = _text(decoder.get(handle, "md5GridSection"), "md5GridSection")
+    if grid_hash != point_index.grid_hash:
+        raise ValueError("GRIB point index grid hash does not match")
+    values = tuple(
+        decoder.get_elements(
+            handle,
+            "values",
+            tuple(point.index for point in point_index.points),
+        )
+    )
+    if len(values) != len(points):
+        raise ValueError("ecCodes returned the wrong point count")
+    return tuple(
+        SampledPoint(
+            latitude=indexed.latitude,
+            longitude=indexed.longitude,
+            source_latitude=indexed.source_latitude,
+            source_longitude=indexed.source_longitude,
+            distance_km=indexed.distance_km,
+            value=value,
+        )
+        for indexed, value in zip(point_index.points, values, strict=True)
+    )
 
 
 def regular_grid_points(
@@ -266,6 +397,13 @@ class _EccodesModule(Protocol):
         longitudes: tuple[float, ...],
     ) -> Sequence[NearestPoint]: ...
 
+    def codes_get_elements(
+        self,
+        handle: int,
+        key: str,
+        indexes: tuple[int, ...],
+    ) -> Sequence[float]: ...
+
     def codes_release(self, handle: int) -> None: ...
 
 
@@ -292,6 +430,14 @@ class _DefaultEccodesApi:
             latitudes,
             longitudes,
         )
+
+    def get_elements(
+        self,
+        handle: int,
+        key: str,
+        indexes: tuple[int, ...],
+    ) -> Sequence[float]:
+        return self.module.codes_get_elements(handle, key, indexes)
 
     def release(self, handle: int) -> None:
         self.module.codes_release(handle)

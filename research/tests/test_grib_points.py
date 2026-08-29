@@ -9,6 +9,7 @@ import pytest
 
 from aladin_ensemble.sources.grib_points import (
     GeoPoint,
+    build_grib_point_index,
     decode_grib_points,
     regular_grid_points,
     to_forecast_values,
@@ -25,10 +26,13 @@ class Nearest:
 
 
 class FakeEccodes:
-    def __init__(self, *, bad_count: bool = False) -> None:
+    def __init__(self, *, bad_count: bool = False, grid_hash: str = "grid-a") -> None:
         self.handles: list[int | None] = [1, 2, None]
         self.released: list[int] = []
         self.bad_count = bad_count
+        self.grid_hash = grid_hash
+        self.nearest_calls = 0
+        self.element_calls = 0
 
     def new_from_file(self, source: BinaryIO) -> int | None:
         return self.handles.pop(0)
@@ -52,6 +56,8 @@ class FakeEccodes:
             (2, "startStep"): 2,
             (2, "endStep"): 2,
         }
+        if key == "md5GridSection":
+            return self.grid_hash
         return values[(handle, key)]
 
     def find_nearest_multiple(
@@ -61,6 +67,7 @@ class FakeEccodes:
         latitudes: tuple[float, ...],
         longitudes: tuple[float, ...],
     ) -> tuple[Nearest, ...]:
+        self.nearest_calls += 1
         values = tuple(
             Nearest(latitude + 0.01, longitude + 0.01, 280.0 + handle + index, 1.5, index)
             for index, (latitude, longitude) in enumerate(
@@ -68,6 +75,16 @@ class FakeEccodes:
             )
         )
         return values[:-1] if self.bad_count else values
+
+    def get_elements(
+        self,
+        handle: int,
+        key: str,
+        indexes: tuple[int, ...],
+    ) -> tuple[float, ...]:
+        self.element_calls += 1
+        assert key == "values"
+        return tuple(280.0 + handle + index for index in indexes)
 
     def release(self, handle: int) -> None:
         self.released.append(handle)
@@ -137,3 +154,33 @@ def test_converts_sampled_messages_to_canonical_forecast_values(tmp_path: Path) 
     assert values[0].unit == "°C"
     assert values[0].value is not None
     assert isclose(values[0].value, 7.85)
+
+
+def test_reuses_verified_grid_indexes_for_later_fields(tmp_path: Path) -> None:
+    path = tmp_path / "field.grib2"
+    path.write_bytes(b"GRIB-test-7777")
+    points = (GeoPoint(49.0, 14.0), GeoPoint(50.0, 15.0))
+    index_api = FakeEccodes()
+
+    point_index = build_grib_point_index(path, points, api=index_api)
+    decode_api = FakeEccodes()
+    messages = decode_grib_points(path, points, api=decode_api, point_index=point_index)
+
+    assert index_api.nearest_calls == 1
+    assert decode_api.nearest_calls == 0
+    assert decode_api.element_calls == 2
+    assert messages[1].values[1].value == 283.0
+    assert decode_api.released == [1, 2]
+
+
+def test_rejects_index_from_another_grid_and_releases_handle(tmp_path: Path) -> None:
+    path = tmp_path / "field.grib2"
+    path.write_bytes(b"GRIB-test-7777")
+    points = (GeoPoint(49.0, 14.0),)
+    point_index = build_grib_point_index(path, points, api=FakeEccodes(grid_hash="grid-a"))
+    decode_api = FakeEccodes(grid_hash="grid-b")
+
+    with pytest.raises(ValueError, match="grid hash"):
+        decode_grib_points(path, points, api=decode_api, point_index=point_index)
+
+    assert decode_api.released == [1]

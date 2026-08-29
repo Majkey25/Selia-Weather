@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
+from urllib.request import Request
 
 import pytest
 
@@ -13,7 +15,9 @@ from aladin_ensemble.baselines import ScalarForecastCase
 from aladin_ensemble.evaluate import HoldoutLock
 from aladin_ensemble.run_backtest import (
     build_previous_requests,
+    download_previous_forecasts,
     fit_scalar_segment,
+    fit_wind_vector_segment,
     load_registry_model_ids,
     monthly_truth_requests,
     sample_forecast_hours,
@@ -22,6 +26,12 @@ from aladin_ensemble.run_backtest import (
 )
 from aladin_ensemble.sources.chmi_download import CZECH_TARGETS, SelectedStation
 from aladin_ensemble.sources.chmi_station import Station
+from aladin_ensemble.sources.open_meteo_runs import (
+    CachedDownloader,
+    ForecastPoint,
+    HttpResponse,
+    PreviousRunsRequest,
+)
 from aladin_ensemble.types import ForecastValue, Observation
 
 TRAIN = DateRange(date(2026, 4, 2), date(2026, 6, 30))
@@ -117,6 +127,85 @@ def test_previous_request_plan_batches_points_and_all_fixed_leads() -> None:
     budget.require_within_limit()
 
 
+def _wind_segment(variable: str, model_a: float, model_b: float, truth: float) -> SegmentDataset:
+    def wind_case(day: date) -> ScalarForecastCase:
+        return ScalarForecastCase(
+            day,
+            variable,
+            24,
+            "REGION_PRAGUE",
+            "low",
+            "spring" if day.month < 6 else "summer",
+            truth,
+            {"model_a": model_a, "model_b": model_b},
+            None,
+        )
+
+    training = tuple(wind_case(TRAIN.start + timedelta(days=offset)) for offset in range(90))
+    holdout = tuple(wind_case(HOLDOUT.start + timedelta(days=offset)) for offset in range(30))
+    return SegmentDataset(
+        SegmentKey(variable, 24),
+        training,
+        holdout,
+        ("model_a", "model_b"),
+        {"model_a": 1.0, "model_b": 1.0},
+    )
+
+
+def test_previous_forecast_download_reuses_verified_cache(tmp_path: Path) -> None:
+    request = PreviousRunsRequest(
+        "model_a",
+        (ForecastPoint("station", 50.07, 14.43),),
+        ("temperature_2m",),
+        date(2026, 7, 1),
+        date(2026, 7, 1),
+        1,
+    )
+    valid_time = int(datetime(2026, 7, 1, 12, tzinfo=UTC).timestamp())
+    body = json.dumps(
+        [
+            {
+                "latitude": 50.07,
+                "longitude": 14.43,
+                "elevation": 260.0,
+                "hourly_units": {
+                    "time": "unixtime",
+                    "temperature_2m_previous_day1": "°C",
+                },
+                "hourly": {
+                    "time": [valid_time],
+                    "temperature_2m_previous_day1": [20.0],
+                },
+            }
+        ]
+    ).encode()
+    calls: list[Request] = []
+
+    def fetch(http_request: Request) -> HttpResponse:
+        calls.append(http_request)
+        return HttpResponse(200, {}, body)
+
+    downloader = CachedDownloader(
+        tmp_path,
+        fetch=fetch,
+        now=lambda: datetime(2026, 8, 28, tzinfo=UTC),
+    )
+    downloader.download_previous(request)
+    delays: list[float] = []
+
+    forecasts, hashes = download_previous_forecasts(
+        (request,),
+        downloader,
+        pause_seconds=0.5,
+        sleeper=delays.append,
+    )
+
+    assert len(calls) == 1
+    assert delays == []
+    assert len(forecasts) == 1
+    assert len(hashes) == 1
+
+
 def test_fallback_is_selected_from_training_even_when_holdout_prefers_other_model() -> None:
     training = tuple(
         _case(TRAIN.start + timedelta(days=offset), 10.0, 10.5, 12.0)
@@ -172,10 +261,41 @@ def test_scalar_fit_accepts_real_improvement_and_rejects_holdout_degradation() -
 
     assert accepted.evaluation.accepted
     assert accepted.fit is not None
-    assert accepted.fit.weights["model_a"] == pytest.approx(0.5, abs=0.01)
-    assert accepted.fit.weights["model_b"] == pytest.approx(0.5, abs=0.01)
+    assert math.isclose(accepted.fit.weights["model_a"], 0.5, abs_tol=0.01)
+    assert math.isclose(accepted.fit.weights["model_b"], 0.5, abs_tol=0.01)
     assert not rejected.evaluation.accepted
     assert rejected.export_fit is None
+
+
+def test_wind_vector_segment_blends_across_north_and_passes_holdout() -> None:
+    fitted = fit_wind_vector_segment(
+        _wind_segment("wind_speed", 10.0, 10.0, 10.0),
+        _wind_segment("wind_direction", 350.0, 10.0, 0.0),
+        _lock(),
+        trained_at=datetime(2026, 7, 31, tzinfo=UTC),
+        bootstrap_repetitions=50,
+    )
+
+    assert fitted.fit is not None
+    assert math.isclose(fitted.fit.weights["model_a"], 0.5, abs_tol=0.01)
+    assert math.isclose(fitted.fit.weights["model_b"], 0.5, abs_tol=0.01)
+    assert fitted.evaluation.accepted
+    assert fitted.evaluation.metric == "vector_mae"
+
+
+def test_wind_vector_segment_rejects_unpaired_speed_and_direction_cases() -> None:
+    speed = _wind_segment("wind_speed", 10.0, 10.0, 10.0)
+    direction = _wind_segment("wind_direction", 350.0, 10.0, 0.0)
+    direction = replace(direction, holdout=direction.holdout[:-1])
+
+    with pytest.raises(ValueError, match="paired"):
+        fit_wind_vector_segment(
+            speed,
+            direction,
+            _lock(),
+            trained_at=datetime(2026, 7, 31, tzinfo=UTC),
+            bootstrap_repetitions=50,
+        )
 
 
 def test_monthly_truth_plan_and_forecast_hour_sampling_are_bounded() -> None:

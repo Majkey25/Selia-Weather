@@ -50,17 +50,24 @@ def _request(*, forecast_days: int = 1) -> IssuedRunRequest:
 
 
 def _payload() -> dict[str, object]:
-    payload = json.loads(FIXTURE)
-    assert isinstance(payload, dict)
-    return payload
+    payload: object = json.loads(FIXTURE)
+    return _mapping(payload)
+
+
+def _mapping(value: object) -> dict[str, object]:
+    assert isinstance(value, dict)
+    return cast(dict[str, object], value)
+
+
+def _list(value: object) -> list[object]:
+    assert isinstance(value, list)
+    return cast(list[object], value)
 
 
 def test_parses_actual_single_run_with_original_run_time() -> None:
     five_day = _payload()
-    hourly = five_day["hourly"]
-    assert isinstance(hourly, dict)
-    raw_times = hourly["time"]
-    assert isinstance(raw_times, list)
+    hourly = _mapping(five_day["hourly"])
+    raw_times = _list(hourly["time"])
     hourly["time"] = [cast(int, item) + 5 * 86_400 for item in raw_times]
     values = parse_forecast_values(json.dumps(five_day).encode(), _request(forecast_days=6))
 
@@ -117,42 +124,34 @@ def test_parser_rejects_naive_malformed_duplicate_and_mixed_unit_rows() -> None:
         )
 
     duplicate = _payload()
-    hourly = duplicate["hourly"]
-    assert isinstance(hourly, dict)
-    times = hourly["time"]
-    assert isinstance(times, list)
+    hourly = _mapping(duplicate["hourly"])
+    times = _list(hourly["time"])
     times[1] = times[0]
     with pytest.raises(ValueError, match="duplicate"):
         parse_forecast_values(json.dumps(duplicate).encode(), _request())
 
     non_hourly = _payload()
-    non_hourly_hourly = non_hourly["hourly"]
-    assert isinstance(non_hourly_hourly, dict)
-    non_hourly_times = non_hourly_hourly["time"]
-    assert isinstance(non_hourly_times, list)
+    non_hourly_hourly = _mapping(non_hourly["hourly"])
+    non_hourly_times = _list(non_hourly_hourly["time"])
     non_hourly_times[1] = cast(int, non_hourly_times[0]) + 5_400
     with pytest.raises(ValueError, match="non-hourly"):
         parse_forecast_values(json.dumps(non_hourly).encode(), _request())
 
     mixed = [_payload(), _payload()]
-    units = mixed[1]["hourly_units"]
-    assert isinstance(units, dict)
+    units = _mapping(mixed[1]["hourly_units"])
     units["temperature_2m"] = "°F"
     with pytest.raises(ValueError, match="mixed"):
         parse_forecast_values(json.dumps(mixed).encode(), _request())
 
     malformed = _payload()
-    malformed_hourly = malformed["hourly"]
-    assert isinstance(malformed_hourly, dict)
+    malformed_hourly = _mapping(malformed["hourly"])
     malformed_hourly.pop("temperature_2m")
     with pytest.raises(ValueError, match="temperature_2m"):
         parse_forecast_values(json.dumps(malformed).encode(), _request())
 
     beyond_requested_horizon = _payload()
-    beyond_hourly = beyond_requested_horizon["hourly"]
-    assert isinstance(beyond_hourly, dict)
-    beyond_times = beyond_hourly["time"]
-    assert isinstance(beyond_times, list)
+    beyond_hourly = _mapping(beyond_requested_horizon["hourly"])
+    beyond_times = _list(beyond_hourly["time"])
     beyond_hourly["time"] = [cast(int, item) + 86_400 for item in beyond_times]
     with pytest.raises(ValueError, match="horizon"):
         parse_forecast_values(json.dumps(beyond_requested_horizon).encode(), _request())
@@ -160,19 +159,15 @@ def test_parser_rejects_naive_malformed_duplicate_and_mixed_unit_rows() -> None:
 
 def test_parser_rejects_invalid_canonical_ranges() -> None:
     invalid_humidity = _payload()
-    humidity_hourly = invalid_humidity["hourly"]
-    assert isinstance(humidity_hourly, dict)
-    humidity = humidity_hourly["relative_humidity_2m"]
-    assert isinstance(humidity, list)
+    humidity_hourly = _mapping(invalid_humidity["hourly"])
+    humidity = _list(humidity_hourly["relative_humidity_2m"])
     humidity[0] = 101
     with pytest.raises(ValueError, match="relative_humidity"):
         parse_forecast_values(json.dumps(invalid_humidity).encode(), _request())
 
     negative_rain = _payload()
-    rain_hourly = negative_rain["hourly"]
-    assert isinstance(rain_hourly, dict)
-    rain = rain_hourly["precipitation"]
-    assert isinstance(rain, list)
+    rain_hourly = _mapping(negative_rain["hourly"])
+    rain = _list(rain_hourly["precipitation"])
     rain[1] = -0.1
     with pytest.raises(ValueError, match="precipitation"):
         parse_forecast_values(json.dumps(negative_rain).encode(), _request())
@@ -252,7 +247,7 @@ def _previous_payload() -> bytes:
         int(datetime(2026, 7, 1, 0, tzinfo=UTC).timestamp()),
         int(datetime(2026, 7, 1, 1, tzinfo=UTC).timestamp()),
     ]
-    rows = []
+    rows: list[dict[str, object]] = []
     for latitude, longitude, elevation, temperatures, precipitation in (
         (50.08, 14.44, 240.0, [18.0, 19.0], [0.0, 0.2]),
         (49.20, 16.61, 250.0, [17.0, 18.0], [0.1, None]),
@@ -296,8 +291,9 @@ def test_previous_runs_batches_czech_points_and_preserves_fixed_lead() -> None:
 
 
 def test_previous_runs_treats_nonphysical_negative_precipitation_as_missing() -> None:
-    payload = cast(list[dict[str, object]], json.loads(_previous_payload()))
-    hourly = cast(dict[str, object], payload[0]["hourly"])
+    raw_payload: object = json.loads(_previous_payload())
+    payload = cast(list[dict[str, object]], _list(raw_payload))
+    hourly = _mapping(payload[0]["hourly"])
     hourly["precipitation_previous_day2"] = [-0.2, 0.2]
 
     values = parse_previous_run_values(json.dumps(payload).encode(), _previous_request())
@@ -323,13 +319,12 @@ def test_previous_runs_rejects_invalid_boundaries_and_response_shape() -> None:
     with pytest.raises(ValueError, match="lead_days"):
         _previous_request(lead_days=0)
     with pytest.raises(ValueError, match="row count"):
-        parse_previous_run_values(
-            json.dumps(json.loads(_previous_payload())[:1]).encode(),
-            _previous_request(),
-        )
+        raw_payload: object = json.loads(_previous_payload())
+        parse_previous_run_values(json.dumps(_list(raw_payload)[:1]).encode(), _previous_request())
 
-    outside = cast(list[dict[str, object]], json.loads(_previous_payload()))
-    hourly = cast(dict[str, object], outside[0]["hourly"])
+    raw_outside: object = json.loads(_previous_payload())
+    outside = cast(list[dict[str, object]], _list(raw_outside))
+    hourly = _mapping(outside[0]["hourly"])
     hourly["time"] = [
         int(datetime(2026, 6, 30, 23, tzinfo=UTC).timestamp()),
         int(datetime(2026, 7, 1, 0, tzinfo=UTC).timestamp()),
@@ -408,6 +403,40 @@ def test_previous_downloader_retries_only_operational_failure(tmp_path: Path) ->
 
     assert response.path.is_file()
     assert calls == 2
+
+
+@pytest.mark.parametrize(
+    ("retry_after", "expected_delay"),
+    (("3", 3.0), ("100000", 60.0), ("invalid", 1.0), ("-1", 1.0)),
+)
+def test_previous_downloader_retries_rate_limit_using_retry_after(
+    tmp_path: Path,
+    retry_after: str,
+    expected_delay: float,
+) -> None:
+    calls = 0
+    delays: list[float] = []
+
+    def rate_limited(_: Request) -> HttpResponse:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return HttpResponse(429, {"Retry-After": retry_after}, b"")
+        return HttpResponse(200, {}, _previous_payload())
+
+    downloader = CachedDownloader(
+        tmp_path,
+        fetch=rate_limited,
+        now=lambda: RUN_TIME,
+        retry_delay_seconds=1,
+        sleeper=delays.append,
+    )
+
+    response = downloader.download_previous(_previous_request())
+
+    assert response.path.is_file()
+    assert calls == 2
+    assert delays == [expected_delay]
 
 
 def test_previous_downloader_reads_verified_archive_cache_offline(tmp_path: Path) -> None:

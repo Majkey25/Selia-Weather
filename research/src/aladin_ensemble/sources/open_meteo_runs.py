@@ -20,6 +20,7 @@ SINGLE_RUNS_URL = "https://single-runs-api.open-meteo.com/v1/forecast"
 PREVIOUS_RUNS_URL = "https://previous-runs-api.open-meteo.com/v1/forecast"
 TERMS_URL = "https://open-meteo.com/en/terms"
 DEFAULT_CACHE_ROOT = Path("data/raw/open-meteo")
+MAX_RETRY_AFTER_SECONDS = 60.0
 _SECRET_PARAMETERS = frozenset({"api_key", "apikey", "authorization", "key", "token"})
 _VARIABLES = {
     "temperature_2m": ("temperature", "°C"),
@@ -381,15 +382,19 @@ class CachedDownloader:
 
     def _request(self, request: Request) -> HttpResponse:
         for attempt in range(self._retry_attempts):
+            delay = self._retry_delay_seconds
             try:
                 response = self._fetch(request)
             except RuntimeError:
                 if attempt + 1 == self._retry_attempts:
                     raise
             else:
-                if response.status < 500 or attempt + 1 == self._retry_attempts:
+                retryable = response.status == 429 or response.status >= 500
+                if not retryable or attempt + 1 == self._retry_attempts:
                     return response
-            self._sleep(self._retry_delay_seconds)
+                if response.status == 429:
+                    delay = _retry_after_seconds(response.headers, delay)
+            self._sleep(delay)
         raise RuntimeError("request retry loop ended unexpectedly")
 
     def _raw_path(self, checksum: str) -> Path:
@@ -808,6 +813,19 @@ def _header(headers: Mapping[str, str], name: str) -> str | None:
         if key.casefold() == name:
             return value
     return None
+
+
+def _retry_after_seconds(headers: Mapping[str, str], fallback: float) -> float:
+    value = _header(headers, "retry-after")
+    if value is None:
+        return fallback
+    try:
+        parsed = float(value)
+    except ValueError:
+        return fallback
+    if not isfinite(parsed) or parsed < 0:
+        return fallback
+    return max(fallback, min(parsed, MAX_RETRY_AFTER_SECONDS))
 
 
 def _sanitized_url(url: str) -> str:

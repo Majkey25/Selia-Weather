@@ -13,7 +13,11 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from aladin_ensemble.registry import JsonValue
-from aladin_ensemble.sources.chmi_station import ElementMetadata, Station
+from aladin_ensemble.sources.chmi_station import (
+    ElementMetadata,
+    Station,
+    uses_standard_measurement_height,
+)
 
 CHMI_CLIMATE_ROOT = "https://opendata.chmi.cz/meteorology/climate/recent/data"
 DEFAULT_CACHE_ROOT = Path("data/raw/chmi-climate")
@@ -88,8 +92,11 @@ def select_station_cohort(
     if not stations or len({station.wigos_id for station in stations}) != len(stations):
         raise ValueError("stations must be non-empty and unique")
     available: dict[str, set[tuple[str, str]]] = {}
-    for observation_type, station_id, element in metadata:
-        available.setdefault(station_id, set()).add((observation_type, element))
+    for (observation_type, station_id, element), details in metadata.items():
+        if element not in {"T", "F", "D"} or uses_standard_measurement_height(
+            element, details.height_m
+        ):
+            available.setdefault(station_id, set()).add((observation_type, element))
     eligible = tuple(
         station
         for station in stations

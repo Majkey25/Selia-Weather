@@ -81,6 +81,8 @@ ELEMENTS = {
         "precipitation", "mm", 0.0, 1_000.0, frozenset({"mm"}), timedelta(hours=1), "interval"
     ),
 }
+STANDARD_MEASUREMENT_HEIGHTS = {"T": 2.0, "Td": 2.0, "D": 10.0, "F": 10.0}
+STANDARD_HEIGHT_RELATIVE_TOLERANCE = 0.1
 
 
 class _JsonStream:
@@ -327,11 +329,24 @@ def parse_station_observations(
 
 
 def _variable(element_name: str, variable: str, height_m: float | None) -> str:
-    if element_name in {"D", "F"} and height_m == 10.0:
+    if element_name in {"D", "F"} and uses_standard_measurement_height(
+        element_name, height_m
+    ):
         return f"{variable}_10m"
-    if element_name in {"T", "Td"} and height_m == 2.0:
+    if element_name in {"T", "Td"} and uses_standard_measurement_height(
+        element_name, height_m
+    ):
         return f"{variable}_2m"
     return variable
+
+
+def uses_standard_measurement_height(element_name: str, height_m: float | None) -> bool:
+    standard = STANDARD_MEASUREMENT_HEIGHTS.get(element_name)
+    return (
+        standard is not None
+        and height_m is not None
+        and abs(height_m - standard) <= standard * STANDARD_HEIGHT_RELATIVE_TOLERANCE
+    )
 
 
 def _optional_value(value: object, element: _Element) -> float | None:

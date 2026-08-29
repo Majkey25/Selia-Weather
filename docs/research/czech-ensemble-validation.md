@@ -26,6 +26,70 @@ One archived CHMI ALADIN CZ value reported non-physical `-0.2 mm` precipitation 
 The Previous Runs parser records such values as missing; the live forecast parser remains strict
 and rejects negative precipitation.
 
+## Nationwide truth rerun status
+
+The 28 August rerun fixed a station-selection error before fitting new weights. The old selector
+required the correct ČHMÚ element names but ignored their measurement heights. The parser then
+kept measurements at 1.99–2.06 m and 9.55–10.56 m under their exact-height names, so the backtest
+discarded valid near-standard temperature and wind observations.
+
+The corrected selector accepts measurements within 10 percent of the standard 2 m temperature
+and 10 m wind heights. It rejects non-standard 15–21 m wind sensors and selects another regional
+station. The same April through July truth audit now contains 172,800 observations. All 15 selected
+stations contain 2,880 values for each of temperature, wind speed, wind direction, and hourly
+precipitation. The previous audit contained 100,800 observations, with temperature at 10 stations
+and wind at 5 stations.
+
+The fixed-lead preflight completed all 112 immutable Open-Meteo requests after bounded
+`Retry-After` backoff. The downloader resumes from verified cache without network calls or pacing
+delays. The dataset contains 806,400 forecast values.
+
+Five temperature segments passed the diagnostic gate. All precipitation segments failed. All wind
+speed segments failed, mainly because at least one region degraded by more than 5 percent. These
+results must not ship because the July holdout was already inspected before the station-selection
+fix. A new untouched 30-day holdout is required.
+
+### Nationwide diagnostic results
+
+| Variable | Lead | Samples | Blend MAE | Training fallback | Fallback MAE | Gate |
+|---|---:|---:|---:|---|---:|---|
+| Precipitation | 24 h | 450 | 0.2268 mm | KNMI HARMONIE | 0.2313 mm | Reject |
+| Precipitation | 48 h | 450 | 0.2382 mm | CMC GEM | 0.2222 mm | Reject |
+| Precipitation | 72 h | 450 | 0.2373 mm | ICON Global | 0.2467 mm | Reject |
+| Precipitation | 96 h | 450 | 0.2368 mm | Best Match | 0.1918 mm | Reject |
+| Precipitation | 120 h | 450 | 0.2426 mm | CMC GEM | 0.2044 mm | Reject |
+| Precipitation | 144 h | 450 | 0.2248 mm | GFS | 0.1980 mm | Reject |
+| Precipitation | 168 h | 450 | 0.2207 mm | GFS | 0.1844 mm | Reject |
+| Temperature | 24 h | 450 | 1.0633 °C | Best Match | 1.2489 °C | Pass |
+| Temperature | 48 h | 450 | 1.2585 °C | ECMWF AIFS | 1.3380 °C | Reject |
+| Temperature | 72 h | 450 | 1.3825 °C | ECMWF AIFS | 1.5356 °C | Pass |
+| Temperature | 96 h | 450 | 1.5656 °C | ECMWF IFS | 1.7844 °C | Pass |
+| Temperature | 120 h | 450 | 1.8991 °C | ECMWF IFS 0.25° | 2.1062 °C | Pass |
+| Temperature | 144 h | 450 | 2.1985 °C | ECMWF IFS 0.25° | 2.6136 °C | Pass |
+| Temperature | 168 h | 450 | 2.5304 °C | ECMWF IFS 0.25° | 2.8522 °C | Reject |
+| Wind speed | 24 h | 450 | 3.8311 km/h | ICON-EU | 3.9748 km/h | Reject |
+| Wind speed | 48 h | 450 | 3.9749 km/h | Best Match | 4.0871 km/h | Reject |
+| Wind speed | 72 h | 450 | 3.9982 km/h | Best Match | 4.0812 km/h | Reject |
+| Wind speed | 96 h | 450 | 4.1665 km/h | Best Match | 4.7272 km/h | Reject |
+| Wind speed | 120 h | 450 | 4.1205 km/h | ECMWF AIFS | 4.3495 km/h | Reject |
+| Wind speed | 144 h | 450 | 4.1552 km/h | ECMWF AIFS | 4.6274 km/h | Reject |
+| Wind speed | 168 h | 450 | 4.4381 km/h | ECMWF AIFS | 4.6884 km/h | Reject |
+
+The diagnostic artifacts have these SHA-256 hashes:
+
+- dataset manifest: `f3a795b2ce759edcc30d1c1d82a2dc907ba99ec35aaedcb6c05324ef532573d0`.
+- holdout lock: `ce3b49e958e521fee6979d0ccc95a5c0a7f584c1a050596579bfedd5ac59b15c`.
+- report: `49ea6e49687b92963b7bd2fff177301e2564c20e3516e96a19421fbbda8de57f`.
+
+The east/north wind-vector diagnostic rejected all seven leads. Every lead degraded at least one
+region by more than 5 percent. The maximum regional degradation ranged from 5.12 percent at 48
+hours to 18.95 percent at 168 hours. The wind-vector report SHA-256 is
+`f9c1a8192eef72dda8e1b8d0bd93e5268a87df02cc4411b7ccad4493eca9cc54`.
+
+### Historical partial-cohort results
+
+The following table describes the 26 August run.
+
 | Variable | Lead | Holdout samples | Blend MAE | Training-selected fallback | Fallback MAE | Ship |
 |---|---:|---:|---:|---|---:|---|
 | Precipitation | 24 h | 450 | 0.2234 mm | KNMI HARMONIE | 0.2033 mm | No |
@@ -50,7 +114,7 @@ and rejects negative precipitation.
 | Wind speed | 144 h | 150 | 4.1529 km/h | ECMWF AIFS | 4.6715 km/h | No |
 | Wind speed | 168 h | 150 | 4.4792 km/h | ECMWF AIFS | 4.8928 km/h | Yes |
 
-The live model probe on 25 August 2026 checked 17 candidates at 7 Czech points for 3 required
+The live model probe on 28 August 2026 checked 17 candidates at 7 Czech points for 3 required
 variables. The final bounded retry budget was 85 HTTP requests, below the configured limit of
 10,000.
 
@@ -100,9 +164,10 @@ model resolution, and maximum run age.
 
 ## Work required before production
 
-1. Expand independent temperature and wind truth to a representative nationwide station cohort.
-2. Run wind direction through the east/north vector fitter and precipitation through the separate
-   occurrence and positive-amount pipeline.
+1. After 30 August is complete, lock an untouched August holdout and evaluate the corrected
+   15-station cohort without changing the fitted method.
+2. Keep the wind-vector method fixed for the untouched holdout. Run precipitation through the
+   separate occurrence and positive-amount pipeline.
 3. Lock a new untouched holdout before changing any failed model or segment selection.
 4. Re-run the source licence gate before any release with advertising or paid features.
 5. Export `ensemble_weights.json` only when nationwide coverage and every artifact rule pass.
@@ -130,6 +195,5 @@ Run these commands from the repository root:
 & 'C:\Users\mates\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -m uv run --project research pyright
 ```
 
-The current verified result is 108 passing tests and Ruff clean. Strict Pyright is clean for the
-changed backtest modules; the repository-wide run still reports existing unknown-type debt in
-scientific dependencies and older tests.
+The current verified result is 116 passing tests, Ruff clean, and zero repository-wide Pyright
+errors.

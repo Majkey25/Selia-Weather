@@ -54,16 +54,25 @@ def _manifest(retrieved_at: datetime) -> SourceManifest:
     )
 
 
-def test_metadata_height_prevents_false_wind_10m_label_and_keeps_dst_hours() -> None:
+def test_metadata_height_normalizes_near_standard_wind_and_keeps_dst_hours() -> None:
     with (FIXTURES / "ten-minute.json").open(encoding="utf-8") as source:
         observations = tuple(
             parse_station_observations(source, _stations(), _metadata(), "10M", CHECKSUM)
         )
 
     wind = observations[3]
-    assert wind.variable == "wind_speed"
+    assert wind.variable == "wind_speed_10m"
     assert wind.measurement_height_m == 10.56
     assert observations[3].valid_time != observations[4].valid_time
+
+    metadata = _metadata()
+    key = ("10M", wind.station_id, "F")
+    metadata[key] = replace(metadata[key], height_m=15.0)
+    with (FIXTURES / "ten-minute.json").open(encoding="utf-8") as source:
+        nonstandard = tuple(
+            parse_station_observations(source, _stations(), metadata, "10M", CHECKSUM)
+        )
+    assert nonstandard[3].variable == "wind_speed"
 
 
 def test_metadata_rejects_duplicate_key_and_unknown_wigos(tmp_path: Path) -> None:

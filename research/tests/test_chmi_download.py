@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from urllib.request import Request
@@ -100,6 +101,28 @@ def test_station_selection_skips_incomplete_station_and_rejects_missing_band() -
     assert selected[0].station.wigos_id == complete.wigos_id
     with pytest.raises(ValueError, match="high elevation"):
         select_station_cohort(targets, (complete, middle), _metadata((complete, middle)))
+
+
+def test_station_selection_requires_near_standard_comparison_heights() -> None:
+    targets = (CZECH_TARGETS[0],)
+    near = _station(0, elevation=100.0)
+    standard = Station("0-20000-0-11888", "Standard", 50.08, 14.46, 120.0)
+    middle = Station("0-20000-0-11889", "Middle", 50.1, 14.5, 500.0)
+    high = Station("0-20000-0-11890", "High", 50.2, 14.6, 900.0)
+    metadata = _metadata((near, standard, middle, high))
+    for element in ("F", "D"):
+        key = ("10M", near.wigos_id, element)
+        metadata[key] = replace(metadata[key], height_m=15.0)
+    for station in (standard, middle, high):
+        for element in ("F", "D"):
+            key = ("10M", station.wigos_id, element)
+            metadata[key] = replace(metadata[key], height_m=10.5)
+        key = ("10M", station.wigos_id, "T")
+        metadata[key] = replace(metadata[key], height_m=2.1)
+
+    selected = select_station_cohort(targets, (near, standard, middle, high), metadata)
+
+    assert selected[0].station.wigos_id == standard.wigos_id
 
 
 def test_monthly_urls_separate_instant_and_hourly_precipitation_truth() -> None:

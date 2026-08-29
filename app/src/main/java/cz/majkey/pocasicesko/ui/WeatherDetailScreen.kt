@@ -2,6 +2,7 @@ package cz.majkey.pocasicesko.ui
 
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -16,6 +17,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Navigation
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
@@ -23,7 +25,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -40,6 +46,9 @@ import cz.majkey.pocasicesko.astro.MoonCalculator
 import cz.majkey.pocasicesko.astro.MoonDetails
 import cz.majkey.pocasicesko.astro.MoonPhaseKey
 import cz.majkey.pocasicesko.data.CzechLocation
+import cz.majkey.pocasicesko.data.DailyWeather
+import cz.majkey.pocasicesko.data.HourlyWeather
+import cz.majkey.pocasicesko.data.PrecipitationField
 import cz.majkey.pocasicesko.data.WeatherSnapshot
 import cz.majkey.pocasicesko.data.currentDay
 import cz.majkey.pocasicesko.units.WeatherUnitFormatter
@@ -49,6 +58,8 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import kotlin.math.roundToInt
+import java.io.IOException
+import org.json.JSONException
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,6 +67,7 @@ internal fun WeatherDetailSheet(
     snapshot: WeatherSnapshot,
     location: CzechLocation,
     units: WeatherUnitFormatter,
+    loadPrecipitationField: suspend (CzechLocation) -> PrecipitationField,
     onDismiss: () -> Unit,
 ) {
     val locale = LocalConfiguration.current.locales[0]
@@ -73,6 +85,21 @@ internal fun WeatherDetailSheet(
     }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val today = snapshot.daily.firstOrNull()?.let { snapshot.currentDay() }
+    var fieldRetryKey by remember(location) { mutableIntStateOf(0) }
+    val fieldState by produceState<PrecipitationFieldUiState>(
+        initialValue = PrecipitationFieldUiState.Loading,
+        location.latitude,
+        location.longitude,
+        fieldRetryKey,
+    ) {
+        value = try {
+            PrecipitationFieldUiState.Content(loadPrecipitationField(location))
+        } catch (_: IOException) {
+            PrecipitationFieldUiState.Error
+        } catch (_: JSONException) {
+            PrecipitationFieldUiState.Error
+        }
+    }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = Color(0xFF101820),
@@ -102,6 +129,17 @@ internal fun WeatherDetailSheet(
                 )
             }
             item {
+                AtAGlanceSection(snapshot, today, units, locale)
+            }
+            item {
+                LocalRainFieldSection(
+                    state = fieldState,
+                    timezone = snapshot.timezone,
+                    units = units,
+                    onRetry = { fieldRetryKey++ },
+                )
+            }
+            item {
                 DetailSection(stringResource(R.string.current_details)) {
                     DetailRow(stringResource(R.string.temperature), units.temperature(snapshot.current.temperature))
                     DetailRow(stringResource(R.string.feels_like), units.temperature(snapshot.current.feelsLike))
@@ -112,10 +150,6 @@ internal fun WeatherDetailSheet(
                     OptionalDetailRow(
                         stringResource(R.string.wet_bulb_temperature),
                         snapshot.current.wetBulbTemperature?.let(units::temperature),
-                    )
-                    OptionalDetailRow(
-                        stringResource(R.string.surface_temperature),
-                        snapshot.current.surfaceTemperature?.let(units::temperature),
                     )
                     OptionalDetailRow(
                         stringResource(R.string.apparent_temperature_range),
@@ -148,6 +182,10 @@ internal fun WeatherDetailSheet(
                     OptionalDetailRow(
                         stringResource(R.string.rain),
                         snapshot.current.rain?.let(units::precipitation),
+                    )
+                    OptionalDetailRow(
+                        stringResource(R.string.showers),
+                        snapshot.current.showers?.let(units::precipitation),
                     )
                     OptionalDetailRow(
                         stringResource(R.string.snowfall),
@@ -189,16 +227,6 @@ internal fun WeatherDetailSheet(
                     OptionalDetailRow(
                         stringResource(R.string.high_clouds),
                         snapshot.current.cloudCoverHigh?.let { "$it %" },
-                    )
-                    OptionalDetailRow(
-                        stringResource(R.string.cape),
-                        snapshot.current.cape?.let { String.format(locale, "%.0f J/kg", it) },
-                    )
-                    OptionalDetailRow(
-                        stringResource(R.string.vapour_pressure_deficit),
-                        snapshot.current.vapourPressureDeficit?.let {
-                            String.format(locale, "%.1f kPa", it)
-                        },
                     )
                 }
             }
@@ -252,6 +280,74 @@ internal fun WeatherDetailSheet(
                 }
             }
             item {
+                DetailSection(stringResource(R.string.atmosphere)) {
+                    OptionalDetailRow(
+                        stringResource(R.string.uv_index),
+                        snapshot.current.uvIndex?.let { String.format(locale, "%.1f", it) },
+                    )
+                    OptionalDetailRow(
+                        stringResource(R.string.uv_index_max),
+                        today?.uvIndexMax?.let { String.format(locale, "%.1f", it) },
+                    )
+                    OptionalDetailRow(
+                        stringResource(R.string.freezing_level),
+                        snapshot.current.freezingLevelHeightMeters?.let { units.distance(it / 1_000.0) },
+                    )
+                    OptionalDetailRow(
+                        stringResource(R.string.boundary_layer_height),
+                        snapshot.current.boundaryLayerHeightMeters?.let { units.distance(it / 1_000.0) },
+                    )
+                    OptionalDetailRow(
+                        stringResource(R.string.integrated_water_vapour),
+                        snapshot.current.integratedWaterVapour?.let {
+                            String.format(locale, "%.1f kg/m²", it)
+                        },
+                    )
+                    OptionalDetailRow(
+                        stringResource(R.string.lifted_index),
+                        snapshot.current.liftedIndex?.let { String.format(locale, "%.1f", it) },
+                    )
+                    OptionalDetailRow(
+                        stringResource(R.string.convective_inhibition),
+                        snapshot.current.convectiveInhibition?.let {
+                            String.format(locale, "%.0f J/kg", it)
+                        },
+                    )
+                    OptionalDetailRow(
+                        stringResource(R.string.cape),
+                        snapshot.current.cape?.let { String.format(locale, "%.0f J/kg", it) },
+                    )
+                    OptionalDetailRow(
+                        stringResource(R.string.vapour_pressure_deficit),
+                        snapshot.current.vapourPressureDeficit?.let {
+                            String.format(locale, "%.1f kPa", it)
+                        },
+                    )
+                }
+            }
+            item {
+                DetailSection(stringResource(R.string.ground)) {
+                    OptionalDetailRow(
+                        stringResource(R.string.soil_temperature),
+                        snapshot.current.soilTemperature0Cm?.let(units::temperature),
+                    )
+                    OptionalDetailRow(
+                        stringResource(R.string.soil_moisture),
+                        snapshot.current.soilMoisture0To1Cm?.let {
+                            String.format(locale, "%.3f m³/m³", it)
+                        },
+                    )
+                    OptionalDetailRow(
+                        stringResource(R.string.surface_temperature),
+                        snapshot.current.surfaceTemperature?.let(units::temperature),
+                    )
+                    OptionalDetailRow(
+                        stringResource(R.string.et0_evapotranspiration),
+                        today?.et0?.let(units::precipitation),
+                    )
+                }
+            }
+            item {
                 DetailSection(stringResource(R.string.sun)) {
                     OptionalDetailRow(stringResource(R.string.sunrise), today?.sunrise?.takeLast(5))
                     OptionalDetailRow(stringResource(R.string.sunset), today?.sunset?.takeLast(5))
@@ -269,10 +365,6 @@ internal fun WeatherDetailSheet(
                             String.format(locale, "%.1f MJ/m²", it)
                         },
                     )
-                    OptionalDetailRow(
-                        stringResource(R.string.et0_evapotranspiration),
-                        today?.et0?.let(units::precipitation),
-                    )
                 }
             }
             item {
@@ -280,6 +372,114 @@ internal fun WeatherDetailSheet(
             }
         }
     }
+}
+
+private sealed interface PrecipitationFieldUiState {
+    data object Loading : PrecipitationFieldUiState
+    data class Content(val field: PrecipitationField) : PrecipitationFieldUiState
+    data object Error : PrecipitationFieldUiState
+}
+
+@Composable
+private fun AtAGlanceSection(
+    snapshot: WeatherSnapshot,
+    today: DailyWeather?,
+    units: WeatherUnitFormatter,
+    locale: java.util.Locale,
+) {
+    val nextRain = nextWetHour(snapshot.hourly, snapshot.current.time)?.time?.takeLast(5)
+        ?: stringResource(R.string.no_rain_next_24h)
+    val maximumProbability = maximumPrecipitationProbability(snapshot.hourly, snapshot.current.time)
+        ?.let { "$it %" }
+    DetailSection(stringResource(R.string.at_a_glance)) {
+        Row(Modifier.fillMaxWidth()) {
+            GlanceValue(stringResource(R.string.next_rain), nextRain, Modifier.weight(1f))
+            GlanceValue(
+                stringResource(R.string.max_precipitation_probability),
+                maximumProbability ?: stringResource(R.string.unavailable),
+                Modifier.weight(1f),
+            )
+        }
+        HorizontalDivider(color = Color.White.copy(alpha = 0.07f))
+        Row(Modifier.fillMaxWidth()) {
+            GlanceValue(
+                stringResource(R.string.uv_index_max),
+                today?.uvIndexMax?.let { String.format(locale, "%.1f", it) }
+                    ?: stringResource(R.string.unavailable),
+                Modifier.weight(1f),
+            )
+            GlanceValue(
+                stringResource(R.string.freezing_level),
+                snapshot.current.freezingLevelHeightMeters?.let { units.distance(it / 1_000.0) }
+                    ?: stringResource(R.string.unavailable),
+                Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun GlanceValue(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(modifier.padding(vertical = 12.dp, horizontal = 2.dp)) {
+        Text(label, color = Color.White.copy(alpha = 0.55f), fontSize = 11.sp)
+        Text(
+            value,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 16.sp,
+            modifier = Modifier.padding(top = 3.dp),
+        )
+    }
+}
+
+@Composable
+private fun LocalRainFieldSection(
+    state: PrecipitationFieldUiState,
+    timezone: String,
+    units: WeatherUnitFormatter,
+    onRetry: () -> Unit,
+) {
+    DetailSection(stringResource(R.string.local_rain_field)) {
+        when (state) {
+            PrecipitationFieldUiState.Loading -> Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator(color = Color(0xFF83D6E8), modifier = Modifier.size(32.dp))
+            }
+            is PrecipitationFieldUiState.Content -> LocalRainField(state.field, timezone, units)
+            PrecipitationFieldUiState.Error -> Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    stringResource(R.string.spatial_precipitation_unavailable),
+                    color = Color.White.copy(alpha = 0.58f),
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = onRetry) { Text(stringResource(R.string.retry_spatial_precipitation)) }
+            }
+        }
+    }
+}
+
+internal fun nextWetHour(hourly: List<HourlyWeather>, currentTime: String): HourlyWeather? =
+    detailUpcomingHours(hourly, currentTime).firstOrNull { hour ->
+        hour.precipitation >= 0.1 || hour.precipitationProbability >= 50
+    }
+
+internal fun maximumPrecipitationProbability(hourly: List<HourlyWeather>, currentTime: String): Int? =
+    detailUpcomingHours(hourly, currentTime).maxOfOrNull(HourlyWeather::precipitationProbability)
+
+private fun detailUpcomingHours(hourly: List<HourlyWeather>, currentTime: String): List<HourlyWeather> {
+    val currentHour = currentTime.take(13)
+    return hourly.asSequence()
+        .dropWhile { it.time.take(13) < currentHour }
+        .take(24)
+        .toList()
 }
 
 @Composable

@@ -65,6 +65,7 @@ import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.data.CzechLocation
 import cz.majkey.pocasicesko.data.DailyWeather
 import cz.majkey.pocasicesko.data.HourlyWeather
+import cz.majkey.pocasicesko.data.PrecipitationField
 import cz.majkey.pocasicesko.data.WeatherKind
 import cz.majkey.pocasicesko.data.WeatherSnapshot
 import cz.majkey.pocasicesko.data.conditionFor
@@ -81,7 +82,7 @@ private const val HOURLY_OUTLOOK_COUNT = 24
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ForecastScreen(
+internal fun ForecastScreen(
     snapshot: WeatherSnapshot,
     location: CzechLocation,
     padding: PaddingValues,
@@ -89,6 +90,7 @@ fun ForecastScreen(
     refreshing: Boolean,
     refreshError: String?,
     measurementSystem: MeasurementSystem,
+    loadPrecipitationField: suspend (CzechLocation) -> PrecipitationField,
     onSearch: () -> Unit,
     onRefresh: () -> Unit,
     onSettings: () -> Unit,
@@ -154,6 +156,7 @@ fun ForecastScreen(
             snapshot = snapshot,
             location = location,
             units = units,
+            loadPrecipitationField = loadPrecipitationField,
             onDismiss = { showDetails = false },
         )
     }

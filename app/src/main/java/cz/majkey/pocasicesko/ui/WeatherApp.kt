@@ -77,6 +77,7 @@ import androidx.compose.ui.res.stringResource
 import cz.majkey.pocasicesko.data.CzechLocation
 import cz.majkey.pocasicesko.data.DeviceLocationRepository
 import cz.majkey.pocasicesko.data.LocationPermissionException
+import cz.majkey.pocasicesko.data.PrecipitationField
 import cz.majkey.pocasicesko.data.SystemLocationDisabledException
 import cz.majkey.pocasicesko.data.WeatherKind
 import cz.majkey.pocasicesko.data.WeatherRepository
@@ -167,6 +168,7 @@ fun WeatherApp(
                         state = state,
                         location = location,
                         measurementSystem = measurementSystem,
+                        loadPrecipitationField = repository::fetchPrecipitationField,
                         padding = padding,
                         onSearch = { showLocationSearch = true },
                         onRetry = { reloadKey++ },
@@ -248,6 +250,7 @@ private fun WeatherDestination(
     state: WeatherUiState,
     location: CzechLocation,
     measurementSystem: MeasurementSystem,
+    loadPrecipitationField: suspend (CzechLocation) -> PrecipitationField,
     padding: PaddingValues,
     onSearch: () -> Unit,
     onRetry: () -> Unit,
@@ -278,6 +281,7 @@ private fun WeatherDestination(
             refreshing = state.refreshing,
             refreshError = state.refreshError,
             measurementSystem = measurementSystem,
+            loadPrecipitationField = loadPrecipitationField,
             onSearch = onSearch,
             onRefresh = onRetry,
             onSettings = onSettings,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from math import isclose
 from pathlib import Path
 from typing import BinaryIO
@@ -9,10 +10,15 @@ import pytest
 
 from aladin_ensemble.sources.grib_points import (
     GeoPoint,
+    SampledMessage,
+    SampledPoint,
     build_grib_point_index,
+    convert_grib_unit,
     decode_grib_points,
+    elevation_by_point,
     regular_grid_points,
     to_forecast_values,
+    to_wind_component_values,
 )
 
 
@@ -154,6 +160,8 @@ def test_converts_sampled_messages_to_canonical_forecast_values(tmp_path: Path) 
     assert values[0].unit == "°C"
     assert values[0].value is not None
     assert isclose(values[0].value, 7.85)
+    assert convert_grib_unit(5.0, "m s**-1", "m/s") == 5.0
+    assert convert_grib_unit(90.0, "Degree true", "°") == 90.0
 
 
 def test_reuses_verified_grid_indexes_for_later_fields(tmp_path: Path) -> None:
@@ -184,3 +192,51 @@ def test_rejects_index_from_another_grid_and_releases_handle(tmp_path: Path) -> 
         decode_grib_points(path, points, api=decode_api, point_index=point_index)
 
     assert decode_api.released == [1]
+
+
+def test_builds_elevation_map_and_converts_meteorological_wind() -> None:
+    run_time = datetime(2026, 8, 29, 12, tzinfo=UTC)
+    elevation_points = (
+        SampledPoint(49.0, 14.0, 49.0, 14.0, 0.0, 250.0),
+        SampledPoint(50.0, 15.0, 50.0, 15.0, 0.0, 300.0),
+    )
+    elevation = SampledMessage(run_time, run_time, "m", "instant", 0, 0, elevation_points)
+    speed = SampledMessage(
+        run_time,
+        run_time,
+        "m/s",
+        "instant",
+        0,
+        0,
+        (
+            SampledPoint(49.0, 14.0, 49.0, 14.0, 0.0, 10.0),
+            SampledPoint(50.0, 15.0, 50.0, 15.0, 0.0, 10.0),
+        ),
+    )
+    direction = SampledMessage(
+        run_time,
+        run_time,
+        "°",
+        "instant",
+        0,
+        0,
+        (
+            SampledPoint(49.0, 14.0, 49.0, 14.0, 0.0, 0.0),
+            SampledPoint(50.0, 15.0, 50.0, 15.0, 0.0, 90.0),
+        ),
+    )
+
+    elevations = elevation_by_point(elevation)
+    values = to_wind_component_values((speed,), (direction,), "chmi_aladin_cz_1km", elevations)
+
+    assert elevations == {GeoPoint(49.0, 14.0): 250.0, GeoPoint(50.0, 15.0): 300.0}
+    by_variable = {(value.variable, value.latitude): value.value for value in values}
+    assert isclose(require_float(by_variable[("wind_u_10m", 49.0)]), 0.0, abs_tol=1e-9)
+    assert isclose(require_float(by_variable[("wind_v_10m", 49.0)]), -10.0)
+    assert isclose(require_float(by_variable[("wind_u_10m", 50.0)]), -10.0)
+    assert isclose(require_float(by_variable[("wind_v_10m", 50.0)]), 0.0, abs_tol=1e-9)
+
+
+def require_float(value: float | None) -> float:
+    assert value is not None
+    return value

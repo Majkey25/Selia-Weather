@@ -5,7 +5,7 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from math import isclose, isfinite
+from math import cos, isclose, isfinite, radians, sin
 from numbers import Real
 from pathlib import Path
 from typing import BinaryIO, Protocol, cast
@@ -365,6 +365,73 @@ def to_forecast_values(
     return tuple(rows)
 
 
+def elevation_by_point(message: SampledMessage) -> dict[GeoPoint, float]:
+    if message.unit != "m":
+        raise ValueError("elevation GRIB field must use metres")
+    elevations = {
+        GeoPoint(point.latitude, point.longitude): point.value for point in message.values
+    }
+    if len(elevations) != len(message.values):
+        raise ValueError("elevation GRIB field contains duplicate points")
+    return elevations
+
+
+def to_wind_component_values(
+    speed_messages: tuple[SampledMessage, ...],
+    direction_messages: tuple[SampledMessage, ...],
+    model_id: str,
+    elevation_by_point: Mapping[GeoPoint, float],
+) -> tuple[ForecastValue, ...]:
+    if not speed_messages or not direction_messages or not model_id:
+        raise ValueError("wind conversion metadata is required")
+    speeds = sorted(speed_messages, key=lambda message: message.valid_time)
+    directions = sorted(direction_messages, key=lambda message: message.valid_time)
+    if len(speeds) != len(directions):
+        raise ValueError("wind speed and direction axes do not match")
+    rows: list[ForecastValue] = []
+    for speed_message, direction_message in zip(speeds, directions, strict=True):
+        if (
+            speed_message.run_time != direction_message.run_time
+            or speed_message.valid_time != direction_message.valid_time
+            or len(speed_message.values) != len(direction_message.values)
+        ):
+            raise ValueError("wind speed and direction axes do not match")
+        for speed_point, direction_point in zip(
+            speed_message.values,
+            direction_message.values,
+            strict=True,
+        ):
+            coordinate = GeoPoint(speed_point.latitude, speed_point.longitude)
+            if coordinate != GeoPoint(direction_point.latitude, direction_point.longitude):
+                raise ValueError("wind speed and direction points do not match")
+            elevation = elevation_by_point.get(coordinate)
+            if elevation is None or not isfinite(elevation):
+                raise ValueError(f"elevation is missing for point: {coordinate}")
+            speed = convert_grib_unit(speed_point.value, speed_message.unit, "m/s")
+            direction = convert_grib_unit(direction_point.value, direction_message.unit, "°")
+            if speed < 0 or not 0 <= direction <= 360:
+                raise ValueError("wind speed or direction is invalid")
+            angle = radians(direction)
+            for variable, value in (
+                ("wind_u_10m", -speed * sin(angle)),
+                ("wind_v_10m", -speed * cos(angle)),
+            ):
+                rows.append(
+                    ForecastValue(
+                        model_id=model_id,
+                        run_time=speed_message.run_time,
+                        valid_time=speed_message.valid_time,
+                        latitude=coordinate.latitude,
+                        longitude=coordinate.longitude,
+                        elevation_m=elevation,
+                        variable=variable,
+                        value=value,
+                        unit="m/s",
+                    )
+                )
+    return tuple(rows)
+
+
 def convert_grib_unit(value: float, source_unit: str, canonical_unit: str) -> float:
     if not isfinite(value) or not source_unit or not canonical_unit:
         raise ValueError("GRIB unit conversion input is invalid")
@@ -375,12 +442,16 @@ def convert_grib_unit(value: float, source_unit: str, canonical_unit: str) -> fl
         return value - 273.15
     if conversion in (("m/s", "km/h"), ("m s**-1", "km/h")):
         return value * 3.6
+    if conversion == ("m s**-1", "m/s"):
+        return value
     if conversion == ("Pa", "hPa"):
         return value / 100.0
     if conversion in (("kg/m²", "mm"), ("kg m**-2", "mm")):
         return value
     if conversion == ("m", "mm"):
         return value * 1_000.0
+    if canonical_unit == "°" and source_unit.lower() in ("deg", "degree true", "degrees"):
+        return value
     raise ValueError(f"unsupported unit conversion: {source_unit} to {canonical_unit}")
 
 

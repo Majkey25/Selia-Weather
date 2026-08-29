@@ -17,7 +17,7 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -39,12 +39,14 @@ jobs:
       - name: Install locked research environment
         run: uv sync --project research --frozen
 
-      - name: Build diagnostic data contract
+      - name: Build verified operational diagnostic feed
         run: >-
           uv run --project research python -m aladin_ensemble.run_static_feed
           --docs-root docs
           --output "$RUNNER_TEMP/pages-site"
           --source-registry research/static-source-registry.json
+          --operational
+          --cache-root "$RUNNER_TEMP/forecast-cache"
 
       - uses: actions/configure-pages@v5
 

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
 
 from aladin_ensemble.run_static_feed import build_pages_site
 from aladin_ensemble.static_feed import decode_manifest, decode_source_registry
+from aladin_ensemble.types import ForecastValue
 
 
 def registry_path() -> Path:
@@ -71,6 +72,36 @@ def test_pages_site_leaves_no_output_when_size_limit_fails(tmp_path: Path) -> No
     assert not output.exists()
 
 
+def test_pages_site_publishes_verified_operational_tiles(tmp_path: Path) -> None:
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "index.html").write_text("ok\n", encoding="utf-8")
+    now = datetime(2026, 8, 29, 12, tzinfo=UTC)
+    value = ForecastValue(
+        model_id="noaa_gfs",
+        run_time=now,
+        valid_time=now + timedelta(hours=6),
+        latitude=50.0,
+        longitude=14.0,
+        elevation_m=250.0,
+        variable="temperature_2m",
+        value=20.0,
+        unit="°C",
+    )
+
+    manifest = build_pages_site(
+        docs,
+        tmp_path / "site",
+        registry_path(),
+        now,
+        values=(value,),
+    )
+
+    assert manifest.run.state == "diagnostic"
+    assert len(manifest.tile_checksums) == 1
+    assert manifest.tile_checksums[0][0].endswith(".json.gz")
+
+
 def test_forecast_workflow_builds_and_deploys_pages_site() -> None:
     workflow = Path(__file__).parents[2] / ".github" / "workflows" / "forecast-data.yml"
 
@@ -81,4 +112,5 @@ def test_forecast_workflow_builds_and_deploys_pages_site() -> None:
     assert "id-token: write" in source
     assert "libeccodes-tools" in source
     assert "python -m aladin_ensemble.run_static_feed" in source
+    assert "--operational" in source
     assert "actions/deploy-pages@v4" in source

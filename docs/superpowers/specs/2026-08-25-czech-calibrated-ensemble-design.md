@@ -12,6 +12,8 @@ This work does not average weather codes or call a forecast image "radar." ČHM�
 - Buy Me a Coffee remains an optional donation with no entitlement or priority.
 - The Huawei device connected to this workspace is authorised for app installation and functional QA.
 - Model candidates can receive a zero weight. "Use all models" means evaluate every eligible model that covers Czechia, not force every output into the result.
+- The Android app does not download raw satellite scenes or every European station record. Operational numerical models already assimilate satellite, station, aircraft, buoy, and radar observations. The app downloads aligned model output for one selected coordinate and current Czech observations that can correct that point.
+- The local model is deterministic Kotlin code with versioned calibration data. It does not use an LLM to invent weather values.
 - The validation report is a reproducible technical report. It is not presented as peer-reviewed research.
 - A simple arithmetic mean is only a benchmark. It is not the production method.
 - The production app does not claim "most accurate" unless the locked holdout results support that claim.
@@ -48,6 +50,17 @@ The initial candidate families are:
 The registry can add a model only after a coverage probe and an archived-run availability check pass. A model with less than 90 percent coverage for its intended Czech segment is excluded from that segment.
 
 ALADIN contributes only inside its published horizon. It does not receive synthetic values after its data ends.
+
+### Runtime horizon tiers
+
+The app treats forecast horizons as separate products because model resolution and skill change with lead time.
+
+- **Now through 6 hours:** Correct the latest model state with fresh ČHMÚ station observations. Use measured radar and a labelled short nowcast for precipitation where the product is available.
+- **7 through 48 hours:** Blend every eligible high-resolution Czech or European model that covers the point and variable. Require at least five independent model families unless the recorded fallback applies.
+- **Hour 49 through day 15:** Blend eligible European and global deterministic models. Require at least three independent model families unless the recorded fallback applies.
+- **Day 16 through day 35:** Use extended ensemble means and member spread. Show daily ranges, precipitation risk, and trend confidence. Do not show precise hourly conditions or deterministic weather claims.
+
+The 35-day tier is a probabilistic outlook. It cannot extend a short-range model by interpolation, repetition, or an LLM-generated value.
 
 ### Independent truth
 
@@ -165,6 +178,24 @@ Derive the weather condition from blended continuous variables and calibrated pr
 
 Expose confidence from model spread, source count, run age, missing-data fraction, and historical segment error. Confidence is not a probability of "correct weather."
 
+### On-device computation contract
+
+The Android runtime performs the final point calculation. The research pipeline trains and validates calibration data, but it does not precompute a forecast for a user location.
+
+For each validity time and variable, the runtime:
+
+1. validates the model ID, run time, validity time, unit, and finite value;
+2. rejects stale, missing, out-of-domain, and physically invalid values;
+3. converts accepted values to canonical metric units;
+4. selects the calibrated segment by variable, lead time, season, region, and elevation;
+5. renormalises weights across available sources when the minimum source count remains satisfied;
+6. calculates scalar values, wind vectors, and precipitation through their variable-specific methods;
+7. returns the contributor count, model spread, source age, historical error, and fallback reason with the value.
+
+The runtime does not average WMO codes. It derives the condition from the calculated temperature, cloud, precipitation, snow, visibility, and convective state.
+
+The runtime stores no unbounded model history. It keeps only the latest valid run per model and location, the last valid blended forecast, and a bounded previous result for offline fallback.
+
 ## Acceptance for production weights
 
 A calibrated segment ships only when:
@@ -178,6 +209,32 @@ A calibrated segment ships only when:
 If a blend does not pass, ship the best eligible single model for that variable and lead bucket.
 
 ## Runtime forecast architecture
+
+### Point forecast pipeline
+
+The client requests only the selected WGS84 coordinate. It does not download European grids.
+
+- The short and medium-range request returns separate time series for each eligible deterministic model.
+- The extended request returns ensemble means and spread through day 35.
+- The ČHMÚ request selects nearby station IDs locally and downloads their current public observations.
+- The parser retains provider and model IDs. A combined provider response must never lose the source boundary.
+- The blend runs after all bounded requests finish or time out. One failed provider does not cancel usable sources.
+- The cache key includes the coordinate, model ID, model run, variable set, and unit schema.
+
+The implementation reuses the existing blocking repository entry point because callers already run it away from the main thread. Network requests stay bounded by explicit connection, read, and overall refresh timeouts.
+
+### Runtime result metadata
+
+`WeatherSnapshot` gains one compact metadata object for the calculated forecast:
+
+- calculation schema and calibration version;
+- contributing model count by horizon;
+- oldest and newest contributing run time;
+- spread and confidence band;
+- source state: calibrated blend, best-model fallback, cached fallback, or extended outlook;
+- degraded reason when a source, variable, or calibration segment is unavailable.
+
+The UI shows this metadata in forecast details. The home screen keeps one short source and confidence label.
 
 ### Exact saved points
 
@@ -468,9 +525,13 @@ Never:
 - All eligible Czech model candidates are probed, scored, and either weighted or explicitly excluded.
 - The locked holdout report compares every shipped blend with every candidate, Best Match, mean, and median.
 - A shipped segment meets the production-weight acceptance rules or falls back to the best single model.
+- The 0 through 48-hour runtime uses at least five independent model families when the validated segment and source availability permit it.
+- The hour 49 through day 15 runtime uses at least three independent model families when the validated segment and source availability permit it.
+- The day 16 through day 35 screen shows only probabilistic daily outlook data with ensemble spread and a clear low-confidence label.
 - The Android app computes the same golden blend as the research exporter.
 - Model failures renormalise or fall back without crashes or zero substitution.
 - The UI shows source age, model count, spread, and confidence.
+- Every calculated value can report its calibration version, contributors, and fallback state without exposing secrets.
 - Observed radar and 1–24-hour forecast precipitation are visually and textually distinct.
 - The complete detail screen exposes every listed common variable without cluttering home.
 - Moon phase, illumination, rise/set, and orientation pass reference-date tests and render offline.
@@ -480,4 +541,11 @@ Never:
 
 ## Open questions
 
-None. The user approved this design direction on 25 August 2026. Source feasibility, licence, and accuracy are implementation gates with defined fail-closed behaviour.
+None. The user approved the calibrated ensemble direction on 25 August 2026 and the on-device 35-day extension on 29 August 2026. Source feasibility, licence, and accuracy are implementation gates with defined fail-closed behaviour.
+
+## Primary technical references
+
+- [ECMWF data assimilation](https://www.ecmwf.int/en/research/data-assimilation) explains how operational forecasts combine satellite and in-situ observations with a short-range model state.
+- [Open-Meteo Forecast API](https://open-meteo.com/en/docs) documents explicit multi-model selection and a maximum 16-day deterministic forecast.
+- [Open-Meteo Ensemble API](https://open-meteo.com/en/docs/ensemble-api) documents ensemble members and forecast horizons up to 36 days.
+- [Open-Meteo Ensemble Mean API](https://open-meteo.com/en/docs/ensemble-mean-api) documents extended ensemble means up to 35 days.

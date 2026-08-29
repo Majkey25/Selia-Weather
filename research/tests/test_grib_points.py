@@ -16,6 +16,7 @@ from aladin_ensemble.sources.grib_points import (
     convert_grib_unit,
     decode_grib_points,
     elevation_by_point,
+    normalize_wind_direction,
     regular_grid_points,
     to_forecast_values,
     to_wind_component_values,
@@ -162,6 +163,9 @@ def test_converts_sampled_messages_to_canonical_forecast_values(tmp_path: Path) 
     assert isclose(values[0].value, 7.85)
     assert convert_grib_unit(5.0, "m s**-1", "m/s") == 5.0
     assert convert_grib_unit(90.0, "Degree true", "°") == 90.0
+    assert isclose(normalize_wind_direction(360.023_885_7), 0.023_885_7)
+    with pytest.raises(ValueError, match="direction"):
+        normalize_wind_direction(361.0)
 
 
 def test_reuses_verified_grid_indexes_for_later_fields(tmp_path: Path) -> None:

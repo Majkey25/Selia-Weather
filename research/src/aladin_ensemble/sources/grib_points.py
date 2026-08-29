@@ -408,9 +408,11 @@ def to_wind_component_values(
             if elevation is None or not isfinite(elevation):
                 raise ValueError(f"elevation is missing for point: {coordinate}")
             speed = convert_grib_unit(speed_point.value, speed_message.unit, "m/s")
-            direction = convert_grib_unit(direction_point.value, direction_message.unit, "°")
-            if speed < 0 or not 0 <= direction <= 360:
-                raise ValueError("wind speed or direction is invalid")
+            direction = normalize_wind_direction(
+                convert_grib_unit(direction_point.value, direction_message.unit, "°")
+            )
+            if speed < 0:
+                raise ValueError("wind speed is invalid")
             angle = radians(direction)
             for variable, value in (
                 ("wind_u_10m", -speed * sin(angle)),
@@ -430,6 +432,16 @@ def to_wind_component_values(
                     )
                 )
     return tuple(rows)
+
+
+def normalize_wind_direction(value: float) -> float:
+    if (
+        not isfinite(value)
+        or value < -DIRECTION_TOLERANCE_DEGREES
+        or value > 360 + DIRECTION_TOLERANCE_DEGREES
+    ):
+        raise ValueError("wind direction is invalid")
+    return value % 360.0
 
 
 def convert_grib_unit(value: float, source_unit: str, canonical_unit: str) -> float:
@@ -453,6 +465,9 @@ def convert_grib_unit(value: float, source_unit: str, canonical_unit: str) -> fl
     if canonical_unit == "°" and source_unit.lower() in ("deg", "degree true", "degrees"):
         return value
     raise ValueError(f"unsupported unit conversion: {source_unit} to {canonical_unit}")
+
+
+DIRECTION_TOLERANCE_DEGREES = 0.5
 
 
 class _EccodesModule(Protocol):

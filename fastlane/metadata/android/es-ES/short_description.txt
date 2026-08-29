@@ -1,1 +1,1 @@
-Previsión ALADIN, radar ČHMÚ, rayos y un widget del tiempo personalizable.
+Previsión Best Match, mediciones y radar ČHMÚ, y un widget personalizable.

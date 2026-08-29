@@ -1,0 +1,1 @@
+Renamed the app to Selia Vetra. Added fresh ČHMÚ station corrections, recent-day navigation, a smaller transparent launcher icon, and updated radar controls.

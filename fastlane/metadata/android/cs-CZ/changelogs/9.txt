@@ -1,0 +1,1 @@
+Aplikace se nově jmenuje Selia Vetra. Přibyla korekce z čerstvých měření ČHMÚ, navigace nedávnými dny, menší průhledná ikona a upravené ovládání radaru.

@@ -1,1 +1,1 @@
-ALADIN forecasts, ČHMÚ radar, lightning, and a custom weather widget.
+Best Match forecast, ČHMÚ observations and radar, plus a custom weather widget.

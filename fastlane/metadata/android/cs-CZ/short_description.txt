@@ -1,1 +1,1 @@
-Předpověď ALADIN, radar ČHMÚ, blesky a vlastní widget.
+Předpověď Best Match, měření a radar ČHMÚ a vlastní widget.

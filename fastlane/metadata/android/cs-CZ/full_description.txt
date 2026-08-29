@@ -1,6 +1,6 @@
-Selia Weather je přehledné počasí pro Česko bez účtu. Bezplatná verze obsahuje omezené reklamy; obě možnosti Premium je odstraní.
+Selia Vetra je přehledné počasí pro Česko bez účtu. Bezplatná verze obsahuje omezené reklamy; obě možnosti Premium je odstraní.
 
-První tři dny vycházejí z modelu ALADIN CZ. Výhled pokračuje až na 14 dní. Na hlavní obrazovce najdete aktuální stav, srážky, vítr, vlhkost, tlak, časy slunce a posuvný přehled dalších 20 hodin. Po klepnutí na den uvidíte hodinový detail celého dne.
+Předpověď používá Open-Meteo Best Match až na 14 dní. Čerstvá měření z blízkých stanic ČHMÚ opravují aktuální teplotu, vlhkost, vítr, srážky a stav oblohy. Budoucí hodiny zůstávají modelovou předpovědí. Uvidíte posuvný výhled na 24 hodin a mezi dostupnými denními detaily můžete přejíždět.
 
 Vyhledávání vrací pouze místa v Česku. Můžete si uložit oblíbené lokality nebo volitelně použít aktuální polohu. Poslední úspěšná předpověď zůstane k dispozici offline.
 

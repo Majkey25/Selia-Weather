@@ -55,4 +55,15 @@ class RadarScreenTest {
         assertTrue(!source.contains("radar.onerror ="))
         assertTrue(source.contains("imageRequestSelfTest();"))
     }
+
+    @Test
+    fun radarCropsChmiCrossSectionsToTheGeographicMap() {
+        val source = File(System.getProperty("user.dir"), "src/main/assets/radar.html").readText()
+
+        assertTrue(source.contains("#base, #radar, #strikes"))
+        assertTrue(source.contains("class=\"radar-crop\""))
+        assertTrue(source.contains("aspect-ratio: 600 / 380"))
+        assertTrue(source.contains("width: 113.333%; height: 121.053%"))
+        assertTrue(source.contains("inset: auto auto 0 0"))
+    }
 }

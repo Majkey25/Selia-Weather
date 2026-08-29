@@ -1,1 +1,1 @@
-ALADIN-Vorhersage, ČHMÚ-Radar, Blitze und ein anpassbares Wetter-Widget.
+Best-Match-Prognose, ČHMÚ-Messungen und -Radar sowie ein Wetter-Widget.

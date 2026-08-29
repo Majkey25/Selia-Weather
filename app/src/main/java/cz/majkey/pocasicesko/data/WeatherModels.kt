@@ -95,6 +95,9 @@ data class WeatherSnapshot(
     val updatedAtEpochMillis: Long,
 )
 
+internal fun WeatherSnapshot.currentDay(): DailyWeather =
+    daily.firstOrNull { it.date == current.time.take(10) } ?: daily.first()
+
 enum class WeatherKind {
     CLEAR,
     PARTLY_CLOUDY,

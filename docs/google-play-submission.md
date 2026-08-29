@@ -1,7 +1,7 @@
 # Google Play submission reference
 
-- Store name: `Selia Weather: Czech Forecast`
-- Launcher name: `Selia Wx`
+- Store name: `Selia Vetra: Czech Forecast`
+- Launcher name: `Vetra`
 - Package: `com.majkeylab.weatheraladin`
 - Default language: English (`en-US`)
 - Category: Weather
@@ -33,12 +33,12 @@
 
 - One-time product: `remove_ads_lifetime` — permanently removes ads.
 - Subscription: `premium_monthly` — monthly auto-renewing Premium that removes ads.
-- Either active product removes all banner and interstitial requests.
+- Either active product removes all interstitial requests.
 - Pending or unknown entitlement hides ads until Google Play returns a conclusive state.
-- AdMob app, banner, and interstitial IDs must replace the debug test IDs before production upload.
+- AdMob app and interstitial IDs must replace the debug test IDs before production upload.
 - A server-side Play Developer API verifier is recommended before public rollout; the current client-only beta rechecks active purchases on every Billing connection and resume.
 
-The location disclosure covers forecast coordinates sent to Open-Meteo for every forecast request. Android Geocoder can receive coordinates only after the user selects **Use my location**. ČHMÚ radar and satellite requests use normal HTTPS connections. Do not claim a service-provider or user-action exception for the Open-Meteo transfer.
+The location disclosure covers forecast coordinates sent to Open-Meteo for every forecast request. Android Geocoder can receive coordinates only after the user selects **Use my location**. The app selects nearby ČHMÚ station IDs locally and requests public station, radar, and satellite files over HTTPS. Selected coordinates are not sent to ČHMÚ. Do not claim a service-provider or user-action exception for the Open-Meteo transfer.
 
 ## Assets
 

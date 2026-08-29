@@ -10,6 +10,7 @@ import cz.majkey.pocasicesko.widget.WeatherWidgetProvider
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
 import kotlin.math.roundToInt
@@ -20,6 +21,7 @@ import org.json.JSONObject
 class WeatherRepository(context: Context) {
     private val appContext = context.applicationContext
     private val preferences = appContext.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
+    private val currentConditions = ChmiCurrentConditionsRepository(appContext)
 
     fun lastLocation(): CzechLocation {
         val location = CzechLocation(
@@ -87,10 +89,19 @@ class WeatherRepository(context: Context) {
     }
 
     fun fetchForecastBlocking(location: CzechLocation): WeatherSnapshot {
-        val json = request(forecastUri(location).toString())
+        val forecastJson = request(forecastUri(location).toString())
         val updatedAt = System.currentTimeMillis()
-        val snapshot = WeatherParser.parseForecast(json, updatedAt)
-        persist(location, json, snapshot)
+        val modelSnapshot = WeatherParser.parseForecast(forecastJson, updatedAt)
+        val now = Instant.ofEpochMilli(updatedAt)
+        val observedCurrent = fuseCurrentConditions(
+            model = modelSnapshot.current,
+            location = location,
+            observations = currentConditions.fetch(location, now),
+            now = now,
+        )
+        val correctedJson = applyCurrentConditionsToForecastJson(forecastJson, observedCurrent)
+        val snapshot = WeatherParser.parseForecast(correctedJson, updatedAt)
+        persist(location, correctedJson, snapshot)
         WeatherWidgetProvider.updateAll(appContext)
         return snapshot
     }
@@ -118,7 +129,7 @@ class WeatherRepository(context: Context) {
     }
 
     private fun persist(location: CzechLocation, json: String, snapshot: WeatherSnapshot) {
-        val today = snapshot.daily.first()
+        val today = snapshot.currentDay()
         val condition = conditionFor(snapshot.current.weatherCode, snapshot.current.isDay)
         val currentHour = snapshot.current.time.take(13)
         val nextHours = snapshot.hourly.dropWhile { it.time.take(13) < currentHour }.take(3)
@@ -200,7 +211,7 @@ class WeatherRepository(context: Context) {
 
         internal fun forecastUrl(location: CzechLocation): String =
             "https://api.open-meteo.com/v1/forecast?latitude=${location.latitude}" +
-                "&longitude=${location.longitude}&models=chmi_aladin_seamless&forecast_days=14&past_hours=24" +
+                "&longitude=${location.longitude}&forecast_days=14&past_days=7" +
                 "&timezone=Europe%2FPrague&current=$CURRENT_VARIABLES&hourly=$HOURLY_VARIABLES" +
                 "&daily=$DAILY_VARIABLES"
 

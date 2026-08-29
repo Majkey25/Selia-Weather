@@ -1,8 +1,8 @@
 # Privacy policy
 
-Effective date: 25 August 2026
+Effective date: 29 August 2026
 
-ALADIN weather, package `com.majkeylab.weatheraladin`, does not require a developer account. The developer does not sell personal data or run a separate analytics service. The free version integrates Google Mobile Ads and Google User Messaging Platform (UMP). Premium purchases use Google Play Billing.
+Selia Vetra, package `com.majkeylab.weatheraladin`, does not require a developer account. The developer does not sell personal data or run a separate analytics service. The free version integrates Google Mobile Ads and Google User Messaging Platform (UMP). Premium purchases use Google Play Billing.
 
 ## Data on your device
 
@@ -19,7 +19,7 @@ Approximate and precise location permissions are optional. After you select **Us
 ## Network communication
 
 - Open-Meteo receives place search terms and forecast coordinates for every forecast request. This includes default Prague, a searched place, a favourite, and current location. Current location remains optional and starts only after you select **Use my location**. Open-Meteo provides geocoding and forecasts. The developer does not retain this data off-device. [Open-Meteo states](https://open-meteo.com/en/terms) that free API server logs may contain coordinates and are deleted after 90 days.
-- ČHMÚ provides radar, nowcast, lightning, and satellite images. Its servers process normal HTTPS technical data such as your IP address and request data.
+- ČHMÚ provides public automatic-station observations, radar, nowcast, lightning, and satellite images. The app selects nearby station IDs on the device. It does not send the selected coordinates to ČHMÚ. ČHMÚ servers process normal HTTPS technical data such as your IP address and requested public file names.
 - Google Mobile Ads automatically collects and shares IP address, app interactions, diagnostic information, and device or account identifiers for advertising, analytics, and fraud prevention. Google UMP requests consent where required and exposes privacy choices in Settings. Ads remain hidden until consent permits an ad request and Google Play confirms the user does not have Premium.
 - Google Play processes product queries, purchases, subscription state, and purchase acknowledgements. Payment details stay in Google Play; the app does not receive card details.
 - Buy Me a Coffee receives data only if you choose the optional support action. The app opens the external HTTPS page `https://www.buymeacoffee.com/majkey` through Android.

@@ -162,18 +162,6 @@ fun WeatherApp(
             Scaffold(
                 containerColor = Color.Transparent,
                 contentColor = Color.White,
-                bottomBar = {
-                    FloatingNavigation(
-                        destination = destination,
-                        onDestination = { selected ->
-                            if (destination == Destination.MAPS && selected == Destination.WEATHER) {
-                                adsController.maybeShowInterstitial(entitlement) { destination = selected }
-                            } else {
-                                destination = selected
-                            }
-                        },
-                    )
-                },
             ) { padding ->
                 when (destination) {
                     Destination.WEATHER -> WeatherDestination(
@@ -189,6 +177,17 @@ fun WeatherApp(
                     Destination.MAPS -> MapHubScreen(padding = padding)
                 }
             }
+            FloatingNavigation(
+                destination = destination,
+                modifier = Modifier.align(Alignment.BottomCenter),
+                onDestination = { selected ->
+                    if (destination == Destination.MAPS && selected == Destination.WEATHER) {
+                        adsController.maybeShowInterstitial(entitlement) { destination = selected }
+                    } else {
+                        destination = selected
+                    }
+                },
+            )
 
             if (showLocationSearch) {
                 LocationSearchSheet(
@@ -280,41 +279,39 @@ private fun WeatherDestination(
 }
 
 @Composable
-private fun FloatingNavigation(destination: Destination, onDestination: (Destination) -> Unit) {
+private fun FloatingNavigation(
+    destination: Destination,
+    modifier: Modifier = Modifier,
+    onDestination: (Destination) -> Unit,
+) {
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding()
             .padding(bottom = 12.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Surface(
-            color = Color(0xED101B23),
-            shape = RoundedCornerShape(34.dp),
-            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
+        Row(
+            modifier = Modifier
+                .width(246.dp)
+                .height(64.dp)
+                .padding(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Row(
-                modifier = Modifier
-                    .width(246.dp)
-                    .height(64.dp)
-                    .padding(6.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                NavigationItem(
-                    selected = destination == Destination.WEATHER,
-                    label = stringResource(R.string.nav_weather),
-                    icon = { Icon(Icons.Rounded.WbSunny, contentDescription = null) },
-                    modifier = Modifier.weight(1f),
-                    onClick = { onDestination(Destination.WEATHER) },
-                )
-                NavigationItem(
-                    selected = destination == Destination.MAPS,
-                    label = stringResource(R.string.nav_maps),
-                    icon = { Icon(Icons.Rounded.Map, contentDescription = null) },
-                    modifier = Modifier.weight(1f),
-                    onClick = { onDestination(Destination.MAPS) },
-                )
-            }
+            NavigationItem(
+                selected = destination == Destination.WEATHER,
+                label = stringResource(R.string.nav_weather),
+                icon = { Icon(Icons.Rounded.WbSunny, contentDescription = null) },
+                modifier = Modifier.weight(1f),
+                onClick = { onDestination(Destination.WEATHER) },
+            )
+            NavigationItem(
+                selected = destination == Destination.MAPS,
+                label = stringResource(R.string.nav_maps),
+                icon = { Icon(Icons.Rounded.Map, contentDescription = null) },
+                modifier = Modifier.weight(1f),
+                onClick = { onDestination(Destination.MAPS) },
+            )
         }
     }
 }
@@ -331,8 +328,10 @@ private fun NavigationItem(
         modifier = modifier
             .fillMaxSize()
             .clickable(onClick = onClick),
-        color = if (selected) Color(0xFF245969) else Color.Transparent,
+        color = if (selected) Color(0xF02E6474) else Color(0xC4142731),
+        contentColor = if (selected) Color.White else Color.White.copy(alpha = 0.88f),
         shape = RoundedCornerShape(28.dp),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = if (selected) 0.18f else 0.10f)),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp),

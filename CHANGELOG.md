@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.0-beta.8] - 2026-08-29
+
+- Renamed the app to Selia Vetra and shortened the launcher label to Vetra.
+- Corrected current conditions with fresh observations from nearby ČHMÚ stations.
+- Added recent-day navigation and updated the daily detail presentation.
+- Reduced the launcher mark size and removed its background on launchers that support transparency.
+- Added typed static-feed research tools with bounded cache and freshness checks.
+
 ## [0.2.0-beta.7] - 2026-08-28
 
 - Enabled the production AdMob interstitial while keeping banner ads removed.

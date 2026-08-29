@@ -14,6 +14,8 @@
     button.active { background: #2b6878; color: #fff; }
     .map { position: fixed; top: 62px; left: 10px; right: 10px; bottom: 86px; overflow: hidden; border: 1px solid #ffffff18; border-radius: 20px; background: #05090d; }
     .map img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+    .radar-crop { position: absolute; left: 0; right: 0; top: 50%; aspect-ratio: 600 / 380; overflow: hidden; transform: translateY(-50%); }
+    #base, #radar, #strikes { inset: auto auto 0 0; width: 113.333%; height: 121.053%; object-fit: fill; }
     #strikes { z-index: 1; pointer-events: none; }
     #satellite, #satBorders { display: none; }
     #satBorders { pointer-events: none; }
@@ -33,9 +35,11 @@
     <button id="lightning" class="active" type="button" aria-pressed="true" onclick="toggleLightning()">Lightning</button>
   </div>
   <div class="map">
-    <img id="base" src="https://produkty.chmi.cz/radar/und/pacz2gmaps6.und3.png" alt="Map of Czechia">
-    <img id="radar" alt="ČHMÚ radar rainfall">
-    <img id="strikes" alt="">
+    <div class="radar-crop">
+      <img id="base" src="https://produkty.chmi.cz/radar/und/pacz2gmaps6.und3.png" alt="Map of Czechia">
+      <img id="radar" alt="ČHMÚ radar rainfall">
+      <img id="strikes" alt="">
+    </div>
     <img id="satellite" alt="ČHMÚ satellite image">
     <img id="satBorders" src="https://produkty.chmi.cz/druzice/und/msgcz-1160x800.und.010.hranice.png" alt="">
     <div class="status" id="status">Looking for the latest ČHMÚ data…</div>

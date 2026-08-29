@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Selia Wx</string>
+    <string name="app_name">Vetra</string>
     <string name="widget_description">Hora y tiempo para la ciudad checa seleccionada</string>
     <string name="weather_icon">Icono del tiempo</string>
     <string name="widget_placeholder_city">Abrir la aplicación</string>
@@ -79,6 +79,8 @@
     <string name="today">Hoy</string>
     <string name="open_hourly_detail">Abrir detalle por hora</string>
     <string name="whole_day_hours">Todo el día</string>
+    <string name="historical_forecast">Pronóstico histórico</string>
+    <string name="forecast">Pronóstico</string>
     <string name="precipitation">Precipitación</string>
     <string name="wind">Viento</string>
     <string name="wind_direction_north">N</string>
@@ -187,8 +189,8 @@
     <string name="condition_storm">Tormenta</string>
     <string name="condition_unknown">Desconocido</string>
     <string name="radar_title">Radar</string>
-    <string name="radar_subtitle">nowcast ALADIN de ČHMÚ</string>
-    <string name="radar_footer">Datos: ČHMÚ · Open-Meteo · ECMWF</string>
+    <string name="radar_subtitle">Radar observado + pronóstico inmediato de 60 minutos</string>
+    <string name="radar_footer">Radar, satélite y pronóstico inmediato: ČHMÚ</string>
     <string name="radar_retry">Reintentar radar</string>
     <string name="radar_unavailable">Radar no disponible</string>
     <string name="widget_title">Widget del tiempo</string>

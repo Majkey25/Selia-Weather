@@ -3,9 +3,11 @@ package cz.majkey.pocasicesko.ui
 import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.data.DailyWeather
 import cz.majkey.pocasicesko.data.HourlyWeather
+import java.io.File
 import java.time.Instant
 import java.util.Locale
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ForecastDayTest {
@@ -38,6 +40,14 @@ class ForecastDayTest {
         assertEquals(days[1], dayForPage(days, 1))
         assertEquals(null, dayForPage(days, -1))
         assertEquals(null, dayForPage(days, 2))
+    }
+
+    @Test
+    fun dayPagerKeepsRightSwipeForNextDay() {
+        val source = File(System.getProperty("user.dir"), "src/main/java/cz/majkey/pocasicesko/ui/ForecastScreen.kt")
+            .readText()
+
+        assertTrue(source.contains("reverseLayout = true"))
     }
 
     @Test

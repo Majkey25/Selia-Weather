@@ -41,6 +41,7 @@ import cz.majkey.pocasicesko.astro.MoonDetails
 import cz.majkey.pocasicesko.astro.MoonPhaseKey
 import cz.majkey.pocasicesko.data.CzechLocation
 import cz.majkey.pocasicesko.data.WeatherSnapshot
+import cz.majkey.pocasicesko.data.currentDay
 import cz.majkey.pocasicesko.units.WeatherUnitFormatter
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -71,7 +72,7 @@ internal fun WeatherDetailSheet(
         }
     }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val today = snapshot.daily.firstOrNull()
+    val today = snapshot.daily.firstOrNull()?.let { snapshot.currentDay() }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = Color(0xFF101820),

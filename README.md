@@ -1,10 +1,10 @@
 <p align="center">
-  <img src="fastlane/metadata/android/en-US/images/icon.png" width="96" alt="Selia Weather icon">
+  <img src="fastlane/metadata/android/en-US/images/icon.png" width="96" alt="Selia Vetra icon">
 </p>
 
-<h1 align="center">Selia Weather</h1>
+<h1 align="center">Selia Vetra</h1>
 
-<p align="center">A focused Android weather app for Czechia with ALADIN forecasts, ČHMÚ radar, and an adaptive widget.</p>
+<p align="center">A focused Android weather app for Czechia with multi-model forecasts, live ČHMÚ observations and radar, and an adaptive widget.</p>
 
 <p align="center">
   <a href="https://github.com/Majkey25/Selia-Weather/actions/workflows/android.yml"><img alt="Android CI" src="https://github.com/Majkey25/Selia-Weather/actions/workflows/android.yml/badge.svg"></a>
@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/01-weather.png" width="240" alt="Selia Weather forecast">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/01-weather.png" width="240" alt="Selia Vetra forecast">
   &nbsp;&nbsp;
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/03-radar.png" width="240" alt="ČHMÚ radar with controls">
   &nbsp;&nbsp;
@@ -27,6 +27,7 @@
 - Shows a horizontal 24-hour outlook, a 14-day forecast, and an hourly detail for each day. A complete day normally has 24 hours.
 - Searches places in Czechia, stores favourites, can use your optional current location, and can save an exact named map point or coordinate.
 - Includes ČHMÚ rain radar, satellite clouds, nowcast, and lightning. Rain and clouds are base layers. Lightning is an independent overlay on either layer.
+- Corrects current temperature, humidity, wind, precipitation, and sky condition from up to three nearby ČHMÚ automatic stations when their observations are fresh.
 - Keeps the last successful forecast for offline display.
 - Includes a resizable launcher widget with per-widget colours, transparency, gradient or custom-image backgrounds, text scale, alignment, custom label, and selectable weather fields.
 - Supports Metric and Imperial display units in the app and widgets.
@@ -34,18 +35,19 @@
 
 ## Forecast data and accuracy
 
-The first three days use Open-Meteo `chmi_aladin_seamless`. In Czechia, this provides hourly ALADIN CZ model data at 1 km resolution, updated every six hours. Open-Meteo continues the 14-day outlook with ECMWF IFS HRES data at 9 km. The later days carry more uncertainty.
+The forecast uses Open-Meteo Best Match, which selects the highest-resolution applicable model for the requested coordinates. The app then corrects only the current conditions from nearby public ČHMÚ station observations. Future hours and days remain model forecasts and carry increasing uncertainty.
 
-- [Open-Meteo CHMI Forecast API](https://open-meteo.com/en/docs/chmi-api)
+- [Open-Meteo Forecast API](https://open-meteo.com/en/docs)
+- [ČHMÚ current station data](https://opendata.chmi.cz/meteorology/climate/now/)
 - [ČHMÚ open weather data](https://opendata.chmi.cz/meteorology/weather/)
 - [ČHMÚ radar](https://produkty.chmi.cz/radar/)
 - [ČHMÚ satellite data](https://opendata.chmi.cz/meteorology/weather/satellite/geo/vis-ir/)
 
-Selia Weather is not an official ČHMÚ or Open-Meteo app. Each provider remains identified in the app.
+Selia Vetra is not an official ČHMÚ or Open-Meteo app.
 
 ## Language and requirements
 
-Selia Weather supports Android 10 and later. It follows the Android system language by default. English is the fallback for unsupported system languages. You can select English, Czech, German, Spanish, or French in the app.
+Selia Vetra supports Android 10 and later. It follows the Android system language by default. English is the fallback for unsupported system languages. You can select English, Czech, German, Spanish, or French in the app.
 
 The public application ID is `com.majkeylab.weatheraladin`. A network connection is required for fresh forecasts, search, and radar. Build locally with JDK 17 and Android SDK 36.
 
@@ -75,11 +77,11 @@ The debug APK is at `app/build/outputs/apk/debug/app-debug.apk`.
 
 ## Privacy
 
-The app has no developer account or separate analytics SDK. It keeps the selected place, favourites, widget settings, and forecast cache in internal app storage. Current location is optional. Its coordinates are sent to Open-Meteo over HTTPS to request the forecast. The free build uses Google Mobile Ads and UMP; purchases use Google Play Billing. Read the [privacy policy](https://majkey25.github.io/Selia-Weather/).
+The app has no developer account or separate analytics SDK. It keeps the selected place, favourites, widget settings, and forecast cache in internal app storage. Current location is optional. Its coordinates are sent to Open-Meteo over HTTPS to request the forecast. The app selects nearby ČHMÚ station IDs locally and requests their public observation files without sending the selected coordinates to ČHMÚ. The free build uses Google Mobile Ads and UMP. Purchases use Google Play Billing. Read the [privacy policy](https://majkey25.github.io/Selia-Weather/).
 
 ## Status
 
-`v0.2.0-beta.7` uses the store identity Selia Weather and the short launcher label Selia Wx. It keeps the public package `com.majkeylab.weatheraladin`, so existing Play installations update normally. GitHub prereleases are for testing. Google Play uses a separate private upload key and Play App Signing.
+The app uses the product identity Selia Vetra and the short launcher label Vetra. It keeps the public package `com.majkeylab.weatheraladin`, so existing Play installations update normally. GitHub prereleases are for testing. Google Play uses a separate private upload key and Play App Signing.
 
 ## License
 

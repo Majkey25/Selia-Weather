@@ -1,1 +1,1 @@
-Prévisions ALADIN, radar ČHMÚ, foudre et widget météo personnalisable.
+Prévision Best Match, mesures et radar ČHMÚ, et widget personnalisable.

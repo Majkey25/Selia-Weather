@@ -68,6 +68,7 @@ import cz.majkey.pocasicesko.data.HourlyWeather
 import cz.majkey.pocasicesko.data.WeatherKind
 import cz.majkey.pocasicesko.data.WeatherSnapshot
 import cz.majkey.pocasicesko.data.conditionFor
+import cz.majkey.pocasicesko.data.currentDay
 import cz.majkey.pocasicesko.units.MeasurementSystem
 import cz.majkey.pocasicesko.units.WeatherUnitFormatter
 import java.time.Instant
@@ -96,6 +97,8 @@ fun ForecastScreen(
     val accent = conditionAccent(condition.kind, snapshot.current.isDay)
     val locale = LocalConfiguration.current.locales[0]
     val units = remember(measurementSystem, locale) { WeatherUnitFormatter(measurementSystem, locale) }
+    val currentDay = snapshot.currentDay()
+    val currentDayIndex = snapshot.daily.indexOf(currentDay)
     var selectedDayIndex by remember { mutableStateOf<Int?>(null) }
     var showDetails by remember { mutableStateOf(false) }
     LazyColumn(
@@ -130,17 +133,9 @@ fun ForecastScreen(
         }
         item {
             DailyForecastPanel(
-                days = snapshot.daily,
+                days = snapshot.daily.drop(currentDayIndex),
                 units = units,
-                onDayClick = { selectedDayIndex = it },
-            )
-        }
-        item {
-            Text(
-                text = "ALADIN CZ 1 km · ECMWF · ČHMÚ · Open-Meteo",
-                color = Color.White.copy(alpha = 0.52f),
-                fontSize = 12.sp,
-                lineHeight = 17.sp,
+                onDayClick = { selectedDayIndex = currentDayIndex + it },
             )
         }
     }
@@ -149,6 +144,7 @@ fun ForecastScreen(
             days = snapshot.daily,
             hourly = snapshot.hourly,
             initialPage = initialPage,
+            currentDate = snapshot.current.time.take(10),
             units = units,
             onDismiss = { selectedDayIndex = null },
         )
@@ -269,7 +265,7 @@ private fun LocationHeader(
 private fun WeatherHero(snapshot: WeatherSnapshot, accent: Color, units: WeatherUnitFormatter) {
     val condition = conditionFor(snapshot.current.weatherCode, snapshot.current.isDay)
     val conditionLabel = stringResource(condition.labelResource())
-    val today = snapshot.daily.first()
+    val today = snapshot.currentDay()
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -303,7 +299,7 @@ private fun WeatherHero(snapshot: WeatherSnapshot, accent: Color, units: Weather
             border = BorderStroke(1.dp, accent.copy(alpha = 0.35f)),
         ) {
             Text(
-                "ALADIN CZ 1 km",
+                stringResource(R.string.product_name),
                 color = accent,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -426,7 +422,7 @@ private fun HourlyTemperatureLine(temperatures: List<Double>, accent: Color, mod
 
 @Composable
 private fun CurrentMetrics(snapshot: WeatherSnapshot, accent: Color, units: WeatherUnitFormatter) {
-    val today = snapshot.daily.first()
+    val today = snapshot.currentDay()
     val metrics = listOf(
         Triple(
             stringResource(R.string.precipitation),
@@ -597,6 +593,7 @@ private fun DayDetailSheet(
     days: List<DailyWeather>,
     hourly: List<HourlyWeather>,
     initialPage: Int,
+    currentDate: String,
     units: WeatherUnitFormatter,
     onDismiss: () -> Unit,
 ) {
@@ -633,7 +630,14 @@ private fun DayDetailSheet(
                 item {
                     Text(formatFullDay(day.date, locale), fontSize = 25.sp, fontWeight = FontWeight.SemiBold)
                     Text(
-                        "${stringResource(R.string.whole_day_hours)} · ${hours.size}",
+                        "${stringResource(R.string.whole_day_hours)} · ${hours.size} · " +
+                            stringResource(
+                                if (day.date < currentDate) {
+                                    R.string.historical_forecast
+                                } else {
+                                    R.string.forecast
+                                },
+                            ),
                         color = Color.White.copy(alpha = 0.56f),
                         fontSize = 13.sp,
                         modifier = Modifier.padding(top = 3.dp),
@@ -642,59 +646,81 @@ private fun DayDetailSheet(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 16.dp, bottom = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Text("${units.temperature(day.temperatureMin)} / ${units.temperature(day.temperatureMax)}", fontSize = 12.sp)
-                        Text(units.precipitation(day.precipitationSum), fontSize = 12.sp)
-                        Text(units.windSpeed(day.windSpeedMax), fontSize = 12.sp)
+                        DaySummaryMetric(
+                            label = stringResource(R.string.temperature),
+                            value = "${units.temperature(day.temperatureMin)} / ${units.temperature(day.temperatureMax)}",
+                            modifier = Modifier.weight(1f),
+                        )
+                        DaySummaryMetric(
+                            label = stringResource(R.string.precipitation),
+                            value = units.precipitation(day.precipitationSum),
+                            modifier = Modifier.weight(1f),
+                        )
+                        DaySummaryMetric(
+                            label = stringResource(R.string.wind),
+                            value = units.windSpeed(day.windSpeedMax),
+                            modifier = Modifier.weight(1f),
+                        )
                     }
                 }
                 itemsIndexed(hours, key = { index, hour -> "${hour.time}-$index" }) { _, hour ->
                     val condition = conditionFor(hour.weatherCode, hour.isDay)
                     val conditionLabel = stringResource(condition.labelResource())
-                    Row(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(62.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                            .height(78.dp),
+                        verticalArrangement = Arrangement.Center,
                     ) {
-                        Text(hour.time.takeLast(5), modifier = Modifier.width(55.dp), fontWeight = FontWeight.SemiBold)
-                        WeatherIcon(
-                            kind = condition.kind,
-                            isDay = hour.isDay,
-                            contentDescription = conditionLabel,
-                            modifier = Modifier.size(26.dp),
-                            tint = conditionAccent(condition.kind, hour.isDay),
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(hour.time.takeLast(5), modifier = Modifier.width(55.dp), fontWeight = FontWeight.SemiBold)
+                            WeatherIcon(
+                                kind = condition.kind,
+                                isDay = hour.isDay,
+                                contentDescription = conditionLabel,
+                                modifier = Modifier.size(26.dp),
+                                tint = conditionAccent(condition.kind, hour.isDay),
+                            )
+                            Text(
+                                conditionLabel,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(start = 12.dp),
+                                color = Color.White.copy(alpha = 0.72f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                units.temperature(hour.temperature),
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
                         Text(
-                            conditionLabel,
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(start = 12.dp),
-                            color = Color.White.copy(alpha = 0.72f),
+                            "${stringResource(R.string.precipitation)} ${hour.precipitationProbability}% · " +
+                                "${stringResource(R.string.wind)} ${units.windSpeed(hour.windSpeed)} " +
+                                stringResource(windDirectionResource(hour.windDirection)),
+                            modifier = Modifier.padding(start = 81.dp, top = 4.dp),
+                            color = Color(0xFF8EDCF0),
+                            fontSize = 11.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            if (hour.precipitationProbability > 0) "${hour.precipitationProbability}%" else "–",
-                            modifier = Modifier.width(44.dp),
-                            color = Color(0xFF8EDCF0),
-                            textAlign = TextAlign.End,
-                        )
-                        Text(
-                            units.temperature(hour.temperature),
-                            modifier = Modifier
-                                .width(48.dp)
-                                .padding(start = 8.dp),
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            textAlign = TextAlign.End,
                         )
                     }
                     HorizontalDivider(color = Color.White.copy(alpha = 0.06f))
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun DaySummaryMetric(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(modifier) {
+        Text(label, color = Color.White.copy(alpha = 0.5f), fontSize = 10.sp)
+        Text(value, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 

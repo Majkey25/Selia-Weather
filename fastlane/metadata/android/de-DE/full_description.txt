@@ -1,6 +1,6 @@
-Selia Weather zeigt das Wetter für Tschechien ohne Konto. Die kostenlose Version enthält begrenzte Werbung; beide Premium-Optionen entfernen sie.
+Selia Vetra zeigt das Wetter für Tschechien ohne Konto. Die kostenlose Version enthält begrenzte Werbung; beide Premium-Optionen entfernen sie.
 
-Die ersten drei Tage basieren auf dem Modell ALADIN CZ. Die Vorhersage reicht bis zu 14 Tage. Sie sehen aktuelle Werte, Niederschlag, Wind, Luftfeuchtigkeit, Druck, Sonnenzeiten und eine scrollbare Vorschau für 20 Stunden. Tippen Sie auf einen Tag für die stündlichen Details.
+Die Vorhersage verwendet Open-Meteo Best Match für bis zu 14 Tage. Aktuelle Messungen naher ČHMÚ-Stationen korrigieren Temperatur, Luftfeuchtigkeit, Wind, Niederschlag und Wetterzustand. Zukünftige Stunden bleiben Modellvorhersagen. Die App zeigt 24 Stunden im Überblick. Wischen Sie zwischen den verfügbaren Tagesdetails.
 
 Suchen Sie Orte in Tschechien, speichern Sie Favoriten oder verwenden Sie optional Ihren aktuellen Standort. Die letzte erfolgreiche Vorhersage bleibt offline verfügbar.
 
@@ -8,6 +8,6 @@ Das ČHMÚ-Radar enthält Regen, Satellitenwolken, nowcast und Blitze. Regen und
 
 Gestalten Sie Ihr eigenes Startbildschirm-Widget. Jedes Widget kann eigene Farben, Transparenz, Verlauf oder Hintergrundbild, Textgröße, Ausrichtung, Beschriftung und sichtbare Wetterdaten verwenden. Wenn Android ein Bild nicht mehr lesen kann, nutzt das Widget seinen Farbhintergrund und funktioniert weiter.
 
-Selia Weather unterstützt Android 10 und neuer. Standardmäßig folgt die App der Systemsprache. In der App können Sie Englisch, Tschechisch, Deutsch, Spanisch oder Französisch wählen.
+Selia Vetra unterstützt Android 10 und neuer. Standardmäßig folgt die App der Systemsprache. In der App können Sie Englisch, Tschechisch, Deutsch, Spanisch oder Französisch wählen.
 
 Der optionale Buy-Me-a-Coffee-Link öffnet eine externe Seite. Er schaltet keine Funktionen frei und gibt keine Priorität.

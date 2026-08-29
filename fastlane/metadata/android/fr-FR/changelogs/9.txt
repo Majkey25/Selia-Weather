@@ -1,0 +1,1 @@
+L'app s'appelle désormais Selia Vetra. Elle ajoute les corrections des mesures ČHMÚ récentes, la navigation dans les jours passés, une icône transparente plus petite et des commandes radar mises à jour.

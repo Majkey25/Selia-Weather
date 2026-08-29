@@ -1,6 +1,6 @@
-Selia Weather affiche la météo pour la Tchéquie sans compte. La version gratuite contient des publicités limitées ; les deux options Premium les suppriment.
+Selia Vetra affiche la météo pour la Tchéquie sans compte. La version gratuite contient des publicités limitées ; les deux options Premium les suppriment.
 
-Les trois premiers jours utilisent le modèle ALADIN CZ. Les prévisions vont jusqu'à 14 jours. Consultez les conditions actuelles, les précipitations, le vent, l'humidité, la pression, les heures du soleil et une prévision défilante sur 20 heures. Touchez un jour pour voir son détail horaire.
+La prévision utilise Open-Meteo Best Match jusqu'à 14 jours. Les mesures récentes de stations ČHMÚ proches corrigent la température, l'humidité, le vent, les précipitations et l'état du ciel actuels. Les heures futures restent des prévisions de modèles. Consultez 24 heures et balayez les détails quotidiens disponibles.
 
 Recherchez des lieux en Tchéquie, enregistrez des favoris ou utilisez votre position actuelle de façon facultative. La dernière prévision réussie reste disponible hors connexion.
 
@@ -8,6 +8,6 @@ Le radar ČHMÚ inclut la pluie, les nuages satellite, nowcast et la foudre. La 
 
 Créez votre propre widget d'accueil. Chaque widget peut utiliser ses couleurs, sa transparence, un dégradé ou une image de fond, une taille de texte, un alignement, une étiquette et des données météo visibles. Si Android ne peut plus lire une image, le widget utilise son fond coloré et continue de fonctionner.
 
-Selia Weather est compatible avec Android 10 et versions ultérieures. Par défaut, l'app suit la langue du système. Vous pouvez choisir l'anglais, le tchèque, l'allemand, l'espagnol ou le français dans l'app.
+Selia Vetra est compatible avec Android 10 et versions ultérieures. Par défaut, l'app suit la langue du système. Vous pouvez choisir l'anglais, le tchèque, l'allemand, l'espagnol ou le français dans l'app.
 
 Le lien facultatif Buy Me a Coffee ouvre une page externe. Il ne déverrouille aucune fonction et ne donne pas de priorité.

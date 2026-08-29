@@ -325,11 +325,11 @@ private fun NavigationItem(
     onClick: () -> Unit,
 ) {
     Surface(
+        onClick = onClick,
         modifier = modifier
-            .fillMaxSize()
-            .clickable(onClick = onClick),
-        color = if (selected) Color(0xF02E6474) else Color(0xC4142731),
-        contentColor = if (selected) Color.White else Color.White.copy(alpha = 0.88f),
+            .fillMaxSize(),
+        color = if (selected) Color(0xFF2E6474) else Color(0xFF142731),
+        contentColor = Color.White,
         shape = RoundedCornerShape(28.dp),
         border = BorderStroke(1.dp, Color.White.copy(alpha = if (selected) 0.18f else 0.10f)),
     ) {

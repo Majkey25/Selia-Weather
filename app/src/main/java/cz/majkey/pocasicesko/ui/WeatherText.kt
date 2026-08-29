@@ -9,6 +9,8 @@ import cz.majkey.pocasicesko.data.WeatherConditionKey
 fun WeatherCondition.labelResource(): Int = when (key) {
     WeatherConditionKey.CLEAR_DAY -> R.string.condition_clear_day
     WeatherConditionKey.CLEAR_NIGHT -> R.string.condition_clear_night
+    WeatherConditionKey.MAINLY_CLEAR_DAY -> R.string.condition_mainly_clear_day
+    WeatherConditionKey.MAINLY_CLEAR_NIGHT -> R.string.condition_mainly_clear_night
     WeatherConditionKey.PARTLY_CLOUDY -> R.string.condition_partly_cloudy
     WeatherConditionKey.CLOUDY -> R.string.condition_cloudy
     WeatherConditionKey.FOG -> R.string.condition_fog

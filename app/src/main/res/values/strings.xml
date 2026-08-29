@@ -179,6 +179,8 @@
     <string name="support_unavailable">No app is available to open this link.</string>
     <string name="condition_clear_day">Clear</string>
     <string name="condition_clear_night">Clear night</string>
+    <string name="condition_mainly_clear_day">Mainly clear</string>
+    <string name="condition_mainly_clear_night">Mainly clear night</string>
     <string name="condition_partly_cloudy">Partly cloudy</string>
     <string name="condition_cloudy">Cloudy</string>
     <string name="condition_fog">Fog</string>

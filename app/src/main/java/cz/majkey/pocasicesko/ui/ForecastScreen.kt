@@ -743,6 +743,7 @@ private fun SectionTitle(text: String) {
 fun conditionAccent(kind: WeatherKind, isDay: Boolean): Color = when {
     !isDay -> Color(0xFFA9B9FF)
     kind == WeatherKind.CLEAR -> Color(0xFFFFC766)
+    kind == WeatherKind.MAINLY_CLEAR -> Color(0xFFFFCF78)
     kind == WeatherKind.PARTLY_CLOUDY -> Color(0xFF9ED9EA)
     kind == WeatherKind.RAIN -> Color(0xFF6DD3EA)
     kind == WeatherKind.STORM -> Color(0xFFC4A7FF)

@@ -178,6 +178,8 @@
     <string name="support_unavailable">No hay ninguna aplicación disponible para abrir este enlace.</string>
     <string name="condition_clear_day">Despejado</string>
     <string name="condition_clear_night">Noche despejada</string>
+    <string name="condition_mainly_clear_day">Mayormente despejado</string>
+    <string name="condition_mainly_clear_night">Noche mayormente despejada</string>
     <string name="condition_partly_cloudy">Parcialmente nublado</string>
     <string name="condition_cloudy">Nublado</string>
     <string name="condition_fog">Niebla</string>

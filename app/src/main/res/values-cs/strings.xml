@@ -178,6 +178,8 @@
     <string name="support_unavailable">Pro otevření tohoto odkazu není k dispozici žádná aplikace.</string>
     <string name="condition_clear_day">Jasno</string>
     <string name="condition_clear_night">Jasná noc</string>
+    <string name="condition_mainly_clear_day">Převážně jasno</string>
+    <string name="condition_mainly_clear_night">Převážně jasná noc</string>
     <string name="condition_partly_cloudy">Polojasno</string>
     <string name="condition_cloudy">Zataženo</string>
     <string name="condition_fog">Mlha</string>

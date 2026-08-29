@@ -178,6 +178,8 @@
     <string name="support_unavailable">Keine App kann diesen Link öffnen.</string>
     <string name="condition_clear_day">Klar</string>
     <string name="condition_clear_night">Klare Nacht</string>
+    <string name="condition_mainly_clear_day">Überwiegend klar</string>
+    <string name="condition_mainly_clear_night">Überwiegend klare Nacht</string>
     <string name="condition_partly_cloudy">Teilweise bewölkt</string>
     <string name="condition_cloudy">Bewölkt</string>
     <string name="condition_fog">Nebel</string>

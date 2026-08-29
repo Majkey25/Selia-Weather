@@ -100,6 +100,7 @@ internal fun WeatherSnapshot.currentDay(): DailyWeather =
 
 enum class WeatherKind {
     CLEAR,
+    MAINLY_CLEAR,
     PARTLY_CLOUDY,
     CLOUDY,
     FOG,
@@ -112,6 +113,8 @@ enum class WeatherKind {
 enum class WeatherConditionKey {
     CLEAR_DAY,
     CLEAR_NIGHT,
+    MAINLY_CLEAR_DAY,
+    MAINLY_CLEAR_NIGHT,
     PARTLY_CLOUDY,
     CLOUDY,
     FOG,
@@ -131,7 +134,11 @@ data class WeatherCondition(
 
 fun conditionFor(code: Int, isDay: Boolean = true): WeatherCondition = when (code) {
     0 -> WeatherCondition(if (isDay) WeatherConditionKey.CLEAR_DAY else WeatherConditionKey.CLEAR_NIGHT, WeatherKind.CLEAR)
-    1, 2 -> WeatherCondition(WeatherConditionKey.PARTLY_CLOUDY, WeatherKind.PARTLY_CLOUDY)
+    1 -> WeatherCondition(
+        if (isDay) WeatherConditionKey.MAINLY_CLEAR_DAY else WeatherConditionKey.MAINLY_CLEAR_NIGHT,
+        WeatherKind.MAINLY_CLEAR,
+    )
+    2 -> WeatherCondition(WeatherConditionKey.PARTLY_CLOUDY, WeatherKind.PARTLY_CLOUDY)
     3 -> WeatherCondition(WeatherConditionKey.CLOUDY, WeatherKind.CLOUDY)
     45, 48 -> WeatherCondition(WeatherConditionKey.FOG, WeatherKind.FOG)
     in 51..57 -> WeatherCondition(WeatherConditionKey.DRIZZLE, WeatherKind.RAIN)

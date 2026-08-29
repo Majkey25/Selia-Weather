@@ -22,6 +22,15 @@ class WeatherModelsTest {
         assertEquals(first, snapshot.currentDay())
     }
 
+    @Test
+    fun distinguishesMainlyClearFromPartlyCloudy() {
+        assertEquals(WeatherConditionKey.MAINLY_CLEAR_DAY, conditionFor(1, true).key)
+        assertEquals(WeatherConditionKey.MAINLY_CLEAR_NIGHT, conditionFor(1, false).key)
+        assertEquals(WeatherKind.MAINLY_CLEAR, conditionFor(1, true).kind)
+        assertEquals(WeatherConditionKey.PARTLY_CLOUDY, conditionFor(2, true).key)
+        assertEquals(WeatherKind.PARTLY_CLOUDY, conditionFor(2, true).kind)
+    }
+
     private fun snapshot(days: List<DailyWeather>, currentTime: String) = WeatherSnapshot(
         timezone = "Europe/Prague",
         current = CurrentWeather(

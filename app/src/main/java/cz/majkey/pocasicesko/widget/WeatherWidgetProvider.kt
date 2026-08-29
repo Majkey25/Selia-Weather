@@ -581,6 +581,7 @@ class WeatherWidgetProvider : AppWidgetProvider() {
 
         private fun iconFor(kind: WeatherKind, isDay: Boolean): Int = when (kind) {
             WeatherKind.CLEAR -> if (isDay) R.drawable.ic_weather_clear else R.drawable.ic_weather_cloud
+            WeatherKind.MAINLY_CLEAR -> if (isDay) R.drawable.ic_weather_clear else R.drawable.ic_weather_cloud
             WeatherKind.PARTLY_CLOUDY, WeatherKind.CLOUDY, WeatherKind.UNKNOWN -> R.drawable.ic_weather_cloud
             WeatherKind.FOG -> R.drawable.ic_weather_fog
             WeatherKind.RAIN -> R.drawable.ic_weather_rain

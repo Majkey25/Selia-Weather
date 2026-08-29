@@ -25,7 +25,18 @@ class WeatherChromeTest {
 
         assertFalse(item.contains("else Color.Transparent"))
         assertTrue(item.contains("contentColor ="))
-        assertTrue(item.contains("Color(0xC4142731)"))
+        assertTrue(item.contains("Color(0xFF2E6474)"))
+        assertTrue(item.contains("Color(0xFF142731)"))
+    }
+
+    @Test
+    fun navigationRippleIsClippedByItsOvalSurface() {
+        val source = source("WeatherApp.kt")
+        val item = source.substringAfter("private fun NavigationItem")
+            .substringBefore("private fun WeatherBackdrop")
+
+        assertFalse(item.contains(".clickable(onClick = onClick)"))
+        assertTrue(item.contains("Surface(\n        onClick = onClick,"))
     }
 
     @Test

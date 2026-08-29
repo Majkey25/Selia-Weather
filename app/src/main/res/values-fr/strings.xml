@@ -178,6 +178,8 @@
     <string name="support_unavailable">Aucune application n’est disponible pour ouvrir ce lien.</string>
     <string name="condition_clear_day">Dégagé</string>
     <string name="condition_clear_night">Nuit dégagée</string>
+    <string name="condition_mainly_clear_day">Généralement dégagé</string>
+    <string name="condition_mainly_clear_night">Nuit généralement dégagée</string>
     <string name="condition_partly_cloudy">Partiellement nuageux</string>
     <string name="condition_cloudy">Nuageux</string>
     <string name="condition_fog">Brouillard</string>

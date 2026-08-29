@@ -1,16 +1,30 @@
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from math import atan2, cos, degrees, exp, hypot, isfinite, radians, sin
 from types import MappingProxyType
+from typing import Protocol, cast
 
 import numpy as np
 from numpy.typing import NDArray
-from scipy.optimize import OptimizeResult, minimize
+from scipy import optimize
 
 from aladin_ensemble.fallback import ExclusionReason, FitFailure
 from aladin_ensemble.metrics import weighted_median
+
+
+class _OptimizeResult(Protocol):
+    success: bool
+    message: object
+    x: NDArray[np.float64]
+
+
+class _OptimizeModule(Protocol):
+    minimize: Callable[..., _OptimizeResult]
+
+
+_minimize = cast(_OptimizeModule, optimize).minimize
 
 
 @dataclass(frozen=True, slots=True)
@@ -165,8 +179,8 @@ def fit_occurrence_calibration(
     probabilities = _predictor_matrix(model_ids, probability_rows)
     if len(events) != len(probabilities) or len(fold_ids) != len(probabilities):
         raise ValueError("probabilities, events, and fold_ids must have the same length")
-    if any(not isinstance(event, bool) for event in events):
-        raise ValueError("events must be boolean")
+    for event in events:
+        _boolean(event)
     if np.any((probabilities < 0) | (probabilities > 1)):
         raise ValueError("probabilities must be from 0 through 1")
     if len(events) < minimum_samples:
@@ -274,7 +288,7 @@ def _fit_constrained(
     def sum_constraint(weights: NDArray[np.float64]) -> float:
         return float(np.sum(weights) - 1.0)
 
-    result: OptimizeResult = minimize(
+    result = _minimize(
         objective,
         initial,
         method="SLSQP",
@@ -295,7 +309,7 @@ def _fit_constrained(
 
 def _fit_logistic(
     predictors: NDArray[np.float64], targets: NDArray[np.float64], regularization: float
-) -> OptimizeResult:
+) -> _OptimizeResult:
     event_rate = float(np.clip(np.mean(targets), 1e-6, 1 - 1e-6))
     initial = np.zeros(predictors.shape[1] + 1, dtype=np.float64)
     initial[0] = np.log(event_rate / (1 - event_rate))
@@ -305,7 +319,7 @@ def _fit_logistic(
             np.dot(coefficients[1:], coefficients[1:])
         )
 
-    return minimize(
+    return _minimize(
         objective,
         initial,
         method="L-BFGS-B",
@@ -321,11 +335,11 @@ def _log_loss(
 ) -> float:
     scores = coefficients[0] + predictors @ coefficients[1:]
     probabilities = np.clip(1.0 / (1.0 + np.exp(-scores)), 1e-12, 1 - 1e-12)
-    return float(
-        -np.mean(
-            targets * np.log(probabilities) + (1 - targets) * np.log(1 - probabilities)
-        )
+    losses = np.asarray(
+        targets * np.log(probabilities) + (1 - targets) * np.log(1 - probabilities),
+        dtype=np.float64,
     )
+    return -float(losses.mean())
 
 
 def _matrix(
@@ -392,3 +406,9 @@ def _sigmoid(value: float) -> float:
         return 1.0 / (1.0 + exp(-value))
     numerator = exp(value)
     return numerator / (1.0 + numerator)
+
+
+def _boolean(value: object) -> bool:
+    if not isinstance(value, bool):
+        raise ValueError("events must be boolean")
+    return value

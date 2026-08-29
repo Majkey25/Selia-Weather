@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from math import isfinite
+from math import isclose, isfinite
 
 import pytest
 
@@ -44,9 +44,9 @@ def test_scalar_fit_is_constrained_deterministic_and_eligible_only() -> None:
     assert first == second
     assert set(first.weights) == {"accurate", "bad"}
     assert all(isfinite(value) and value >= 0 for value in first.weights.values())
-    assert sum(first.weights.values()) == pytest.approx(1.0)
+    assert isclose(sum(first.weights.values()), 1.0)
     assert first.weights["accurate"] > 0.99
-    assert blend_scalar(first, {"accurate": 8.0, "bad": 80.0}) == pytest.approx(8.0)
+    assert isclose(blend_scalar(first, {"accurate": 8.0, "bad": 80.0}), 8.0)
 
     eligible_only = fit_scalar_weights(
         ("accurate", "bad"),
@@ -100,8 +100,8 @@ def test_wind_fit_uses_components_instead_of_averaging_degrees() -> None:
     assert isinstance(fit, WeightFit)
     assert fit.weights["accurate"] > 0.99
     speed, direction = blend_wind(fit, {"accurate": (10.0, 350.0), "opposite": (10.0, 170.0)})
-    assert speed == pytest.approx(10.0)
-    assert direction == pytest.approx(350.0)
+    assert isclose(speed, 10.0)
+    assert isclose(direction, 350.0)
 
 
 def test_occurrence_calibration_selects_regularization_inside_training_folds() -> None:

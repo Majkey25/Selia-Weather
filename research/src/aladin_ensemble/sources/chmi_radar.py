@@ -8,14 +8,27 @@ from datetime import UTC, datetime
 from math import isfinite
 from numbers import Real
 from pathlib import Path
+from typing import Protocol, cast
 
 import h5py
+import numpy as np
+from numpy.typing import NDArray
 
 from aladin_ensemble.types import SourceManifest, SpatialObservation
 
 CHMI_PROVIDER = "ČHMÚ"
 MERGE1H_SOURCE = "CHMI_MERGE1H"
 _MERGE1H_NAME = re.compile(r"^T_PASV23_C_OKPR_(\d{14})\.hdf$")
+
+
+class _Dataset(Protocol):
+    shape: tuple[int, ...]
+
+    def __getitem__(self, key: object) -> object: ...
+
+
+class _Attributes(Protocol):
+    def get(self, name: str) -> object: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,13 +68,16 @@ def iter_merge1h_observations(
     contract = parse_merge1h_contract(path)
     with h5py.File(path, "r") as source:
         dataset = source["dataset1/data1/data"]
-        if not isinstance(dataset, h5py.Dataset) or dataset.shape != (
-            contract.ysize,
-            contract.xsize,
-        ):
+        if not isinstance(dataset, h5py.Dataset):
+            raise ValueError("MERGE1h data shape does not match ODIM metadata")
+        typed_dataset = cast(_Dataset, dataset)
+        if typed_dataset.shape != (contract.ysize, contract.xsize):
             raise ValueError("MERGE1h data shape does not match ODIM metadata")
         for first_row in range(0, contract.ysize, block_rows):
-            block = dataset[first_row : first_row + block_rows, :]
+            block = cast(
+                NDArray[np.float64],
+                typed_dataset[first_row : first_row + block_rows, :],
+            )
             for block_row, values in enumerate(block):
                 for column, raw in enumerate(values):
                     value, flag = _precipitation(float(raw), contract)
@@ -112,19 +128,20 @@ def _contract(source: h5py.File) -> Merge1hContract:
     what = _group(dataset, "what")
     data_what = _group(_group(dataset, "data1"), "what")
     valid_start = _odim_time(
-        _text(what.attrs.get("startdate"), "startdate"),
-        _text(what.attrs.get("starttime"), "starttime"),
+        _text(_attribute(what.attrs, "startdate"), "startdate"),
+        _text(_attribute(what.attrs, "starttime"), "starttime"),
     )
     valid_end = _odim_time(
-        _text(what.attrs.get("enddate"), "enddate"), _text(what.attrs.get("endtime"), "endtime")
+        _text(_attribute(what.attrs, "enddate"), "enddate"),
+        _text(_attribute(what.attrs, "endtime"), "endtime"),
     )
-    west = _number(where.attrs.get("LL_lon"), "LL_lon")
-    south = _number(where.attrs.get("LL_lat"), "LL_lat")
-    east = _number(where.attrs.get("UR_lon"), "UR_lon")
-    north = _number(where.attrs.get("UR_lat"), "UR_lat")
+    west = _number(_attribute(where.attrs, "LL_lon"), "LL_lon")
+    south = _number(_attribute(where.attrs, "LL_lat"), "LL_lat")
+    east = _number(_attribute(where.attrs, "UR_lon"), "UR_lon")
+    north = _number(_attribute(where.attrs, "UR_lat"), "UR_lat")
     if not (-180 <= west < east <= 180 and -90 <= south < north <= 90):
         raise ValueError("MERGE1h geographic bounds are invalid")
-    projdef = _text(where.attrs.get("projdef"), "projdef")
+    projdef = _text(_attribute(where.attrs, "projdef"), "projdef")
     if not projdef:
         raise ValueError("MERGE1h projdef is empty")
     return Merge1hContract(
@@ -132,14 +149,14 @@ def _contract(source: h5py.File) -> Merge1hContract:
         valid_end=valid_end,
         projdef=projdef,
         geographic_bounds=(west, south, east, north),
-        xsize=_integer(where.attrs.get("xsize"), "xsize"),
-        ysize=_integer(where.attrs.get("ysize"), "ysize"),
-        xscale_m=_positive(where.attrs.get("xscale"), "xscale"),
-        yscale_m=_positive(where.attrs.get("yscale"), "yscale"),
-        gain=_number(data_what.attrs.get("gain"), "gain"),
-        offset=_number(data_what.attrs.get("offset"), "offset"),
-        nodata=_number(data_what.attrs.get("nodata"), "nodata"),
-        undetect=_number(data_what.attrs.get("undetect"), "undetect"),
+        xsize=_integer(_attribute(where.attrs, "xsize"), "xsize"),
+        ysize=_integer(_attribute(where.attrs, "ysize"), "ysize"),
+        xscale_m=_positive(_attribute(where.attrs, "xscale"), "xscale"),
+        yscale_m=_positive(_attribute(where.attrs, "yscale"), "yscale"),
+        gain=_number(_attribute(data_what.attrs, "gain"), "gain"),
+        offset=_number(_attribute(data_what.attrs, "offset"), "offset"),
+        nodata=_number(_attribute(data_what.attrs, "nodata"), "nodata"),
+        undetect=_number(_attribute(data_what.attrs, "undetect"), "undetect"),
     )
 
 
@@ -148,6 +165,10 @@ def _group(parent: h5py.File | h5py.Group, name: str) -> h5py.Group:
     if not isinstance(value, h5py.Group):
         raise ValueError(f"MERGE1h {name} group is missing")
     return value
+
+
+def _attribute(attributes: h5py.AttributeManager, name: str) -> object:
+    return cast(_Attributes, attributes).get(name)
 
 
 def _odim_time(date: str, time: str) -> datetime:

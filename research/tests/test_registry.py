@@ -312,10 +312,14 @@ def test_main_writes_incomplete_registry_and_fails_on_operational_error(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     output = tmp_path / "model-registry.json"
+
+    def incomplete_probe(**_: object) -> ProbeResult:
+        return ProbeResult(ModelRegistry(), (), (("dwd_icon_eu", "HTTP 503"),))
+
     monkeypatch.setattr(
         probe_module,
         "probe_registry",
-        lambda **_: ProbeResult(ModelRegistry(), (), (("dwd_icon_eu", "HTTP 503"),)),
+        incomplete_probe,
     )
     monkeypatch.setattr("sys.argv", ["probe", "--output", str(output)])
     assert probe_module.main() == 1

@@ -231,14 +231,13 @@ def _probability_pairs(
         raise ValueError("inputs must be non-empty")
     if len(probabilities) != len(events):
         raise ValueError("inputs must have the same length")
-    pairs = tuple(zip(probabilities, events, strict=True))
-    for probability, event in pairs:
+    pairs: list[tuple[float, bool]] = []
+    for probability, event in zip(probabilities, events, strict=True):
         _finite(probability)
         if not 0 <= probability <= 1:
             raise ValueError("probability must be from 0 through 1")
-        if not isinstance(event, bool):
-            raise ValueError("event must be boolean")
-    return pairs
+        pairs.append((probability, _boolean(event)))
+    return tuple(pairs)
 
 
 def _grid(values: Sequence[Sequence[float]], name: str) -> tuple[tuple[float, ...], ...]:
@@ -264,6 +263,12 @@ def _ratio(numerator: int, denominator: int) -> float | None:
     return numerator / denominator if denominator else None
 
 
-def _finite(value: float) -> None:
+def _finite(value: object) -> None:
     if isinstance(value, bool) or not isinstance(value, int | float) or not isfinite(value):
         raise ValueError("values must be finite")
+
+
+def _boolean(value: object) -> bool:
+    if not isinstance(value, bool):
+        raise ValueError("event must be boolean")
+    return value

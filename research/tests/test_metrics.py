@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
-from math import sqrt
+from math import isclose, sqrt
 
 import pytest
 
@@ -20,7 +20,7 @@ from aladin_ensemble.metrics import (
 
 def test_scalar_and_circular_errors_match_hand_calculation() -> None:
     assert mean_absolute_error((1.0, 4.0), (2.0, 2.0)) == 1.5
-    assert root_mean_square_error((1.0, 4.0), (2.0, 2.0)) == pytest.approx(sqrt(2.5))
+    assert isclose(root_mean_square_error((1.0, 4.0), (2.0, 2.0)), sqrt(2.5))
     assert circular_mean_absolute_error((350.0, 10.0), (10.0, 350.0)) == 20.0
 
 
@@ -49,7 +49,8 @@ def test_threshold_scores_and_weighted_median_match_hand_calculation() -> None:
     )
     assert scores.probability_of_detection == 0.5
     assert scores.false_alarm_ratio == 0.5
-    assert scores.critical_success_index == pytest.approx(1 / 3)
+    assert scores.critical_success_index is not None
+    assert isclose(scores.critical_success_index, 1 / 3)
     assert scores.frequency_bias == 1.0
     assert weighted_median((1.0, 5.0, 9.0), (0.2, 0.6, 0.2)) == 5.0
 

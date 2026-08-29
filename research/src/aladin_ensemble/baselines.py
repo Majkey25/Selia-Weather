@@ -138,6 +138,6 @@ def evaluate_scalar_baselines(
     return tuple(rows)
 
 
-def _finite(value: float, field_name: str) -> None:
+def _finite(value: object, field_name: str) -> None:
     if isinstance(value, bool) or not isinstance(value, int | float) or not isfinite(value):
         raise ValueError(f"{field_name} must be finite")

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
-from math import sqrt
+from math import isclose, sqrt
 
 import pytest
 
@@ -46,7 +46,7 @@ def test_baselines_share_one_complete_case_mask() -> None:
     assert set(by_name) == {"model_a", "model_b", "best_match", "mean", "median"}
     assert {row.sample_count for row in rows} == {2}
     assert by_name["model_a"].mae == 1.0
-    assert by_name["model_a"].rmse == pytest.approx(sqrt(2.0))
+    assert isclose(by_name["model_a"].rmse, sqrt(2.0))
     assert by_name["best_match"].mae == 1.0
     assert by_name["best_match"].rmse == 1.0
     assert by_name["mean"].mae == 1.0

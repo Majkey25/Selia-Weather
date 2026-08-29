@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
+from math import isclose
 from pathlib import Path
 
 import pytest
@@ -90,7 +91,7 @@ def test_dataset_splits_locked_dates_and_excludes_low_coverage_model() -> None:
     assert len(segment.holdout) == 30
     assert segment.eligible_models == ("model_a",)
     assert segment.coverage["model_a"] == 1.0
-    assert segment.coverage["model_b"] == pytest.approx(70 / 90)
+    assert isclose(segment.coverage["model_b"], 70 / 90)
     assert segment.training[0].best_match == 12.0
     assert segment.holdout[0].forecast_date == date(2026, 7, 1)
 

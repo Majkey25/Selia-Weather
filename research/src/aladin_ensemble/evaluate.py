@@ -9,6 +9,7 @@ from enum import Enum
 from math import isfinite
 from pathlib import Path
 from statistics import fmean
+from typing import cast
 
 from aladin_ensemble.align import DateRange
 from aladin_ensemble.fallback import SegmentSelector
@@ -150,7 +151,7 @@ def write_holdout_lock(path: Path, lock: HoldoutLock) -> None:
 
 
 def read_holdout_lock(path: Path) -> HoldoutLock:
-    value = _json_value(json.loads(path.read_text(encoding="utf-8")))
+    value = _json_value(cast(object, json.loads(path.read_text(encoding="utf-8"))))
     if not isinstance(value, dict):
         raise ValueError("holdout lock must be a JSON object")
     train = _range(value.get("train"), "train")
@@ -240,10 +241,10 @@ def _json_value(value: object) -> JsonValue:
     if value is None or isinstance(value, str | int | float | bool):
         return value
     if isinstance(value, list):
-        return [_json_value(item) for item in value]
+        return [_json_value(item) for item in cast(list[object], value)]
     if isinstance(value, dict):
         result: dict[str, JsonValue] = {}
-        for key, item in value.items():
+        for key, item in cast(dict[object, object], value).items():
             if not isinstance(key, str):
                 raise ValueError("JSON object key must be text")
             result[key] = _json_value(item)

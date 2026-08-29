@@ -49,6 +49,15 @@ def test_decode_output_requires_real_grid_values() -> None:
         validate_decode_output("Latitude Longitude Value\n")
 
 
+def test_decode_output_accepts_repeated_header_for_multimessage_grib() -> None:
+    output = (
+        "Latitude Longitude Value\n49.0 14.0 293.15\n"
+        "Latitude Longitude Value\n49.0 14.0 294.15\n"
+    )
+
+    assert validate_decode_output(output) == 2
+
+
 def test_smoke_workflow_installs_eccodes_and_runs_every_source() -> None:
     workflow = Path(__file__).parents[2] / ".github" / "workflows" / "official-data-smoke.yml"
 

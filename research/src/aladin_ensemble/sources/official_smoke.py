@@ -84,9 +84,10 @@ def run_smoke(config: SmokeConfig, cache_root: Path) -> int:
 
 def validate_decode_output(value: str) -> int:
     lines = [line.strip() for line in value.splitlines() if line.strip()]
-    if not lines or lines[0].split() != ["Latitude", "Longitude", "Value"]:
+    header = ["Latitude", "Longitude", "Value"]
+    if not lines or lines[0].split() != header:
         raise ValueError("ecCodes output header is invalid")
-    rows = lines[1:]
+    rows = [line for line in lines[1:] if line.split() != header]
     if not rows:
         raise ValueError("ecCodes output contains no values")
     for row in rows:

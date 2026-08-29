@@ -7,6 +7,7 @@
 - Clarified mainly-clear and partly-cloudy icons with a visible sun or Moon behind the cloud.
 - Added a verified six-model operational diagnostic feed pipeline with compressed, checksummed tiles.
 - Added an unreleased on-device model-consensus prototype. It uses a robust median only when at least three model values are present, derives rain probability and sky condition locally, and falls back to Best Match. It is not a production calibration or an accuracy claim.
+- Fixed the radar card aspect ratio so rain and cloud imagery stays undistorted without large letterbox gaps.
 
 ## [0.2.0-beta.8] - 2026-08-29
 

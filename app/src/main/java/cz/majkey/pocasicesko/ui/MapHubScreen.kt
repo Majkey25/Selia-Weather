@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -42,7 +43,7 @@ fun MapHubScreen(padding: PaddingValues) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f),
+                .aspectRatio(RADAR_CARD_ASPECT_RATIO),
             color = Color(0xFF0B1117),
             shape = RoundedCornerShape(26.dp),
             border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
@@ -57,3 +58,5 @@ fun MapHubScreen(padding: PaddingValues) {
         )
     }
 }
+
+private const val RADAR_CARD_ASPECT_RATIO = 0.9f

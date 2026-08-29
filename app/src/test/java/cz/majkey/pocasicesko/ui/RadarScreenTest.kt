@@ -1,6 +1,7 @@
 package cz.majkey.pocasicesko.ui
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -65,5 +66,17 @@ class RadarScreenTest {
         assertTrue(source.contains("aspect-ratio: 600 / 380"))
         assertTrue(source.contains("width: 113.333%; height: 121.053%"))
         assertTrue(source.contains("inset: auto auto 0 0"))
+    }
+
+    @Test
+    fun radarCardUsesImageAwareAspectRatioInsteadOfTallScreenWeight() {
+        val source = File(
+            System.getProperty("user.dir"),
+            "src/main/java/cz/majkey/pocasicesko/ui/MapHubScreen.kt",
+        ).readText()
+
+        assertTrue(source.contains(".aspectRatio(RADAR_CARD_ASPECT_RATIO)"))
+        assertTrue(source.contains("private const val RADAR_CARD_ASPECT_RATIO = 0.9f"))
+        assertFalse(source.contains(".weight(1f)"))
     }
 }

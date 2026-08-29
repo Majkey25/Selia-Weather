@@ -26,6 +26,7 @@ class WeatherRepository(context: Context) {
     private val appContext = context.applicationContext
     private val preferences = appContext.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
     private val currentConditions = ChmiCurrentConditionsRepository(appContext)
+    private val precipitationFieldRepository = PrecipitationFieldRepository()
 
     fun lastLocation(): CzechLocation {
         val location = CzechLocation(
@@ -94,6 +95,9 @@ class WeatherRepository(context: Context) {
     suspend fun fetchForecast(location: CzechLocation): WeatherSnapshot = withContext(Dispatchers.IO) {
         fetchForecastBlocking(location)
     }
+
+    internal suspend fun fetchPrecipitationField(location: CzechLocation): PrecipitationField =
+        precipitationFieldRepository.fetch(location)
 
     fun fetchForecastBlocking(location: CzechLocation): WeatherSnapshot {
         val bestMatchJson = request(forecastUri(location).toString())

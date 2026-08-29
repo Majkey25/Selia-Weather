@@ -1,0 +1,130 @@
+{
+  "schema_version": 1,
+  "sources": [
+    {
+      "attribution": "Contains modified ECMWF data © ECMWF 2026",
+      "commercial_redistribution": true,
+      "data_url": "https://data.ecmwf.int/forecasts/",
+      "documentation_url": "https://www.ecmwf.int/en/forecasts/datasets/open-data",
+      "enabled": true,
+      "forecast_horizon_hours": 360,
+      "licence_name": "Creative Commons Attribution 4.0 International",
+      "licence_url": "https://apps.ecmwf.int/datasets/licences/general/",
+      "model_id": "ecmwf_ifs_open",
+      "native_resolution_km": 9.0,
+      "provider": "ECMWF",
+      "source_id": "ecmwf-ifs-open",
+      "source_kind": "forecast",
+      "update_interval_minutes": 360,
+      "variables": [
+        "cloud_cover",
+        "precipitation",
+        "pressure_msl",
+        "relative_humidity_2m",
+        "temperature_2m",
+        "wind_direction_10m",
+        "wind_gusts_10m",
+        "wind_speed_10m"
+      ]
+    },
+    {
+      "attribution": "Contains modified ECMWF data © ECMWF 2026",
+      "commercial_redistribution": true,
+      "data_url": "https://data.ecmwf.int/forecasts/",
+      "documentation_url": "https://confluence.ecmwf.int/display/UDOC/AIFS+How+To%3A+Access+AIFS+model+output+data",
+      "enabled": true,
+      "forecast_horizon_hours": 360,
+      "licence_name": "Creative Commons Attribution 4.0 International",
+      "licence_url": "https://apps.ecmwf.int/datasets/licences/general/",
+      "model_id": "ecmwf_aifs_open",
+      "native_resolution_km": 28.0,
+      "provider": "ECMWF",
+      "source_id": "ecmwf-aifs-open",
+      "source_kind": "forecast",
+      "update_interval_minutes": 360,
+      "variables": [
+        "precipitation",
+        "pressure_msl",
+        "temperature_2m",
+        "wind_direction_10m",
+        "wind_speed_10m"
+      ]
+    },
+    {
+      "attribution": "Source: Deutscher Wetterdienst",
+      "commercial_redistribution": true,
+      "data_url": "https://opendata.dwd.de/weather/nwp/icon-eu/grib/",
+      "documentation_url": "https://www.dwd.de/DE/leistungen/opendata/opendata.html",
+      "enabled": true,
+      "forecast_horizon_hours": 120,
+      "licence_name": "DWD Open Data reuse terms",
+      "licence_url": "https://www.dwd.de/copyright",
+      "model_id": "dwd_icon_eu",
+      "native_resolution_km": 7.0,
+      "provider": "Deutscher Wetterdienst",
+      "source_id": "dwd-icon-eu",
+      "source_kind": "forecast",
+      "update_interval_minutes": 360,
+      "variables": [
+        "cloud_cover",
+        "precipitation",
+        "pressure_msl",
+        "relative_humidity_2m",
+        "temperature_2m",
+        "wind_direction_10m",
+        "wind_gusts_10m",
+        "wind_speed_10m"
+      ]
+    },
+    {
+      "attribution": "Source: NOAA/National Weather Service. This is not an official NOAA product.",
+      "commercial_redistribution": true,
+      "data_url": "https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/",
+      "documentation_url": "https://www.nco.ncep.noaa.gov/pmb/products/gfs/",
+      "enabled": true,
+      "forecast_horizon_hours": 384,
+      "licence_name": "United States public domain",
+      "licence_url": "https://www.weather.gov/disclaimer/",
+      "model_id": "noaa_gfs",
+      "native_resolution_km": 13.0,
+      "provider": "NOAA",
+      "source_id": "noaa-gfs",
+      "source_kind": "forecast",
+      "update_interval_minutes": 360,
+      "variables": [
+        "cloud_cover",
+        "precipitation",
+        "pressure_msl",
+        "relative_humidity_2m",
+        "temperature_2m",
+        "wind_direction_10m",
+        "wind_gusts_10m",
+        "wind_speed_10m"
+      ]
+    },
+    {
+      "attribution": "Source: Czech Hydrometeorological Institute",
+      "commercial_redistribution": false,
+      "data_url": "https://opendata.chmi.cz/meteorology/climate/now/data/",
+      "documentation_url": "https://www.chmi.cz/namerena-data",
+      "enabled": false,
+      "forecast_horizon_hours": null,
+      "licence_name": "ČHMÚ open measurement data terms",
+      "licence_url": "https://www.chmi.cz/files/portal/docs/meteo/ok/open_data_2023/Podminky_uziti_udaju.pdf",
+      "model_id": "chmi_current_stations",
+      "native_resolution_km": null,
+      "provider": "Czech Hydrometeorological Institute",
+      "source_id": "chmi-current-stations",
+      "source_kind": "observation",
+      "update_interval_minutes": 10,
+      "variables": [
+        "humidity",
+        "precipitation",
+        "sunshine_duration",
+        "temperature_2m",
+        "wind_direction_10m",
+        "wind_speed_10m"
+      ]
+    }
+  ]
+}

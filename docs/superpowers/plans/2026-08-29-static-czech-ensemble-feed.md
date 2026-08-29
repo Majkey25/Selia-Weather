@@ -36,7 +36,7 @@
 **Interfaces:**
 - Produces: `FeedSource`, `FeedGrid`, `FeedRun`, `FeedManifest`, `FeedTile`, `validate_source_registry()`, `encode_manifest()`, and `decode_manifest()`.
 
-- [ ] **Step 1: Write the failing source-licence test**
+- [x] **Step 1: Write the failing source-licence test**
 
 ```python
 def test_source_registry_rejects_noncommercial_production_source() -> None:
@@ -46,7 +46,7 @@ def test_source_registry_rejects_noncommercial_production_source() -> None:
         validate_source_registry((source,), production=True)
 ```
 
-- [ ] **Step 2: Run the focused test and verify RED**
+- [x] **Step 2: Run the focused test and verify RED**
 
 Run:
 
@@ -56,7 +56,7 @@ research\.venv\Scripts\python.exe -m pytest research/tests/test_static_feed.py -
 
 Expected: collection or import failure because `static_feed` does not exist.
 
-- [ ] **Step 3: Add the minimum typed contract**
+- [x] **Step 3: Add the minimum typed contract**
 
 ```python
 @dataclass(frozen=True, slots=True)
@@ -82,15 +82,15 @@ class FeedSource:
 
 Validate finite bounds, exact divisibility by the grid step, non-empty identities, HTTPS licence URLs, unique source/model IDs, lowercase SHA-256 digests, UTC timestamps, schema version, run expiry, and production licence state.
 
-- [ ] **Step 4: Add deterministic JSON tests**
+- [x] **Step 4: Add deterministic JSON tests**
 
 Cover round-trip encoding, sorted keys, duplicate sources, bad hashes, stale runs, invalid coordinates, unsupported schema, source ordering, and non-finite values.
 
-- [ ] **Step 5: Add the production source registry**
+- [x] **Step 5: Add the production source registry**
 
 Store exact product URLs, licence URLs, attribution, redistribution permission, native resolution, forecast horizon, variables, and update schedule. Begin with verified ČHMÚ, DWD, ECMWF, and NOAA products. Keep a source disabled until every field has evidence.
 
-- [ ] **Step 6: Run focused and full research gates**
+- [x] **Step 6: Run focused and full research gates**
 
 ```powershell
 research\.venv\Scripts\python.exe -m pytest research/tests/test_static_feed.py -q
@@ -98,7 +98,7 @@ research\.venv\Scripts\python.exe -m ruff check research/src research/tests
 research\.venv\Scripts\python.exe -m pyright research/src/aladin_ensemble/static_feed.py research/tests/test_static_feed.py
 ```
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```text
 feat(research): define static forecast feed

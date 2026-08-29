@@ -1,8 +1,8 @@
-Selia Vetra je přehledné počasí pro Česko bez účtu. Bezplatná verze obsahuje omezené reklamy; obě možnosti Premium je odstraní.
+Selia Vetra je přehledné počasí pro celý svět bez účtu, v Česku navíc s měřeními a radarem ČHMÚ. Bezplatná verze obsahuje omezené reklamy; obě možnosti Premium je odstraní.
 
-Předpověď používá Open-Meteo Best Match až na 14 dní. Čerstvá měření z blízkých stanic ČHMÚ opravují aktuální teplotu, vlhkost, vítr, srážky a stav oblohy. Budoucí hodiny zůstávají modelovou předpovědí. Uvidíte posuvný výhled na 24 hodin a mezi dostupnými denními detaily můžete přejíždět.
+Předpověď používá Open-Meteo Best Match až na 14 dní. V Česku čerstvá měření z blízkých stanic ČHMÚ opravují aktuální teplotu, vlhkost, vítr, srážky a stav oblohy. Budoucí hodiny zůstávají modelovou předpovědí. Uvidíte posuvný výhled na 24 hodin a mezi dostupnými denními detaily můžete přejíždět.
 
-Vyhledávání vrací pouze místa v Česku. Můžete si uložit oblíbené lokality nebo volitelně použít aktuální polohu. Poslední úspěšná předpověď zůstane k dispozici offline.
+Vyhledávejte místa po celém světě, ukládejte oblíbené lokality, vyberte přesný bod na světové mapě nebo zadejte souřadnice. Volitelně lze použít aktuální polohu. Poslední úspěšná předpověď zůstane k dispozici offline.
 
 Radar ČHMÚ nabízí srážky, družicovou oblačnost, nowcast a blesky. Srážky a oblačnost jsou samostatné základní vrstvy. Blesky lze nezávisle zobrazit nad oběma vrstvami.
 

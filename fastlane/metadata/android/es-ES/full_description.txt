@@ -1,8 +1,8 @@
-Selia Vetra muestra el tiempo de Chequia sin cuenta. La versión gratuita contiene anuncios limitados; ambas opciones Premium los eliminan.
+Selia Vetra muestra el tiempo mundial sin cuenta, con mediciones y radar ČHMÚ adicionales en Chequia. La versión gratuita contiene anuncios limitados; ambas opciones Premium los eliminan.
 
-La previsión usa Open-Meteo Best Match hasta 14 días. Las mediciones recientes de estaciones ČHMÚ cercanas corrigen la temperatura, la humedad, el viento, la precipitación y el estado del cielo actuales. Las horas futuras siguen siendo previsiones de modelos. Consulta 24 horas y desliza entre los detalles diarios disponibles.
+La previsión usa Open-Meteo Best Match hasta 14 días. En Chequia, las mediciones recientes de estaciones ČHMÚ cercanas corrigen la temperatura, la humedad, el viento, la precipitación y el estado del cielo actuales. Las horas futuras siguen siendo previsiones de modelos. Consulta 24 horas y desliza entre los detalles diarios disponibles.
 
-Busca lugares de Chequia, guarda favoritos o usa tu ubicación actual de forma opcional. La última previsión correcta queda disponible sin conexión.
+Busca lugares de todo el mundo, guarda favoritos, elige un punto exacto en el mapa mundial o introduce coordenadas. También puedes usar tu ubicación actual. La última previsión correcta queda disponible sin conexión.
 
 El radar de ČHMÚ incluye lluvia, nubes de satélite, nowcast y rayos. La lluvia y las nubes son capas base distintas. Los rayos se pueden activar o desactivar de forma independiente sobre ambas capas.
 

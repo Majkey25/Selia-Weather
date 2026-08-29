@@ -1,8 +1,8 @@
-Selia Vetra zeigt das Wetter für Tschechien ohne Konto. Die kostenlose Version enthält begrenzte Werbung; beide Premium-Optionen entfernen sie.
+Selia Vetra zeigt weltweites Wetter ohne Konto, mit zusätzlichen ČHMÚ-Messungen und Radar in Tschechien. Die kostenlose Version enthält begrenzte Werbung; beide Premium-Optionen entfernen sie.
 
-Die Vorhersage verwendet Open-Meteo Best Match für bis zu 14 Tage. Aktuelle Messungen naher ČHMÚ-Stationen korrigieren Temperatur, Luftfeuchtigkeit, Wind, Niederschlag und Wetterzustand. Zukünftige Stunden bleiben Modellvorhersagen. Die App zeigt 24 Stunden im Überblick. Wischen Sie zwischen den verfügbaren Tagesdetails.
+Die Vorhersage verwendet Open-Meteo Best Match für bis zu 14 Tage. In Tschechien korrigieren aktuelle Messungen naher ČHMÚ-Stationen Temperatur, Luftfeuchtigkeit, Wind, Niederschlag und Wetterzustand. Zukünftige Stunden bleiben Modellvorhersagen. Die App zeigt 24 Stunden im Überblick. Wischen Sie zwischen den verfügbaren Tagesdetails.
 
-Suchen Sie Orte in Tschechien, speichern Sie Favoriten oder verwenden Sie optional Ihren aktuellen Standort. Die letzte erfolgreiche Vorhersage bleibt offline verfügbar.
+Suchen Sie Orte weltweit, speichern Sie Favoriten, wählen Sie einen exakten Punkt auf der Weltkarte oder geben Sie Koordinaten ein. Optional können Sie Ihren aktuellen Standort verwenden. Die letzte erfolgreiche Vorhersage bleibt offline verfügbar.
 
 Das ČHMÚ-Radar enthält Regen, Satellitenwolken, nowcast und Blitze. Regen und Wolken sind getrennte Grundebenen. Blitze bleiben über beiden Ebenen unabhängig ein- und ausschaltbar.
 

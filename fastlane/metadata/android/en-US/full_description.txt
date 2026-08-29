@@ -1,8 +1,8 @@
-Selia Vetra gives you a clear weather view for Czechia without an account. The free version contains limited ads; either Premium option removes them.
+Selia Vetra gives you a clear worldwide weather view without an account, with extra ČHMÚ observations and radar in Czechia. The free version contains limited ads; either Premium option removes them.
 
-The forecast uses Open-Meteo Best Match for up to 14 days. Fresh observations from nearby ČHMÚ stations correct the current temperature, humidity, wind, precipitation, and sky condition. Future hours remain model forecasts. See a scrollable 24-hour outlook and swipe between available daily details.
+The forecast uses Open-Meteo Best Match for up to 14 days. In Czechia, fresh observations from nearby ČHMÚ stations correct the current temperature, humidity, wind, precipitation, and sky condition. Future hours remain model forecasts. See a scrollable 24-hour outlook and swipe between available daily details.
 
-Search Czech places, save favourites, choose an exact named point on the map, or use your optional current location. The last successful forecast remains available offline.
+Search places worldwide, save favourites, choose an exact named point on the world map, enter coordinates, or use your optional current location. The last successful forecast remains available offline.
 
 ČHMÚ radar includes rain, satellite clouds, nowcast, and lightning. Rain and clouds are separate base layers. Turn lightning on or off independently over either layer.
 

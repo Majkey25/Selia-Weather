@@ -8,7 +8,7 @@ The Android app has one module. The public application ID is `com.majkeylab.weat
 
 ## Forecast and places
 
-`WeatherRepository` owns HTTP, JSON validation, cached weather, and typed weather data. It requests Open-Meteo forecast data with `chmi_aladin_seamless`, 14 forecast days, and `Europe/Prague` time. Geocoding accepts Czech results only. Compose resolves localised text at the UI boundary.
+`WeatherRepository` owns HTTP, JSON validation, cached weather, and typed weather data. It requests 14 forecast days, seven past days, and the selected location's timezone. Place search and exact coordinates work worldwide. The unreleased consensus prototype combines explicit provider series on-device only when at least three values exist, falls back to Best Match, and applies nearby ČHMÚ observations only inside Czechia. Compose resolves localised text at the UI boundary.
 
 ## Radar
 

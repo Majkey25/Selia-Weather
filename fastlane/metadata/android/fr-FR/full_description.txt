@@ -1,8 +1,8 @@
-Selia Vetra affiche la météo pour la Tchéquie sans compte. La version gratuite contient des publicités limitées ; les deux options Premium les suppriment.
+Selia Vetra affiche la météo mondiale sans compte, avec en plus les mesures et le radar ČHMÚ en Tchéquie. La version gratuite contient des publicités limitées ; les deux options Premium les suppriment.
 
-La prévision utilise Open-Meteo Best Match jusqu'à 14 jours. Les mesures récentes de stations ČHMÚ proches corrigent la température, l'humidité, le vent, les précipitations et l'état du ciel actuels. Les heures futures restent des prévisions de modèles. Consultez 24 heures et balayez les détails quotidiens disponibles.
+La prévision utilise Open-Meteo Best Match jusqu'à 14 jours. En Tchéquie, les mesures récentes de stations ČHMÚ proches corrigent la température, l'humidité, le vent, les précipitations et l'état du ciel actuels. Les heures futures restent des prévisions de modèles. Consultez 24 heures et balayez les détails quotidiens disponibles.
 
-Recherchez des lieux en Tchéquie, enregistrez des favoris ou utilisez votre position actuelle de façon facultative. La dernière prévision réussie reste disponible hors connexion.
+Recherchez des lieux dans le monde entier, enregistrez des favoris, choisissez un point exact sur la carte mondiale ou saisissez des coordonnées. Vous pouvez aussi utiliser votre position actuelle. La dernière prévision réussie reste disponible hors connexion.
 
 Le radar ČHMÚ inclut la pluie, les nuages satellite, nowcast et la foudre. La pluie et les nuages sont des couches de base distinctes. La foudre peut être affichée ou masquée indépendamment sur les deux couches.
 

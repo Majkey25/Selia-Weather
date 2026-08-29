@@ -8,11 +8,13 @@ from pathlib import Path
 from typing import cast
 
 from .official_runs import (
+    ChmiAladinRequest,
     DwdIconRequest,
     EcmwfOpenRequest,
     NoaaGefsRequest,
     NoaaGfsRequest,
     build_grib_get_data_command,
+    download_chmi_aladin,
     download_dwd_icon,
     download_ecmwf,
     download_noaa_gefs,
@@ -40,7 +42,12 @@ class SmokeConfig:
 
 def run_smoke(config: SmokeConfig, cache_root: Path) -> int:
     source_cache = cache_root / config.source
-    if config.source == "dwd":
+    if config.source == "chmi":
+        downloaded = download_chmi_aladin(
+            ChmiAladinRequest(config.run_time, config.variable),
+            source_cache,
+        )
+    elif config.source == "dwd":
         downloaded = download_dwd_icon(
             DwdIconRequest(config.run_time, config.lead_hour, config.variable),
             source_cache,
@@ -117,7 +124,7 @@ def main() -> None:
     )
 
 
-SOURCES = frozenset({"aifs", "dwd", "gefs-mean", "ifs", "noaa"})
+SOURCES = frozenset({"aifs", "chmi", "dwd", "gefs-mean", "ifs", "noaa"})
 
 
 if __name__ == "__main__":

@@ -17,6 +17,16 @@ on:
         description: Complete GEFS 00Z date in YYYYMMDD format
         required: true
         type: string
+      chmi_date:
+        description: Available CHMI ALADIN run date in YYYYMMDD format
+        required: true
+        type: string
+      chmi_hour:
+        description: Available CHMI ALADIN UTC cycle
+        required: true
+        default: "00"
+        type: choice
+        options: ["00", "06", "12", "18"]
 
 permissions:
   contents: read
@@ -48,6 +58,7 @@ jobs:
         shell: bash
         run: |
           uv run python -m aladin_ensemble.sources.official_smoke --source dwd --date "${{ inputs.run_date }}" --hour "${{ inputs.run_hour }}" --lead 0 --cache-root "$RUNNER_TEMP/official-smoke"
+          uv run python -m aladin_ensemble.sources.official_smoke --source chmi --date "${{ inputs.chmi_date }}" --hour "${{ inputs.chmi_hour }}" --lead 0 --cache-root "$RUNNER_TEMP/official-smoke"
           uv run python -m aladin_ensemble.sources.official_smoke --source noaa --date "${{ inputs.run_date }}" --hour "${{ inputs.run_hour }}" --lead 3 --cache-root "$RUNNER_TEMP/official-smoke"
           uv run python -m aladin_ensemble.sources.official_smoke --source ifs --date "${{ inputs.run_date }}" --hour "${{ inputs.run_hour }}" --lead 3 --cache-root "$RUNNER_TEMP/official-smoke"
           uv run python -m aladin_ensemble.sources.official_smoke --source aifs --date "${{ inputs.run_date }}" --hour "${{ inputs.run_hour }}" --lead 6 --cache-root "$RUNNER_TEMP/official-smoke"

@@ -10,7 +10,14 @@ from aladin_ensemble.sources.official_smoke import SmokeConfig, validate_decode_
 
 @pytest.mark.parametrize(
     "source, lead_hour",
-    (("dwd", 0), ("noaa", 3), ("gefs-mean", 840), ("ifs", 3), ("aifs", 6)),
+    (
+        ("aifs", 6),
+        ("chmi", 0),
+        ("dwd", 0),
+        ("gefs-mean", 840),
+        ("ifs", 3),
+        ("noaa", 3),
+    ),
 )
 def test_smoke_config_accepts_supported_source(source: str, lead_hour: int) -> None:
     config = SmokeConfig(
@@ -49,5 +56,5 @@ def test_smoke_workflow_installs_eccodes_and_runs_every_source() -> None:
 
     assert "libeccodes-tools" in source
     assert "python -m aladin_ensemble.sources.official_smoke" in source
-    for name in ("aifs", "dwd", "gefs-mean", "ifs", "noaa"):
+    for name in ("aifs", "chmi", "dwd", "gefs-mean", "ifs", "noaa"):
         assert name in source

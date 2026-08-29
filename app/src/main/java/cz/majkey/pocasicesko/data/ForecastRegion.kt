@@ -24,6 +24,11 @@ internal fun forecastSourcesFor(region: ForecastRegion): Set<String> = when (reg
     ForecastRegion.NORTH_AMERICA, ForecastRegion.GLOBAL -> GLOBAL_SOURCES
 }
 
+internal fun forecastApiModelsFor(location: CzechLocation): List<String> = buildList {
+    if (location.isInCzechia()) add("chmi_aladin_seamless")
+    addAll(GLOBAL_API_MODELS)
+}
+
 private val GLOBAL_SOURCES = setOf(
     "ecmwf-aifs-open",
     "ecmwf-ifs-open",
@@ -31,6 +36,20 @@ private val GLOBAL_SOURCES = setOf(
     "noaa-gfs",
 )
 private val EUROPE_SOURCES = GLOBAL_SOURCES + "dwd-icon-eu"
+
+private val GLOBAL_API_MODELS = listOf(
+    "icon_seamless",
+    "ecmwf_ifs025",
+    "ecmwf_aifs025",
+    "gfs_seamless",
+    "gem_seamless",
+    "meteofrance_seamless",
+    "ukmo_seamless",
+    "cma_grapes_global",
+    "jma_seamless",
+    "kma_seamless",
+    "bom_access_global",
+)
 
 private val EUROPE_LATITUDE = 34.0..72.0
 private val EUROPE_LONGITUDE = -25.0..45.0

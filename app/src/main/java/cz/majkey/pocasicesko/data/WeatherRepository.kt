@@ -19,6 +19,7 @@ import java.util.Locale
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONException
 import org.json.JSONObject
 
 class WeatherRepository(context: Context) {
@@ -95,7 +96,14 @@ class WeatherRepository(context: Context) {
     }
 
     fun fetchForecastBlocking(location: CzechLocation): WeatherSnapshot {
-        val forecastJson = request(forecastUri(location).toString())
+        val bestMatchJson = request(forecastUri(location).toString())
+        val forecastJson = try {
+            blendModelForecast(bestMatchJson, request(modelForecastUrl(location)))
+        } catch (_: IOException) {
+            bestMatchJson
+        } catch (_: JSONException) {
+            bestMatchJson
+        }
         val updatedAt = System.currentTimeMillis()
         val modelSnapshot = WeatherParser.parseForecast(forecastJson, updatedAt)
         val now = Instant.ofEpochMilli(updatedAt)
@@ -185,7 +193,7 @@ class WeatherRepository(context: Context) {
             if (responseCode !in 200..299) {
                 throw IOException("Server odpověděl kódem $responseCode.")
             }
-            connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            connection.inputStream.use { readLimited(it, MAX_JSON_BYTES).toString(Charsets.UTF_8) }
         } finally {
             connection.disconnect()
         }
@@ -193,6 +201,12 @@ class WeatherRepository(context: Context) {
 
     companion object {
         internal fun forecastUri(location: CzechLocation): Uri = Uri.parse(forecastUrl(location))
+
+        internal fun modelForecastUrl(location: CzechLocation): String =
+            "https://api.open-meteo.com/v1/forecast?latitude=${location.latitude}" +
+                "&longitude=${location.longitude}&forecast_days=14&past_days=7" +
+                "&timezone=auto&hourly=$MODEL_VARIABLES" +
+                "&models=${forecastApiModelsFor(location).joinToString(",")}"
 
         internal fun forecastUrl(location: CzechLocation): String =
             "https://api.open-meteo.com/v1/forecast?latitude=${location.latitude}" +
@@ -240,6 +254,7 @@ class WeatherRepository(context: Context) {
         private const val MINIMUM_SEARCH_LENGTH = 2
         private const val CONNECT_TIMEOUT_MILLIS = 10_000
         private const val READ_TIMEOUT_MILLIS = 15_000
+        private const val MAX_JSON_BYTES = 5_000_000
         private val USER_AGENT = "Selia-Weather/${BuildConfig.VERSION_NAME} (Android; https://github.com/Majkey25/Selia-Weather)"
 
         private const val CURRENT_VARIABLES =
@@ -258,6 +273,12 @@ class WeatherRepository(context: Context) {
                 "precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max," +
                 "wind_direction_10m_dominant,shortwave_radiation_sum," +
                 "et0_fao_evapotranspiration"
+
+        private const val MODEL_VARIABLES =
+            "temperature_2m,relative_humidity_2m,dew_point_2m,apparent_temperature," +
+                "precipitation,rain,snowfall,weather_code,cloud_cover,cloud_cover_low," +
+                "cloud_cover_mid,cloud_cover_high,visibility,pressure_msl,surface_pressure," +
+                "wind_speed_10m,wind_direction_10m,wind_gusts_10m"
 
         val DEFAULT_LOCATION = CzechLocation(
             name = "Praha",

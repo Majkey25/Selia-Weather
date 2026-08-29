@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Added worldwide place search, current location, exact coordinates, local timezone handling, and an interactive world map picker.
+- Kept ČHMÚ station correction and radar scoped to Czechia while routing other locations to models that cover them.
+- Clarified mainly-clear and partly-cloudy icons with a visible sun or Moon behind the cloud.
+- Added a verified six-model operational diagnostic feed pipeline with compressed, checksummed tiles.
+- Added an unreleased on-device model-consensus prototype. It uses a robust median only when at least three model values are present, derives rain probability and sky condition locally, and falls back to Best Match. It is not a production calibration or an accuracy claim.
+
 ## [0.2.0-beta.8] - 2026-08-29
 
 - Renamed the app to Selia Vetra and shortened the launcher label to Vetra.

@@ -258,4 +258,3 @@ feat(research): define static forecast feed
 - [ ] Verify GitHub Pages manifest/tile freshness and GitHub Actions status.
 - [ ] Bump version code/name, create checksums, commit, push, wait for CI, create the GitHub release, and submit Google Play production only after every gate passes.
 - [ ] Stop Gradle, test app processes, and temporary services. Preserve the repo, signed artifacts, research cache, and installed Play app.
-

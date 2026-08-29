@@ -15,6 +15,18 @@ class WeatherRepositoryTest {
         assertTrue(url.contains("timezone=auto"))
         assertFalse(url.contains("Europe%2FPrague"))
         assertFalse(url.contains("models="))
+        listOf(
+            "uv_index",
+            "freezing_level_height",
+            "boundary_layer_height",
+            "total_column_integrated_water_vapour",
+            "lifted_index",
+            "convective_inhibition",
+            "soil_temperature_0cm",
+            "soil_moisture_0_to_1cm",
+            "showers",
+            "uv_index_max",
+        ).forEach { field -> assertTrue("Missing $field", url.contains(field)) }
     }
 
     @Test

@@ -263,7 +263,9 @@ class WeatherRepository(context: Context) {
                 "snow_depth_water_equivalent,weather_code,cloud_cover,cloud_cover_low," +
                 "cloud_cover_mid,cloud_cover_high,visibility,pressure_msl,surface_pressure," +
                 "wind_speed_10m,wind_direction_10m,wind_gusts_10m,cape," +
-                "vapour_pressure_deficit,surface_temperature"
+                "vapour_pressure_deficit,surface_temperature,uv_index,freezing_level_height," +
+                "boundary_layer_height,total_column_integrated_water_vapour,lifted_index," +
+                "convective_inhibition,soil_temperature_0cm,soil_moisture_0_to_1cm,showers"
         private const val HOURLY_VARIABLES =
             "$CURRENT_VARIABLES,precipitation_probability,et0_fao_evapotranspiration"
         private const val DAILY_VARIABLES =
@@ -272,7 +274,7 @@ class WeatherRepository(context: Context) {
                 "precipitation_sum,rain_sum,snowfall_sum,precipitation_hours," +
                 "precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max," +
                 "wind_direction_10m_dominant,shortwave_radiation_sum," +
-                "et0_fao_evapotranspiration"
+                "et0_fao_evapotranspiration,uv_index_max"
 
         private const val MODEL_VARIABLES =
             "temperature_2m,relative_humidity_2m,dew_point_2m,apparent_temperature," +

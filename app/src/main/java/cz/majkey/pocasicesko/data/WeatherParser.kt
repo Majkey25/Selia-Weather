@@ -79,6 +79,33 @@ object WeatherParser {
                         ),
                         surfaceTemperature = hourlyJson.optionalDoubleAt("surface_temperature", index),
                         et0 = hourlyJson.optionalDoubleAt("et0_fao_evapotranspiration", index),
+                        uvIndex = hourlyJson.optionalFiniteDoubleAt("uv_index", index),
+                        freezingLevelHeightMeters = hourlyJson.optionalFiniteDoubleAt(
+                            "freezing_level_height",
+                            index,
+                        ),
+                        boundaryLayerHeightMeters = hourlyJson.optionalFiniteDoubleAt(
+                            "boundary_layer_height",
+                            index,
+                        ),
+                        integratedWaterVapour = hourlyJson.optionalFiniteDoubleAt(
+                            "total_column_integrated_water_vapour",
+                            index,
+                        ),
+                        liftedIndex = hourlyJson.optionalFiniteDoubleAt("lifted_index", index),
+                        convectiveInhibition = hourlyJson.optionalFiniteDoubleAt(
+                            "convective_inhibition",
+                            index,
+                        ),
+                        soilTemperature0Cm = hourlyJson.optionalFiniteDoubleAt(
+                            "soil_temperature_0cm",
+                            index,
+                        ),
+                        soilMoisture0To1Cm = hourlyJson.optionalFiniteDoubleAt(
+                            "soil_moisture_0_to_1cm",
+                            index,
+                        ),
+                        showers = hourlyJson.optionalFiniteDoubleAt("showers", index),
                     ),
                 )
             }
@@ -113,6 +140,17 @@ object WeatherParser {
                 cape = currentJson.optionalDouble("cape"),
                 vapourPressureDeficit = currentJson.optionalDouble("vapour_pressure_deficit"),
                 surfaceTemperature = currentJson.optionalDouble("surface_temperature"),
+                uvIndex = currentJson.optionalFiniteDouble("uv_index"),
+                freezingLevelHeightMeters = currentJson.optionalFiniteDouble("freezing_level_height"),
+                boundaryLayerHeightMeters = currentJson.optionalFiniteDouble("boundary_layer_height"),
+                integratedWaterVapour = currentJson.optionalFiniteDouble(
+                    "total_column_integrated_water_vapour",
+                ),
+                liftedIndex = currentJson.optionalFiniteDouble("lifted_index"),
+                convectiveInhibition = currentJson.optionalFiniteDouble("convective_inhibition"),
+                soilTemperature0Cm = currentJson.optionalFiniteDouble("soil_temperature_0cm"),
+                soilMoisture0To1Cm = currentJson.optionalFiniteDouble("soil_moisture_0_to_1cm"),
+                showers = currentJson.optionalFiniteDouble("showers"),
             ),
             hourly = hourly,
             daily = List(dailyTimes.length()) { index ->
@@ -142,6 +180,7 @@ object WeatherParser {
                     dominantWindDirection = dailyJson.optionalIntAt("wind_direction_10m_dominant", index),
                     shortwaveRadiationSum = dailyJson.optionalDoubleAt("shortwave_radiation_sum", index),
                     et0 = dailyJson.optionalDoubleAt("et0_fao_evapotranspiration", index),
+                    uvIndexMax = dailyJson.optionalFiniteDoubleAt("uv_index_max", index),
                 )
             },
             updatedAtEpochMillis = updatedAtEpochMillis,
@@ -185,6 +224,11 @@ object WeatherParser {
     private fun JSONObject.optionalDouble(name: String): Double? =
         if (!has(name) || isNull(name)) null else getDouble(name)
 
+    private fun JSONObject.optionalFiniteDouble(name: String): Double? =
+        optionalDouble(name)?.also { value ->
+            if (!value.isFinite()) throw JSONException("Hodnota $name není konečná.")
+        }
+
     private fun JSONObject.optionalInt(name: String): Int? =
         if (!has(name) || isNull(name)) null else getInt(name)
 
@@ -192,6 +236,11 @@ object WeatherParser {
         val values = optJSONArray(name) ?: return null
         return if (index >= values.length() || values.isNull(index)) null else values.getDouble(index)
     }
+
+    private fun JSONObject.optionalFiniteDoubleAt(name: String, index: Int): Double? =
+        optionalDoubleAt(name, index)?.also { value ->
+            if (!value.isFinite()) throw JSONException("Hodnota $name[$index] není konečná.")
+        }
 
     private fun JSONObject.optionalIntAt(name: String, index: Int): Int? {
         val values = optJSONArray(name) ?: return null

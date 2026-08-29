@@ -64,7 +64,12 @@ class WeatherParserTest {
                     "rain":0.2,"snowfall":0.0,"snow_depth_water_equivalent":0.0,
                     "cloud_cover_low":10,"cloud_cover_mid":20,"cloud_cover_high":30,
                     "visibility":24000.0,"surface_pressure":985.2,"cape":120.0,
-                    "vapour_pressure_deficit":0.7,"surface_temperature":20.4""".replace("\n", ""),
+                    "vapour_pressure_deficit":0.7,"surface_temperature":20.4,
+                    "uv_index":3.4,"freezing_level_height":2450.0,
+                    "boundary_layer_height":820.0,"total_column_integrated_water_vapour":18.2,
+                    "lifted_index":-1.5,"convective_inhibition":42.0,
+                    "soil_temperature_0cm":21.3,"soil_moisture_0_to_1cm":0.24,
+                    "showers":0.7""".replace("\n", ""),
             )
             .replace(
                 "\"is_day\":[1,1]",
@@ -76,7 +81,13 @@ class WeatherParserTest {
                     "visibility":[24000.0,25000.0],"surface_pressure":[985.2,984.9],
                     "wind_gusts_10m":[16.2,17.0],"cape":[120.0,140.0],
                     "vapour_pressure_deficit":[0.7,0.8],"surface_temperature":[20.4,21.1],
-                    "et0_fao_evapotranspiration":[0.1,0.2]""".replace("\n", ""),
+                    "et0_fao_evapotranspiration":[0.1,0.2],"uv_index":[3.4,3.6],
+                    "freezing_level_height":[2450.0,2500.0],
+                    "boundary_layer_height":[820.0,850.0],
+                    "total_column_integrated_water_vapour":[18.2,18.4],
+                    "lifted_index":[-1.5,-1.2],"convective_inhibition":[42.0,40.0],
+                    "soil_temperature_0cm":[21.3,21.5],
+                    "soil_moisture_0_to_1cm":[0.24,0.25],"showers":[0.7,0.0]""".replace("\n", ""),
             )
             .replace(
                 "\"wind_speed_10m_max\":[16.6]",
@@ -85,7 +96,7 @@ class WeatherParserTest {
                     "sunshine_duration":[32000.0],"rain_sum":[0.2],"snowfall_sum":[0.0],
                     "precipitation_hours":[1.0],"wind_gusts_10m_max":[24.0],
                     "wind_direction_10m_dominant":[45],"shortwave_radiation_sum":[18.4],
-                    "et0_fao_evapotranspiration":[2.8]""".replace("\n", ""),
+                    "et0_fao_evapotranspiration":[2.8],"uv_index_max":[5.2]""".replace("\n", ""),
             )
 
         val snapshot = WeatherParser.parseForecast(advanced, updatedAtEpochMillis = 123L)
@@ -96,7 +107,28 @@ class WeatherParserTest {
         assertEquals(0.1, requireNotNull(snapshot.hourly.first().et0), 0.0)
         assertEquals(50000.0, requireNotNull(snapshot.daily.first().daylightDurationSeconds), 0.0)
         assertEquals(24.0, requireNotNull(snapshot.daily.first().windGustsMax), 0.0)
+        assertEquals(3.4, requireNotNull(snapshot.current.uvIndex), 0.0)
+        assertEquals(2450.0, requireNotNull(snapshot.current.freezingLevelHeightMeters), 0.0)
+        assertEquals(820.0, requireNotNull(snapshot.current.boundaryLayerHeightMeters), 0.0)
+        assertEquals(18.2, requireNotNull(snapshot.current.integratedWaterVapour), 0.0)
+        assertEquals(-1.5, requireNotNull(snapshot.current.liftedIndex), 0.0)
+        assertEquals(42.0, requireNotNull(snapshot.current.convectiveInhibition), 0.0)
+        assertEquals(21.3, requireNotNull(snapshot.current.soilTemperature0Cm), 0.0)
+        assertEquals(0.24, requireNotNull(snapshot.current.soilMoisture0To1Cm), 0.0)
+        assertEquals(0.7, requireNotNull(snapshot.current.showers), 0.0)
+        assertEquals(3.4, requireNotNull(snapshot.hourly.first().uvIndex), 0.0)
+        assertEquals(5.2, requireNotNull(snapshot.daily.first().uvIndexMax), 0.0)
         assertEquals(null, WeatherParser.parseForecast(VALID_FORECAST, 123L).current.dewPoint)
+    }
+
+    @Test
+    fun keepsMissingDetailNullAndRejectsPresentNonFiniteDetail() {
+        assertEquals(null, WeatherParser.parseForecast(VALID_FORECAST, 123L).current.uvIndex)
+        val nonFinite = VALID_FORECAST.replace("\"is_day\":1", "\"is_day\":1,\"uv_index\":\"NaN\"")
+
+        assertThrows(JSONException::class.java) {
+            WeatherParser.parseForecast(nonFinite, updatedAtEpochMillis = 123L)
+        }
     }
 
     @Test

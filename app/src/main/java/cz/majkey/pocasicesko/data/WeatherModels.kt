@@ -34,6 +34,15 @@ data class CurrentWeather(
     val cape: Double? = null,
     val vapourPressureDeficit: Double? = null,
     val surfaceTemperature: Double? = null,
+    val uvIndex: Double? = null,
+    val freezingLevelHeightMeters: Double? = null,
+    val boundaryLayerHeightMeters: Double? = null,
+    val integratedWaterVapour: Double? = null,
+    val liftedIndex: Double? = null,
+    val convectiveInhibition: Double? = null,
+    val soilTemperature0Cm: Double? = null,
+    val soilMoisture0To1Cm: Double? = null,
+    val showers: Double? = null,
 )
 
 data class HourlyWeather(
@@ -63,6 +72,15 @@ data class HourlyWeather(
     val vapourPressureDeficit: Double? = null,
     val surfaceTemperature: Double? = null,
     val et0: Double? = null,
+    val uvIndex: Double? = null,
+    val freezingLevelHeightMeters: Double? = null,
+    val boundaryLayerHeightMeters: Double? = null,
+    val integratedWaterVapour: Double? = null,
+    val liftedIndex: Double? = null,
+    val convectiveInhibition: Double? = null,
+    val soilTemperature0Cm: Double? = null,
+    val soilMoisture0To1Cm: Double? = null,
+    val showers: Double? = null,
 )
 
 data class DailyWeather(
@@ -86,6 +104,7 @@ data class DailyWeather(
     val dominantWindDirection: Int? = null,
     val shortwaveRadiationSum: Double? = null,
     val et0: Double? = null,
+    val uvIndexMax: Double? = null,
 )
 
 data class WeatherSnapshot(

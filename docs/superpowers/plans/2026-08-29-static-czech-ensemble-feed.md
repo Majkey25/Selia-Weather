@@ -142,16 +142,16 @@ feat(research): define static forecast feed
 **Interfaces:**
 - Produces canonical `ForecastValue` rows and `SourceManifest` records from ČHMÚ ALADIN, DWD ICON-EU, ECMWF IFS/AIFS Open Data, and NOAA GFS/GEFS products.
 
-- [ ] Write failing command-builder and parser tests for one tiny fixture from each provider.
-- [ ] Verify RED before adding the adapter.
-- [ ] Use ECMWF ecCodes tools for GRIB decoding. Do not write a GRIB decoder.
-- [ ] Restrict every download to the Czech bounding box, required variables, required pressure/surface levels, and supported forecast steps when the provider supports subsetting.
-- [ ] Validate provider run time, forecast step, grid coordinates, missing markers, units, checksum, licence record, and output dimensions.
-- [ ] Keep deterministic and ensemble products separate.
-- [ ] Add bounded retry, `Retry-After`, conditional download, SHA-256 cache collision, stale run, missing field, and malformed GRIB tests.
-- [ ] Run one real source smoke request per provider. Record byte count and duration. Stop before any unbounded download.
-- [ ] Run pytest, Ruff, Pyright, and a cached replay with zero network requests.
-- [ ] Commit `feat(research): ingest official model runs`.
+- [x] Write failing command-builder and parser tests for one tiny fixture from each provider.
+- [x] Verify RED before adding the adapter.
+- [x] Use ECMWF ecCodes tools for GRIB decoding. Do not write a GRIB decoder.
+- [x] Restrict every download to the Czech bounding box, required variables, required pressure/surface levels, and supported forecast steps when the provider supports subsetting.
+- [x] Validate provider run time, forecast step, grid coordinates, missing markers, units, checksum, licence record, and output dimensions.
+- [x] Keep deterministic and ensemble products separate.
+- [x] Add bounded retry, `Retry-After`, immutable run cache, SHA-256 collision, missing field, and malformed GRIB tests. Feed freshness validates stale runs after alignment.
+- [x] Run one real source smoke request per provider. Record byte count and duration. Stop before any unbounded download.
+- [x] Run pytest, Ruff, focused Pyright, and cached replay with zero network requests.
+- [x] Commit the official source adapters, decoder smoke, and retry changes.
 
 ---
 

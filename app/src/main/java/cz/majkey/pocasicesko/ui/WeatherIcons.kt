@@ -6,7 +6,6 @@ import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Dehaze
-import androidx.compose.material.icons.rounded.FilterDrama
 import androidx.compose.material.icons.rounded.WaterDrop
 import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material3.Icon
@@ -28,18 +27,21 @@ fun WeatherIcon(
     modifier: Modifier = Modifier,
     tint: Color = Color.White,
 ) {
-    if (kind == WeatherKind.MAINLY_CLEAR) {
+    if (kind == WeatherKind.MAINLY_CLEAR || kind == WeatherKind.PARTLY_CLOUDY) {
+        val cloudFraction = if (kind == WeatherKind.MAINLY_CLEAR) 0.50f else 0.64f
+        val sunOrMoonFraction = if (kind == WeatherKind.MAINLY_CLEAR) 0.84f else 0.78f
+        val sunOrMoonTint = if (isDay) Color(0xFFFFD477) else Color(0xFFDDE6FF)
         Box(modifier.semantics { this.contentDescription = contentDescription }) {
             Icon(
                 imageVector = if (isDay) Icons.Rounded.WbSunny else Icons.Rounded.DarkMode,
                 contentDescription = null,
-                modifier = Modifier.fillMaxSize(0.82f).align(Alignment.TopStart),
-                tint = tint,
+                modifier = Modifier.fillMaxSize(sunOrMoonFraction).align(Alignment.TopStart),
+                tint = sunOrMoonTint,
             )
             Icon(
                 imageVector = Icons.Rounded.Cloud,
                 contentDescription = null,
-                modifier = Modifier.fillMaxSize(0.56f).align(Alignment.BottomEnd),
+                modifier = Modifier.fillMaxSize(cloudFraction).align(Alignment.BottomEnd),
                 tint = tint,
             )
         }
@@ -48,7 +50,7 @@ fun WeatherIcon(
     val icon = when (kind) {
         WeatherKind.CLEAR -> if (isDay) Icons.Rounded.WbSunny else Icons.Rounded.DarkMode
         WeatherKind.MAINLY_CLEAR -> error("Handled above")
-        WeatherKind.PARTLY_CLOUDY -> Icons.Rounded.FilterDrama
+        WeatherKind.PARTLY_CLOUDY -> error("Handled above")
         WeatherKind.CLOUDY -> Icons.Rounded.Cloud
         WeatherKind.FOG -> Icons.Rounded.Dehaze
         WeatherKind.RAIN -> Icons.Rounded.WaterDrop

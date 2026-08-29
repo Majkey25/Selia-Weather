@@ -18,12 +18,20 @@ import cz.majkey.pocasicesko.data.REGION_SOUTH_BOHEMIAN
 import cz.majkey.pocasicesko.data.REGION_SOUTH_MORAVIAN
 import cz.majkey.pocasicesko.data.REGION_USTI_NAD_LABEM
 import cz.majkey.pocasicesko.data.REGION_VYSOCINA
+import cz.majkey.pocasicesko.data.REGION_WORLD
 import cz.majkey.pocasicesko.data.REGION_ZLIN
 
 @Composable
-internal fun CzechLocation.localizedRegion(): String = stringResource(regionLabelResource(region))
+internal fun CzechLocation.localizedRegion(): String = when (val resource = regionLabelResourceOrNull(region)) {
+    null -> region
+    else -> stringResource(resource)
+}
 
-internal fun regionLabelResource(region: String): Int = when (region) {
+internal fun regionLabelResource(region: String): Int =
+    regionLabelResourceOrNull(region) ?: R.string.location_region_world
+
+private fun regionLabelResourceOrNull(region: String): Int? = when (region) {
+    REGION_WORLD -> R.string.location_region_world
     REGION_PRAGUE -> R.string.location_region_prague
     REGION_CENTRAL_BOHEMIA -> R.string.location_region_central_bohemia
     REGION_SOUTH_BOHEMIAN -> R.string.location_region_south_bohemian
@@ -38,5 +46,6 @@ internal fun regionLabelResource(region: String): Int = when (region) {
     REGION_OLOMOUC -> R.string.location_region_olomouc
     REGION_ZLIN -> R.string.location_region_zlin
     REGION_MORAVIAN_SILESIAN -> R.string.location_region_moravian_silesian
-    else -> R.string.location_region_czechia
+    REGION_CZECHIA -> R.string.location_region_czechia
+    else -> null
 }

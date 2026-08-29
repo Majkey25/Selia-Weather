@@ -9,10 +9,13 @@ import cz.majkey.pocasicesko.locale.AppLocale
 import cz.majkey.pocasicesko.widget.WeatherWidgetProvider
 import java.io.IOException
 import java.net.HttpURLConnection
+import java.net.URLEncoder
 import java.net.URL
+import java.nio.charset.StandardCharsets
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
+import java.util.Locale
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -29,6 +32,7 @@ class WeatherRepository(context: Context) {
             region = preferences.getString(KEY_LOCATION_REGION, null) ?: DEFAULT_LOCATION.region,
             latitude = preferences.getString(KEY_LOCATION_LATITUDE, null)?.toDoubleOrNull() ?: DEFAULT_LOCATION.latitude,
             longitude = preferences.getString(KEY_LOCATION_LONGITUDE, null)?.toDoubleOrNull() ?: DEFAULT_LOCATION.longitude,
+            countryCode = preferences.getString(KEY_LOCATION_COUNTRY_CODE, null),
         )
         return normalizeLocationRegion(location).also { normalized ->
             if (normalized != location) selectLocation(normalized)
@@ -42,6 +46,8 @@ class WeatherRepository(context: Context) {
             putString(KEY_LOCATION_REGION, normalized.region)
             putString(KEY_LOCATION_LATITUDE, normalized.latitude.toString())
             putString(KEY_LOCATION_LONGITUDE, normalized.longitude.toString())
+            normalized.countryCode?.let { putString(KEY_LOCATION_COUNTRY_CODE, it) }
+                ?: remove(KEY_LOCATION_COUNTRY_CODE)
         }
     }
 
@@ -96,7 +102,11 @@ class WeatherRepository(context: Context) {
         val observedCurrent = fuseCurrentConditions(
             model = modelSnapshot.current,
             location = location,
-            observations = currentConditions.fetch(location, now),
+            observations = if (location.isInCzechia()) {
+                currentConditions.fetch(location, now)
+            } else {
+                emptyList()
+            },
             now = now,
         )
         val correctedJson = applyCurrentConditionsToForecastJson(forecastJson, observedCurrent)
@@ -110,22 +120,9 @@ class WeatherRepository(context: Context) {
         val cleanedQuery = query.trim()
         if (cleanedQuery.length < MINIMUM_SEARCH_LENGTH) return@withContext emptyList()
 
-        val root = JSONObject(request(geocodingUri(cleanedQuery).toString()))
-        val results = root.optJSONArray("results") ?: return@withContext emptyList()
-        buildList {
-            for (index in 0 until results.length()) {
-                val result = results.getJSONObject(index)
-                if (result.optString("country_code") != "CZ") continue
-                add(
-                    CzechLocation(
-                        name = result.getString("name"),
-                        region = regionKeyForAdmin1Id(result.optInt("admin1_id")),
-                        latitude = result.getDouble("latitude"),
-                        longitude = result.getDouble("longitude"),
-                    ),
-                )
-            }
-        }
+        parseLocationSearchResults(
+            request(geocodingUrl(cleanedQuery, AppLocale.languageTag(appContext))),
+        )
     }
 
     private fun persist(location: CzechLocation, json: String, snapshot: WeatherSnapshot) {
@@ -194,26 +191,18 @@ class WeatherRepository(context: Context) {
         }
     }
 
-    private fun geocodingUri(query: String): Uri = Uri.Builder()
-        .scheme("https")
-        .authority("geocoding-api.open-meteo.com")
-        .appendPath("v1")
-        .appendPath("search")
-        .appendQueryParameter("name", query)
-        .appendQueryParameter("count", "8")
-        .appendQueryParameter("language", AppLocale.languageTag(appContext))
-        .appendQueryParameter("countryCode", "CZ")
-        .appendQueryParameter("format", "json")
-        .build()
-
     companion object {
         internal fun forecastUri(location: CzechLocation): Uri = Uri.parse(forecastUrl(location))
 
         internal fun forecastUrl(location: CzechLocation): String =
             "https://api.open-meteo.com/v1/forecast?latitude=${location.latitude}" +
                 "&longitude=${location.longitude}&forecast_days=14&past_days=7" +
-                "&timezone=Europe%2FPrague&current=$CURRENT_VARIABLES&hourly=$HOURLY_VARIABLES" +
+                "&timezone=auto&current=$CURRENT_VARIABLES&hourly=$HOURLY_VARIABLES" +
                 "&daily=$DAILY_VARIABLES"
+
+        internal fun geocodingUrl(query: String, languageTag: String): String =
+            "https://geocoding-api.open-meteo.com/v1/search" +
+                "?name=${query.urlEncoded()}&count=8&language=${languageTag.urlEncoded()}&format=json"
 
         const val PREFERENCES_NAME = "weather"
         const val KEY_WIDGET_CITY = "widget_city"
@@ -240,6 +229,7 @@ class WeatherRepository(context: Context) {
         private const val KEY_LOCATION_REGION = "location_region"
         private const val KEY_LOCATION_LATITUDE = "location_latitude"
         private const val KEY_LOCATION_LONGITUDE = "location_longitude"
+        private const val KEY_LOCATION_COUNTRY_CODE = "location_country_code"
         private const val KEY_CACHE_JSON = "cache_json"
         private const val KEY_CACHE_LATITUDE = "cache_latitude"
         private const val KEY_CACHE_LONGITUDE = "cache_longitude"
@@ -274,6 +264,38 @@ class WeatherRepository(context: Context) {
             region = REGION_PRAGUE,
             latitude = 50.0755,
             longitude = 14.4378,
+            countryCode = "CZ",
         )
+    }
+}
+
+private fun String.urlEncoded(): String = URLEncoder.encode(this, StandardCharsets.UTF_8.toString())
+
+internal fun parseLocationSearchResults(json: String): List<CzechLocation> {
+    val results = JSONObject(json).optJSONArray("results") ?: return emptyList()
+    return buildList {
+        for (index in 0 until results.length()) {
+            val result = results.optJSONObject(index) ?: continue
+            val name = result.optString("name").trim()
+            val countryCode = result.optString("country_code")
+                .trim()
+                .uppercase(Locale.ROOT)
+                .takeIf { it.length == 2 && it.all(Char::isLetter) }
+            val latitude = result.optDouble("latitude", Double.NaN)
+            val longitude = result.optDouble("longitude", Double.NaN)
+            if (name.isEmpty() || countryCode == null || !latitude.isFinite() || !longitude.isFinite() ||
+                latitude !in -90.0..90.0 || longitude !in -180.0..180.0
+            ) {
+                continue
+            }
+            val region = if (countryCode == "CZ") {
+                regionKeyForAdmin1Id(result.optInt("admin1_id"))
+            } else {
+                result.optString("admin1").trim()
+                    .ifEmpty { result.optString("country").trim() }
+                    .ifEmpty { REGION_WORLD }
+            }
+            add(CzechLocation(name, region, latitude, longitude, countryCode))
+        }
     }
 }

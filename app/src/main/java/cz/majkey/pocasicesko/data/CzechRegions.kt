@@ -3,6 +3,7 @@ package cz.majkey.pocasicesko.data
 import java.util.Locale
 
 const val REGION_CZECHIA = "REGION_CZECHIA"
+const val REGION_WORLD = "REGION_WORLD"
 const val REGION_PRAGUE = "REGION_PRAGUE"
 const val REGION_CENTRAL_BOHEMIA = "REGION_CENTRAL_BOHEMIA"
 const val REGION_SOUTH_BOHEMIAN = "REGION_SOUTH_BOHEMIAN"
@@ -39,8 +40,29 @@ internal fun regionKeyForAdmin1Id(admin1Id: Int): String = when (admin1Id) {
 internal fun normalizeRegionKey(region: String): String = REGION_ALIASES[region.trim().lowercase(Locale.ROOT)]
     ?: REGION_CZECHIA
 
-internal fun normalizeLocationRegion(location: CzechLocation): CzechLocation =
-    location.copy(region = normalizeRegionKey(location.region))
+internal fun normalizeLocationRegion(location: CzechLocation): CzechLocation {
+    val czechRegion = REGION_ALIASES[location.region.trim().lowercase(Locale.ROOT)]
+    val region = when {
+        !location.countryCode.isNullOrBlank() &&
+            !location.countryCode.equals("CZ", ignoreCase = true) -> {
+            location.region.trim().ifEmpty { REGION_WORLD }
+        }
+        location.countryCode.equals("CZ", ignoreCase = true) -> czechRegion ?: REGION_CZECHIA
+        location.countryCode == null && location.region != REGION_WORLD &&
+            location.latitude in CZECH_LATITUDE && location.longitude in CZECH_LONGITUDE -> {
+            czechRegion ?: REGION_CZECHIA
+        }
+        czechRegion != null -> czechRegion
+        else -> location.region.trim().ifEmpty { REGION_WORLD }
+    }
+    return location.copy(region = region)
+}
+
+internal fun CzechLocation.isInCzechia(): Boolean {
+    val code = countryCode?.trim()
+    if (!code.isNullOrEmpty()) return code.equals("CZ", ignoreCase = true)
+    return normalizeLocationRegion(this).region in CZECH_REGION_KEYS
+}
 
 private val REGION_ALIASES = buildMap {
     fun aliases(key: String, vararg labels: String) {
@@ -68,3 +90,7 @@ private val REGION_ALIASES = buildMap {
     aliases(REGION_ZLIN, "Zlín", "Zlín Region", "Zlínský kraj", "Region Zlín", "Región de Zlín", "Région de Zlín")
     aliases(REGION_MORAVIAN_SILESIAN, "Moravian-Silesian Region", "Moravskoslezský kraj", "Mährisch-Schlesische Region", "Región de Moravia-Silesia", "Région de Moravie-Silésie")
 }
+
+private val CZECH_REGION_KEYS = REGION_ALIASES.values.toSet()
+private val CZECH_LATITUDE = 48.45..51.2
+private val CZECH_LONGITUDE = 11.9..19.0

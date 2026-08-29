@@ -5,6 +5,7 @@ data class CzechLocation(
     val region: String,
     val latitude: Double,
     val longitude: Double,
+    val countryCode: String? = null,
 )
 
 data class CurrentWeather(

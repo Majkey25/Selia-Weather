@@ -76,7 +76,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
 import cz.majkey.pocasicesko.data.CzechLocation
 import cz.majkey.pocasicesko.data.DeviceLocationRepository
-import cz.majkey.pocasicesko.data.LocationOutsideCzechiaException
 import cz.majkey.pocasicesko.data.LocationPermissionException
 import cz.majkey.pocasicesko.data.SystemLocationDisabledException
 import cz.majkey.pocasicesko.data.WeatherKind
@@ -471,16 +470,14 @@ private fun LocationSearchSheet(
     val scope = rememberCoroutineScope()
     val locationPermissionRequired = stringResource(R.string.location_permission_required)
     val locationLookupFailed = stringResource(R.string.location_lookup_failed)
-    val locationOutsideCzechia = stringResource(R.string.location_outside_czechia)
     val enableSystemLocation = stringResource(R.string.enable_system_location)
     val favoriteLimit = stringResource(R.string.favorite_limit)
     val searchFailed = stringResource(R.string.search_failed)
-    val searchInCzechia = stringResource(R.string.search_in_czechia)
+    val searchWorldwide = stringResource(R.string.search_in_czechia)
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     fun locationError(failure: Exception): String = when (failure) {
         is LocationPermissionException -> locationPermissionRequired
-        is LocationOutsideCzechiaException -> locationOutsideCzechia
         is SystemLocationDisabledException -> enableSystemLocation
         else -> locationLookupFailed
     }
@@ -699,7 +696,7 @@ private fun LocationSearchSheet(
             }
 
             Text(
-                searchInCzechia,
+                searchWorldwide,
                 modifier = Modifier.padding(top = 14.dp, bottom = 8.dp),
                 color = Color.White.copy(alpha = 0.58f),
                 fontSize = 12.sp,
@@ -710,7 +707,7 @@ private fun LocationSearchSheet(
                 onValueChange = { query = it },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .semantics { contentDescription = searchInCzechia },
+                    .semantics { contentDescription = searchWorldwide },
                 label = { Text(stringResource(R.string.city_or_municipality)) },
                 leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
                 singleLine = true,

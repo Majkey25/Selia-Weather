@@ -1,6 +1,7 @@
 package cz.majkey.pocasicesko.ui
 
 import cz.majkey.pocasicesko.data.REGION_CZECHIA
+import cz.majkey.pocasicesko.data.REGION_WORLD
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -22,8 +23,19 @@ class PinnedLocationTest {
     fun rejectsMalformedNonFiniteAndOutsideCoordinates() {
         assertNull(pinnedLocationOrNull("Field", "north", "14.4"))
         assertNull(pinnedLocationOrNull("Field", "NaN", "14.4"))
-        assertNull(pinnedLocationOrNull("Field", "50.0", "11.0"))
+        assertNull(pinnedLocationOrNull("Field", "91.0", "14.4"))
+        assertNull(pinnedLocationOrNull("Field", "50.0", "181.0"))
         assertNull(pinnedLocationOrNull(" ", "50.0", "14.4"))
+    }
+
+    @Test
+    fun acceptsNamedCoordinatesWorldwide() {
+        val location = pinnedLocationOrNull("Manhattan", "40.7128", "-74.0060")
+
+        requireNotNull(location)
+        assertEquals(REGION_WORLD, location.region)
+        assertEquals(40.7128, location.latitude, 0.0)
+        assertEquals(-74.006, location.longitude, 0.0)
     }
 
     @Test

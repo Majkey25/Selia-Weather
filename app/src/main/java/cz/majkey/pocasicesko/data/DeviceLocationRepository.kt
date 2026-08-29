@@ -16,6 +16,7 @@ import androidx.core.content.ContextCompat
 import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.locale.AppLocale
 import java.io.IOException
+import java.util.Locale
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.Dispatchers
@@ -46,9 +47,6 @@ class DeviceLocationRepository(context: Context) {
     suspend fun currentLocation(): CzechLocation {
         if (!hasLocationPermission()) throw LocationPermissionException()
         val location = recentLastKnownLocation() ?: requestSingleLocation()
-        if (location.latitude !in CZECH_LATITUDE || location.longitude !in CZECH_LONGITUDE) {
-            throw LocationOutsideCzechiaException()
-        }
         return withContext(Dispatchers.IO) { resolveName(location) }
     }
 
@@ -139,9 +137,15 @@ class DeviceLocationRepository(context: Context) {
             ?: adminArea?.takeIf { it == "Hlavní město Praha" }?.let { "Praha" }
             ?: address?.subAdminArea
             ?: adminArea
-            ?: "Czechia"
-        val region = regionKeyForAdminArea(adminArea)
-        return CzechLocation(name, region, location.latitude, location.longitude)
+            ?: address?.countryName
+            ?: "${location.latitude.formatCoordinate()}, ${location.longitude.formatCoordinate()}"
+        val countryCode = address?.countryCode?.uppercase(Locale.ROOT)
+        val region = if (countryCode == "CZ") {
+            regionKeyForAdminArea(adminArea)
+        } else {
+            adminArea ?: address?.subAdminArea ?: address?.countryName ?: REGION_WORLD
+        }
+        return CzechLocation(name, region, location.latitude, location.longitude, countryCode)
     }
 
     private fun regionKeyForAdminArea(adminArea: String?): String {
@@ -167,8 +171,6 @@ class DeviceLocationRepository(context: Context) {
     }
 
     companion object {
-        private val CZECH_LATITUDE = 48.45..51.2
-        private val CZECH_LONGITUDE = 11.9..19.0
         private const val MAX_LAST_KNOWN_AGE_MILLIS = 30 * 60 * 1000L
         private const val LOCATION_TIMEOUT_MILLIS = 15_000L
     }
@@ -184,6 +186,6 @@ sealed class DeviceLocationException : IOException()
 
 class LocationPermissionException : DeviceLocationException()
 
-class LocationOutsideCzechiaException : DeviceLocationException()
-
 class SystemLocationDisabledException : DeviceLocationException()
+
+private fun Double.formatCoordinate(): String = String.format(Locale.ROOT, "%.4f", this)

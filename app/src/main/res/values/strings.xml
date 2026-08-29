@@ -119,6 +119,7 @@
     <string name="current_location">Current location</string>
     <string name="favorites">Favorites</string>
     <string name="location_region_czechia">Czechia</string>
+    <string name="location_region_world">Worldwide</string>
     <string name="location_region_prague">Capital City of Prague</string>
     <string name="location_region_central_bohemia">Central Bohemian Region</string>
     <string name="location_region_south_bohemian">South Bohemian Region</string>
@@ -133,9 +134,9 @@
     <string name="location_region_olomouc">Olomouc Region</string>
     <string name="location_region_zlin">Zlín Region</string>
     <string name="location_region_moravian_silesian">Moravian-Silesian Region</string>
-    <string name="search_in_czechia">Search in Czechia</string>
-    <string name="city_or_municipality">City or municipality</string>
-    <string name="no_czech_result">No result found in Czechia</string>
+    <string name="search_in_czechia">Search worldwide</string>
+    <string name="city_or_municipality">City or place</string>
+    <string name="no_czech_result">No result found</string>
     <string name="toggle_favorite">Toggle favorite</string>
     <string name="add_favorite">Add favorite</string>
     <string name="remove_favorite">Remove favorite</string>
@@ -143,7 +144,6 @@
     <string name="location_permission_required">Location permission is required</string>
     <string name="location_lookup_failed">Could not determine location</string>
     <string name="search_failed">Search failed</string>
-    <string name="location_outside_czechia">Location is outside Czechia</string>
     <string name="enable_system_location">Enable system location</string>
     <string name="favorite_limit">Favorite limit reached</string>
     <string name="server_error">Server error. Try again later.</string>

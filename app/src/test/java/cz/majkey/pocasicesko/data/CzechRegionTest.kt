@@ -3,6 +3,8 @@ package cz.majkey.pocasicesko.data
 import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.ui.regionLabelResource
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CzechRegionTest {
@@ -44,6 +46,19 @@ class CzechRegionTest {
 
         assertEquals(REGION_PRAGUE, normalizeLocationRegion(location).region)
         assertEquals(R.string.location_region_prague, regionLabelResource(REGION_PRAGUE))
+    }
+
+    @Test
+    fun preservesForeignRegionAndRoutesChmiOnlyForCzechia() {
+        val berlin = CzechLocation("Berlin", "Berlin", 52.52, 13.405, countryCode = "DE")
+        val foreignPrague = CzechLocation("Prague", "Prague", 35.49, -96.69, countryCode = "US")
+        val prague = CzechLocation("Praha", REGION_PRAGUE, 50.0755, 14.4378, countryCode = "CZ")
+
+        assertEquals("Berlin", normalizeLocationRegion(berlin).region)
+        assertEquals("Prague", normalizeLocationRegion(foreignPrague).region)
+        assertEquals(R.string.location_region_world, regionLabelResource(REGION_WORLD))
+        assertFalse(berlin.isInCzechia())
+        assertTrue(prague.isInCzechia())
     }
 
     @Test

@@ -118,6 +118,7 @@ def load_operational_values(
     if len(elevation_message) != 1:
         raise ValueError("DWD elevation field must contain one message")
     elevations = elevation_by_point(elevation_message[0])
+    chmi_points = operational_points_for_model("chmi_aladin_cz_1km", points)
 
     rows: list[ForecastValue] = []
     rows.extend(
@@ -134,7 +135,9 @@ def load_operational_values(
             point_index=dwd_index,
         )
     )
-    rows.extend(_load_chmi(run_time, points, elevations, lead_hours, cache_root / "chmi"))
+    rows.extend(
+        _load_chmi(run_time, chmi_points, elevations, lead_hours, cache_root / "chmi")
+    )
     rows.extend(
         _load_sampled_model(
             "noaa_gfs",
@@ -176,8 +179,27 @@ def load_operational_values(
             )
         )
     result = tuple(rows)
-    validate_operational_values(result, points, lead_hours)
+    validate_operational_values(
+        result,
+        points,
+        lead_hours,
+        model_point_counts={"chmi_aladin_cz_1km": len(chmi_points)},
+    )
     return result
+
+
+def operational_points_for_model(
+    model_id: str,
+    points: tuple[GeoPoint, ...],
+) -> tuple[GeoPoint, ...]:
+    if model_id == "chmi_aladin_cz_1km":
+        return tuple(
+            point
+            for point in points
+            if CHMI_LATITUDE[0] <= point.latitude <= CHMI_LATITUDE[1]
+            and CHMI_LONGITUDE[0] <= point.longitude <= CHMI_LONGITUDE[1]
+        )
+    return points
 
 
 def _load_sampled_model(
@@ -261,17 +283,28 @@ def validate_operational_values(
     values: tuple[ForecastValue, ...],
     points: tuple[GeoPoint, ...],
     lead_hours: tuple[int, ...],
+    *,
+    model_point_counts: Mapping[str, int] | None = None,
 ) -> None:
-    expected_per_model = len(points) * len(lead_hours) * len(CANONICAL_FIELDS)
     counts = {model_id: 0 for model_id in MODEL_IDS}
     for value in values:
         if value.model_id not in counts or value.variable not in CANONICAL_FIELDS:
             raise ValueError("operational feed contains an unexpected model or variable")
         counts[value.model_id] += 1
+    expected = {
+        model_id: (model_point_counts or {}).get(model_id, len(points))
+        * len(lead_hours)
+        * len(CANONICAL_FIELDS)
+        for model_id in MODEL_IDS
+    }
     incomplete = {
         model_id: count
         for model_id, count in counts.items()
-        if count != expected_per_model
+        if count != expected[model_id]
     }
     if incomplete:
         raise ValueError(f"operational feed is incomplete: {incomplete}")
+
+
+CHMI_LATITUDE = (48.551, 51.056)
+CHMI_LONGITUDE = (12.09, 18.86)

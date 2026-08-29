@@ -7,6 +7,7 @@ import pytest
 from aladin_ensemble.operational_feed import (
     MODEL_IDS,
     latest_complete_cycle,
+    operational_points_for_model,
     select_lead_messages,
     validate_operational_values,
 )
@@ -80,3 +81,15 @@ def test_operational_validator_rejects_any_partial_model() -> None:
     validate_operational_values(values, (point,), (0,))
     with pytest.raises(ValueError, match="incomplete"):
         validate_operational_values(values[:-1], (point,), (0,))
+
+
+def test_aladin_uses_only_its_official_domain_without_shrinking_other_models() -> None:
+    points = (
+        GeoPoint(48.45, 11.9),
+        GeoPoint(48.6, 12.1),
+        GeoPoint(51.05, 18.85),
+        GeoPoint(51.2, 19.0),
+    )
+
+    assert operational_points_for_model("chmi_aladin_cz_1km", points) == points[1:3]
+    assert operational_points_for_model("noaa_gfs", points) == points

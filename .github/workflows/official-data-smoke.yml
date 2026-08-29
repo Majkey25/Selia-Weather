@@ -1,0 +1,54 @@
+name: Official data smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_date:
+        description: Run date for DWD, NOAA, IFS, and AIFS in YYYYMMDD format
+        required: true
+        type: string
+      run_hour:
+        description: UTC cycle for short and medium-range models
+        required: true
+        default: "00"
+        type: choice
+        options: ["00", "06", "12", "18"]
+      gefs_date:
+        description: Complete GEFS 00Z date in YYYYMMDD format
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.12.5"
+
+      - name: Install ecCodes
+        run: sudo apt-get update && sudo apt-get install --yes libeccodes-tools
+
+      - name: Install locked research environment
+        run: uv sync --project research --frozen
+
+      - name: Decode official model fields
+        working-directory: research
+        shell: bash
+        run: |
+          uv run python -m aladin_ensemble.sources.official_smoke --source dwd --date "${{ inputs.run_date }}" --hour "${{ inputs.run_hour }}" --lead 0 --cache-root "$RUNNER_TEMP/official-smoke"
+          uv run python -m aladin_ensemble.sources.official_smoke --source noaa --date "${{ inputs.run_date }}" --hour "${{ inputs.run_hour }}" --lead 3 --cache-root "$RUNNER_TEMP/official-smoke"
+          uv run python -m aladin_ensemble.sources.official_smoke --source ifs --date "${{ inputs.run_date }}" --hour "${{ inputs.run_hour }}" --lead 3 --cache-root "$RUNNER_TEMP/official-smoke"
+          uv run python -m aladin_ensemble.sources.official_smoke --source aifs --date "${{ inputs.run_date }}" --hour "${{ inputs.run_hour }}" --lead 6 --cache-root "$RUNNER_TEMP/official-smoke"
+          uv run python -m aladin_ensemble.sources.official_smoke --source gefs-mean --date "${{ inputs.gefs_date }}" --hour 0 --lead 840 --cache-root "$RUNNER_TEMP/official-smoke"

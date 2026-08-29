@@ -14,12 +14,13 @@ The app checks active Google Play purchases when Billing connects and when the a
 
 ## Location
 
-Approximate and precise location permissions are optional. After you select **Use my location**, the app reads coordinates, checks that they are in Czechia, and sends them to Open-Meteo over HTTPS to request a forecast. Android's system Geocoder can also receive the coordinates to name the place. The app does not track location in the background.
+Approximate and precise location permissions are optional. After you select **Use my location**, the app reads coordinates and sends them to Open-Meteo over HTTPS to request a forecast. Android's system Geocoder can also receive the coordinates to name the place. The app does not track location in the background.
 
 ## Network communication
 
 - Open-Meteo receives place search terms and forecast coordinates for every forecast request. This includes default Prague, a searched place, a favourite, and current location. Current location remains optional and starts only after you select **Use my location**. Open-Meteo provides geocoding and forecasts. The developer does not retain this data off-device. [Open-Meteo states](https://open-meteo.com/en/terms) that free API server logs may contain coordinates and are deleted after 90 days.
 - ČHMÚ provides public automatic-station observations, radar, nowcast, lightning, and satellite images. The app selects nearby station IDs on the device. It does not send the selected coordinates to ČHMÚ. ČHMÚ servers process normal HTTPS technical data such as your IP address and requested public file names.
+- OpenStreetMap receives requests for the visible map tiles only while the worldwide point picker is open. Tile requests reveal the approximate visible map area and normal HTTPS technical data such as your IP address. The exact selected coordinates remain in the app.
 - Google Mobile Ads automatically collects and shares IP address, app interactions, diagnostic information, and device or account identifiers for advertising, analytics, and fraud prevention. Google UMP requests consent where required and exposes privacy choices in Settings. Ads remain hidden until consent permits an ad request and Google Play confirms the user does not have Premium.
 - Google Play processes product queries, purchases, subscription state, and purchase acknowledgements. Payment details stay in Google Play; the app does not receive card details.
 - Buy Me a Coffee receives data only if you choose the optional support action. The app opens the external HTTPS page `https://www.buymeacoffee.com/majkey` through Android.
@@ -28,7 +29,7 @@ All app network communication uses HTTPS. The app does not send contacts, messag
 
 ## Retention and choices
 
-The developer does not operate a server that stores app data or purchase tokens. Data on your device remains until you clear app data or uninstall the app. You can remove location permission in Android settings at any time. You can remove image access by deleting the widget, changing its image, or managing the selected document in Android. Privacy choices are available in Settings when required. Open-Meteo, ČHMÚ, Google, and Buy Me a Coffee process data under their own terms when you contact their services.
+The developer does not operate a server that stores app data or purchase tokens. Data on your device remains until you clear app data or uninstall the app. You can remove location permission in Android settings at any time. You can remove image access by deleting the widget, changing its image, or managing the selected document in Android. Privacy choices are available in Settings when required. Open-Meteo, ČHMÚ, OpenStreetMap, Google, and Buy Me a Coffee process data under their own terms when you contact their services.
 
 ## Contact
 

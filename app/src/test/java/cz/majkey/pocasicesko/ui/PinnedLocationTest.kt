@@ -4,7 +4,6 @@ import cz.majkey.pocasicesko.data.REGION_CZECHIA
 import cz.majkey.pocasicesko.data.REGION_WORLD
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PinnedLocationTest {
@@ -38,34 +37,4 @@ class PinnedLocationTest {
         assertEquals(-74.006, location.longitude, 0.0)
     }
 
-    @Test
-    fun convertsDocumentedWebMercatorMapEdges() {
-        val northWest = coordinatesFromMapPosition(0.0, 0.0)
-        val southEast = coordinatesFromMapPosition(1.0, 1.0)
-
-        requireNotNull(northWest)
-        requireNotNull(southEast)
-        assertEquals(52.167, northWest.latitude, 0.000_001)
-        assertEquals(11.267, northWest.longitude, 0.000_001)
-        assertEquals(48.047, southEast.latitude, 0.000_001)
-        assertEquals(20.770, southEast.longitude, 0.000_001)
-    }
-
-    @Test
-    fun mapConversionRejectsUntrustedFractions() {
-        assertNull(coordinatesFromMapPosition(-0.01, 0.5))
-        assertNull(coordinatesFromMapPosition(0.5, 1.01))
-        assertNull(coordinatesFromMapPosition(Double.NaN, 0.5))
-        assertTrue(coordinatesFromMapPosition(0.5, 0.5) != null)
-    }
-
-    @Test
-    fun fittedMapRejectsLetterboxAndMapsImageCenter() {
-        assertNull(imagePositionToMapFractions(500.0, 50.0, 1_000.0, 1_000.0, 2_000, 1_000))
-        val center = imagePositionToMapFractions(500.0, 500.0, 1_000.0, 1_000.0, 2_000, 1_000)
-
-        requireNotNull(center)
-        assertEquals(0.5, center.first, 0.0)
-        assertEquals(0.5, center.second, 0.0)
-    }
 }

@@ -59,6 +59,7 @@ internal fun PinnedLocationPicker(
             fontSize = 12.sp,
         )
         PinnedLocationMap(
+            initialLocation = initialLocation,
             onCoordinates = { point ->
                 latitude = formatCoordinate(point.latitude)
                 longitude = formatCoordinate(point.longitude)

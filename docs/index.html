@@ -31,12 +31,13 @@
   <p>The app checks active Google Play purchases when Billing connects and when the app resumes. Product IDs and purchase state determine whether ads are removed. Purchase tokens are used only to acknowledge purchases through Google Play and are not stored by the developer or sent to a developer server.</p>
 
   <h2>Location</h2>
-  <p>Approximate and precise location permissions are optional. After you select <strong>Use my location</strong>, the app reads coordinates, checks that they are in Czechia, and sends them to Open-Meteo over HTTPS to request a forecast. Android's system Geocoder can also receive the coordinates to name the place. The app does not track location in the background.</p>
+  <p>Approximate and precise location permissions are optional. After you select <strong>Use my location</strong>, the app reads coordinates and sends them to Open-Meteo over HTTPS to request a forecast. Android's system Geocoder can also receive the coordinates to name the place. The app does not track location in the background.</p>
 
   <h2>Network communication</h2>
   <ul>
     <li>Open-Meteo receives place search terms and selected coordinates. It provides geocoding and forecasts. The developer does not retain this data off-device. <a href="https://open-meteo.com/en/terms">Open-Meteo states</a> that free API server logs may contain coordinates and are deleted after 90 days.</li>
     <li>ČHMÚ provides public automatic-station observations, radar, nowcast, lightning, and satellite images. The app selects nearby station IDs on the device and does not send the selected coordinates to ČHMÚ. ČHMÚ servers process normal HTTPS technical data such as your IP address and requested public file names.</li>
+    <li>OpenStreetMap receives requests for the visible map tiles only while the worldwide point picker is open. Tile requests reveal the approximate visible map area and normal HTTPS technical data such as your IP address. The exact selected coordinates remain in the app.</li>
     <li>Google Mobile Ads automatically collects and shares IP address, app interactions, diagnostic information, and device or account identifiers for advertising, analytics, and fraud prevention. UMP requests consent where required and exposes privacy choices in Settings. Ads remain hidden until consent permits a request and Google Play confirms that Premium is not active.</li>
     <li>Google Play processes product queries, purchases, subscription state, and purchase acknowledgements. Payment details stay in Google Play; the app does not receive card details.</li>
     <li>Buy Me a Coffee receives data only if you choose the optional external support action.</li>
@@ -44,7 +45,7 @@
   <p>All app network communication uses HTTPS. The app does not send contacts, messages, photos, audio, or the contents of a selected widget image.</p>
 
   <h2>Retention and choices</h2>
-  <p>The developer does not operate a server that stores app data or purchase tokens. You can remove location permission in Android settings. You can remove image access by deleting the widget, changing its image, or managing the selected document in Android. Privacy choices are available in Settings when required. Open-Meteo, ČHMÚ, Google, and Buy Me a Coffee process data under their own terms when you contact their services.</p>
+  <p>The developer does not operate a server that stores app data or purchase tokens. You can remove location permission in Android settings. You can remove image access by deleting the widget, changing its image, or managing the selected document in Android. Privacy choices are available in Settings when required. Open-Meteo, ČHMÚ, OpenStreetMap, Google, and Buy Me a Coffee process data under their own terms when you contact their services.</p>
 
   <h2>Contact</h2>
   <p>For privacy questions, open the <a href="https://github.com/Majkey25/Selia-Weather/issues/new">project support form</a>.</p>

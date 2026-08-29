@@ -1,5 +1,18 @@
 # Third-party notices
 
+## Leaflet 1.9.4
+
+The worldwide point picker bundles Leaflet 1.9.4.
+
+- Copyright 2010–2023 Vladimir Agafonkin and contributors.
+- Software licence: BSD 2-Clause License.
+- Source: <https://github.com/Leaflet/Leaflet/tree/v1.9.4>
+- JavaScript SHA-256: `db49d009c841f5ca34a888c96511ae936fd9f5533e90d8b2c4d57596f4e5641a`.
+- CSS SHA-256: `a7837102824184820dfa198d1ebcd109ff6d0ff9a2672a074b9a1b4d147d04c6`.
+
+Map tiles are loaded interactively from OpenStreetMap only while the point picker is open and
+retain the required OpenStreetMap attribution.
+
 ## Czech Hydrometeorological Institute open data
 
 The forecast research and runtime pipeline uses the following ČHMÚ datasets under Creative

@@ -1,122 +1,147 @@
 package cz.majkey.pocasicesko.ui
 
+import android.annotation.SuppressLint
+import android.content.Intent
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
+import android.webkit.CookieManager
+import android.webkit.JavascriptInterface
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import cz.majkey.pocasicesko.BuildConfig
 import cz.majkey.pocasicesko.R
-import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URL
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import cz.majkey.pocasicesko.data.CzechLocation
 
 @Composable
+@SuppressLint("SetJavaScriptEnabled")
 internal fun PinnedLocationMap(
+    initialLocation: CzechLocation,
     onCoordinates: (MapCoordinates) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val result by produceState<Result<Bitmap>?>(null) {
-        value = withContext(Dispatchers.IO) { runCatching(::downloadLocationMap) }
+    val context = LocalContext.current
+    val unavailable = stringResource(R.string.pinned_location_map_unavailable)
+    val url = remember(initialLocation.latitude, initialLocation.longitude) {
+        "$LOCATION_PICKER_URL?lat=${initialLocation.latitude}&lon=${initialLocation.longitude}"
     }
-    val bitmap = result?.getOrNull()
-    var pin by remember(bitmap) { mutableStateOf<Offset?>(null) }
+    var webView by remember { mutableStateOf<WebView?>(null) }
+    var loading by remember(url) { mutableStateOf(true) }
+    var error by remember(url) { mutableStateOf<String?>(null) }
 
-    Box(modifier = modifier.background(Color(0xFF061018)), contentAlignment = Alignment.Center) {
-        when {
-            bitmap != null -> {
-                Image(
-                    bitmap = bitmap.asImageBitmap(),
-                    contentDescription = null,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .pointerInput(bitmap) {
-                            detectTapGestures { position ->
-                                val fractions = imagePositionToMapFractions(
-                                    position.x.toDouble(),
-                                    position.y.toDouble(),
-                                    size.width.toDouble(),
-                                    size.height.toDouble(),
-                                    bitmap.width,
-                                    bitmap.height,
-                                ) ?: return@detectTapGestures
-                                val coordinates = coordinatesFromMapPosition(
-                                    fractions.first,
-                                    fractions.second,
-                                ) ?: return@detectTapGestures
-                                pin = position
-                                onCoordinates(coordinates)
+    Box(modifier.background(Color(0xFF071018)), contentAlignment = Alignment.Center) {
+        key(url) {
+            AndroidView(
+                factory = { viewContext ->
+                    WebView(viewContext).apply web@{
+                        webView = this
+                        settings.javaScriptEnabled = true
+                        settings.domStorageEnabled = false
+                        settings.allowFileAccess = true
+                        settings.allowContentAccess = false
+                        settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+                        settings.setSupportZoom(false)
+                        settings.userAgentString =
+                            "${settings.userAgentString} Selia-Weather/${BuildConfig.VERSION_NAME}"
+                        CookieManager.getInstance().apply {
+                            setAcceptCookie(false)
+                            setAcceptThirdPartyCookies(this@web, false)
+                        }
+                        addJavascriptInterface(
+                            LocationBridge { latitude, longitude ->
+                                post { onCoordinates(MapCoordinates(latitude, longitude)) }
+                            },
+                            LOCATION_BRIDGE,
+                        )
+                        webViewClient = object : WebViewClient() {
+                            override fun onPageStarted(view: WebView?, pageUrl: String?, favicon: Bitmap?) {
+                                loading = true
+                                error = null
                             }
-                        },
-                )
-                pin?.let { center ->
-                    Canvas(Modifier.fillMaxSize()) {
-                        drawCircle(Color.White, radius = 10.dp.toPx(), center = center)
-                        drawCircle(Color(0xFF47C7E2), radius = 6.dp.toPx(), center = center)
+
+                            override fun onPageCommitVisible(view: WebView?, pageUrl: String?) {
+                                loading = false
+                            }
+
+                            override fun onReceivedError(
+                                view: WebView?,
+                                request: WebResourceRequest?,
+                                webError: WebResourceError?,
+                            ) {
+                                if (request?.isForMainFrame == true) {
+                                    loading = false
+                                    error = webError?.description?.toString() ?: unavailable
+                                }
+                            }
+
+                            override fun shouldOverrideUrlLoading(
+                                view: WebView?,
+                                request: WebResourceRequest?,
+                            ): Boolean {
+                                val uri = request?.url ?: return true
+                                if (uri.host == "www.openstreetmap.org" && uri.scheme == "https") {
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, uri))
+                                }
+                                return true
+                            }
+                        }
+                        loadUrl(url)
                     }
-                }
-                Text(
-                    stringResource(R.string.map_attribution),
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .background(Color(0xCC071018))
-                        .padding(horizontal = 7.dp, vertical = 4.dp),
-                    color = Color.White.copy(alpha = 0.72f),
-                    fontSize = 10.sp,
-                )
-            }
-            result == null -> CircularProgressIndicator(color = Color(0xFF83D6E8))
-            else -> Text(
-                stringResource(R.string.pinned_location_map_unavailable),
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+        if (loading) CircularProgressIndicator(color = Color(0xFF83D6E8))
+        error?.let {
+            Text(
+                text = it,
                 modifier = Modifier.padding(20.dp),
                 color = Color.White.copy(alpha = 0.72f),
             )
         }
     }
-}
 
-private fun downloadLocationMap(): Bitmap {
-    val connection = URL(MAP_URL).openConnection() as HttpURLConnection
-    return try {
-        connection.connectTimeout = 10_000
-        connection.readTimeout = 15_000
-        connection.setRequestProperty("User-Agent", USER_AGENT)
-        if (connection.responseCode !in 200..299) throw IOException("Map HTTP ${connection.responseCode}")
-        BitmapFactory.decodeStream(
-            connection.inputStream,
-            null,
-            BitmapFactory.Options().apply { inSampleSize = 2 },
-        ) ?: throw IOException("Map image is invalid")
-    } finally {
-        connection.disconnect()
+    DisposableEffect(Unit) {
+        onDispose {
+            webView?.removeJavascriptInterface(LOCATION_BRIDGE)
+            webView?.stopLoading()
+            webView?.destroy()
+            webView = null
+        }
     }
 }
 
-private const val MAP_URL = "https://produkty.chmi.cz/radar/und/pacz2gmaps6.und3.png"
-private val USER_AGENT =
-    "Selia-Weather/${BuildConfig.VERSION_NAME} (Android; https://github.com/Majkey25/Selia-Weather)"
+private class LocationBridge(private val onCoordinates: (Double, Double) -> Unit) {
+    @JavascriptInterface
+    fun onLocationSelected(latitude: Double, longitude: Double) {
+        if (latitude.isFinite() && longitude.isFinite() &&
+            latitude in -90.0..90.0 && longitude in -180.0..180.0
+        ) {
+            onCoordinates(latitude, longitude)
+        }
+    }
+}
+
+private const val LOCATION_PICKER_URL = "file:///android_asset/location_picker.html"
+private const val LOCATION_BRIDGE = "LocationBridge"

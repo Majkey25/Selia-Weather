@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' file:; style-src 'unsafe-inline' file:; img-src https://tile.openstreetmap.org data:; connect-src 'none'; base-uri 'none'; object-src 'none'">
+  <link rel="stylesheet" href="leaflet-1.9.4.css">
+  <script src="leaflet-1.9.4.js"></script>
+  <style>
+    html, body { width: 100%; height: 100%; margin: 0; background: #071018; }
+    #map { width: 100%; height: 240px; }
+    .leaflet-container { background: #071018; font-family: system-ui, sans-serif; }
+    .leaflet-control-attribution { background: #071018d9 !important; color: #d7e4e9; }
+    .leaflet-control-attribution a { color: #80d5e8; }
+    .leaflet-bar a { background: #152832; color: #f4fafc; border-color: #ffffff20; }
+  </style>
+</head>
+<body>
+  <div id="map" role="application" aria-label="Worldwide location map"></div>
+  <script>
+    function numberParameter(name, fallback, minimum, maximum) {
+      var value = Number(new URLSearchParams(location.search).get(name));
+      return Number.isFinite(value) && value >= minimum && value <= maximum ? value : fallback;
+    }
+    var latitude = numberParameter('lat', 50.0755, -90, 90);
+    var longitude = numberParameter('lon', 14.4378, -180, 180);
+    var map = L.map('map', { worldCopyJump: true }).setView([latitude, longitude], 6);
+    var resizeObserver = new ResizeObserver(function() { map.invalidateSize(); });
+    resizeObserver.observe(document.getElementById('map'));
+    requestAnimationFrame(function() { map.invalidateSize(); });
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 19
+    }).addTo(map);
+    var pin = L.circleMarker([latitude, longitude], {
+      radius: 8,
+      color: '#ffffff',
+      weight: 3,
+      fillColor: '#47c7e2',
+      fillOpacity: 1
+    }).addTo(map);
+    map.on('click', function(event) {
+      var lat = Math.max(-90, Math.min(90, event.latlng.lat));
+      var lon = ((event.latlng.lng + 180) % 360 + 360) % 360 - 180;
+      pin.setLatLng([lat, lon]);
+      if (window.LocationBridge && window.LocationBridge.onLocationSelected) {
+        window.LocationBridge.onLocationSelected(lat, lon);
+      }
+    });
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      throw new Error('Location picker coordinate self-test failed');
+    }
+  </script>
+</body>
+</html>

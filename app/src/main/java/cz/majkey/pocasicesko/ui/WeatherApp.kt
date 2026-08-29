@@ -215,6 +215,14 @@ fun WeatherApp(
                         measurementSystem = selected
                         WeatherWidgetProvider.updateAll(context)
                     },
+                    onWeatherDataAttribution = {
+                        try {
+                            context.startActivity(weatherDataIntent())
+                            supportError = null
+                        } catch (_: ActivityNotFoundException) {
+                            supportError = supportUnavailable
+                        }
+                    },
                     onSupport = {
                         try {
                             context.startActivity(supportIntent())

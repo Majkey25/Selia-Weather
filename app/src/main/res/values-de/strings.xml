@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Vetra</string>
-    <string name="widget_description">Zeit und Wetter für die ausgewählte tschechische Stadt</string>
+    <string name="widget_description">Zeit und Wetter für den ausgewählten Ort</string>
     <string name="weather_icon">Wettersymbol</string>
     <string name="widget_placeholder_city">App öffnen</string>
     <string name="widget_placeholder_temperature">--°</string>
@@ -113,7 +113,7 @@
     <string name="longitude">Längengrad</string>
     <string name="save_and_use">Speichern und verwenden</string>
     <string name="back">Zurück</string>
-    <string name="pinned_location_invalid">Geben Sie einen Namen und gültige Koordinaten in Tschechien ein.</string>
+    <string name="pinned_location_invalid">Geben Sie einen Namen und gültige Koordinaten ein.</string>
     <string name="pinned_location_accuracy">Der Punkt ist exakt. Die Vorhersagegenauigkeit folgt weiterhin dem angezeigten Modellraster.</string>
     <string name="current_location">Aktueller Standort</string>
     <string name="favorites">Favoriten</string>
@@ -173,6 +173,7 @@
     <string name="language_spanish">Spanisch</string>
     <string name="language_french">Französisch</string>
     <string name="about">Über die App</string>
+    <string name="weather_data_attribution">Wetterdaten von Open-Meteo</string>
     <string name="support_this_app">Diese App unterstützen → Buy Me a Coffee</string>
     <string name="support_note">Unterstützung ist freiwillig. Sie schaltet keine Funktionen frei und gewährt keine Priorität.</string>
     <string name="support_unavailable">Keine App kann diesen Link öffnen.</string>

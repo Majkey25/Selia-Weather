@@ -54,6 +54,7 @@ fun SettingsSheet(
     privacyOptionsRequired: Boolean,
     onLanguage: (String) -> Unit,
     onMeasurementSystem: (MeasurementSystem) -> Unit,
+    onWeatherDataAttribution: () -> Unit,
     onSupport: () -> Unit,
     supportError: String?,
     onPurchase: (PremiumOfferType) -> Unit,
@@ -210,6 +211,13 @@ fun SettingsSheet(
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+            )
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.weather_data_attribution)) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onWeatherDataAttribution),
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             )
             Button(
                 onClick = onSupport,

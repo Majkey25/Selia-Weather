@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Vetra</string>
-    <string name="widget_description">Čas a počasí pro vybrané české město</string>
+    <string name="widget_description">Čas a počasí pro vybranou lokalitu</string>
     <string name="weather_icon">Ikona počasí</string>
     <string name="widget_placeholder_city">Otevřete aplikaci</string>
     <string name="widget_placeholder_temperature">--°</string>
@@ -113,7 +113,7 @@
     <string name="longitude">Zeměpisná délka</string>
     <string name="save_and_use">Uložit a použít</string>
     <string name="back">Zpět</string>
-    <string name="pinned_location_invalid">Zadejte název a platné souřadnice v Česku.</string>
+    <string name="pinned_location_invalid">Zadejte název a platné souřadnice.</string>
     <string name="pinned_location_accuracy">Bod je přesný. Přesnost předpovědi se stále řídí zobrazeným gridem modelu.</string>
     <string name="current_location">Aktuální poloha</string>
     <string name="favorites">Oblíbené</string>
@@ -173,6 +173,7 @@
     <string name="language_spanish">Španělština</string>
     <string name="language_french">Francouzština</string>
     <string name="about">O aplikaci</string>
+    <string name="weather_data_attribution">Data o počasí poskytuje Open-Meteo</string>
     <string name="support_this_app">Podpořit tuto aplikaci → Buy Me a Coffee</string>
     <string name="support_note">Podpora je dobrovolná. Neodemkne žádné funkce ani nepřináší žádnou prioritu.</string>
     <string name="support_unavailable">Pro otevření tohoto odkazu není k dispozici žádná aplikace.</string>

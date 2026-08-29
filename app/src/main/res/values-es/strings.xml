@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Vetra</string>
-    <string name="widget_description">Hora y tiempo para la ciudad checa seleccionada</string>
+    <string name="widget_description">Hora y tiempo de la ubicación seleccionada</string>
     <string name="weather_icon">Icono del tiempo</string>
     <string name="widget_placeholder_city">Abrir la aplicación</string>
     <string name="widget_placeholder_temperature">--°</string>
@@ -113,7 +113,7 @@
     <string name="longitude">Longitud</string>
     <string name="save_and_use">Guardar y usar</string>
     <string name="back">Atrás</string>
-    <string name="pinned_location_invalid">Introduce un nombre y coordenadas válidas dentro de Chequia.</string>
+    <string name="pinned_location_invalid">Introduce un nombre y coordenadas válidas.</string>
     <string name="pinned_location_accuracy">El punto es exacto. La precisión del pronóstico aún depende de la cuadrícula del modelo mostrada.</string>
     <string name="current_location">Ubicación actual</string>
     <string name="favorites">Favoritos</string>
@@ -173,6 +173,7 @@
     <string name="language_spanish">Español</string>
     <string name="language_french">Francés</string>
     <string name="about">Acerca de</string>
+    <string name="weather_data_attribution">Datos meteorológicos de Open-Meteo</string>
     <string name="support_this_app">Apoya esta aplicación → Buy Me a Coffee</string>
     <string name="support_note">El apoyo es opcional. No desbloquea funciones ni otorga prioridad.</string>
     <string name="support_unavailable">No hay ninguna aplicación disponible para abrir este enlace.</string>

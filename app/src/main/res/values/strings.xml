@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">Vetra</string>
     <string name="product_name" translatable="false">Selia Vetra</string>
-    <string name="widget_description">Time and weather for the selected Czech city</string>
+    <string name="widget_description">Time and weather for the selected location</string>
     <string name="weather_icon">Weather icon</string>
     <string name="widget_placeholder_city">Open the app</string>
     <string name="widget_placeholder_temperature">--°</string>
@@ -114,7 +114,7 @@
     <string name="longitude">Longitude</string>
     <string name="save_and_use">Save and use</string>
     <string name="back">Back</string>
-    <string name="pinned_location_invalid">Enter a name and valid coordinates inside Czechia.</string>
+    <string name="pinned_location_invalid">Enter a name and valid coordinates.</string>
     <string name="pinned_location_accuracy">The pin is exact. Forecast precision still follows the displayed model grid.</string>
     <string name="current_location">Current location</string>
     <string name="favorites">Favorites</string>
@@ -174,6 +174,7 @@
     <string name="language_spanish">Spanish</string>
     <string name="language_french">French</string>
     <string name="about">About</string>
+    <string name="weather_data_attribution">Weather data by Open-Meteo</string>
     <string name="support_this_app">Support this app → Buy Me a Coffee</string>
     <string name="support_note">Optional support. It unlocks no features and gives no priority.</string>
     <string name="support_unavailable">No app is available to open this link.</string>

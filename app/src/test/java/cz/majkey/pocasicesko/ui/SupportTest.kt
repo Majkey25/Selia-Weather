@@ -8,4 +8,9 @@ class SupportTest {
     fun usesPublishedBuyMeACoffeePage() {
         assertEquals("https://www.buymeacoffee.com/majkey", SUPPORT_URL)
     }
+
+    @Test
+    fun usesRequiredWeatherDataAttributionPage() {
+        assertEquals("https://open-meteo.com/", OPEN_METEO_URL)
+    }
 }

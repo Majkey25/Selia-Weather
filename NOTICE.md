@@ -8,7 +8,7 @@ The worldwide point picker bundles Leaflet 1.9.4.
 - Software licence: BSD 2-Clause License.
 - Source: <https://github.com/Leaflet/Leaflet/tree/v1.9.4>
 - JavaScript SHA-256: `db49d009c841f5ca34a888c96511ae936fd9f5533e90d8b2c4d57596f4e5641a`.
-- CSS SHA-256: `a7837102824184820dfa198d1ebcd109ff6d0ff9a2672a074b9a1b4d147d04c6`.
+- Bundled CSS SHA-256: `337bfca5cabd03b39815b2700febe2b3b7edf55921c59cd49f88ecb328212303`.
 
 Map tiles are loaded interactively from OpenStreetMap only while the point picker is open and
 retain the required OpenStreetMap attribution.

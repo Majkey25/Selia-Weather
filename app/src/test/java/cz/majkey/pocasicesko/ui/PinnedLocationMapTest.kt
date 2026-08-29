@@ -25,7 +25,7 @@ class PinnedLocationMapTest {
         )
         assertTrue(
             sri(File(root, "src/main/assets/leaflet-1.9.4.css")) ==
-                "sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=",
+                "sha256-M3v8pcq9A7OYFbJwD+vis7ft9VkhxZzUn4jssyghIwM=",
         )
         assertTrue(html.contains("https://tile.openstreetmap.org/{z}/{x}/{y}.png"))
         assertTrue(html.contains("LocationBridge.onLocationSelected"))
@@ -37,6 +37,8 @@ class PinnedLocationMapTest {
     }
 
     private fun sri(file: File): String = "sha256-" + Base64.getEncoder().encodeToString(
-        MessageDigest.getInstance("SHA-256").digest(file.readBytes()),
+        MessageDigest.getInstance("SHA-256").digest(
+            file.readText().replace("\r\n", "\n").toByteArray(),
+        ),
     )
 }

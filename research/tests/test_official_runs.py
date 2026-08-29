@@ -10,9 +10,12 @@ import pytest
 from aladin_ensemble.sources.official_runs import (
     DwdIconRequest,
     GribField,
+    NoaaGfsRequest,
     build_dwd_icon_url,
     build_grib_get_data_command,
+    build_noaa_gfs_url,
     download_dwd_icon,
+    download_noaa_gfs,
     parse_grib_get_data,
 )
 
@@ -72,6 +75,38 @@ def test_dwd_request_rejects_unsupported_contract(
 ) -> None:
     with pytest.raises(ValueError):
         DwdIconRequest(run_time, lead_hour, variable)
+
+
+def test_noaa_gfs_url_uses_czech_subregion_filter() -> None:
+    request = NoaaGfsRequest(
+        run_time=datetime(2026, 8, 29, 6, tzinfo=UTC),
+        lead_hour=3,
+        variable="temperature_2m",
+    )
+
+    assert build_noaa_gfs_url(request) == (
+        "https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?"
+        "file=gfs.t06z.pgrb2.0p25.f003&var_TMP=on&lev_2_m_above_ground=on&"
+        "subregion=&leftlon=11.9&rightlon=19&toplat=51.2&bottomlat=48.45&"
+        "dir=%2Fgfs.20260829%2F06%2Fatmos"
+    )
+
+
+@pytest.mark.parametrize(
+    "run_time, lead_hour, variable",
+    (
+        (datetime(2026, 8, 29, 7, tzinfo=UTC), 3, "temperature_2m"),
+        (datetime(2026, 8, 29, 6, tzinfo=UTC), 385, "temperature_2m"),
+        (datetime(2026, 8, 29, 6, tzinfo=UTC), 3, "unknown"),
+    ),
+)
+def test_noaa_request_rejects_unsupported_contract(
+    run_time: datetime,
+    lead_hour: int,
+    variable: str,
+) -> None:
+    with pytest.raises(ValueError):
+        NoaaGfsRequest(run_time, lead_hour, variable)
 
 
 def test_parser_converts_kelvin_and_keeps_missing_values() -> None:
@@ -183,3 +218,23 @@ def test_dwd_download_rejects_invalid_or_oversized_payload(tmp_path: Path) -> No
             http_get=lambda _url, _timeout, _max_bytes: bz2.compress(b"GRIB" + b"x" * 100),
             max_decompressed_bytes=32,
         )
+
+
+def test_noaa_download_reuses_verified_cache(tmp_path: Path) -> None:
+    request = NoaaGfsRequest(datetime(2026, 8, 29, 6, tzinfo=UTC), 3, "temperature_2m")
+    calls = 0
+
+    def http_get(url: str, timeout: float, max_bytes: int) -> bytes:
+        nonlocal calls
+        assert url == build_noaa_gfs_url(request)
+        assert timeout == 15.0
+        assert max_bytes >= 459
+        calls += 1
+        return b"GRIBfixture7777"
+
+    first = download_noaa_gfs(request, tmp_path, http_get=http_get)
+    second = download_noaa_gfs(request, tmp_path, http_get=http_get)
+
+    assert first.path.read_bytes() == b"GRIBfixture7777"
+    assert second == replace(first, from_cache=True)
+    assert calls == 1

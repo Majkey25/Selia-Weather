@@ -6,11 +6,13 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from urllib.parse import urlencode
 from urllib.request import urlopen
 
 from ..types import ForecastValue
 
 HttpGet = Callable[[str, float, int], bytes]
+PayloadLoader = Callable[[], bytes]
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,6 +40,24 @@ class DwdIconRequest:
             raise ValueError("DWD ICON-EU lead_hour must be between 0 and 120")
         if self.variable not in DWD_VARIABLES:
             raise ValueError(f"unsupported DWD variable: {self.variable}")
+
+
+@dataclass(frozen=True, slots=True)
+class NoaaGfsRequest:
+    run_time: datetime
+    lead_hour: int
+    variable: str
+
+    def __post_init__(self) -> None:
+        _require_utc(self.run_time, "run_time")
+        if self.run_time.minute or self.run_time.second or self.run_time.microsecond:
+            raise ValueError("NOAA run_time must use a whole hour")
+        if self.run_time.hour not in (0, 6, 12, 18):
+            raise ValueError("NOAA GFS run hour must be 00, 06, 12, or 18 UTC")
+        if self.lead_hour not in range(385):
+            raise ValueError("NOAA GFS lead_hour must be between 0 and 384")
+        if self.variable not in NOAA_GFS_VARIABLES:
+            raise ValueError(f"unsupported NOAA GFS variable: {self.variable}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,6 +107,23 @@ def build_dwd_icon_url(request: DwdIconRequest) -> str:
     return f"{DWD_ICON_ROOT}/{run:%H}/{folder}/{filename}"
 
 
+def build_noaa_gfs_url(request: NoaaGfsRequest) -> str:
+    variable, level = NOAA_GFS_VARIABLES[request.variable]
+    run = request.run_time
+    parameters = (
+        ("file", f"gfs.t{run:%H}z.pgrb2.0p25.f{request.lead_hour:03d}"),
+        (variable, "on"),
+        (level, "on"),
+        ("subregion", ""),
+        ("leftlon", "11.9"),
+        ("rightlon", "19"),
+        ("toplat", "51.2"),
+        ("bottomlat", "48.45"),
+        ("dir", f"/gfs.{run:%Y%m%d}/{run:%H}/atmos"),
+    )
+    return f"{NOAA_GFS_FILTER}?{urlencode(parameters)}"
+
+
 def download_dwd_icon(
     request: DwdIconRequest,
     cache_root: Path,
@@ -99,34 +136,37 @@ def download_dwd_icon(
     if timeout <= 0 or max_compressed_bytes <= 0 or max_decompressed_bytes <= 0:
         raise ValueError("download limits must be positive")
     url = build_dwd_icon_url(request)
-    key = hashlib.sha256(url.encode()).hexdigest()
-    cache_root.mkdir(parents=True, exist_ok=True)
-    path = cache_root / f"{key}.grib2"
-    checksum_path = cache_root / f"{key}.sha256"
-    if path.exists() or checksum_path.exists():
-        if not path.is_file() or not checksum_path.is_file():
-            raise ValueError("DWD cache is incomplete")
-        expected = checksum_path.read_text(encoding="ascii").strip()
-        actual = hashlib.sha256(path.read_bytes()).hexdigest()
-        if expected != actual:
-            raise ValueError("DWD cache checksum mismatch")
-        return CachedGrib(path, actual, url, True)
-
     getter = http_get or _http_get
-    compressed = getter(url, timeout, max_compressed_bytes)
-    if len(compressed) > max_compressed_bytes:
-        raise ValueError("DWD compressed payload exceeds size limit")
-    payload = _decompress_bz2(compressed, max_decompressed_bytes)
-    if not payload.startswith(b"GRIB") or not payload.endswith(b"7777"):
-        raise ValueError("DWD decompressed payload is not GRIB")
-    checksum = hashlib.sha256(payload).hexdigest()
-    temporary_path = path.with_suffix(".grib2.tmp")
-    temporary_checksum = checksum_path.with_suffix(".sha256.tmp")
-    temporary_path.write_bytes(payload)
-    temporary_checksum.write_text(checksum + "\n", encoding="ascii")
-    temporary_path.replace(path)
-    temporary_checksum.replace(checksum_path)
-    return CachedGrib(path, checksum, url, False)
+
+    def load() -> bytes:
+        compressed = getter(url, timeout, max_compressed_bytes)
+        if len(compressed) > max_compressed_bytes:
+            raise ValueError("DWD compressed payload exceeds size limit")
+        return _require_grib(_decompress_bz2(compressed, max_decompressed_bytes))
+
+    return _cached_grib(url, cache_root, load)
+
+
+def download_noaa_gfs(
+    request: NoaaGfsRequest,
+    cache_root: Path,
+    *,
+    http_get: HttpGet | None = None,
+    timeout: float = 15.0,
+    max_bytes: int = 5_000_000,
+) -> CachedGrib:
+    if timeout <= 0 or max_bytes <= 0:
+        raise ValueError("download limits must be positive")
+    url = build_noaa_gfs_url(request)
+    getter = http_get or _http_get
+
+    def load() -> bytes:
+        payload = getter(url, timeout, max_bytes)
+        if len(payload) > max_bytes:
+            raise ValueError("NOAA payload exceeds size limit")
+        return _require_grib(payload)
+
+    return _cached_grib(url, cache_root, load)
 
 
 def parse_grib_get_data(
@@ -205,6 +245,36 @@ def _http_get(url: str, timeout: float, max_bytes: int) -> bytes:
     return payload
 
 
+def _cached_grib(url: str, cache_root: Path, load: PayloadLoader) -> CachedGrib:
+    key = hashlib.sha256(url.encode()).hexdigest()
+    cache_root.mkdir(parents=True, exist_ok=True)
+    path = cache_root / f"{key}.grib2"
+    checksum_path = cache_root / f"{key}.sha256"
+    if path.exists() or checksum_path.exists():
+        if not path.is_file() or not checksum_path.is_file():
+            raise ValueError("GRIB cache is incomplete")
+        expected = checksum_path.read_text(encoding="ascii").strip()
+        actual = hashlib.sha256(path.read_bytes()).hexdigest()
+        if expected != actual:
+            raise ValueError("GRIB cache checksum mismatch")
+        return CachedGrib(path, actual, url, True)
+    payload = load()
+    checksum = hashlib.sha256(payload).hexdigest()
+    temporary_path = path.with_suffix(".grib2.tmp")
+    temporary_checksum = checksum_path.with_suffix(".sha256.tmp")
+    temporary_path.write_bytes(payload)
+    temporary_checksum.write_text(checksum + "\n", encoding="ascii")
+    temporary_path.replace(path)
+    temporary_checksum.replace(checksum_path)
+    return CachedGrib(path, checksum, url, False)
+
+
+def _require_grib(value: bytes) -> bytes:
+    if not value.startswith(b"GRIB") or not value.endswith(b"7777"):
+        raise ValueError("payload is not GRIB")
+    return value
+
+
 def _decompress_bz2(value: bytes, max_bytes: int) -> bytes:
     decoder = bz2.BZ2Decompressor()
     output = bytearray()
@@ -239,4 +309,13 @@ DWD_VARIABLES = {
     "temperature_2m": ("t_2m", "T_2M"),
     "wind_u_10m": ("u_10m", "U_10M"),
     "wind_v_10m": ("v_10m", "V_10M"),
+}
+NOAA_GFS_FILTER = "https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl"
+NOAA_GFS_VARIABLES = {
+    "precipitation": ("var_APCP", "lev_surface"),
+    "pressure_msl": ("var_PRMSL", "lev_mean_sea_level"),
+    "relative_humidity_2m": ("var_RH", "lev_2_m_above_ground"),
+    "temperature_2m": ("var_TMP", "lev_2_m_above_ground"),
+    "wind_u_10m": ("var_UGRD", "lev_10_m_above_ground"),
+    "wind_v_10m": ("var_VGRD", "lev_10_m_above_ground"),
 }

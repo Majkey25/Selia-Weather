@@ -77,6 +77,28 @@
       ]
     },
     {
+      "attribution": "Source: Deutscher Wetterdienst",
+      "commercial_redistribution": true,
+      "data_url": "https://opendata.dwd.de/weather/nwp/icon/grib/",
+      "documentation_url": "https://www.dwd.de/DE/leistungen/opendata/opendata.html",
+      "enabled": false,
+      "forecast_horizon_hours": 180,
+      "licence_name": "DWD Open Data reuse terms",
+      "licence_url": "https://www.dwd.de/copyright",
+      "model_id": "dwd_icon_global",
+      "native_resolution_km": 13.0,
+      "provider": "Deutscher Wetterdienst",
+      "source_id": "dwd-icon-global",
+      "source_kind": "forecast",
+      "update_interval_minutes": 360,
+      "variables": [
+        "precipitation",
+        "temperature_2m",
+        "wind_u_10m",
+        "wind_v_10m"
+      ]
+    },
+    {
       "attribution": "Source: NOAA/National Weather Service. This is not an official NOAA product.",
       "commercial_redistribution": true,
       "data_url": "https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/",

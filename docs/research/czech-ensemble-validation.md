@@ -167,6 +167,10 @@ field in 0.468 seconds. Building the first DWD ICON-EU nearest-point index took 
 decoding the same full grid through the verified `md5GridSection` index took 0.125 seconds. Later
 DWD fields reuse that index and fail closed if their grid hash differs.
 
+The DWD ICON Global URL adapter downloaded a valid operational field, but ecCodes does not
+implement nearest-point lookup for its native icosahedral grid. The source remains disabled until
+the official DWD grid file is used for a verified remap or reusable spatial index.
+
 ## Work required before production
 
 1. After 30 August is complete, lock an untouched August holdout and evaluate the corrected
@@ -200,5 +204,5 @@ Run these commands from the repository root:
 & 'C:\Users\mates\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -m uv run --project research pyright
 ```
 
-The current verified result is 207 passing tests, Ruff clean, and zero repository-wide Pyright
+The current verified result is 208 passing tests, Ruff clean, and zero repository-wide Pyright
 errors.

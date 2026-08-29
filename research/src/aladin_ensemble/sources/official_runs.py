@@ -69,6 +69,24 @@ class DwdIconRequest:
 
 
 @dataclass(frozen=True, slots=True)
+class DwdGlobalRequest:
+    run_time: datetime
+    lead_hour: int
+    variable: str
+
+    def __post_init__(self) -> None:
+        _require_utc(self.run_time, "run_time")
+        if self.run_time.minute or self.run_time.second or self.run_time.microsecond:
+            raise ValueError("DWD global run_time must use a whole hour")
+        if self.run_time.hour not in (0, 6, 12, 18):
+            raise ValueError("DWD global run hour must be 00, 06, 12, or 18 UTC")
+        if self.lead_hour not in range(181):
+            raise ValueError("DWD global lead_hour must be between 0 and 180")
+        if self.variable not in DWD_GLOBAL_VARIABLES:
+            raise ValueError(f"unsupported DWD global variable: {self.variable}")
+
+
+@dataclass(frozen=True, slots=True)
 class ChmiAladinRequest:
     run_time: datetime
     variable: str
@@ -199,6 +217,16 @@ def build_dwd_icon_url(request: DwdIconRequest) -> str:
     return f"{DWD_ICON_ROOT}/{run:%H}/{folder}/{filename}"
 
 
+def build_dwd_global_url(request: DwdGlobalRequest) -> str:
+    folder, code = DWD_GLOBAL_VARIABLES[request.variable]
+    run = request.run_time
+    filename = (
+        f"icon_global_icosahedral_single-level_{run:%Y%m%d%H}_"
+        f"{request.lead_hour:03d}_{code}.grib2.bz2"
+    )
+    return f"{DWD_GLOBAL_ROOT}/{run:%H}/{folder}/{filename}"
+
+
 def build_chmi_aladin_url(request: ChmiAladinRequest) -> str:
     code = CHMI_ALADIN_VARIABLES[request.variable]
     run = request.run_time
@@ -263,6 +291,25 @@ def download_dwd_icon(
 ) -> CachedGrib:
     return _download_bz2_grib(
         build_dwd_icon_url(request),
+        cache_root,
+        http_get=http_get,
+        timeout=timeout,
+        max_compressed_bytes=max_compressed_bytes,
+        max_decompressed_bytes=max_decompressed_bytes,
+    )
+
+
+def download_dwd_global(
+    request: DwdGlobalRequest,
+    cache_root: Path,
+    *,
+    http_get: HttpGet | None = None,
+    timeout: float = 30.0,
+    max_compressed_bytes: int = 10_000_000,
+    max_decompressed_bytes: int = 100_000_000,
+) -> CachedGrib:
+    return _download_bz2_grib(
+        build_dwd_global_url(request),
         cache_root,
         http_get=http_get,
         timeout=timeout,
@@ -578,6 +625,13 @@ DWD_ICON_ROOT = "https://opendata.dwd.de/weather/nwp/icon-eu/grib"
 DWD_VARIABLES = {
     "precipitation": ("tot_prec", "TOT_PREC"),
     "surface_elevation": ("hsurf", "HSURF"),
+    "temperature_2m": ("t_2m", "T_2M"),
+    "wind_u_10m": ("u_10m", "U_10M"),
+    "wind_v_10m": ("v_10m", "V_10M"),
+}
+DWD_GLOBAL_ROOT = "https://opendata.dwd.de/weather/nwp/icon/grib"
+DWD_GLOBAL_VARIABLES = {
+    "precipitation": ("tot_prec", "TOT_PREC"),
     "temperature_2m": ("t_2m", "T_2M"),
     "wind_u_10m": ("u_10m", "U_10M"),
     "wind_v_10m": ("v_10m", "V_10M"),

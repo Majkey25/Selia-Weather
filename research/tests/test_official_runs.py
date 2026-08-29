@@ -11,12 +11,14 @@ import pytest
 
 from aladin_ensemble.sources.official_runs import (
     ChmiAladinRequest,
+    DwdGlobalRequest,
     DwdIconRequest,
     EcmwfOpenRequest,
     GribField,
     NoaaGefsRequest,
     NoaaGfsRequest,
     build_chmi_aladin_url,
+    build_dwd_global_url,
     build_dwd_icon_url,
     build_ecmwf_request,
     build_grib_get_data_command,
@@ -82,6 +84,19 @@ def test_dwd_surface_elevation_uses_static_hsurf_field() -> None:
     assert build_dwd_icon_url(request) == (
         "https://opendata.dwd.de/weather/nwp/icon-eu/grib/00/hsurf/"
         "icon-eu_europe_regular-lat-lon_time-invariant_2026082900_HSURF.grib2.bz2"
+    )
+
+
+def test_dwd_global_url_uses_verified_icosahedral_filename() -> None:
+    request = DwdGlobalRequest(
+        run_time=datetime(2026, 8, 29, 0, tzinfo=UTC),
+        lead_hour=24,
+        variable="temperature_2m",
+    )
+
+    assert build_dwd_global_url(request) == (
+        "https://opendata.dwd.de/weather/nwp/icon/grib/00/t_2m/"
+        "icon_global_icosahedral_single-level_2026082900_024_T_2M.grib2.bz2"
     )
 
 def test_chmi_aladin_url_uses_verified_operational_filename() -> None:

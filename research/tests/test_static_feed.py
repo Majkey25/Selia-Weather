@@ -120,6 +120,7 @@ def test_bundled_source_registry_is_production_safe() -> None:
         "noaa-gfs",
     }
     assert all(item.commercial_redistribution for item in sources if item.enabled)
+    assert any(item.source_id == "dwd-icon-global" and not item.enabled for item in sources)
     for item in sources:
         if item.enabled and item.source_kind == "forecast":
             assert {"wind_u_10m", "wind_v_10m"}.issubset(item.variables)

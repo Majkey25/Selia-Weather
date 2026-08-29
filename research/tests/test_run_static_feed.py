@@ -36,7 +36,8 @@ def test_pages_site_preserves_docs_and_publishes_diagnostic_contract(tmp_path: P
     licences = decode_source_registry(
         (output / "data/v1/licences.json").read_text(encoding="utf-8")
     )
-    assert licences == manifest.sources
+    assert tuple(source for source in licences if source.enabled) == manifest.sources
+    assert len(licences) > len(manifest.sources)
     assert all(source.enabled and source.commercial_redistribution for source in manifest.sources)
 
 

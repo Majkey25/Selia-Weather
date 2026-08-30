@@ -22,6 +22,10 @@ class ModelConsensusTest {
         assertTrue(prague.contains("gfs_seamless"))
         assertFalse(newYork.contains("chmi_aladin_seamless"))
         assertTrue(newYork.contains("gem_seamless"))
+        assertTrue(newYork.contains("&models=${forecastApiModelsFor(
+            CzechLocation("New York", "New York", 40.7128, -74.006, "US"),
+        ).joinToString(",")}"))
+        assertFalse(newYork.contains("kma_seamless"))
     }
 
     @Test

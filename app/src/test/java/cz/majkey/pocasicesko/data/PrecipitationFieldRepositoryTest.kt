@@ -9,6 +9,7 @@ import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -50,6 +51,19 @@ class PrecipitationFieldRepositoryTest {
 
         assertThrows(IOException::class.java) { runBlocking { network.fetch(location) } }
         assertThrows(JSONException::class.java) { runBlocking { malformed.fetch(location) } }
+    }
+
+    @Test
+    fun spatialFieldUsesTheSharedNorthAmericanModelRoute() {
+        val location = CzechLocation("New York", "New York", 40.7128, -74.006, "US")
+        val models = forecastApiModelsFor(location)
+        val url = PrecipitationFieldRepository.url(precipitationFieldPoints(location), models)
+
+        assertTrue(url.contains("&models=${models.joinToString(",")}"))
+        assertTrue(url.contains("gfs_seamless"))
+        assertTrue(url.contains("gem_seamless"))
+        assertFalse(url.contains("chmi_aladin_seamless"))
+        assertFalse(url.contains("kma_seamless"))
     }
 
     private fun payload(

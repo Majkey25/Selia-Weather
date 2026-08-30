@@ -343,7 +343,7 @@ def to_forecast_values(
     if not messages or not model_id or not variable or not canonical_unit:
         raise ValueError("forecast conversion metadata is required")
     if variable == "precipitation":
-        messages = _precipitation_intervals(messages)
+        messages = _precipitation_intervals(messages, canonical_unit)
     rows: list[ForecastValue] = []
     for message in messages:
         for point in message.values:
@@ -369,13 +369,17 @@ def to_forecast_values(
 
 def _precipitation_intervals(
     messages: tuple[SampledMessage, ...],
+    canonical_unit: str,
 ) -> tuple[SampledMessage, ...]:
+    if canonical_unit != "mm":
+        raise ValueError("precipitation canonical unit must be millimetres")
     ordered = tuple(sorted(messages, key=lambda message: message.end_step_hours))
     if any(message.step_type != "accum" for message in ordered):
         raise ValueError("precipitation GRIB messages must use accumulated steps")
     coordinates = tuple((point.latitude, point.longitude) for point in ordered[0].values)
     if any(
         message.run_time != ordered[0].run_time
+        or message.unit != ordered[0].unit
         or tuple((point.latitude, point.longitude) for point in message.values) != coordinates
         for message in ordered
     ):
@@ -391,7 +395,10 @@ def _precipitation_intervals(
     previous_end = ordered[0].start_step_hours
     result: list[SampledMessage] = []
     for message in ordered:
-        raw_values = tuple(point.value for point in message.values)
+        raw_values = tuple(
+            convert_grib_unit(point.value, message.unit, canonical_unit)
+            for point in message.values
+        )
         interval_values = (
             tuple(
                 current - previous
@@ -400,11 +407,12 @@ def _precipitation_intervals(
             if cumulative
             else raw_values
         )
-        if any(value < -PRECIPITATION_TOLERANCE for value in interval_values):
+        if any(value < -PRECIPITATION_TOLERANCE_MM for value in interval_values):
             raise ValueError("cumulative precipitation decreased")
         result.append(
             replace(
                 message,
+                unit=canonical_unit,
                 start_step_hours=previous_end if cumulative else message.start_step_hours,
                 values=tuple(
                     replace(point, value=max(value, 0.0))
@@ -520,7 +528,7 @@ def convert_grib_unit(value: float, source_unit: str, canonical_unit: str) -> fl
 
 
 DIRECTION_TOLERANCE_DEGREES = 0.5
-PRECIPITATION_TOLERANCE = 1e-9
+PRECIPITATION_TOLERANCE_MM = 0.001
 
 
 class _EccodesModule(Protocol):

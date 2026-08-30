@@ -181,7 +181,7 @@ def test_converts_cumulative_precipitation_to_intervals() -> None:
             end_step_hours=lead,
             values=(SampledPoint(50.0, 14.0, 50.0, 14.0, 0.0, amount),),
         )
-        for lead, amount in ((0, 0.0), (6, 3.0), (12, 5.0))
+        for lead, amount in ((0, 0.0), (6, 3.0), (12, 5.0), (18, 4.9995))
     )
 
     values = to_forecast_values(
@@ -192,7 +192,7 @@ def test_converts_cumulative_precipitation_to_intervals() -> None:
         elevation_by_point={point: 250.0},
     )
 
-    assert [value.value for value in values] == [0.0, 3.0, 2.0]
+    assert [value.value for value in values] == [0.0, 3.0, 2.0, 0.0]
 
 
 def test_preserves_contiguous_interval_precipitation_and_rejects_decrease() -> None:

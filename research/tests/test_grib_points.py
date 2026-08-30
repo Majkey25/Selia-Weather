@@ -168,6 +168,67 @@ def test_converts_sampled_messages_to_canonical_forecast_values(tmp_path: Path) 
         normalize_wind_direction(361.0)
 
 
+def test_converts_cumulative_precipitation_to_intervals() -> None:
+    run_time = datetime(2026, 8, 29, 0, tzinfo=UTC)
+    point = GeoPoint(50.0, 14.0)
+    messages = tuple(
+        SampledMessage(
+            run_time=run_time,
+            valid_time=run_time.replace(hour=lead),
+            unit="kg/m²",
+            step_type="accum",
+            start_step_hours=0,
+            end_step_hours=lead,
+            values=(SampledPoint(50.0, 14.0, 50.0, 14.0, 0.0, amount),),
+        )
+        for lead, amount in ((0, 0.0), (6, 3.0), (12, 5.0))
+    )
+
+    values = to_forecast_values(
+        messages,
+        model_id="ecmwf_ifs_open",
+        variable="precipitation",
+        canonical_unit="mm",
+        elevation_by_point={point: 250.0},
+    )
+
+    assert [value.value for value in values] == [0.0, 3.0, 2.0]
+
+
+def test_preserves_contiguous_interval_precipitation_and_rejects_decrease() -> None:
+    run_time = datetime(2026, 8, 29, 0, tzinfo=UTC)
+    point = GeoPoint(50.0, 14.0)
+
+    def message(start: int, end: int, amount: float) -> SampledMessage:
+        return SampledMessage(
+            run_time=run_time,
+            valid_time=run_time.replace(hour=end),
+            unit="kg/m²",
+            step_type="accum",
+            start_step_hours=start,
+            end_step_hours=end,
+            values=(SampledPoint(50.0, 14.0, 50.0, 14.0, 0.0, amount),),
+        )
+
+    interval = to_forecast_values(
+        (message(0, 6, 3.0), message(6, 12, 2.0)),
+        model_id="noaa_gfs",
+        variable="precipitation",
+        canonical_unit="mm",
+        elevation_by_point={point: 250.0},
+    )
+
+    assert [value.value for value in interval] == [3.0, 2.0]
+    with pytest.raises(ValueError, match="decreased"):
+        to_forecast_values(
+            (message(0, 6, 3.0), message(0, 12, 2.0)),
+            model_id="noaa_gfs",
+            variable="precipitation",
+            canonical_unit="mm",
+            elevation_by_point={point: 250.0},
+        )
+
+
 def test_reuses_verified_grid_indexes_for_later_fields(tmp_path: Path) -> None:
     path = tmp_path / "field.grib2"
     path.write_bytes(b"GRIB-test-7777")

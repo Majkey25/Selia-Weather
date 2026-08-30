@@ -3,7 +3,7 @@ from __future__ import annotations
 import importlib
 import re
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from math import cos, isclose, isfinite, radians, sin
 from numbers import Real
@@ -342,6 +342,8 @@ def to_forecast_values(
 ) -> tuple[ForecastValue, ...]:
     if not messages or not model_id or not variable or not canonical_unit:
         raise ValueError("forecast conversion metadata is required")
+    if variable == "precipitation":
+        messages = _precipitation_intervals(messages)
     rows: list[ForecastValue] = []
     for message in messages:
         for point in message.values:
@@ -363,6 +365,56 @@ def to_forecast_values(
                 )
             )
     return tuple(rows)
+
+
+def _precipitation_intervals(
+    messages: tuple[SampledMessage, ...],
+) -> tuple[SampledMessage, ...]:
+    ordered = tuple(sorted(messages, key=lambda message: message.end_step_hours))
+    if any(message.step_type != "accum" for message in ordered):
+        raise ValueError("precipitation GRIB messages must use accumulated steps")
+    coordinates = tuple((point.latitude, point.longitude) for point in ordered[0].values)
+    if any(
+        message.run_time != ordered[0].run_time
+        or tuple((point.latitude, point.longitude) for point in message.values) != coordinates
+        for message in ordered
+    ):
+        raise ValueError("precipitation GRIB axes do not match")
+    cumulative = all(message.start_step_hours == 0 for message in ordered)
+    if not cumulative and any(
+        current.start_step_hours != previous.end_step_hours
+        for previous, current in zip(ordered, ordered[1:], strict=False)
+    ):
+        raise ValueError("precipitation GRIB intervals are not contiguous")
+
+    previous_values = tuple(0.0 for _ in coordinates)
+    previous_end = ordered[0].start_step_hours
+    result: list[SampledMessage] = []
+    for message in ordered:
+        raw_values = tuple(point.value for point in message.values)
+        interval_values = (
+            tuple(
+                current - previous
+                for current, previous in zip(raw_values, previous_values, strict=True)
+            )
+            if cumulative
+            else raw_values
+        )
+        if any(value < -PRECIPITATION_TOLERANCE for value in interval_values):
+            raise ValueError("cumulative precipitation decreased")
+        result.append(
+            replace(
+                message,
+                start_step_hours=previous_end if cumulative else message.start_step_hours,
+                values=tuple(
+                    replace(point, value=max(value, 0.0))
+                    for point, value in zip(message.values, interval_values, strict=True)
+                ),
+            )
+        )
+        previous_values = raw_values
+        previous_end = message.end_step_hours
+    return tuple(result)
 
 
 def elevation_by_point(message: SampledMessage) -> dict[GeoPoint, float]:
@@ -468,6 +520,7 @@ def convert_grib_unit(value: float, source_unit: str, canonical_unit: str) -> fl
 
 
 DIRECTION_TOLERANCE_DEGREES = 0.5
+PRECIPITATION_TOLERANCE = 1e-9
 
 
 class _EccodesModule(Protocol):

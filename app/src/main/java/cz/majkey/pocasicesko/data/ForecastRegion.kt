@@ -4,6 +4,8 @@ internal enum class ForecastRegion {
     CZECHIA,
     EUROPE,
     NORTH_AMERICA,
+    EAST_ASIA,
+    OCEANIA,
     GLOBAL,
 }
 
@@ -15,13 +17,20 @@ internal fun forecastRegionFor(location: CzechLocation): ForecastRegion = when {
     location.latitude in NORTH_AMERICA_LATITUDE && location.longitude in NORTH_AMERICA_LONGITUDE -> {
         ForecastRegion.NORTH_AMERICA
     }
+    location.latitude in EAST_ASIA_LATITUDE && location.longitude in EAST_ASIA_LONGITUDE -> {
+        ForecastRegion.EAST_ASIA
+    }
+    location.latitude in OCEANIA_LATITUDE && location.longitude in OCEANIA_LONGITUDE -> {
+        ForecastRegion.OCEANIA
+    }
     else -> ForecastRegion.GLOBAL
 }
 
 internal fun forecastSourcesFor(region: ForecastRegion): Set<String> = when (region) {
     ForecastRegion.CZECHIA -> EUROPE_SOURCES + "chmi-aladin-cz-1km"
     ForecastRegion.EUROPE -> EUROPE_SOURCES
-    ForecastRegion.NORTH_AMERICA, ForecastRegion.GLOBAL -> GLOBAL_SOURCES
+    ForecastRegion.NORTH_AMERICA, ForecastRegion.EAST_ASIA,
+    ForecastRegion.OCEANIA, ForecastRegion.GLOBAL -> GLOBAL_SOURCES
 }
 
 internal fun forecastApiModelsFor(location: CzechLocation): List<String> = buildList {
@@ -47,7 +56,6 @@ private val GLOBAL_API_MODELS = listOf(
     "ukmo_seamless",
     "cma_grapes_global",
     "jma_seamless",
-    "kma_seamless",
     "bom_access_global",
 )
 
@@ -55,3 +63,7 @@ private val EUROPE_LATITUDE = 34.0..72.0
 private val EUROPE_LONGITUDE = -25.0..45.0
 private val NORTH_AMERICA_LATITUDE = 7.0..84.0
 private val NORTH_AMERICA_LONGITUDE = -170.0..-50.0
+private val EAST_ASIA_LATITUDE = 5.0..60.0
+private val EAST_ASIA_LONGITUDE = 100.0..150.0
+private val OCEANIA_LATITUDE = -50.0..5.0
+private val OCEANIA_LONGITUDE = 110.0..180.0

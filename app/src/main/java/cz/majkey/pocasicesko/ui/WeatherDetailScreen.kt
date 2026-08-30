@@ -1,5 +1,6 @@
 package cz.majkey.pocasicesko.ui
 
+import android.content.ActivityNotFoundException
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,27 +15,34 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Navigation
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -47,10 +55,13 @@ import cz.majkey.pocasicesko.astro.MoonDetails
 import cz.majkey.pocasicesko.astro.MoonPhaseKey
 import cz.majkey.pocasicesko.data.CzechLocation
 import cz.majkey.pocasicesko.data.DailyWeather
+import cz.majkey.pocasicesko.data.HistoricalDay
+import cz.majkey.pocasicesko.data.HistoryArchive
 import cz.majkey.pocasicesko.data.HourlyWeather
 import cz.majkey.pocasicesko.data.PrecipitationField
 import cz.majkey.pocasicesko.data.WeatherSnapshot
 import cz.majkey.pocasicesko.data.currentDay
+import cz.majkey.pocasicesko.data.summary
 import cz.majkey.pocasicesko.units.WeatherUnitFormatter
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -59,6 +70,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import kotlin.math.roundToInt
 import java.io.IOException
+import kotlinx.coroutines.launch
 import org.json.JSONException
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -67,6 +79,7 @@ internal fun WeatherDetailSheet(
     snapshot: WeatherSnapshot,
     location: CzechLocation,
     units: WeatherUnitFormatter,
+    loadHistory: suspend (CzechLocation) -> HistoryArchive,
     loadPrecipitationField: suspend (CzechLocation) -> PrecipitationField,
     onDismiss: () -> Unit,
 ) {
@@ -85,7 +98,13 @@ internal fun WeatherDetailSheet(
     }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val today = snapshot.daily.firstOrNull()?.let { snapshot.currentDay() }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val shareChooserTitle = stringResource(R.string.history_share_chooser)
     var fieldRetryKey by remember(location) { mutableIntStateOf(0) }
+    var historyState by remember(location) { mutableStateOf<HistoryUiState>(HistoryUiState.Idle) }
+    var showHistoryDays by remember(location) { mutableStateOf(false) }
+    var historyShareError by remember(location) { mutableStateOf(false) }
     val fieldState by produceState<PrecipitationFieldUiState>(
         initialValue = PrecipitationFieldUiState.Loading,
         location.latitude,
@@ -98,6 +117,34 @@ internal fun WeatherDetailSheet(
             PrecipitationFieldUiState.Error
         } catch (_: JSONException) {
             PrecipitationFieldUiState.Error
+        }
+    }
+    fun loadArchive() {
+        historyState = HistoryUiState.Loading
+        showHistoryDays = false
+        historyShareError = false
+        scope.launch {
+            historyState = try {
+                HistoryUiState.Content(loadHistory(location))
+            } catch (_: IOException) {
+                HistoryUiState.Error
+            } catch (_: JSONException) {
+                HistoryUiState.Error
+            }
+        }
+    }
+    fun shareArchive(archive: HistoryArchive) {
+        historyShareError = false
+        scope.launch {
+            try {
+                context.startActivity(createHistoryShareIntent(context, archive, shareChooserTitle))
+            } catch (_: IOException) {
+                historyShareError = true
+            } catch (_: ActivityNotFoundException) {
+                historyShareError = true
+            } catch (_: IllegalArgumentException) {
+                historyShareError = true
+            }
         }
     }
     ModalBottomSheet(
@@ -130,6 +177,31 @@ internal fun WeatherDetailSheet(
             }
             item {
                 AtAGlanceSection(snapshot, today, units, locale)
+            }
+            item {
+                HistoryArchiveSection(
+                    state = historyState,
+                    units = units,
+                    locale = locale,
+                    showDays = showHistoryDays,
+                    shareError = historyShareError,
+                    onLoad = ::loadArchive,
+                    onShare = ::shareArchive,
+                    onToggleDays = { showHistoryDays = !showHistoryDays },
+                )
+            }
+            val history = (historyState as? HistoryUiState.Content)?.archive
+            if (history != null && showHistoryDays) {
+                item {
+                    Text(
+                        stringResource(R.string.history_daily_title),
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+                items(history.days.asReversed(), key = { it.date.toString() }) { day ->
+                    HistoricalDayRow(day, units, locale)
+                }
             }
             item {
                 LocalRainFieldSection(
@@ -378,6 +450,197 @@ private sealed interface PrecipitationFieldUiState {
     data object Loading : PrecipitationFieldUiState
     data class Content(val field: PrecipitationField) : PrecipitationFieldUiState
     data object Error : PrecipitationFieldUiState
+}
+
+private sealed interface HistoryUiState {
+    data object Idle : HistoryUiState
+    data object Loading : HistoryUiState
+    data class Content(val archive: HistoryArchive) : HistoryUiState
+    data object Error : HistoryUiState
+}
+
+@Composable
+private fun HistoryArchiveSection(
+    state: HistoryUiState,
+    units: WeatherUnitFormatter,
+    locale: java.util.Locale,
+    showDays: Boolean,
+    shareError: Boolean,
+    onLoad: () -> Unit,
+    onShare: (HistoryArchive) -> Unit,
+    onToggleDays: () -> Unit,
+) {
+    DetailSection(stringResource(R.string.history_title)) {
+        when (state) {
+            HistoryUiState.Idle -> {
+                Text(
+                    stringResource(R.string.history_description),
+                    color = Color.White.copy(alpha = 0.62f),
+                    modifier = Modifier.padding(vertical = 8.dp),
+                )
+                Button(
+                    onClick = onLoad,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF83D6E8),
+                        contentColor = Color(0xFF0D151C),
+                    ),
+                ) { Text(stringResource(R.string.history_load)) }
+            }
+            HistoryUiState.Loading -> Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(96.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator(color = Color(0xFF83D6E8), modifier = Modifier.size(32.dp))
+            }
+            HistoryUiState.Error -> Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    stringResource(R.string.history_unavailable),
+                    color = Color.White.copy(alpha = 0.62f),
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = onLoad) { Text(stringResource(R.string.retry)) }
+            }
+            is HistoryUiState.Content -> {
+                val archive = state.archive
+                val summary = remember(archive) { archive.summary() }
+                val dateFormatter = remember(locale) {
+                    DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale)
+                }
+                Text(
+                    stringResource(
+                        R.string.history_period,
+                        archive.days.first().date.format(dateFormatter),
+                        archive.days.last().date.format(dateFormatter),
+                    ),
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+                Text(
+                    stringResource(R.string.history_source_note),
+                    color = Color.White.copy(alpha = 0.62f),
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(top = 5.dp, bottom = 8.dp),
+                )
+                Row(Modifier.fillMaxWidth()) {
+                    GlanceValue(
+                        stringResource(R.string.history_total_precipitation),
+                        units.precipitation(summary.totalPrecipitationMm),
+                        Modifier.weight(1f),
+                    )
+                    GlanceValue(
+                        stringResource(R.string.history_wet_days),
+                        stringResource(R.string.history_wet_days_value, summary.wetDayCount),
+                        Modifier.weight(1f),
+                    )
+                }
+                HorizontalDivider(color = Color.White.copy(alpha = 0.07f))
+                Row(Modifier.fillMaxWidth()) {
+                    GlanceValue(
+                        stringResource(R.string.history_average_temperature),
+                        units.temperature(summary.averageTemperatureC),
+                        Modifier.weight(1f),
+                    )
+                    GlanceValue(
+                        stringResource(R.string.history_temperature_range),
+                        "${units.temperature(summary.minimumTemperatureC)} – " +
+                            units.temperature(summary.maximumTemperatureC),
+                        Modifier.weight(1f),
+                    )
+                }
+                OptionalDetailRow(
+                    stringResource(R.string.history_solar_energy),
+                    summary.totalSolarEnergyMegajoulesPerSquareMeter?.let {
+                        String.format(locale, "%.0f MJ/m²", it)
+                    },
+                )
+                OptionalDetailRow(
+                    stringResource(R.string.humidity),
+                    summary.averageRelativeHumidityPercent?.let { String.format(locale, "%.0f %%", it) },
+                )
+                OptionalDetailRow(
+                    stringResource(R.string.wind),
+                    summary.averageWindSpeedMetersPerSecond?.let { units.windSpeed(it * 3.6) },
+                )
+                Button(
+                    onClick = { onShare(archive) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF83D6E8),
+                        contentColor = Color(0xFF0D151C),
+                    ),
+                ) { Text(stringResource(R.string.history_ask_chatgpt)) }
+                OutlinedButton(
+                    onClick = onToggleDays,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 6.dp),
+                ) {
+                    Text(
+                        stringResource(
+                            if (showDays) R.string.history_hide_days else R.string.history_show_days,
+                        ),
+                    )
+                }
+                if (shareError) {
+                    Text(
+                        stringResource(R.string.history_share_failed),
+                        color = Color(0xFFFFB4AB),
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HistoricalDayRow(
+    day: HistoricalDay,
+    units: WeatherUnitFormatter,
+    locale: java.util.Locale,
+) {
+    val dateFormatter = remember(locale) {
+        DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale)
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(day.date.format(dateFormatter), fontWeight = FontWeight.Medium)
+            Text(
+                "${units.temperature(day.temperatureMinimumC)} – " +
+                    units.temperature(day.temperatureMaximumC),
+                color = Color.White.copy(alpha = 0.58f),
+                fontSize = 12.sp,
+            )
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            Text(units.precipitation(day.precipitationMm), fontWeight = FontWeight.Medium)
+            day.solarEnergyMegajoulesPerSquareMeter?.let {
+                Text(
+                    String.format(locale, "%.1f MJ/m²", it),
+                    color = Color.White.copy(alpha = 0.48f),
+                    fontSize = 11.sp,
+                )
+            }
+        }
+    }
+    HorizontalDivider(color = Color.White.copy(alpha = 0.07f))
 }
 
 @Composable

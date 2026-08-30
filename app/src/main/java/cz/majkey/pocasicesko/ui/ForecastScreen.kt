@@ -67,6 +67,7 @@ import androidx.compose.ui.res.stringResource
 import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.data.CzechLocation
 import cz.majkey.pocasicesko.data.DailyWeather
+import cz.majkey.pocasicesko.data.HistoryArchive
 import cz.majkey.pocasicesko.data.HourlyWeather
 import cz.majkey.pocasicesko.data.PrecipitationField
 import cz.majkey.pocasicesko.data.WeatherKind
@@ -93,6 +94,7 @@ internal fun ForecastScreen(
     refreshing: Boolean,
     refreshError: String?,
     measurementSystem: MeasurementSystem,
+    loadHistory: suspend (CzechLocation) -> HistoryArchive,
     loadPrecipitationField: suspend (CzechLocation) -> PrecipitationField,
     onSearch: () -> Unit,
     onRefresh: () -> Unit,
@@ -159,6 +161,7 @@ internal fun ForecastScreen(
             snapshot = snapshot,
             location = location,
             units = units,
+            loadHistory = loadHistory,
             loadPrecipitationField = loadPrecipitationField,
             onDismiss = { showDetails = false },
         )

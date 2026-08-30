@@ -291,4 +291,22 @@
     <string name="widget_field_wind">Vent</string>
     <string name="widget_field_humidity">Humidité</string>
     <string name="widget_field_updated">Dernière mise à jour</string>
+    <string name="history_title">Historique annuel</string>
+    <string name="history_description">Charger 365 jours d’estimations quotidiennes pour ce lieu.</string>
+    <string name="history_load">Charger l’archive</string>
+    <string name="history_unavailable">Impossible de charger l’archive.</string>
+    <string name="history_source_note">Estimations maillées NASA POWER issues d’observations satellitaires et de modèles d’assimilation. Ce ne sont pas des mesures d’une station locale. Les derniers jours peuvent être retardés.</string>
+    <string name="history_period">%1$s – %2$s</string>
+    <string name="history_total_precipitation">Précipitations totales</string>
+    <string name="history_wet_days">Jours humides</string>
+    <string name="history_wet_days_value">%1$d jours</string>
+    <string name="history_average_temperature">Température moyenne</string>
+    <string name="history_temperature_range">Plage de température</string>
+    <string name="history_solar_energy">Énergie solaire en surface</string>
+    <string name="history_ask_chatgpt">Demander à ChatGPT</string>
+    <string name="history_show_days">Afficher les données quotidiennes</string>
+    <string name="history_hide_days">Masquer les données quotidiennes</string>
+    <string name="history_daily_title">Archive quotidienne</string>
+    <string name="history_share_chooser">Demander à ChatGPT ou partager</string>
+    <string name="history_share_failed">Impossible de partager l’archive.</string>
 </resources>

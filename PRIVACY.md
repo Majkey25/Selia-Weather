@@ -1,12 +1,14 @@
 # Privacy policy
 
-Effective date: 29 August 2026
+Effective date: 30 August 2026
 
 Selia Vetra, package `com.majkeylab.weatheraladin`, does not require a developer account. The developer does not sell personal data or run a separate analytics service. The free version integrates Google Mobile Ads and Google User Messaging Platform (UMP). Premium purchases use Google Play Billing.
 
 ## Data on your device
 
-The app stores the last selected place, favourite places, the last successful forecast, language preference, and widget settings in internal app storage. Android backup and device transfer are disabled for this data. Clearing app data or uninstalling the app deletes it.
+The app stores the last selected place, favourite places, the last successful forecast, language preference, and widget settings in internal app storage. A history archive is cached for up to 12 selected coordinates. The cache is refreshed at most once per 24 hours. Android backup and device transfer are disabled for this data. Clearing app data or uninstalling the app deletes it.
+
+After you select **Ask ChatGPT**, the app creates one CSV file in its private cache. The file contains the selected location name and coordinates, daily weather estimates, data-source version, and access time. Android shares the file only with the app you choose in the system share sheet. A later export replaces the previous file.
 
 Each widget stores its settings under its Android widget ID. If you select a custom image, the app stores only the selected Android content URI and retains Android read permission for that URI. The widget reads a bounded image copy only when it renders. Removing the widget removes its settings and releases its retained image permission when no other widget uses the URI.
 
@@ -20,17 +22,18 @@ Approximate and precise location permissions are optional. After you select **Us
 
 - Open-Meteo receives place search terms and forecast coordinates for every forecast request. This includes default Prague, a searched place, a favourite, and current location. Current location remains optional and starts only after you select **Use my location**. Open-Meteo provides geocoding and forecasts. The developer does not retain this data off-device. [Open-Meteo states](https://open-meteo.com/en/terms) that free API server logs may contain coordinates and are deleted after 90 days.
 - When you open **Weather details**, the Local rain field sends 25 forecast coordinates inside a 20 km radius around the selected location to Open-Meteo. The app keeps the returned spatial field only while that detail view is active. The field is a model forecast, not measured radar.
+- After you select **Load archive**, NASA POWER receives the selected coordinates and requested one-year date range. It returns daily model and satellite grid estimates. The app stores the response only in its bounded on-device cache. NASA POWER data are not local-station measurements. See the [NASA POWER Daily API](https://power.larc.nasa.gov/docs/services/api/temporal/daily/) and [referencing guide](https://power.larc.nasa.gov/docs/referencing/).
 - ČHMÚ provides public automatic-station observations, radar, nowcast, lightning, and satellite images. The app selects nearby station IDs on the device. It does not send the selected coordinates to ČHMÚ. ČHMÚ servers process normal HTTPS technical data such as your IP address and requested public file names.
 - OpenStreetMap receives requests for the visible map tiles only while the worldwide point picker is open. Tile requests reveal the approximate visible map area and normal HTTPS technical data such as your IP address. The exact selected coordinates remain in the app.
 - Google Mobile Ads automatically collects and shares IP address, app interactions, diagnostic information, and device or account identifiers for advertising, analytics, and fraud prevention. Google UMP requests consent where required and exposes privacy choices in Settings. Ads remain hidden until consent permits an ad request and Google Play confirms the user does not have Premium.
 - Google Play processes product queries, purchases, subscription state, and purchase acknowledgements. Payment details stay in Google Play; the app does not receive card details.
 - Buy Me a Coffee receives data only if you choose the optional support action. The app opens the external HTTPS page `https://www.buymeacoffee.com/majkey` through Android.
 
-All app network communication uses HTTPS. The app does not send contacts, messages, photos, audio, or the contents of a selected widget image.
+All app network communication uses HTTPS. The app does not send contacts, messages, photos, audio, or the contents of a selected widget image. A weather-history CSV leaves the app only after you select **Ask ChatGPT** and then choose a recipient in Android's share sheet. That recipient processes the file under its own terms.
 
 ## Retention and choices
 
-The developer does not operate a server that stores app data or purchase tokens. Data on your device remains until you clear app data or uninstall the app. You can remove location permission in Android settings at any time. You can remove image access by deleting the widget, changing its image, or managing the selected document in Android. Privacy choices are available in Settings when required. Open-Meteo, ČHMÚ, OpenStreetMap, Google, and Buy Me a Coffee process data under their own terms when you contact their services.
+The developer does not operate a server that stores app data or purchase tokens. Data on your device remains until the cache replaces it, you clear app data, or you uninstall the app. You can remove location permission in Android settings at any time. You can remove image access by deleting the widget, changing its image, or managing the selected document in Android. Privacy choices are available in Settings when required. Open-Meteo, NASA POWER, ČHMÚ, OpenStreetMap, Google, Buy Me a Coffee, and a share-sheet recipient process data under their own terms when you contact their services.
 
 ## Contact
 

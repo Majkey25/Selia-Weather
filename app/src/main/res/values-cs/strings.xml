@@ -291,4 +291,22 @@
     <string name="widget_field_wind">Vítr</string>
     <string name="widget_field_humidity">Vlhkost</string>
     <string name="widget_field_updated">Poslední aktualizace</string>
+    <string name="history_title">Roční historie</string>
+    <string name="history_description">Načíst 365 dní denních odhadů pro tuto lokalitu.</string>
+    <string name="history_load">Načíst archiv</string>
+    <string name="history_unavailable">Archiv se nepodařilo načíst.</string>
+    <string name="history_source_note">Mřížkové odhady NASA POWER založené na družicových pozorováních a asimilačních modelech. Nejde o měření místní stanice. Poslední dny mohou mít zpoždění.</string>
+    <string name="history_period">%1$s – %2$s</string>
+    <string name="history_total_precipitation">Celkové srážky</string>
+    <string name="history_wet_days">Deštivé dny</string>
+    <string name="history_wet_days_value">%1$d dní</string>
+    <string name="history_average_temperature">Průměrná teplota</string>
+    <string name="history_temperature_range">Rozsah teplot</string>
+    <string name="history_solar_energy">Sluneční energie na povrchu</string>
+    <string name="history_ask_chatgpt">Zeptat se ChatGPT</string>
+    <string name="history_show_days">Zobrazit denní data</string>
+    <string name="history_hide_days">Skrýt denní data</string>
+    <string name="history_daily_title">Denní archiv</string>
+    <string name="history_share_chooser">Zeptat se ChatGPT nebo sdílet</string>
+    <string name="history_share_failed">Archiv se nepodařilo sdílet.</string>
 </resources>

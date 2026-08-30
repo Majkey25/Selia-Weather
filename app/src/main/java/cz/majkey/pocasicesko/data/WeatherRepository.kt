@@ -7,6 +7,7 @@ import androidx.core.content.edit
 import cz.majkey.pocasicesko.BuildConfig
 import cz.majkey.pocasicesko.locale.AppLocale
 import cz.majkey.pocasicesko.widget.WeatherWidgetProvider
+import java.io.File
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URLEncoder
@@ -27,6 +28,7 @@ class WeatherRepository(context: Context) {
     private val preferences = appContext.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
     private val currentConditions = ChmiCurrentConditionsRepository(appContext)
     private val precipitationFieldRepository = PrecipitationFieldRepository()
+    private val historyRepository = HistoryRepository(File(appContext.cacheDir, "history"))
 
     fun lastLocation(): CzechLocation {
         val location = CzechLocation(
@@ -98,6 +100,9 @@ class WeatherRepository(context: Context) {
 
     internal suspend fun fetchPrecipitationField(location: CzechLocation): PrecipitationField =
         precipitationFieldRepository.fetch(location)
+
+    internal suspend fun fetchHistory(location: CzechLocation): HistoryArchive =
+        historyRepository.fetch(location)
 
     fun fetchForecastBlocking(location: CzechLocation): WeatherSnapshot {
         val bestMatchJson = request(forecastUri(location).toString())

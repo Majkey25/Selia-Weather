@@ -27,6 +27,7 @@
 - Adds UV, freezing-level, boundary-layer, atmospheric-water, instability, showers, and ground details.
 - Shows an on-demand 5 by 5 Local rain field for the next 24 hours. It samples 25 nearby forecast points inside a 20 km radius and is not observed radar.
 - Shows a horizontal 24-hour outlook, a 14-day forecast, and an hourly detail for each day. A complete day normally has 24 hours.
+- Loads a bounded 365-day NASA POWER archive on demand, calculates rainfall and climate summaries locally, shows every daily row, and exports one provenance-labelled CSV through Android's share sheet for analysis in ChatGPT or another app.
 - Searches places worldwide, stores favourites, can use your optional current location, and can save an exact named point on an interactive world map or by coordinate.
 - Includes ČHMÚ rain radar, satellite clouds, nowcast, and lightning. Rain and clouds are base layers. Lightning is an independent overlay on either layer.
 - In Czechia, corrects current temperature, humidity, wind, precipitation, and sky condition from up to three nearby ČHMÚ automatic stations when their observations are fresh.
@@ -40,12 +41,14 @@
 The base forecast uses Open-Meteo Best Match worldwide, which selects the highest-resolution applicable model for the requested coordinates and returns the location's local timezone. Current unreleased builds also request explicit global provider series and calculate a robust median on the device when at least three values are available. Czech locations add CHMI ALADIN and apply fresh nearby ČHMÚ station observations after that calculation. The prototype falls back to Best Match and is not presented as calibrated or more accurate until a locked holdout supports that claim.
 
 - [Open-Meteo Forecast API](https://open-meteo.com/en/docs)
+- [NASA POWER Daily API](https://power.larc.nasa.gov/docs/services/api/temporal/daily/)
+- [NASA POWER referencing guide](https://power.larc.nasa.gov/docs/referencing/)
 - [ČHMÚ current station data](https://opendata.chmi.cz/meteorology/climate/now/)
 - [ČHMÚ open weather data](https://opendata.chmi.cz/meteorology/weather/)
 - [ČHMÚ radar](https://produkty.chmi.cz/radar/)
 - [ČHMÚ satellite data](https://opendata.chmi.cz/meteorology/weather/satellite/geo/vis-ir/)
 
-Selia Vetra is not an official ČHMÚ or Open-Meteo app.
+The historical data was obtained from the NASA Langley Research Center POWER project funded through the NASA Earth Science Division. CSV exports include the POWER Daily API version and access time. Selia Vetra is not an official NASA, ČHMÚ, or Open-Meteo app.
 
 ## Language and requirements
 
@@ -79,7 +82,7 @@ The debug APK is at `app/build/outputs/apk/debug/app-debug.apk`.
 
 ## Privacy
 
-The app has no developer account or separate analytics SDK. It keeps the selected place, favourites, widget settings, and forecast cache in internal app storage. Current location is optional. Its coordinates are sent to Open-Meteo over HTTPS to request the forecast. The worldwide point picker loads visible OpenStreetMap tiles only while open. In Czechia, the app selects nearby ČHMÚ station IDs locally and requests their public observation files without sending the selected coordinates to ČHMÚ. The free build uses Google Mobile Ads and UMP. Purchases use Google Play Billing. Read the [privacy policy](https://majkey25.github.io/Selia-Weather/).
+The app has no developer account or separate analytics SDK. It keeps the selected place, favourites, widget settings, forecast cache, and a bounded history cache in internal app storage. Current location is optional. Forecast coordinates are sent to Open-Meteo. After you select **Load archive**, the selected coordinates are sent to NASA POWER. A history CSV leaves the app only after you select **Ask ChatGPT** and choose a recipient in Android's share sheet. The worldwide point picker loads visible OpenStreetMap tiles only while open. In Czechia, the app selects nearby ČHMÚ station IDs locally and requests their public observation files without sending the selected coordinates to ČHMÚ. The free build uses Google Mobile Ads and UMP. Purchases use Google Play Billing. Read the [privacy policy](https://majkey25.github.io/Selia-Weather/).
 
 ## Status
 

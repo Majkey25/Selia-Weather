@@ -90,6 +90,27 @@ def select_lead_messages(
     return tuple(by_lead[lead] for lead in lead_hours)
 
 
+def select_accumulated_lead_message(
+    messages: tuple[SampledMessage, ...],
+    run_time: datetime,
+    lead_hour: int,
+) -> SampledMessage:
+    candidates = tuple(
+        message
+        for message in messages
+        if message.run_time == run_time
+        and message.valid_time == run_time + timedelta(hours=lead_hour)
+        and message.step_type == "accum"
+        and message.start_step_hours == 0
+        and message.end_step_hours == lead_hour
+    )
+    if not candidates:
+        raise ValueError(f"missing required accumulated lead: {lead_hour}")
+    if len(set(candidates)) != 1:
+        raise ValueError(f"conflicting accumulated lead: {lead_hour}")
+    return candidates[0]
+
+
 def load_operational_values(
     run_time: datetime,
     cache_root: Path,
@@ -228,7 +249,11 @@ def load_sampled_model_values(
             if active_index is None:
                 active_index = build_grib_point_index(field.path, points)
             decoded = decode_grib_points(field.path, points, point_index=active_index)
-            messages.extend(select_lead_messages(decoded, run_time, (lead,)))
+            messages.extend(
+                (select_accumulated_lead_message(decoded, run_time, lead),)
+                if variable == "precipitation"
+                else select_lead_messages(decoded, run_time, (lead,))
+            )
         rows.extend(
             to_forecast_values(
                 tuple(messages),

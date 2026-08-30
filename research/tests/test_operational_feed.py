@@ -65,6 +65,36 @@ def test_selects_every_required_lead_and_rejects_partial_axis() -> None:
         select_lead_messages(messages[:-1], run_time, (0, 6, 12, 18, 24))
 
 
+def test_selects_full_run_precipitation_and_rejects_conflicting_duplicates() -> None:
+    run_time = datetime(2026, 8, 29, 0, tzinfo=UTC)
+
+    def accumulated(start: int, value: float) -> SampledMessage:
+        return SampledMessage(
+            run_time=run_time,
+            valid_time=run_time + timedelta(hours=6),
+            unit="kg/m²",
+            step_type="accum",
+            start_step_hours=start,
+            end_step_hours=6,
+            values=(SampledPoint(50.0, 14.0, 50.0, 14.0, 0.0, value),),
+        )
+
+    full_run = accumulated(0, 3.0)
+    selected = operational_feed.select_accumulated_lead_message(
+        (full_run, accumulated(3, 2.0), full_run),
+        run_time,
+        6,
+    )
+
+    assert selected == full_run
+    with pytest.raises(ValueError, match="conflicting"):
+        operational_feed.select_accumulated_lead_message(
+            (full_run, accumulated(0, 4.0)),
+            run_time,
+            6,
+        )
+
+
 def test_operational_validator_rejects_any_partial_model() -> None:
     run_time = datetime(2026, 8, 29, 6, tzinfo=UTC)
     point = GeoPoint(50.0, 14.0)

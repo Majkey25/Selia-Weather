@@ -34,16 +34,19 @@ class MainActivity : ComponentActivity() {
                 repository = remember { WeatherRepository(applicationContext) },
                 adsController = adsController,
                 premiumBillingController = premiumBillingController,
+                paymentsEnabled = BuildConfig.PAYMENTS_ENABLED,
                 onLanguage = { tag -> AppLocale.set(this, tag) },
             )
         }
-        premiumBillingController.start()
+        if (BuildConfig.PAYMENTS_ENABLED) premiumBillingController.start()
         adsController.start()
     }
 
     override fun onResume() {
         super.onResume()
-        if (::premiumBillingController.isInitialized) premiumBillingController.start()
+        if (::premiumBillingController.isInitialized && BuildConfig.PAYMENTS_ENABLED) {
+            premiumBillingController.start()
+        }
     }
 
     override fun onDestroy() {

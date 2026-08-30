@@ -121,6 +121,7 @@ fun WeatherApp(
     repository: WeatherRepository,
     adsController: AdsController,
     premiumBillingController: PremiumBillingController,
+    paymentsEnabled: Boolean,
     onLanguage: (String) -> Unit,
 ) {
     val context = LocalContext.current
@@ -218,6 +219,7 @@ fun WeatherApp(
                     entitlement = entitlement,
                     premiumOffers = premiumOffers,
                     billingMessage = billingMessage,
+                    paymentsEnabled = paymentsEnabled,
                     privacyOptionsRequired = privacyOptionsRequired,
                     onLanguage = onLanguage,
                     onMeasurementSystem = { selected ->

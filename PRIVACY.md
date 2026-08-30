@@ -2,7 +2,7 @@
 
 Effective date: 30 August 2026
 
-Selia Vetra, package `com.majkeylab.weatheraladin`, does not require a developer account. The developer does not sell personal data or run a separate analytics service. The free version integrates Google Mobile Ads and Google User Messaging Platform (UMP). Premium purchases use Google Play Billing.
+Selia Vetra, package `com.majkeylab.weatheraladin`, does not require a developer account. The developer does not sell personal data or run a separate analytics service. The code includes Google Mobile Ads, Google User Messaging Platform (UMP), and Google Play Billing, but current release builds do not initialise ads, connect Billing, or expose purchases while they use the Open-Meteo Free API. Debug builds use Google test ads and Billing for development QA.
 
 ## Data on your device
 
@@ -25,8 +25,8 @@ Approximate and precise location permissions are optional. After you select **Us
 - After you select **Load archive**, NASA POWER receives the selected coordinates and requested one-year date range. It returns daily model and satellite grid estimates. The app stores the response only in its bounded on-device cache. NASA POWER data are not local-station measurements. See the [NASA POWER Daily API](https://power.larc.nasa.gov/docs/services/api/temporal/daily/) and [referencing guide](https://power.larc.nasa.gov/docs/referencing/).
 - ČHMÚ provides public automatic-station observations, radar, nowcast, lightning, and satellite images. The app selects nearby station IDs on the device. It does not send the selected coordinates to ČHMÚ. ČHMÚ servers process normal HTTPS technical data such as your IP address and requested public file names.
 - OpenStreetMap receives requests for the visible map tiles only while the worldwide point picker is open. Tile requests reveal the approximate visible map area and normal HTTPS technical data such as your IP address. The exact selected coordinates remain in the app.
-- Google Mobile Ads automatically collects and shares IP address, app interactions, diagnostic information, and device or account identifiers for advertising, analytics, and fraud prevention. Google UMP requests consent where required and exposes privacy choices in Settings. Ads remain hidden until consent permits an ad request and Google Play confirms the user does not have Premium.
-- Google Play processes product queries, purchases, subscription state, and purchase acknowledgements. Payment details stay in Google Play; the app does not receive card details.
+- Current release builds do not initialise Google Mobile Ads or request an ad. If commercial forecasts and monetisation are enabled in a future release, Google Mobile Ads can collect and share IP address, app interactions, diagnostics, and device or account identifiers for advertising, analytics, and fraud prevention. Google UMP will request consent where required.
+- Current release builds do not connect Google Play Billing or expose purchases. If Premium is enabled in a future commercially licensed release, Google Play will process product queries, purchases, subscription state, and purchase acknowledgements. Payment details stay in Google Play; the app does not receive card details.
 - Buy Me a Coffee receives data only if you choose the optional support action. The app opens the external HTTPS page `https://www.buymeacoffee.com/majkey` through Android.
 
 All app network communication uses HTTPS. The app does not send contacts, messages, photos, audio, or the contents of a selected widget image. A weather-history CSV leaves the app only after you select **Ask ChatGPT** and then choose a recipient in Android's share sheet. That recipient processes the file under its own terms.

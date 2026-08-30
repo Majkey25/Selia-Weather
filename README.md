@@ -70,7 +70,7 @@ The settings screen includes an optional [Buy Me a Coffee](https://www.buymeacof
 
 Google Play offers `remove_ads_lifetime` as a one-time purchase and `premium_monthly` as an auto-renewing subscription. Either option removes ads. The app checks active purchases whenever Play Billing connects or the app resumes. A pending or unknown entitlement never enables ads.
 
-The debug build uses Google's published test ad IDs. Production ad IDs are supplied as Gradle properties `ALADIN_ADMOB_APP_ID` and `ALADIN_INTERSTITIAL_AD_UNIT_ID`. A release built without both stays ad-disabled.
+The debug build uses Google's published test ad IDs and keeps Billing available for QA. Current release builds fail closed: they do not initialise ads, connect Billing, or show purchase controls while forecasts use the Open-Meteo Free API. Production monetisation can be enabled only after the app uses a commercially licensed forecast path.
 
 ## Build
 

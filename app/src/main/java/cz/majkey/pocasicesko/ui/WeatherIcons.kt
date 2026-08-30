@@ -28,7 +28,8 @@ fun WeatherIcon(
     tint: Color = Color.White,
 ) {
     if (kind == WeatherKind.MAINLY_CLEAR || kind == WeatherKind.PARTLY_CLOUDY) {
-        val cloudFraction = if (kind == WeatherKind.MAINLY_CLEAR) 0.50f else 0.64f
+        val cloudFraction = compositeCloudFraction(kind)
+        val cloudTint = compositeCloudTint(kind, tint)
         val sunOrMoonFraction = if (kind == WeatherKind.MAINLY_CLEAR) 0.84f else 0.78f
         val sunOrMoonTint = if (isDay) Color(0xFFFFD477) else Color(0xFFDDE6FF)
         Box(
@@ -48,7 +49,7 @@ fun WeatherIcon(
                 imageVector = Icons.Rounded.Cloud,
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(cloudFraction).align(Alignment.BottomEnd),
-                tint = tint,
+                tint = cloudTint,
             )
         }
         return
@@ -70,4 +71,16 @@ fun WeatherIcon(
         modifier = modifier,
         tint = tint,
     )
+}
+
+internal fun compositeCloudFraction(kind: WeatherKind): Float = when (kind) {
+    WeatherKind.MAINLY_CLEAR -> 0.50f
+    WeatherKind.PARTLY_CLOUDY -> 0.64f
+    else -> error("Only composite conditions have a cloud fraction")
+}
+
+internal fun compositeCloudTint(kind: WeatherKind, requested: Color): Color = when (kind) {
+    WeatherKind.MAINLY_CLEAR -> Color(0xFF9FB7FF)
+    WeatherKind.PARTLY_CLOUDY -> requested
+    else -> error("Only composite conditions have a cloud tint")
 }

@@ -1,11 +1,28 @@
 package cz.majkey.pocasicesko.ui
 
+import androidx.compose.ui.graphics.Color
+import cz.majkey.pocasicesko.data.WeatherKind
 import java.io.File
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class WeatherIconTest {
+    @Test
+    fun mainlyClearKeepsCloudSmallAndBlue() {
+        assertEquals(0.50f, compositeCloudFraction(WeatherKind.MAINLY_CLEAR), 0.001f)
+        assertEquals(Color(0xFF9FB7FF), compositeCloudTint(WeatherKind.MAINLY_CLEAR, Color.Yellow))
+    }
+
+    @Test
+    fun partlyCloudyKeepsLargerRequestedCloudTint() {
+        val requested = Color(0xFF9ED9EA)
+
+        assertEquals(0.64f, compositeCloudFraction(WeatherKind.PARTLY_CLOUDY), 0.001f)
+        assertEquals(requested, compositeCloudTint(WeatherKind.PARTLY_CLOUDY, requested))
+    }
+
     @Test
     fun mainlyClearUsesSunOrMoonWithSmallCloud() {
         val source = File(

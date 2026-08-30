@@ -68,30 +68,39 @@ def test_selects_every_required_lead_and_rejects_partial_axis() -> None:
 def test_selects_full_run_precipitation_and_rejects_conflicting_duplicates() -> None:
     run_time = datetime(2026, 8, 29, 0, tzinfo=UTC)
 
-    def accumulated(start: int, value: float) -> SampledMessage:
+    def accumulated(start: int, end: int, value: float) -> SampledMessage:
         return SampledMessage(
             run_time=run_time,
-            valid_time=run_time + timedelta(hours=6),
+            valid_time=run_time + timedelta(hours=end),
             unit="kg/m²",
             step_type="accum",
             start_step_hours=start,
-            end_step_hours=6,
+            end_step_hours=end,
             values=(SampledPoint(50.0, 14.0, 50.0, 14.0, 0.0, value),),
         )
 
-    full_run = accumulated(0, 3.0)
-    selected = operational_feed.select_accumulated_lead_message(
-        (full_run, accumulated(3, 2.0), full_run),
+    full_run = accumulated(0, 6, 3.0)
+    selected = operational_feed.select_precipitation_lead_message(
+        (full_run, accumulated(3, 6, 2.0), full_run),
         run_time,
+        6,
+        0,
+    )
+    interval = operational_feed.select_precipitation_lead_message(
+        (accumulated(6, 12, 2.0),),
+        run_time,
+        12,
         6,
     )
 
     assert selected == full_run
+    assert interval.start_step_hours == 6
     with pytest.raises(ValueError, match="conflicting"):
-        operational_feed.select_accumulated_lead_message(
-            (full_run, accumulated(0, 4.0)),
+        operational_feed.select_precipitation_lead_message(
+            (full_run, accumulated(0, 6, 4.0)),
             run_time,
             6,
+            0,
         )
 
 

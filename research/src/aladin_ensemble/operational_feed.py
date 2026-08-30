@@ -90,25 +90,32 @@ def select_lead_messages(
     return tuple(by_lead[lead] for lead in lead_hours)
 
 
-def select_accumulated_lead_message(
+def select_precipitation_lead_message(
     messages: tuple[SampledMessage, ...],
     run_time: datetime,
     lead_hour: int,
+    previous_end_hour: int,
 ) -> SampledMessage:
+    if previous_end_hour < 0 or previous_end_hour >= lead_hour:
+        raise ValueError("precipitation lead order is invalid")
     candidates = tuple(
         message
         for message in messages
         if message.run_time == run_time
         and message.valid_time == run_time + timedelta(hours=lead_hour)
         and message.step_type == "accum"
-        and message.start_step_hours == 0
         and message.end_step_hours == lead_hour
     )
-    if not candidates:
-        raise ValueError(f"missing required accumulated lead: {lead_hour}")
-    if len(set(candidates)) != 1:
-        raise ValueError(f"conflicting accumulated lead: {lead_hour}")
-    return candidates[0]
+    preferred = tuple(message for message in candidates if message.start_step_hours == 0)
+    if not preferred:
+        preferred = tuple(
+            message for message in candidates if message.start_step_hours == previous_end_hour
+        )
+    if not preferred:
+        raise ValueError(f"missing required precipitation lead: {lead_hour}")
+    if len(set(preferred)) != 1:
+        raise ValueError(f"conflicting precipitation lead: {lead_hour}")
+    return preferred[0]
 
 
 def load_operational_values(
@@ -239,6 +246,7 @@ def load_sampled_model_values(
     active_index = point_index
     for variable, unit in CANONICAL_FIELDS.items():
         messages: list[SampledMessage] = []
+        previous_precipitation_end = 0
         variable_leads = tuple(
             lead for lead in lead_hours if variable != "precipitation" or lead > 0
         )
@@ -249,11 +257,17 @@ def load_sampled_model_values(
             if active_index is None:
                 active_index = build_grib_point_index(field.path, points)
             decoded = decode_grib_points(field.path, points, point_index=active_index)
-            messages.extend(
-                (select_accumulated_lead_message(decoded, run_time, lead),)
-                if variable == "precipitation"
-                else select_lead_messages(decoded, run_time, (lead,))
-            )
+            if variable == "precipitation":
+                selected = select_precipitation_lead_message(
+                    decoded,
+                    run_time,
+                    lead,
+                    previous_precipitation_end,
+                )
+                messages.append(selected)
+                previous_precipitation_end = selected.end_step_hours
+            else:
+                messages.extend(select_lead_messages(decoded, run_time, (lead,)))
         rows.extend(
             to_forecast_values(
                 tuple(messages),

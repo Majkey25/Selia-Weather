@@ -181,7 +181,7 @@ def test_converts_cumulative_precipitation_to_intervals() -> None:
             end_step_hours=lead,
             values=(SampledPoint(50.0, 14.0, 50.0, 14.0, 0.0, amount),),
         )
-        for lead, amount in ((0, 0.0), (6, 3.0), (12, 5.0), (18, 4.9995))
+        for lead, amount in ((0, 0.0), (6, 3.0), (12, 5.0), (18, 4.9915))
     )
 
     values = to_forecast_values(

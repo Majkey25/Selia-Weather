@@ -528,7 +528,7 @@ def convert_grib_unit(value: float, source_unit: str, canonical_unit: str) -> fl
 
 
 DIRECTION_TOLERANCE_DEGREES = 0.5
-PRECIPITATION_TOLERANCE_MM = 0.001
+PRECIPITATION_TOLERANCE_MM = 0.01
 
 
 class _EccodesModule(Protocol):

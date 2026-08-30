@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -155,6 +156,39 @@ def test_operational_model_outputs_interval_precipitation(
 
     precipitation = [value.value for value in values if value.variable == "precipitation"]
     assert precipitation == [0.0, 3.0, 2.0]
+
+
+def test_normalizes_chmi_total_precipitation_metadata() -> None:
+    run_time = datetime(2026, 8, 29, 0, tzinfo=UTC)
+    point = GeoPoint(50.0, 14.0)
+    messages = tuple(
+        SampledMessage(
+            run_time=run_time,
+            valid_time=run_time + timedelta(hours=lead),
+            unit="unknown",
+            step_type="instant",
+            start_step_hours=lead,
+            end_step_hours=lead,
+            values=(SampledPoint(50.0, 14.0, 50.0, 14.0, 0.0, amount),),
+        )
+        for lead, amount in ((6, 3.0), (12, 5.0))
+    )
+
+    normalized = operational_feed.normalize_chmi_precipitation_messages(messages)
+    values = operational_feed.to_forecast_values(
+        normalized,
+        model_id="chmi_aladin_cz_1km",
+        variable="precipitation",
+        canonical_unit="mm",
+        elevation_by_point={point: 250.0},
+    )
+
+    assert [message.end_step_hours for message in normalized] == [0, 6, 12]
+    assert [value.value for value in values] == [0.0, 3.0, 2.0]
+    with pytest.raises(ValueError, match="metadata"):
+        operational_feed.normalize_chmi_precipitation_messages(
+            (replace(messages[0], unit="mm"),),
+        )
 
 
 def test_aladin_uses_only_its_official_domain_without_shrinking_other_models() -> None:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -256,11 +257,18 @@ def _load_chmi(
         ChmiAladinRequest(run_time, "precipitation"),
         cache_root,
     )
-    precipitation = select_lead_messages(
-        decode_grib_points(precipitation_file.path, points, point_index=point_index),
-        run_time,
-        lead_hours,
+    precipitation_leads = tuple(lead for lead in lead_hours if lead > 0)
+    if not precipitation_leads:
+        raise ValueError("CHMI precipitation requires a positive forecast lead")
+    precipitation = normalize_chmi_precipitation_messages(
+        select_lead_messages(
+            decode_grib_points(precipitation_file.path, points, point_index=point_index),
+            run_time,
+            precipitation_leads,
+        ),
     )
+    if 0 not in lead_hours:
+        precipitation = precipitation[1:]
     speed_file = download_chmi_aladin(ChmiAladinRequest(run_time, "wind_speed_10m"), cache_root)
     direction_file = download_chmi_aladin(
         ChmiAladinRequest(run_time, "wind_direction_10m"),
@@ -293,6 +301,40 @@ def _load_chmi(
         direction,
         "chmi_aladin_cz_1km",
         elevations,
+    )
+
+
+def normalize_chmi_precipitation_messages(
+    messages: tuple[SampledMessage, ...],
+) -> tuple[SampledMessage, ...]:
+    if not messages:
+        raise ValueError("CHMI precipitation messages are required")
+    ordered = tuple(sorted(messages, key=lambda message: message.end_step_hours))
+    first = ordered[0]
+    coordinates = tuple((point.latitude, point.longitude) for point in first.values)
+    if any(
+        message.run_time != first.run_time
+        or message.valid_time != message.run_time + timedelta(hours=message.end_step_hours)
+        or message.unit != "unknown"
+        or message.step_type != "instant"
+        or message.start_step_hours != message.end_step_hours
+        or message.end_step_hours <= 0
+        or tuple((point.latitude, point.longitude) for point in message.values) != coordinates
+        for message in ordered
+    ) or len({message.end_step_hours for message in ordered}) != len(ordered):
+        raise ValueError("CHMI precipitation metadata is invalid")
+    baseline = replace(
+        first,
+        valid_time=first.run_time,
+        unit="kg/m²",
+        step_type="accum",
+        start_step_hours=0,
+        end_step_hours=0,
+        values=tuple(replace(point, value=0.0) for point in first.values),
+    )
+    return (baseline,) + tuple(
+        replace(message, unit="kg/m²", step_type="accum", start_step_hours=0)
+        for message in ordered
     )
 
 

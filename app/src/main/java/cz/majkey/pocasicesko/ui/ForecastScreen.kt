@@ -388,7 +388,7 @@ private fun HourlyGraphPanel(snapshot: WeatherSnapshot, accent: Color, units: We
                                 Column(
                                     modifier = Modifier
                                         .width(itemWidth)
-                                        .height(34.dp),
+                                        .height(42.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                 ) {
                                     Text(
@@ -405,7 +405,8 @@ private fun HourlyGraphPanel(snapshot: WeatherSnapshot, accent: Color, units: We
                                         Text(
                                             text = units.precipitation(hour.precipitation),
                                             color = Color(0xFF8EDCF0).copy(alpha = 0.65f),
-                                            fontSize = 8.sp,
+                                            fontSize = 9.sp,
+                                            lineHeight = 11.sp,
                                             textAlign = TextAlign.Center,
                                         )
                                     }

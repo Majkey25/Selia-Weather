@@ -238,6 +238,8 @@
     <string name="radar_forecast_note">Konsenzus modelů pro okolí vybrané lokality. Jde o předpověď, ne pozorovaný radar.</string>
     <string name="radar_forecast_unavailable">24hodinová předpověď srážek není dostupná</string>
     <string name="widget_title">Widget počasí</string>
+    <string name="widget_add">Přidat widget na plochu</string>
+    <string name="widget_add_unavailable">Tento launcher neumí widget přidat automaticky.</string>
     <string name="widget_preview_description">Náhled widgetu počasí</string>
     <string name="widget_size_compact">Kompaktní</string>
     <string name="widget_size_standard">Standard</string>

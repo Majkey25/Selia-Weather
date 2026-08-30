@@ -238,6 +238,8 @@
     <string name="radar_forecast_note">Consensus de modèles autour du lieu sélectionné. Il s’agit d’une prévision, pas d’un radar observé.</string>
     <string name="radar_forecast_unavailable">Prévision des précipitations sur 24 heures indisponible</string>
     <string name="widget_title">Widget météo</string>
+    <string name="widget_add">Ajouter le widget à l’écran d’accueil</string>
+    <string name="widget_add_unavailable">Ce lanceur ne peut pas ajouter le widget automatiquement.</string>
     <string name="widget_preview_description">Aperçu du widget météo</string>
     <string name="widget_size_compact">Compact</string>
     <string name="widget_size_standard">Standard</string>

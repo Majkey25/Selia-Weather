@@ -16,6 +16,7 @@
 - Kept the smaller mainly-clear cloud blue and rebuilt the adaptive launcher foreground with a centred padded canvas for OEM icon masks.
 - Added expandable hourly rows with precipitation amount, feels-like temperature, humidity, gusts, pressure, cloud layers, UV, and visibility.
 - Forced release ads and purchases off while forecasts use the non-commercial Open-Meteo Free API. Debug builds retain test monetisation for QA.
+- Added a native Settings action that asks the launcher to pin and configure the weather widget.
 
 ## [0.2.0-beta.8] - 2026-08-29
 

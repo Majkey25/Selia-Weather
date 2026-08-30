@@ -238,6 +238,8 @@
     <string name="radar_forecast_note">Consenso de modelos alrededor de la ubicación elegida. Es un pronóstico, no un radar observado.</string>
     <string name="radar_forecast_unavailable">Pronóstico de precipitación de 24 horas no disponible</string>
     <string name="widget_title">Widget del tiempo</string>
+    <string name="widget_add">Añadir widget a la pantalla de inicio</string>
+    <string name="widget_add_unavailable">Este lanzador no puede añadir el widget automáticamente.</string>
     <string name="widget_preview_description">Vista previa del widget del tiempo</string>
     <string name="widget_size_compact">Compacto</string>
     <string name="widget_size_standard">Estándar</string>

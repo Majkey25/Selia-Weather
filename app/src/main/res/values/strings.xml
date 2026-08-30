@@ -239,6 +239,8 @@
     <string name="radar_forecast_note">Model consensus around the selected location. This is a forecast, not observed radar.</string>
     <string name="radar_forecast_unavailable">24-hour precipitation forecast unavailable</string>
     <string name="widget_title">Weather widget</string>
+    <string name="widget_add">Add widget to Home screen</string>
+    <string name="widget_add_unavailable">This launcher cannot add the widget automatically.</string>
     <string name="widget_preview_description">Preview of the weather widget</string>
     <string name="widget_size_compact">Compact</string>
     <string name="widget_size_standard">Standard</string>

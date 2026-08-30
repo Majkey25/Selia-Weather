@@ -1,7 +1,9 @@
 package cz.majkey.pocasicesko.ui
 
 import android.Manifest
+import android.appwidget.AppWidgetManager
 import android.content.ActivityNotFoundException
+import android.content.ComponentName
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -136,6 +138,7 @@ fun WeatherApp(
     val forecastLoadFailed = stringResource(R.string.forecast_load_failed)
     val serverError = stringResource(R.string.server_error)
     val supportUnavailable = stringResource(R.string.support_unavailable)
+    val widgetAddUnavailable = stringResource(R.string.widget_add_unavailable)
     var supportError by remember { mutableStateOf<String?>(null) }
     val entitlement by premiumBillingController.entitlement.collectAsState()
     val premiumOffers by premiumBillingController.offers.collectAsState()
@@ -226,6 +229,15 @@ fun WeatherApp(
                         MeasurementUnits.save(context, selected)
                         measurementSystem = selected
                         WeatherWidgetProvider.updateAll(context)
+                    },
+                    onAddWidget = {
+                        val manager = AppWidgetManager.getInstance(context)
+                        val requested = manager.isRequestPinAppWidgetSupported && manager.requestPinAppWidget(
+                            ComponentName(context, WeatherWidgetProvider::class.java),
+                            null,
+                            null,
+                        )
+                        supportError = if (requested) null else widgetAddUnavailable
                     },
                     onWeatherDataAttribution = {
                         try {

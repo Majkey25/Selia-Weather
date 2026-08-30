@@ -55,6 +55,7 @@ fun SettingsSheet(
     privacyOptionsRequired: Boolean,
     onLanguage: (String) -> Unit,
     onMeasurementSystem: (MeasurementSystem) -> Unit,
+    onAddWidget: () -> Unit,
     onWeatherDataAttribution: () -> Unit,
     onSupport: () -> Unit,
     supportError: String?,
@@ -122,6 +123,22 @@ fun SettingsSheet(
                         .clickable { onLanguage(language.tag) },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                 )
+            }
+            Text(
+                text = stringResource(R.string.widget_title),
+                color = Color.White.copy(alpha = 0.58f),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+            )
+            OutlinedButton(
+                onClick = onAddWidget,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 4.dp)
+                    .heightIn(min = 48.dp),
+            ) {
+                Text(stringResource(R.string.widget_add))
             }
             if (paymentsEnabled) {
                 Text(

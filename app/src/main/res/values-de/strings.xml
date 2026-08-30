@@ -238,6 +238,8 @@
     <string name="radar_forecast_note">Modellkonsens für den gewählten Ort und seine Umgebung. Dies ist eine Prognose, kein beobachtetes Radar.</string>
     <string name="radar_forecast_unavailable">24-Stunden-Niederschlagsprognose nicht verfügbar</string>
     <string name="widget_title">Wetter-Widget</string>
+    <string name="widget_add">Widget zum Startbildschirm hinzufügen</string>
+    <string name="widget_add_unavailable">Dieser Launcher kann das Widget nicht automatisch hinzufügen.</string>
     <string name="widget_preview_description">Vorschau des Wetter-Widgets</string>
     <string name="widget_size_compact">Kompakt</string>
     <string name="widget_size_standard">Standard</string>

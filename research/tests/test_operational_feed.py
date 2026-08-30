@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 
+from aladin_ensemble import operational_feed
 from aladin_ensemble.operational_feed import (
     MODEL_IDS,
     latest_complete_cycle,
@@ -11,7 +13,14 @@ from aladin_ensemble.operational_feed import (
     select_lead_messages,
     validate_operational_values,
 )
-from aladin_ensemble.sources.grib_points import GeoPoint, SampledMessage, SampledPoint
+from aladin_ensemble.sources.grib_points import (
+    GeoPoint,
+    GribPointIndex,
+    IndexedPoint,
+    SampledMessage,
+    SampledPoint,
+)
+from aladin_ensemble.sources.official_runs import CachedGrib
 from aladin_ensemble.types import ForecastValue
 
 
@@ -72,6 +81,7 @@ def test_operational_validator_rejects_any_partial_model() -> None:
         )
         for model_id in MODEL_IDS
         for variable, unit in (
+            ("precipitation", "mm"),
             ("temperature_2m", "°C"),
             ("wind_u_10m", "m/s"),
             ("wind_v_10m", "m/s"),
@@ -81,6 +91,70 @@ def test_operational_validator_rejects_any_partial_model() -> None:
     validate_operational_values(values, (point,), (0,))
     with pytest.raises(ValueError, match="incomplete"):
         validate_operational_values(values[:-1], (point,), (0,))
+
+
+def test_operational_model_outputs_interval_precipitation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run_time = datetime(2026, 8, 29, 0, tzinfo=UTC)
+    point = GeoPoint(50.0, 14.0)
+    leads = (0, 6, 12)
+
+    def download(variable: str, lead: int) -> CachedGrib:
+        return CachedGrib(Path(f"{variable}-{lead}.grib2"), "a" * 64, "https://example.com", False)
+
+    def decode(
+        path: Path,
+        points: tuple[GeoPoint, ...],
+        *,
+        point_index: GribPointIndex | None = None,
+    ) -> tuple[SampledMessage, ...]:
+        del points, point_index
+        variable, lead_text = path.stem.rsplit("-", 1)
+        lead = int(lead_text)
+        precipitation = {0: 0.0, 6: 3.0, 12: 5.0}
+        return (
+            SampledMessage(
+                run_time=run_time,
+                valid_time=run_time + timedelta(hours=lead),
+                unit={
+                    "precipitation": "kg/m²",
+                    "temperature_2m": "K",
+                    "wind_u_10m": "m/s",
+                    "wind_v_10m": "m/s",
+                }[variable],
+                step_type="accum" if variable == "precipitation" else "instant",
+                start_step_hours=0 if variable == "precipitation" else lead,
+                end_step_hours=lead,
+                values=(
+                    SampledPoint(
+                        point.latitude,
+                        point.longitude,
+                        point.latitude,
+                        point.longitude,
+                        0.0,
+                        precipitation[lead] if variable == "precipitation" else 280.0,
+                    ),
+                ),
+            ),
+        )
+
+    monkeypatch.setattr(operational_feed, "decode_grib_points", decode)
+    values = operational_feed.load_sampled_model_values(
+        "noaa_gfs",
+        run_time,
+        (point,),
+        {point: 250.0},
+        leads,
+        download,
+        point_index=GribPointIndex(
+            "grid",
+            (IndexedPoint(50.0, 14.0, 50.0, 14.0, 0.0, 0),),
+        ),
+    )
+
+    precipitation = [value.value for value in values if value.variable == "precipitation"]
+    assert precipitation == [0.0, 3.0, 2.0]
 
 
 def test_aladin_uses_only_its_official_domain_without_shrinking_other_models() -> None:

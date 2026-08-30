@@ -33,6 +33,7 @@ from .types import ForecastValue
 
 LEAD_HOURS = (0, 6, 12, 18, 24)
 CANONICAL_FIELDS = {
+    "precipitation": "mm",
     "temperature_2m": "°C",
     "wind_u_10m": "m/s",
     "wind_v_10m": "m/s",
@@ -122,7 +123,7 @@ def load_operational_values(
 
     rows: list[ForecastValue] = []
     rows.extend(
-        _load_sampled_model(
+        load_sampled_model_values(
             "dwd_icon_eu",
             run_time,
             points,
@@ -139,7 +140,7 @@ def load_operational_values(
         _load_chmi(run_time, chmi_points, elevations, lead_hours, cache_root / "chmi")
     )
     rows.extend(
-        _load_sampled_model(
+        load_sampled_model_values(
             "noaa_gfs",
             run_time,
             points,
@@ -152,7 +153,7 @@ def load_operational_values(
         )
     )
     rows.extend(
-        _load_sampled_model(
+        load_sampled_model_values(
             "noaa_gefs",
             run_time,
             points,
@@ -166,7 +167,7 @@ def load_operational_values(
     )
     for model_id, model in (("ecmwf_ifs_open", "ifs"), ("ecmwf_aifs_open", "aifs-single")):
         rows.extend(
-            _load_sampled_model(
+            load_sampled_model_values(
                 model_id,
                 run_time,
                 points,
@@ -202,7 +203,7 @@ def operational_points_for_model(
     return points
 
 
-def _load_sampled_model(
+def load_sampled_model_values(
     model_id: str,
     run_time: datetime,
     points: tuple[GeoPoint, ...],
@@ -215,21 +216,22 @@ def _load_sampled_model(
     rows: list[ForecastValue] = []
     active_index = point_index
     for variable, unit in CANONICAL_FIELDS.items():
+        messages: list[SampledMessage] = []
         for lead in lead_hours:
             field = download(variable, lead)
             if active_index is None:
                 active_index = build_grib_point_index(field.path, points)
-            messages = decode_grib_points(field.path, points, point_index=active_index)
-            selected = select_lead_messages(messages, run_time, (lead,))
-            rows.extend(
-                to_forecast_values(
-                    selected,
-                    model_id=model_id,
-                    variable=variable,
-                    canonical_unit=unit,
-                    elevation_by_point=elevations,
-                )
+            decoded = decode_grib_points(field.path, points, point_index=active_index)
+            messages.extend(select_lead_messages(decoded, run_time, (lead,)))
+        rows.extend(
+            to_forecast_values(
+                tuple(messages),
+                model_id=model_id,
+                variable=variable,
+                canonical_unit=unit,
+                elevation_by_point=elevations,
             )
+        )
     return tuple(rows)
 
 
@@ -247,6 +249,15 @@ def _load_chmi(
     point_index = build_grib_point_index(temperature_file.path, points)
     temperature = select_lead_messages(
         decode_grib_points(temperature_file.path, points, point_index=point_index),
+        run_time,
+        lead_hours,
+    )
+    precipitation_file = download_chmi_aladin(
+        ChmiAladinRequest(run_time, "precipitation"),
+        cache_root,
+    )
+    precipitation = select_lead_messages(
+        decode_grib_points(precipitation_file.path, points, point_index=point_index),
         run_time,
         lead_hours,
     )
@@ -270,6 +281,12 @@ def _load_chmi(
         model_id="chmi_aladin_cz_1km",
         variable="temperature_2m",
         canonical_unit="°C",
+        elevation_by_point=elevations,
+    ) + to_forecast_values(
+        precipitation,
+        model_id="chmi_aladin_cz_1km",
+        variable="precipitation",
+        canonical_unit="mm",
         elevation_by_point=elevations,
     ) + to_wind_component_values(
         speed,

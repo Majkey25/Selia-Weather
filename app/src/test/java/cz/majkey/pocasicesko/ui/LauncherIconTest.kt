@@ -1,8 +1,10 @@
 package cz.majkey.pocasicesko.ui
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.DataInputStream
 import java.io.File
 import javax.xml.parsers.DocumentBuilderFactory
 
@@ -30,23 +32,31 @@ class LauncherIconTest {
             System.getProperty("user.dir"),
             "src/main/res/drawable/ic_launcher_foreground_safe.xml",
         )
-        val safeMark = File(
+        val sourceMark = File(
             System.getProperty("user.dir"),
             "src/main/res/drawable-nodpi/ic_launcher_foreground_mark.png",
+        )
+        val safeMark = File(
+            System.getProperty("user.dir"),
+            "src/main/res/drawable-nodpi/ic_launcher_foreground_mark_padded.png",
         )
         val adaptiveIcon = File(
             System.getProperty("user.dir"),
             "src/main/res/mipmap-anydpi/ic_launcher.xml",
         )
         assertTrue("Missing safe adaptive foreground", safeForeground.isFile)
+        assertTrue("Missing source launcher mark", sourceMark.isFile)
         assertTrue("Missing padded adaptive mark", safeMark.isFile)
+        assertEquals(1254 to 1254, pngSize(sourceMark))
+        assertEquals(1920 to 1920, pngSize(safeMark))
         val factory = DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }
-        val safeDocument = factory.newDocumentBuilder().parse(safeForeground)
-        val item = safeDocument.getElementsByTagName("item").item(0)
         val androidNamespace = "http://schemas.android.com/apk/res/android"
-        for (side in listOf("left", "top", "right", "bottom")) {
-            assertEquals("28dp", item.attributes.getNamedItemNS(androidNamespace, side).nodeValue)
-        }
+        val safeDocument = factory.newDocumentBuilder().parse(safeForeground)
+        val bitmap = safeDocument.getElementsByTagName("bitmap").item(0)
+        assertEquals(
+            "@drawable/ic_launcher_foreground_mark_padded",
+            bitmap.attributes.getNamedItemNS(androidNamespace, "src").nodeValue,
+        )
         val iconDocument = factory.newDocumentBuilder().parse(adaptiveIcon)
         val foreground = iconDocument.getElementsByTagName("foreground").item(0)
         assertEquals(
@@ -74,7 +84,7 @@ class LauncherIconTest {
     }
 
     @Test
-    fun launcherBackgroundIsTransparent() {
+    fun launcherBackgroundAvoidsOemBlackFallback() {
         val colors = File(System.getProperty("user.dir"), "src/main/res/values/colors.xml")
         val document = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(colors)
         val entries = document.getElementsByTagName("color")
@@ -82,6 +92,18 @@ class LauncherIconTest {
             .map { entries.item(it) }
             .single { it.attributes.getNamedItem("name").nodeValue == "launcher_background" }
 
-        assertEquals("#00000000", launcherBackground.textContent.uppercase())
+        assertEquals("#08072B", launcherBackground.textContent.uppercase())
+    }
+
+    private fun pngSize(file: File): Pair<Int, Int> = DataInputStream(file.inputStream().buffered()).use { input ->
+        val signature = ByteArray(8)
+        input.readFully(signature)
+        assertArrayEquals(
+            byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A),
+            signature,
+        )
+        assertEquals(13, input.readInt())
+        assertEquals(0x49484452, input.readInt())
+        input.readInt() to input.readInt()
     }
 }

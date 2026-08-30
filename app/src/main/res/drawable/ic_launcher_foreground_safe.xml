@@ -1,12 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item
-        android:bottom="28dp"
-        android:left="28dp"
-        android:right="28dp"
-        android:top="28dp">
+    <item>
         <bitmap
             android:gravity="fill"
-            android:src="@drawable/ic_launcher_foreground_mark" />
+            android:src="@drawable/ic_launcher_foreground_mark_padded" />
     </item>
 </layer-list>

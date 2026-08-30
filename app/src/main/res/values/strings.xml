@@ -80,6 +80,8 @@
     <string name="today">Today</string>
     <string name="open_hourly_detail">Open hourly detail</string>
     <string name="whole_day_hours">Whole day</string>
+    <string name="hour_expanded">Expanded</string>
+    <string name="hour_collapsed">Collapsed</string>
     <string name="historical_forecast">Historical forecast</string>
     <string name="forecast">Forecast</string>
     <string name="precipitation">Precipitation</string>

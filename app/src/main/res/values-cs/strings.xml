@@ -79,6 +79,8 @@
     <string name="today">Dnes</string>
     <string name="open_hourly_detail">Otevřít hodinový přehled</string>
     <string name="whole_day_hours">Celý den</string>
+    <string name="hour_expanded">Rozbaleno</string>
+    <string name="hour_collapsed">Sbaleno</string>
     <string name="historical_forecast">Historická předpověď</string>
     <string name="forecast">Předpověď</string>
     <string name="precipitation">Srážky</string>

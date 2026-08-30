@@ -79,6 +79,8 @@
     <string name="today">Aujourd’hui</string>
     <string name="open_hourly_detail">Ouvrir le détail horaire</string>
     <string name="whole_day_hours">Toute la journée</string>
+    <string name="hour_expanded">Développé</string>
+    <string name="hour_collapsed">Réduit</string>
     <string name="historical_forecast">Prévision historique</string>
     <string name="forecast">Prévision</string>
     <string name="precipitation">Précipitations</string>

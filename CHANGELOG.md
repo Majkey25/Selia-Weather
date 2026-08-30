@@ -12,6 +12,7 @@
 - Added UV, freezing-level, boundary-layer, integrated-water-vapour, instability, showers, and ground values to Weather details.
 - Replaced the temperature-only hourly strip with a 24-hour meteogram for temperature, precipitation, day or night, wind direction, and wind speed.
 - Kept the smaller mainly-clear cloud blue and reduced the adaptive launcher foreground for OEM icon masks.
+- Added expandable hourly rows with precipitation amount, feels-like temperature, humidity, gusts, pressure, cloud layers, UV, and visibility.
 
 ## [0.2.0-beta.8] - 2026-08-29
 

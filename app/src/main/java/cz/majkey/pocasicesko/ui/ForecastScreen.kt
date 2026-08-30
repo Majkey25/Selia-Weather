@@ -28,6 +28,8 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Navigation
 import androidx.compose.material.icons.rounded.Refresh
@@ -54,6 +56,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -678,6 +682,7 @@ private fun DayDetailSheet(
         ) { page ->
             val day = dayForPage(days, page) ?: return@HorizontalPager
             val hours = hourlyForDay(hourly, day.date)
+            var expandedHourTime by remember(day.date) { mutableStateOf<String?>(null) }
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -726,10 +731,18 @@ private fun DayDetailSheet(
                 itemsIndexed(hours, key = { index, hour -> "${hour.time}-$index" }) { _, hour ->
                     val condition = conditionFor(hour.weatherCode, hour.isDay)
                     val conditionLabel = stringResource(condition.labelResource())
+                    val expanded = expandedHourTime == hour.time
+                    val expansionState = stringResource(
+                        if (expanded) R.string.hour_expanded else R.string.hour_collapsed,
+                    )
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(78.dp),
+                            .heightIn(min = 78.dp)
+                            .clickable {
+                                expandedHourTime = toggleExpandedHour(expandedHourTime, hour.time)
+                            }
+                            .semantics { stateDescription = expansionState },
                         verticalArrangement = Arrangement.Center,
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -755,6 +768,14 @@ private fun DayDetailSheet(
                                 fontSize = 17.sp,
                                 fontWeight = FontWeight.SemiBold,
                             )
+                            Icon(
+                                imageVector = if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .padding(start = 4.dp)
+                                    .size(20.dp),
+                                tint = Color.White.copy(alpha = 0.48f),
+                            )
                         }
                         Text(
                             "${stringResource(R.string.precipitation)} ${hour.precipitationProbability}% · " +
@@ -766,6 +787,14 @@ private fun DayDetailSheet(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
+                        if (expanded) {
+                            ExpandedHourDetails(
+                                hour = hour,
+                                units = units,
+                                locale = locale,
+                                modifier = Modifier.padding(start = 81.dp, top = 12.dp, bottom = 8.dp),
+                            )
+                        }
                     }
                     HorizontalDivider(color = Color.White.copy(alpha = 0.06f))
                 }

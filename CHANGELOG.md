@@ -18,6 +18,7 @@
 - Forced release ads and purchases off while forecasts use the non-commercial Open-Meteo Free API. Debug builds retain test monetisation for QA.
 - Added a native Settings action that asks the launcher to pin and configure the weather widget.
 - Added worldwide calibration regions, kept verified global-capable provider families at every coordinate, limited CHMI ALADIN to Czechia, and excluded suspended KMA output.
+- Added cached calculation provenance to Weather details: region, diagnostic or fallback mode, contributor count and IDs, and fallback reason.
 
 ## [0.2.0-beta.8] - 2026-08-29
 

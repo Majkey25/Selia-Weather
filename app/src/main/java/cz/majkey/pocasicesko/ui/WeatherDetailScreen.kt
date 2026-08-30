@@ -47,6 +47,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cz.majkey.pocasicesko.R
@@ -55,6 +56,10 @@ import cz.majkey.pocasicesko.astro.MoonDetails
 import cz.majkey.pocasicesko.astro.MoonPhaseKey
 import cz.majkey.pocasicesko.data.CzechLocation
 import cz.majkey.pocasicesko.data.DailyWeather
+import cz.majkey.pocasicesko.data.ForecastCalculation
+import cz.majkey.pocasicesko.data.ForecastCalculationMode
+import cz.majkey.pocasicesko.data.ForecastFallbackReason
+import cz.majkey.pocasicesko.data.ForecastRegion
 import cz.majkey.pocasicesko.data.HistoricalDay
 import cz.majkey.pocasicesko.data.HistoryArchive
 import cz.majkey.pocasicesko.data.HourlyWeather
@@ -177,6 +182,9 @@ internal fun WeatherDetailSheet(
             }
             item {
                 AtAGlanceSection(snapshot, today, units, locale)
+            }
+            snapshot.calculation?.let { calculation ->
+                item { ForecastCalculationSection(calculation) }
             }
             item {
                 HistoryArchiveSection(
@@ -443,6 +451,57 @@ internal fun WeatherDetailSheet(
                 MoonSection(moon, locale)
             }
         }
+    }
+}
+
+@Composable
+private fun ForecastCalculationSection(calculation: ForecastCalculation) {
+    val contributorText = if (calculation.contributorIds.isEmpty()) {
+        stringResource(R.string.unavailable)
+    } else {
+        calculation.contributorIds.joinToString(", ")
+    }
+    DetailSection(stringResource(R.string.forecast_calculation_title)) {
+        DetailRow(
+            stringResource(R.string.forecast_calculation_region),
+            stringResource(calculation.region.labelResource()),
+        )
+        DetailRow(
+            stringResource(R.string.forecast_calculation_mode),
+            stringResource(calculation.mode.labelResource()),
+        )
+        DetailRow(
+            stringResource(R.string.forecast_calculation_models),
+            stringResource(
+                R.string.forecast_calculation_model_count,
+                calculation.contributorIds.size,
+                calculation.requestedModelIds.size,
+            ),
+        )
+        Text(
+            stringResource(R.string.forecast_calculation_contributors),
+            color = Color.White.copy(alpha = 0.62f),
+            modifier = Modifier.padding(top = 11.dp),
+        )
+        Text(
+            contributorText,
+            fontSize = 12.sp,
+            maxLines = 4,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 4.dp, bottom = 11.dp),
+        )
+        calculation.fallbackReason?.let { reason ->
+            DetailRow(
+                stringResource(R.string.forecast_calculation_fallback),
+                stringResource(reason.labelResource()),
+            )
+        }
+        Text(
+            stringResource(R.string.forecast_calculation_note),
+            color = Color.White.copy(alpha = 0.48f),
+            fontSize = 11.sp,
+            modifier = Modifier.padding(top = 10.dp),
+        )
     }
 }
 
@@ -835,6 +894,28 @@ private fun durationValue(seconds: Double?): String? = seconds?.roundToInt()?.di
 private fun ZonedDateTime.formatFor(locale: java.util.Locale): String = format(
     DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT).withLocale(locale),
 )
+
+@StringRes
+private fun ForecastRegion.labelResource(): Int = when (this) {
+    ForecastRegion.CZECHIA -> R.string.forecast_region_czechia
+    ForecastRegion.EUROPE -> R.string.forecast_region_europe
+    ForecastRegion.NORTH_AMERICA -> R.string.forecast_region_north_america
+    ForecastRegion.EAST_ASIA -> R.string.forecast_region_east_asia
+    ForecastRegion.OCEANIA -> R.string.forecast_region_oceania
+    ForecastRegion.GLOBAL -> R.string.forecast_region_global
+}
+
+@StringRes
+private fun ForecastCalculationMode.labelResource(): Int = when (this) {
+    ForecastCalculationMode.DIAGNOSTIC_MEDIAN -> R.string.forecast_mode_diagnostic_median
+    ForecastCalculationMode.BEST_MATCH -> R.string.forecast_mode_best_match
+}
+
+@StringRes
+private fun ForecastFallbackReason.labelResource(): Int = when (this) {
+    ForecastFallbackReason.INSUFFICIENT_CONTRIBUTORS -> R.string.forecast_fallback_insufficient
+    ForecastFallbackReason.PROVIDER_UNAVAILABLE -> R.string.forecast_fallback_provider
+}
 
 @StringRes
 internal fun MoonPhaseKey.labelResource(): Int = when (this) {

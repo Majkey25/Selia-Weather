@@ -57,6 +57,11 @@ model. Production weights require independent regional observations, fixed issue
 training-only model selection, and an untouched chronological holdout under the global regional
 ensemble design.
 
+Weather details expose the current-hour region, calculation mode, finite contributor count and
+IDs, and fallback reason. The typed provenance is stored inside the bounded cached forecast JSON,
+so a cache reload retains the same evidence. Legacy cache entries remain readable and simply omit
+the section.
+
 ## Sources
 
 - [Open-Meteo Forecast API](https://open-meteo.com/en/docs)

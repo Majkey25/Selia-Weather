@@ -10,6 +10,8 @@
 - Fixed the radar card aspect ratio so rain and cloud imagery stays undistorted without large letterbox gaps.
 - Added an on-demand 24-hour Local rain field with 25 surrounding forecast points, model agreement, precipitation type, and Metric or Imperial details.
 - Added UV, freezing-level, boundary-layer, integrated-water-vapour, instability, showers, and ground values to Weather details.
+- Replaced the temperature-only hourly strip with a 24-hour meteogram for temperature, precipitation, day or night, wind direction, and wind speed.
+- Kept the smaller mainly-clear cloud blue and reduced the adaptive launcher foreground for OEM icon masks.
 
 ## [0.2.0-beta.8] - 2026-08-29
 

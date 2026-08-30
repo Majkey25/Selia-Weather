@@ -394,6 +394,17 @@ def _precipitation_intervals(
     previous_values = tuple(0.0 for _ in coordinates)
     previous_end = ordered[0].start_step_hours
     result: list[SampledMessage] = []
+    if ordered[0].start_step_hours == 0 and ordered[0].end_step_hours > 0:
+        result.append(
+            replace(
+                ordered[0],
+                valid_time=ordered[0].run_time,
+                unit=canonical_unit,
+                start_step_hours=0,
+                end_step_hours=0,
+                values=tuple(replace(point, value=0.0) for point in ordered[0].values),
+            )
+        )
     for message in ordered:
         raw_values = tuple(
             convert_grib_unit(point.value, message.unit, canonical_unit)

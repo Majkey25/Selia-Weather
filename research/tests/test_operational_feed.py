@@ -100,8 +100,10 @@ def test_operational_model_outputs_interval_precipitation(
     run_time = datetime(2026, 8, 29, 0, tzinfo=UTC)
     point = GeoPoint(50.0, 14.0)
     leads = (0, 6, 12)
+    requests: list[tuple[str, int]] = []
 
     def download(variable: str, lead: int) -> CachedGrib:
+        requests.append((variable, lead))
         return CachedGrib(Path(f"{variable}-{lead}.grib2"), "a" * 64, "https://example.com", False)
 
     def decode(
@@ -156,6 +158,7 @@ def test_operational_model_outputs_interval_precipitation(
 
     precipitation = [value.value for value in values if value.variable == "precipitation"]
     assert precipitation == [0.0, 3.0, 2.0]
+    assert ("precipitation", 0) not in requests
 
 
 def test_normalizes_chmi_total_precipitation_metadata() -> None:
@@ -183,7 +186,7 @@ def test_normalizes_chmi_total_precipitation_metadata() -> None:
         elevation_by_point={point: 250.0},
     )
 
-    assert [message.end_step_hours for message in normalized] == [0, 6, 12]
+    assert [message.end_step_hours for message in normalized] == [6, 12]
     assert [value.value for value in values] == [0.0, 3.0, 2.0]
     with pytest.raises(ValueError, match="metadata"):
         operational_feed.normalize_chmi_precipitation_messages(

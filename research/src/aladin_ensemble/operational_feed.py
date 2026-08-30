@@ -218,7 +218,12 @@ def load_sampled_model_values(
     active_index = point_index
     for variable, unit in CANONICAL_FIELDS.items():
         messages: list[SampledMessage] = []
-        for lead in lead_hours:
+        variable_leads = tuple(
+            lead for lead in lead_hours if variable != "precipitation" or lead > 0
+        )
+        if not variable_leads:
+            raise ValueError(f"{variable} requires a positive forecast lead")
+        for lead in variable_leads:
             field = download(variable, lead)
             if active_index is None:
                 active_index = build_grib_point_index(field.path, points)
@@ -267,8 +272,6 @@ def _load_chmi(
             precipitation_leads,
         ),
     )
-    if 0 not in lead_hours:
-        precipitation = precipitation[1:]
     speed_file = download_chmi_aladin(ChmiAladinRequest(run_time, "wind_speed_10m"), cache_root)
     direction_file = download_chmi_aladin(
         ChmiAladinRequest(run_time, "wind_direction_10m"),
@@ -323,16 +326,7 @@ def normalize_chmi_precipitation_messages(
         for message in ordered
     ) or len({message.end_step_hours for message in ordered}) != len(ordered):
         raise ValueError("CHMI precipitation metadata is invalid")
-    baseline = replace(
-        first,
-        valid_time=first.run_time,
-        unit="kg/m²",
-        step_type="accum",
-        start_step_hours=0,
-        end_step_hours=0,
-        values=tuple(replace(point, value=0.0) for point in first.values),
-    )
-    return (baseline,) + tuple(
+    return tuple(
         replace(message, unit="kg/m²", step_type="accum", start_step_hours=0)
         for message in ordered
     )

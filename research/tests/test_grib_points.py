@@ -218,7 +218,7 @@ def test_preserves_contiguous_interval_precipitation_and_rejects_decrease() -> N
         elevation_by_point={point: 250.0},
     )
 
-    assert [value.value for value in interval] == [3.0, 2.0]
+    assert [value.value for value in interval] == [0.0, 3.0, 2.0]
     with pytest.raises(ValueError, match="decreased"):
         to_forecast_values(
             (message(0, 6, 3.0), message(0, 12, 2.0)),

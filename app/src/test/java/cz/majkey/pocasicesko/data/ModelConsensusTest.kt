@@ -30,10 +30,11 @@ class ModelConsensusTest {
 
     @Test
     fun blendsContinuousValuesAndDerivesConditionsLocally() {
-        val result = JSONObject(blendModelForecast(BASE, MODELS))
-        val current = result.getJSONObject("current")
-        val hourly = result.getJSONObject("hourly")
-        val daily = result.getJSONObject("daily")
+        val result = blendModelForecast(BASE, MODELS)
+        val root = JSONObject(result.json)
+        val current = root.getJSONObject("current")
+        val hourly = root.getJSONObject("hourly")
+        val daily = root.getJSONObject("daily")
 
         assertEquals(22.0, current.getDouble("temperature_2m"), 0.0)
         assertEquals(0, current.getInt("weather_code"))
@@ -45,18 +46,25 @@ class ModelConsensusTest {
         assertEquals(20.0, daily.getJSONArray("temperature_2m_min").getDouble(0), 0.0)
         assertEquals(0.2, daily.getJSONArray("precipitation_sum").getDouble(0), 0.0)
         assertEquals(180, daily.getJSONArray("wind_direction_10m_dominant").getInt(0))
+        assertEquals(ForecastCalculationMode.DIAGNOSTIC_MEDIAN, result.mode)
+        assertEquals(listOf("a", "b", "c"), result.contributorIds)
+        assertEquals(null, result.fallbackReason)
     }
 
     @Test
     fun keepsBestMatchWhenFewerThanThreeModelsArePresent() {
-        val result = JSONObject(blendModelForecast(BASE, ONE_MODEL))
+        val result = blendModelForecast(BASE, ONE_MODEL)
+        val root = JSONObject(result.json)
 
-        assertEquals(99.0, result.getJSONObject("current").getDouble("temperature_2m"), 0.0)
+        assertEquals(99.0, root.getJSONObject("current").getDouble("temperature_2m"), 0.0)
         assertEquals(
             99.0,
-            result.getJSONObject("hourly").getJSONArray("temperature_2m").getDouble(0),
+            root.getJSONObject("hourly").getJSONArray("temperature_2m").getDouble(0),
             0.0,
         )
+        assertEquals(ForecastCalculationMode.BEST_MATCH, result.mode)
+        assertEquals(listOf("a"), result.contributorIds)
+        assertEquals(ForecastFallbackReason.INSUFFICIENT_CONTRIBUTORS, result.fallbackReason)
     }
 
     @Test
@@ -66,7 +74,7 @@ class ModelConsensusTest {
             listOf("a", "b", "c").forEach { suffix -> hourly.remove("weather_code_$suffix") }
         }
 
-        val result = JSONObject(blendModelForecast(BASE, models.toString()))
+        val result = JSONObject(blendModelForecast(BASE, models.toString()).json)
 
         assertEquals(0, result.getJSONObject("current").getInt("weather_code"))
     }
@@ -77,7 +85,7 @@ class ModelConsensusTest {
             root.getJSONObject("hourly").getJSONArray("precipitation_a").put(1, -0.2)
         }
 
-        val result = JSONObject(blendModelForecast(BASE, models.toString()))
+        val result = JSONObject(blendModelForecast(BASE, models.toString()).json)
 
         assertEquals(0.0, result.getJSONObject("hourly").getJSONArray("precipitation").getDouble(1), 0.0)
     }

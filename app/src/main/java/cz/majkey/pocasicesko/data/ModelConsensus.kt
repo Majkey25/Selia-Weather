@@ -8,7 +8,14 @@ import kotlin.math.sin
 import org.json.JSONArray
 import org.json.JSONObject
 
-internal fun blendModelForecast(bestMatchJson: String, modelsJson: String): String {
+internal data class ModelBlendResult(
+    val json: String,
+    val mode: ForecastCalculationMode,
+    val contributorIds: List<String>,
+    val fallbackReason: ForecastFallbackReason?,
+)
+
+internal fun blendModelForecast(bestMatchJson: String, modelsJson: String): ModelBlendResult {
     val root = JSONObject(bestMatchJson)
     val target = root.getJSONObject("hourly")
     val source = JSONObject(modelsJson).getJSONObject("hourly")
@@ -17,9 +24,17 @@ internal fun blendModelForecast(bestMatchJson: String, modelsJson: String): Stri
         .map { it.removePrefix("temperature_2m_") }
         .sorted()
         .toList()
-    if (suffixes.size < MINIMUM_MODELS) return bestMatchJson
-
     val sourceTimes = source.getJSONArray("time")
+    val contributorIds = currentTemperatureContributors(root, source, sourceTimes, suffixes)
+    if (suffixes.size < MINIMUM_MODELS) {
+        return ModelBlendResult(
+            bestMatchJson,
+            ForecastCalculationMode.BEST_MATCH,
+            contributorIds,
+            ForecastFallbackReason.INSUFFICIENT_CONTRIBUTORS,
+        )
+    }
+
     val sourceIndices = (0 until sourceTimes.length()).associateBy { sourceTimes.getString(it) }
     val targetTimes = target.getJSONArray("time")
     for (targetIndex in 0 until targetTimes.length()) {
@@ -33,7 +48,29 @@ internal fun blendModelForecast(bestMatchJson: String, modelsJson: String): Stri
     }
     updateCurrent(root, target, targetTimes)
     updateDaily(root, target, targetTimes)
-    return root.toString()
+    val diagnostic = contributorIds.size >= MINIMUM_MODELS
+    return ModelBlendResult(
+        root.toString(),
+        if (diagnostic) ForecastCalculationMode.DIAGNOSTIC_MEDIAN else ForecastCalculationMode.BEST_MATCH,
+        contributorIds,
+        if (diagnostic) null else ForecastFallbackReason.INSUFFICIENT_CONTRIBUTORS,
+    )
+}
+
+private fun currentTemperatureContributors(
+    root: JSONObject,
+    source: JSONObject,
+    sourceTimes: JSONArray,
+    suffixes: List<String>,
+): List<String> {
+    val currentHour = root.getJSONObject("current").getString("time").take(13)
+    val index = (0 until sourceTimes.length()).firstOrNull {
+        sourceTimes.getString(it).take(13) == currentHour
+    } ?: return emptyList()
+    return suffixes.filter { suffix ->
+        source.optJSONArray("temperature_2m_$suffix").numberOrNull(index)
+            ?.let { value -> isValidModelValue("temperature_2m", value) } == true
+    }
 }
 
 private fun blendWind(

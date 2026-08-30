@@ -1,6 +1,7 @@
 package cz.majkey.pocasicesko.data
 
 import org.json.JSONException
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
@@ -15,6 +16,64 @@ class WeatherParserTest {
         assertEquals(2, snapshot.hourly.size)
         assertEquals(1, snapshot.daily.size)
         assertEquals(123L, snapshot.updatedAtEpochMillis)
+    }
+
+    @Test
+    fun parsesCalculationProvenanceFromCachedForecastJson() {
+        val snapshot = WeatherParser.parseForecast(
+            VALID_FORECAST.withCalculation(CALCULATION),
+            updatedAtEpochMillis = 123L,
+        )
+        val calculation = requireNotNull(snapshot.calculation)
+
+        assertEquals(ForecastRegion.EUROPE, calculation.region)
+        assertEquals(ForecastCalculationMode.DIAGNOSTIC_MEDIAN, calculation.mode)
+        assertEquals(listOf("a", "b", "c", "d"), calculation.requestedModelIds)
+        assertEquals(listOf("a", "b", "c"), calculation.contributorIds)
+        assertEquals(null, calculation.fallbackReason)
+    }
+
+    @Test
+    fun rejectsCalculationContributorOutsideRequestedModels() {
+        val invalid = CALCULATION.replace("[\"a\",\"b\",\"c\"]", "[\"a\",\"b\",\"x\"]")
+
+        assertThrows(JSONException::class.java) {
+            WeatherParser.parseForecast(VALID_FORECAST.withCalculation(invalid), 123L)
+        }
+    }
+
+    @Test
+    fun rejectsDiagnosticCalculationBelowThreeContributors() {
+        val invalid = CALCULATION.replace("[\"a\",\"b\",\"c\"]", "[\"a\",\"b\"]")
+
+        assertThrows(JSONException::class.java) {
+            WeatherParser.parseForecast(VALID_FORECAST.withCalculation(invalid), 123L)
+        }
+    }
+
+    @Test
+    fun rejectsMalformedCalculationModelId() {
+        val invalid = CALCULATION.replace("[\"a\",\"b\",\"c\",\"d\"]", "[\"a\",\"bad id\",\"c\",\"d\"]")
+
+        assertThrows(JSONException::class.java) {
+            WeatherParser.parseForecast(VALID_FORECAST.withCalculation(invalid), 123L)
+        }
+    }
+
+    @Test
+    fun roundTripsBestMatchCalculationMetadata() {
+        val calculation = ForecastCalculation(
+            region = ForecastRegion.NORTH_AMERICA,
+            mode = ForecastCalculationMode.BEST_MATCH,
+            requestedModelIds = listOf("a", "b", "c"),
+            contributorIds = emptyList(),
+            fallbackReason = ForecastFallbackReason.PROVIDER_UNAVAILABLE,
+        )
+
+        assertEquals(
+            calculation,
+            JSONObject().putForecastCalculation(calculation).forecastCalculationOrNull(),
+        )
     }
 
     @Test
@@ -141,6 +200,20 @@ class WeatherParserTest {
     }
 
     companion object {
+        private fun String.withCalculation(calculation: String): String =
+            JSONObject(this).put("_selia_calculation", JSONObject(calculation)).toString()
+
+        private val CALCULATION = """
+            {
+              "schema_version":1,
+              "region":"EUROPE",
+              "mode":"DIAGNOSTIC_MEDIAN",
+              "requested_model_ids":["a","b","c","d"],
+              "contributor_ids":["a","b","c"],
+              "fallback_reason":null
+            }
+        """.trimIndent()
+
         private val VALID_FORECAST = """
             {
               "timezone":"Europe/Prague",

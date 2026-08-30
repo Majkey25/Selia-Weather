@@ -1,6 +1,6 @@
 package cz.majkey.pocasicesko.data
 
-internal enum class ForecastRegion {
+enum class ForecastRegion {
     CZECHIA,
     EUROPE,
     NORTH_AMERICA,

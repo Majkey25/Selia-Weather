@@ -184,6 +184,7 @@ object WeatherParser {
                 )
             },
             updatedAtEpochMillis = updatedAtEpochMillis,
+            calculation = root.forecastCalculationOrNull(),
         )
     }
 

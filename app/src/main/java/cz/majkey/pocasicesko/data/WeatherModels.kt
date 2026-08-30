@@ -113,6 +113,7 @@ data class WeatherSnapshot(
     val hourly: List<HourlyWeather>,
     val daily: List<DailyWeather>,
     val updatedAtEpochMillis: Long,
+    val calculation: ForecastCalculation? = null,
 )
 
 internal fun WeatherSnapshot.currentDay(): DailyWeather =

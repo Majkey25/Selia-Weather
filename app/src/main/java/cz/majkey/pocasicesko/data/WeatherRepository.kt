@@ -106,13 +106,32 @@ class WeatherRepository(context: Context) {
 
     fun fetchForecastBlocking(location: CzechLocation): WeatherSnapshot {
         val bestMatchJson = request(forecastUri(location).toString())
-        val forecastJson = try {
+        val requestedModels = forecastApiModelsFor(location)
+        val blend = try {
             blendModelForecast(bestMatchJson, request(modelForecastUrl(location)))
         } catch (_: IOException) {
-            bestMatchJson
+            ModelBlendResult(
+                bestMatchJson,
+                ForecastCalculationMode.BEST_MATCH,
+                emptyList(),
+                ForecastFallbackReason.PROVIDER_UNAVAILABLE,
+            )
         } catch (_: JSONException) {
-            bestMatchJson
+            ModelBlendResult(
+                bestMatchJson,
+                ForecastCalculationMode.BEST_MATCH,
+                emptyList(),
+                ForecastFallbackReason.PROVIDER_UNAVAILABLE,
+            )
         }
+        val calculation = ForecastCalculation(
+            region = forecastRegionFor(location),
+            mode = blend.mode,
+            requestedModelIds = requestedModels,
+            contributorIds = blend.contributorIds,
+            fallbackReason = blend.fallbackReason,
+        )
+        val forecastJson = JSONObject(blend.json).putForecastCalculation(calculation).toString()
         val updatedAt = System.currentTimeMillis()
         val modelSnapshot = WeatherParser.parseForecast(forecastJson, updatedAt)
         val now = Instant.ofEpochMilli(updatedAt)

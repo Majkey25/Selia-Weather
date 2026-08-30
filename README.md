@@ -38,7 +38,9 @@
 
 ## Forecast data and accuracy
 
-The base forecast uses Open-Meteo Best Match worldwide, which selects the highest-resolution applicable model for the requested coordinates and returns the location's local timezone. Current unreleased builds also request explicit global provider series and calculate a robust median on the device when at least three values are available. Czech locations add CHMI ALADIN and apply fresh nearby ČHMÚ station observations after that calculation. The prototype falls back to Best Match and is not presented as calibrated or more accurate until a locked holdout supports that claim.
+The base forecast uses Open-Meteo Best Match worldwide, which selects the highest-resolution applicable model for the requested coordinates and returns the location's local timezone. Current unreleased builds also request verified global-capable provider series and calculate a robust median on the device when at least three values are available. Provider seamless series automatically use local high-resolution grids inside their domains and global output elsewhere. Czech locations additionally request CHMI ALADIN and apply fresh nearby ČHMÚ station observations. Suspended providers are excluded. The prototype falls back to Best Match and is not presented as calibrated or more accurate until a locked regional holdout supports that claim.
+
+The verified worldwide routing evidence and current limitations are recorded in [Global model routing](docs/research/global-model-routing.md).
 
 - [Open-Meteo Forecast API](https://open-meteo.com/en/docs)
 - [NASA POWER Daily API](https://power.larc.nasa.gov/docs/services/api/temporal/daily/)

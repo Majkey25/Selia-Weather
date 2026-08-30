@@ -228,10 +228,15 @@
     <string name="condition_storm">Bouřka</string>
     <string name="condition_unknown">Neznámé</string>
     <string name="radar_title">Radar</string>
-    <string name="radar_subtitle">Pozorovaný radar + 60minutový nowcast</string>
+    <string name="radar_subtitle">Pozorovaný radar Česka + 60minutový nowcast</string>
     <string name="radar_footer">Radar, družice a nowcast: ČHMÚ</string>
     <string name="radar_retry">Zkusit radar znovu</string>
     <string name="radar_unavailable">Radar není k dispozici</string>
+    <string name="radar_observed">Radar ČR</string>
+    <string name="radar_forecast_24h">Dalších 24 h</string>
+    <string name="radar_forecast_subtitle">24hodinová modelová předpověď pro okolí %1$s</string>
+    <string name="radar_forecast_note">Konsenzus modelů pro okolí vybrané lokality. Jde o předpověď, ne pozorovaný radar.</string>
+    <string name="radar_forecast_unavailable">24hodinová předpověď srážek není dostupná</string>
     <string name="widget_title">Widget počasí</string>
     <string name="widget_preview_description">Náhled widgetu počasí</string>
     <string name="widget_size_compact">Kompaktní</string>

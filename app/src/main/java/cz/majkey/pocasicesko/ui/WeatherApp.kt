@@ -177,7 +177,13 @@ fun WeatherApp(
                         onSettings = { showSettings = true },
                     )
 
-                    Destination.MAPS -> MapHubScreen(padding = padding)
+                    Destination.MAPS -> MapHubScreen(
+                        location = location,
+                        timezone = snapshot?.timezone ?: "UTC",
+                        measurementSystem = measurementSystem,
+                        loadPrecipitationField = repository::fetchPrecipitationField,
+                        padding = padding,
+                    )
                 }
             }
             FloatingNavigation(

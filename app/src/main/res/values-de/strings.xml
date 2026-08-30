@@ -228,10 +228,15 @@
     <string name="condition_storm">Gewitter</string>
     <string name="condition_unknown">Unbekannt</string>
     <string name="radar_title">Radar</string>
-    <string name="radar_subtitle">Beobachtetes Radar + 60-Minuten-Nowcast</string>
+    <string name="radar_subtitle">Beobachtetes Tschechien-Radar + 60-Minuten-Nowcast</string>
     <string name="radar_footer">Radar, Satellit und Nowcast: ČHMÚ</string>
     <string name="radar_retry">Radar erneut laden</string>
     <string name="radar_unavailable">Radar nicht verfügbar</string>
+    <string name="radar_observed">Radar CZ</string>
+    <string name="radar_forecast_24h">Nächste 24 h</string>
+    <string name="radar_forecast_subtitle">24-Stunden-Modellprognose für %1$s und Umgebung</string>
+    <string name="radar_forecast_note">Modellkonsens für den gewählten Ort und seine Umgebung. Dies ist eine Prognose, kein beobachtetes Radar.</string>
+    <string name="radar_forecast_unavailable">24-Stunden-Niederschlagsprognose nicht verfügbar</string>
     <string name="widget_title">Wetter-Widget</string>
     <string name="widget_preview_description">Vorschau des Wetter-Widgets</string>
     <string name="widget_size_compact">Kompakt</string>

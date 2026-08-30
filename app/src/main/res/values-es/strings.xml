@@ -228,10 +228,15 @@
     <string name="condition_storm">Tormenta</string>
     <string name="condition_unknown">Desconocido</string>
     <string name="radar_title">Radar</string>
-    <string name="radar_subtitle">Radar observado + pronóstico inmediato de 60 minutos</string>
+    <string name="radar_subtitle">Radar observado de Chequia + pronóstico inmediato de 60 minutos</string>
     <string name="radar_footer">Radar, satélite y pronóstico inmediato: ČHMÚ</string>
     <string name="radar_retry">Reintentar radar</string>
     <string name="radar_unavailable">Radar no disponible</string>
+    <string name="radar_observed">Radar CZ</string>
+    <string name="radar_forecast_24h">Próximas 24 h</string>
+    <string name="radar_forecast_subtitle">Pronóstico de modelo de 24 horas alrededor de %1$s</string>
+    <string name="radar_forecast_note">Consenso de modelos alrededor de la ubicación elegida. Es un pronóstico, no un radar observado.</string>
+    <string name="radar_forecast_unavailable">Pronóstico de precipitación de 24 horas no disponible</string>
     <string name="widget_title">Widget del tiempo</string>
     <string name="widget_preview_description">Vista previa del widget del tiempo</string>
     <string name="widget_size_compact">Compacto</string>

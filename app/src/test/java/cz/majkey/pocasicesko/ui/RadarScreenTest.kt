@@ -77,6 +77,22 @@ class RadarScreenTest {
 
         assertTrue(source.contains(".aspectRatio(RADAR_CARD_ASPECT_RATIO)"))
         assertTrue(source.contains("private const val RADAR_CARD_ASPECT_RATIO = 0.9f"))
-        assertFalse(source.contains(".weight(1f)"))
+        assertFalse(source.contains(".fillMaxHeight()"))
+    }
+
+    @Test
+    fun mapHubSeparatesObservedRadarFrom24HourModelForecast() {
+        val source = File(
+            System.getProperty("user.dir"),
+            "src/main/java/cz/majkey/pocasicesko/ui/MapHubScreen.kt",
+        ).readText()
+
+        assertTrue(source.contains("MapMode.OBSERVED"))
+        assertTrue(source.contains("MapMode.FORECAST"))
+        assertTrue(source.contains("loadPrecipitationField(location)"))
+        assertTrue(source.contains("LocalRainField("))
+        assertTrue(source.contains("R.string.radar_forecast_24h"))
+        assertTrue(source.contains("current?.latitude == location.latitude"))
+        assertTrue(source.contains("current.longitude == location.longitude"))
     }
 }

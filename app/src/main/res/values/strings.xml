@@ -229,10 +229,15 @@
     <string name="condition_storm">Thunderstorm</string>
     <string name="condition_unknown">Unknown</string>
     <string name="radar_title">Radar</string>
-    <string name="radar_subtitle">Observed radar + 60-minute nowcast</string>
+    <string name="radar_subtitle">Observed Czechia radar + 60-minute nowcast</string>
     <string name="radar_footer">Radar, satellite and nowcast: ČHMÚ</string>
     <string name="radar_retry">Retry radar</string>
     <string name="radar_unavailable">Radar unavailable</string>
+    <string name="radar_observed">Observed CZ</string>
+    <string name="radar_forecast_24h">Next 24h</string>
+    <string name="radar_forecast_subtitle">24-hour model forecast around %1$s</string>
+    <string name="radar_forecast_note">Model consensus around the selected location. This is a forecast, not observed radar.</string>
+    <string name="radar_forecast_unavailable">24-hour precipitation forecast unavailable</string>
     <string name="widget_title">Weather widget</string>
     <string name="widget_preview_description">Preview of the weather widget</string>
     <string name="widget_size_compact">Compact</string>

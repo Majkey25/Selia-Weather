@@ -36,6 +36,7 @@ internal fun historyChatPrompt(archive: HistoryArchive): String =
         "(${archive.location.latitude}, ${archive.location.longitude}) from " +
         "${archive.days.first().date} to ${archive.days.last().date}. " +
         "Calculate answers from the rows and state the covered dates. " +
+        "Be ready to calculate precipitation for any requested date range. " +
         "NASA POWER values are model and satellite grid estimates, not local station observations. " +
         "Solar energy is not sunshine duration."
 

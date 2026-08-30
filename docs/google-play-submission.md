@@ -30,7 +30,7 @@
 - The app has no separate analytics SDK and does not collect health, contacts, messages, photos, files, audio, or payment-card data.
 - A selected widget image stays on the device. The app retains read access to the Android document URI only while a configured widget uses it.
 - The optional Buy Me a Coffee action opens an external HTTPS page. It grants no app feature, entitlement, or priority.
-- **Ask ChatGPT** creates one local CSV with the selected location name and coordinates, source metadata, and 365 daily rows. The file is shared only with the recipient the user chooses in Android's share sheet. A later export replaces it.
+- **Ask ChatGPT** creates one local CSV with the selected location name and coordinates, source metadata, and up to five years of daily rows. The file is shared only with the recipient the user chooses in Android's share sheet. A later export replaces it.
 
 ## Monetization
 

@@ -32,5 +32,6 @@ class HistoryExportTest {
         assertTrue(lines[2].contains(",2026-01-02,-0.96,1.34,-3.66,0.66,,9.78,2.03"))
         assertFalse(lines.any { it.contains("-999") })
         assertTrue(historyChatPrompt(archive).contains("2026-01-01 to 2026-01-02"))
+        assertTrue(historyChatPrompt(archive).contains("precipitation for any requested date range"))
     }
 }

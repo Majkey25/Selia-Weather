@@ -25,7 +25,7 @@ internal class HistoryRepository(
         if (cache.isFresh(requestedAt)) readCacheOrNull(cache, location)?.let { return@withContext it }
 
         val end = requestedAt.atZone(ZoneOffset.UTC).toLocalDate().minusDays(SOURCE_LAG_DAYS)
-        val start = end.minusDays(HISTORY_DAY_COUNT - 1L)
+        val start = end.minusYears(HISTORY_YEAR_COUNT).plusDays(1)
         try {
             val json = fetchText(url(location, start, end))
             val archive = parsePowerHistory(json, location, requestedAt.toEpochMilli())
@@ -40,7 +40,7 @@ internal class HistoryRepository(
 
     private fun cacheFile(location: CzechLocation): File {
         val coordinates = String.format(Locale.US, "%.4f_%.4f", location.latitude, location.longitude)
-        return File(cacheDirectory, "power_$coordinates.json")
+        return File(cacheDirectory, "power_5y_$coordinates.json")
     }
 
     private fun File.isFresh(at: Instant): Boolean = isFile &&
@@ -81,7 +81,7 @@ internal class HistoryRepository(
         private const val BASE_URL = "https://power.larc.nasa.gov/api/temporal/daily/point"
         private const val PARAMETERS =
             "T2M,T2M_MAX,T2M_MIN,PRECTOTCORR,RH2M,WS10M,ALLSKY_SFC_SW_DWN"
-        private const val HISTORY_DAY_COUNT = 365L
+        private const val HISTORY_YEAR_COUNT = 5L
         private const val SOURCE_LAG_DAYS = 2L
         private const val CACHE_TTL_MILLIS = 24L * 60L * 60L * 1_000L
         private const val MAX_CACHE_FILES = 12

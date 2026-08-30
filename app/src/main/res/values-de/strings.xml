@@ -299,7 +299,7 @@
     <string name="widget_field_humidity">Luftfeuchtigkeit</string>
     <string name="widget_field_updated">Letzte Aktualisierung</string>
     <string name="history_title">Jahresverlauf</string>
-    <string name="history_description">365 Tage täglicher Schätzwerte für diesen Ort laden.</string>
+    <string name="history_description">Fünf Jahre täglicher Schätzwerte für diesen Ort laden.</string>
     <string name="history_load">Archiv laden</string>
     <string name="history_unavailable">Das Archiv konnte nicht geladen werden.</string>
     <string name="history_source_note">NASA-POWER-Rasterschätzungen aus Satellitenbeobachtungen und Assimilationsmodellen. Keine Messungen einer lokalen Station. Die neuesten Tage können verzögert sein.</string>
@@ -310,7 +310,7 @@
     <string name="history_average_temperature">Durchschnittstemperatur</string>
     <string name="history_temperature_range">Temperaturbereich</string>
     <string name="history_solar_energy">Sonnenenergie an der Oberfläche</string>
-    <string name="history_ask_chatgpt">ChatGPT fragen</string>
+    <string name="history_ask_chatgpt">ChatGPT mit CSV fragen</string>
     <string name="history_show_days">Tagesdaten anzeigen</string>
     <string name="history_hide_days">Tagesdaten ausblenden</string>
     <string name="history_daily_title">Tagesarchiv</string>

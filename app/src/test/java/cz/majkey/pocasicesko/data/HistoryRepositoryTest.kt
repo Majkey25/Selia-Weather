@@ -18,7 +18,7 @@ class HistoryRepositoryTest {
     private val now = Instant.parse("2026-08-30T12:00:00Z")
 
     @Test
-    fun requests365DaysOnceThenUsesBoundedCache() = runBlocking {
+    fun requestsFiveYearsOnceThenUsesBoundedCache() = runBlocking {
         val cache = Files.createTempDirectory("history-cache").toFile()
         var calls = 0
         var requestedUrl = ""
@@ -35,7 +35,7 @@ class HistoryRepositoryTest {
             val parts = parameter.split('=', limit = 2)
             parts[0] to URLDecoder.decode(parts[1], StandardCharsets.UTF_8)
         }
-        assertEquals("20250829", query["start"])
+        assertEquals("20210829", query["start"])
         assertEquals("20260828", query["end"])
         assertEquals("UTC", query["time-standard"])
         assertEquals("JSON", query["format"])
@@ -55,6 +55,27 @@ class HistoryRepositoryTest {
         )
 
         assertEquals(2, offline.fetch(location).days.size)
+    }
+
+    @Test
+    fun ignoresLegacyOneYearCacheAfterRangeUpgrade() = runBlocking {
+        val cache = Files.createTempDirectory("history-cache-upgrade").toFile()
+        val legacy = cache.resolve("power_50.0755_14.4378.json")
+        legacy.writeText(SAMPLE_JSON)
+        legacy.setLastModified(now.toEpochMilli())
+        var calls = 0
+        val repository = HistoryRepository(
+            cache,
+            fetchText = {
+                calls++
+                SAMPLE_JSON
+            },
+            now = { now },
+        )
+
+        repository.fetch(location)
+
+        assertEquals(1, calls)
     }
 
     @Test

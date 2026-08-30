@@ -299,7 +299,7 @@
     <string name="widget_field_humidity">Humedad</string>
     <string name="widget_field_updated">Última actualización</string>
     <string name="history_title">Historial anual</string>
-    <string name="history_description">Cargar 365 días de estimaciones diarias para esta ubicación.</string>
+    <string name="history_description">Cargar cinco años de estimaciones diarias para esta ubicación.</string>
     <string name="history_load">Cargar archivo</string>
     <string name="history_unavailable">No se pudo cargar el archivo.</string>
     <string name="history_source_note">Estimaciones de cuadrícula NASA POWER basadas en observaciones satelitales y modelos de asimilación. No son mediciones de una estación local. Los últimos días pueden llegar con retraso.</string>
@@ -310,7 +310,7 @@
     <string name="history_average_temperature">Temperatura media</string>
     <string name="history_temperature_range">Rango de temperatura</string>
     <string name="history_solar_energy">Energía solar en superficie</string>
-    <string name="history_ask_chatgpt">Preguntar a ChatGPT</string>
+    <string name="history_ask_chatgpt">Preguntar a ChatGPT con CSV</string>
     <string name="history_show_days">Mostrar datos diarios</string>
     <string name="history_hide_days">Ocultar datos diarios</string>
     <string name="history_daily_title">Archivo diario</string>

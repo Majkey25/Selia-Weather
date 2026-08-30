@@ -45,7 +45,7 @@ class LauncherIconTest {
         val item = safeDocument.getElementsByTagName("item").item(0)
         val androidNamespace = "http://schemas.android.com/apk/res/android"
         for (side in listOf("left", "top", "right", "bottom")) {
-            assertEquals("24dp", item.attributes.getNamedItemNS(androidNamespace, side).nodeValue)
+            assertEquals("28dp", item.attributes.getNamedItemNS(androidNamespace, side).nodeValue)
         }
         val iconDocument = factory.newDocumentBuilder().parse(adaptiveIcon)
         val foreground = iconDocument.getElementsByTagName("foreground").item(0)

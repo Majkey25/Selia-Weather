@@ -29,6 +29,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.Navigation
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.CircularProgressIndicator
@@ -48,13 +49,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -327,98 +326,153 @@ private fun HourlyGraphPanel(snapshot: WeatherSnapshot, accent: Color, units: We
                     .fillMaxWidth()
                     .horizontalScroll(scrollState),
             ) {
-                Column(
+                Box(
                     modifier = Modifier
                         .width(itemWidth * hours.size)
                         .padding(vertical = 16.dp),
                 ) {
-                    Row {
-                        hours.forEachIndexed { index, hour ->
-                            Text(
-                                text = if (index == 0) stringResource(R.string.now) else hour.time.substringAfter('T').take(5),
-                                modifier = Modifier.width(itemWidth),
-                                color = Color.White.copy(alpha = 0.58f),
-                                fontSize = 12.sp,
-                                textAlign = TextAlign.Center,
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(9.dp))
-                    Row {
-                        hours.forEach { hour ->
-                            val condition = conditionFor(hour.weatherCode, hour.isDay)
-                            Box(Modifier.width(itemWidth), contentAlignment = Alignment.Center) {
-                                WeatherIcon(
-                                    kind = condition.kind,
-                                    isDay = hour.isDay,
-                                    contentDescription = stringResource(condition.labelResource()),
-                                    modifier = Modifier.size(25.dp),
-                                    tint = conditionAccent(condition.kind, hour.isDay),
+                    Column(Modifier.clearAndSetSemantics { }) {
+                        Row {
+                            hours.forEachIndexed { index, hour ->
+                                Text(
+                                    text = if (index == 0) {
+                                        stringResource(R.string.now)
+                                    } else {
+                                        hour.time.substringAfter('T').take(5)
+                                    },
+                                    modifier = Modifier.width(itemWidth),
+                                    color = Color.White.copy(alpha = 0.58f),
+                                    fontSize = 12.sp,
+                                    textAlign = TextAlign.Center,
                                 )
                             }
                         }
-                    }
-                    HourlyTemperatureLine(
-                        temperatures = hours.map { it.temperature },
-                        accent = accent,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(66.dp)
-                            .padding(horizontal = itemWidth / 2, vertical = 8.dp),
-                    )
-                    Row {
-                        hours.forEach { hour ->
-                            Text(
-                                text = units.temperature(hour.temperature),
-                                modifier = Modifier.width(itemWidth),
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                textAlign = TextAlign.Center,
-                            )
+                        Spacer(Modifier.height(9.dp))
+                        Row {
+                            hours.forEach { hour ->
+                                val condition = conditionFor(hour.weatherCode, hour.isDay)
+                                Box(Modifier.width(itemWidth), contentAlignment = Alignment.Center) {
+                                    WeatherIcon(
+                                        kind = condition.kind,
+                                        isDay = hour.isDay,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(25.dp),
+                                        tint = conditionAccent(condition.kind, hour.isDay),
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(5.dp))
+                        HourlyMeteogram(
+                            hours = hours,
+                            columnWidth = itemWidth,
+                            accent = accent,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(112.dp),
+                        )
+                        Row {
+                            hours.forEach { hour ->
+                                Text(
+                                    text = units.temperature(hour.temperature),
+                                    modifier = Modifier.width(itemWidth),
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    textAlign = TextAlign.Center,
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(5.dp))
+                        Row {
+                            hours.forEach { hour ->
+                                Column(
+                                    modifier = Modifier
+                                        .width(itemWidth)
+                                        .height(34.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                ) {
+                                    Text(
+                                        text = if (hour.precipitationProbability > 0 || hour.precipitation > 0.0) {
+                                            "${hour.precipitationProbability} %"
+                                        } else {
+                                            "–"
+                                        },
+                                        color = Color(0xFF8EDCF0),
+                                        fontSize = 10.sp,
+                                        textAlign = TextAlign.Center,
+                                    )
+                                    if (hour.precipitation > 0.0) {
+                                        Text(
+                                            text = units.precipitation(hour.precipitation),
+                                            color = Color(0xFF8EDCF0).copy(alpha = 0.65f),
+                                            fontSize = 8.sp,
+                                            textAlign = TextAlign.Center,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        Row {
+                            hours.forEach { hour ->
+                                Row(
+                                    modifier = Modifier.width(itemWidth),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Navigation,
+                                        contentDescription = null,
+                                        modifier = Modifier
+                                            .size(12.dp)
+                                            .graphicsLayer { rotationZ = windArrowRotation(hour.windDirection) },
+                                        tint = Color.White.copy(alpha = 0.54f),
+                                    )
+                                    Spacer(Modifier.width(2.dp))
+                                    Text(
+                                        text = units.windSpeed(hour.windSpeed),
+                                        color = Color.White.copy(alpha = 0.54f),
+                                        fontSize = 8.sp,
+                                        maxLines = 1,
+                                    )
+                                }
+                            }
                         }
                     }
-                    Spacer(Modifier.height(5.dp))
-                    Row {
-                        hours.forEach { hour ->
-                            Text(
-                                text = if (hour.precipitationProbability > 0) "${hour.precipitationProbability} %" else "–",
-                                modifier = Modifier.width(itemWidth),
-                                color = Color(0xFF8EDCF0),
-                                fontSize = 11.sp,
-                                textAlign = TextAlign.Center,
+                    Row(Modifier.matchParentSize()) {
+                        hours.forEachIndexed { index, hour ->
+                            val condition = conditionFor(hour.weatherCode, hour.isDay)
+                            val time = if (index == 0) {
+                                stringResource(R.string.now)
+                            } else {
+                                hour.time.substringAfter('T').take(5)
+                            }
+                            val precipitationLabel = if (
+                                hour.precipitationProbability > 0 || hour.precipitation > 0.0
+                            ) {
+                                "${stringResource(R.string.precipitation)} " +
+                                    "${hour.precipitationProbability}%, ${units.precipitation(hour.precipitation)}"
+                            } else {
+                                "${stringResource(R.string.precipitation)} 0%"
+                            }
+                            val windLabel = "${stringResource(R.string.wind)} ${units.windSpeed(hour.windSpeed)}, " +
+                                stringResource(windDirectionResource(hour.windDirection))
+                            val description = hourlyAccessibilityDescription(
+                                time = time,
+                                condition = stringResource(condition.labelResource()),
+                                temperature = units.temperature(hour.temperature),
+                                precipitationLabel = precipitationLabel,
+                                windLabel = windLabel,
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .width(itemWidth)
+                                    .fillMaxHeight()
+                                    .clearAndSetSemantics { contentDescription = description },
                             )
                         }
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun HourlyTemperatureLine(temperatures: List<Double>, accent: Color, modifier: Modifier = Modifier) {
-    if (temperatures.size < 2) return
-    Canvas(modifier) {
-        val min = temperatures.minOrNull() ?: return@Canvas
-        val max = temperatures.maxOrNull() ?: return@Canvas
-        val range = (max - min).coerceAtLeast(1.0)
-        val step = size.width / (temperatures.size - 1)
-        val path = Path()
-        temperatures.forEachIndexed { index, temperature ->
-            val x = step * index
-            val y = size.height * (0.82f - ((temperature - min) / range).toFloat() * 0.64f)
-            if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
-        }
-        drawPath(
-            path = path,
-            brush = Brush.horizontalGradient(listOf(Color(0xFF58C8E2), accent, Color(0xFFFFC468))),
-            style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round),
-        )
-        temperatures.forEachIndexed { index, temperature ->
-            val x = step * index
-            val y = size.height * (0.82f - ((temperature - min) / range).toFloat() * 0.64f)
-            drawCircle(Color(0xFF111B24), radius = 5.dp.toPx(), center = Offset(x, y))
-            drawCircle(accent, radius = 2.6.dp.toPx(), center = Offset(x, y))
         }
     }
 }

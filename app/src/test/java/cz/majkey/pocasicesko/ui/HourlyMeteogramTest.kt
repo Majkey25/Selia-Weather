@@ -1,7 +1,9 @@
 package cz.majkey.pocasicesko.ui
 
 import cz.majkey.pocasicesko.data.HourlyWeather
+import java.io.File
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -62,6 +64,38 @@ class HourlyMeteogramTest {
         assertThrows(IllegalArgumentException::class.java) {
             calculateHourlyMeteogram(listOf(hour(0)), 68f, Float.NaN, 68f)
         }
+    }
+
+    @Test
+    fun forecastPanelUsesCombinedMeteogram() {
+        val source = File(
+            System.getProperty("user.dir"),
+            "src/main/java/cz/majkey/pocasicesko/ui/ForecastScreen.kt",
+        ).readText()
+
+        assertTrue(source.contains("HourlyMeteogram("))
+        assertFalse(source.contains("HourlyTemperatureLine("))
+    }
+
+    @Test
+    fun formatsOneAccessibleDescriptionPerHour() {
+        assertEquals(
+            "14:00, Rain, 18°, precipitation 70%, 1.2 mm, wind 20 km/h, southwest",
+            hourlyAccessibilityDescription(
+                time = "14:00",
+                condition = "Rain",
+                temperature = "18°",
+                precipitationLabel = "precipitation 70%, 1.2 mm",
+                windLabel = "wind 20 km/h, southwest",
+            ),
+        )
+    }
+
+    @Test
+    fun rotatesWindArrowTowardTravelDirection() {
+        assertEquals(180f, windArrowRotation(0), 0.001f)
+        assertEquals(270f, windArrowRotation(90), 0.001f)
+        assertEquals(179f, windArrowRotation(-1), 0.001f)
     }
 
     private fun hour(

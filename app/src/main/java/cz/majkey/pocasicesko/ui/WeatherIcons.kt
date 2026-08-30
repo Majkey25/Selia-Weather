@@ -23,7 +23,7 @@ import cz.majkey.pocasicesko.data.WeatherKind
 fun WeatherIcon(
     kind: WeatherKind,
     isDay: Boolean,
-    contentDescription: String,
+    contentDescription: String?,
     modifier: Modifier = Modifier,
     tint: Color = Color.White,
 ) {
@@ -31,7 +31,13 @@ fun WeatherIcon(
         val cloudFraction = if (kind == WeatherKind.MAINLY_CLEAR) 0.50f else 0.64f
         val sunOrMoonFraction = if (kind == WeatherKind.MAINLY_CLEAR) 0.84f else 0.78f
         val sunOrMoonTint = if (isDay) Color(0xFFFFD477) else Color(0xFFDDE6FF)
-        Box(modifier.semantics { this.contentDescription = contentDescription }) {
+        Box(
+            if (contentDescription == null) {
+                modifier
+            } else {
+                modifier.semantics { this.contentDescription = contentDescription }
+            },
+        ) {
             Icon(
                 imageVector = if (isDay) Icons.Rounded.WbSunny else Icons.Rounded.DarkMode,
                 contentDescription = null,

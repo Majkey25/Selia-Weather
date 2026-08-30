@@ -159,7 +159,16 @@ git commit -m "docs(weather): document global model routing"
 git push origin main
 ```
 
-- [ ] **Step 5: Verify GitHub CI**
+- [x] **Step 5: Verify GitHub CI**
 
 Require green Android CI and Research CI for the final HEAD. Do not create a GitHub release or Play
 upload while calibration or commercial-data gates fail.
+
+## Acceptance evidence
+
+- Android CI: `https://github.com/Majkey25/Selia-Weather/actions/runs/33334988854`.
+- Research CI: `https://github.com/Majkey25/Selia-Weather/actions/runs/33334995210`.
+- Local Android gate: `BUILD SUCCESSFUL` for unit tests, lint, debug APK, release APK, and release AAB.
+- Local research gate: 213 tests passed, Ruff clean, Pyright zero errors.
+- Live routing sample: five HTTP 200 requests with 8–9 finite first-hour contributors, recorded in
+  `docs/research/global-model-routing.md`.

@@ -9,10 +9,13 @@
 - Added an unreleased on-device model-consensus prototype. It uses a robust median only when at least three model values are present, derives rain probability and sky condition locally, and falls back to Best Match. It is not a production calibration or an accuracy claim.
 - Fixed the radar card aspect ratio so rain and cloud imagery stays undistorted without large letterbox gaps.
 - Added an on-demand 24-hour Local rain field with 25 surrounding forecast points, model agreement, precipitation type, and Metric or Imperial details.
+- Added a 365-day NASA POWER archive with local summaries, daily rows, and CSV sharing through Android to ChatGPT or another selected app.
+- Split Maps into observed Czech radar and a worldwide 24-hour multi-model precipitation forecast around the selected location.
 - Added UV, freezing-level, boundary-layer, integrated-water-vapour, instability, showers, and ground values to Weather details.
 - Replaced the temperature-only hourly strip with a 24-hour meteogram for temperature, precipitation, day or night, wind direction, and wind speed.
-- Kept the smaller mainly-clear cloud blue and reduced the adaptive launcher foreground for OEM icon masks.
+- Kept the smaller mainly-clear cloud blue and rebuilt the adaptive launcher foreground with a centred padded canvas for OEM icon masks.
 - Added expandable hourly rows with precipitation amount, feels-like temperature, humidity, gusts, pressure, cloud layers, UV, and visibility.
+- Forced release ads and purchases off while forecasts use the non-commercial Open-Meteo Free API. Debug builds retain test monetisation for QA.
 
 ## [0.2.0-beta.8] - 2026-08-29
 

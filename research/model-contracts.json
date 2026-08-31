@@ -1,0 +1,98 @@
+{
+  "checked_at": "2026-08-31",
+  "contracts": [
+    {
+      "documentation_url": "https://open-meteo.com/en/docs/chmi-api",
+      "model_id": "chmi_aladin_central_europe_2km",
+      "resolution_km": 2.3,
+      "update_frequency_hours": 6
+    },
+    {
+      "documentation_url": "https://open-meteo.com/en/docs/chmi-api",
+      "model_id": "chmi_aladin_cz_1km",
+      "resolution_km": 1.0,
+      "update_frequency_hours": 6
+    },
+    {
+      "documentation_url": "https://open-meteo.com/en/docs/gem-api",
+      "model_id": "cmc_gem_gdps",
+      "resolution_km": 15.0,
+      "update_frequency_hours": 12
+    },
+    {
+      "documentation_url": "https://open-meteo.com/en/docs/dmi-api",
+      "model_id": "dmi_harmonie_arome_europe",
+      "resolution_km": 2.0,
+      "update_frequency_hours": 3
+    },
+    {
+      "documentation_url": "https://open-meteo.com/en/docs/dwd-api",
+      "model_id": "dwd_icon_d2",
+      "resolution_km": 2.0,
+      "update_frequency_hours": 3
+    },
+    {
+      "documentation_url": "https://open-meteo.com/en/docs/dwd-api",
+      "model_id": "dwd_icon_eu",
+      "resolution_km": 7.0,
+      "update_frequency_hours": 3
+    },
+    {
+      "documentation_url": "https://open-meteo.com/en/docs/dwd-api",
+      "model_id": "dwd_icon_global",
+      "resolution_km": 11.0,
+      "update_frequency_hours": 6
+    },
+    {
+      "documentation_url": "https://open-meteo.com/en/docs/ecmwf-api",
+      "model_id": "ecmwf_aifs025_single",
+      "resolution_km": 28.0,
+      "update_frequency_hours": 6
+    },
+    {
+      "documentation_url": "https://open-meteo.com/en/docs/ecmwf-api",
+      "model_id": "ecmwf_ifs",
+      "resolution_km": 9.0,
+      "update_frequency_hours": 6
+    },
+    {
+      "documentation_url": "https://open-meteo.com/en/docs/ecmwf-api",
+      "model_id": "ecmwf_ifs025",
+      "resolution_km": 25.0,
+      "update_frequency_hours": 6
+    },
+    {
+      "documentation_url": "https://open-meteo.com/en/docs/geosphere-austria-api",
+      "model_id": "geosphere_arome_austria",
+      "resolution_km": 2.5,
+      "update_frequency_hours": 3
+    },
+    {
+      "documentation_url": "https://open-meteo.com/en/docs/knmi-api",
+      "model_id": "knmi_harmonie_arome_europe",
+      "resolution_km": 5.5,
+      "update_frequency_hours": 1
+    },
+    {
+      "documentation_url": "https://open-meteo.com/en/docs/meteofrance-api",
+      "model_id": "meteofrance_arpege_europe",
+      "resolution_km": 11.0,
+      "update_frequency_hours": 6
+    },
+    {
+      "documentation_url": "https://open-meteo.com/en/docs/gfs-api",
+      "model_id": "ncep_gfs_global",
+      "resolution_km": 13.0,
+      "update_frequency_hours": 6
+    },
+    {
+      "documentation_url": "https://open-meteo.com/en/docs/ukmo-api",
+      "model_id": "ukmo_global_deterministic_10km",
+      "resolution_km": 10.0,
+      "update_frequency_hours": 6
+    }
+  ],
+  "maximum_run_age_policy": "max(6,2*update_frequency_hours)",
+  "schema_version": 1,
+  "status": "verified"
+}

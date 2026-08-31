@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from math import isfinite
 from pathlib import Path
+from typing import cast
 
 from aladin_ensemble.evaluate import HoldoutLock, SegmentEvaluation
 from aladin_ensemble.fallback import SegmentSelector
@@ -25,6 +26,77 @@ class ModelContract:
             raise ValueError("maximum_run_age_hours must be positive")
         if not isfinite(self.resolution_km) or self.resolution_km <= 0:
             raise ValueError("resolution_km must be finite and positive")
+
+
+def load_model_contracts(
+    path: Path,
+    *,
+    expected_model_ids: tuple[str, ...],
+    today: date,
+) -> tuple[ModelContract, ...]:
+    if not expected_model_ids or len(set(expected_model_ids)) != len(expected_model_ids):
+        raise ValueError("expected model IDs must be non-empty and unique")
+    raw = cast(object, json.loads(path.read_text(encoding="utf-8")))
+    if not isinstance(raw, dict):
+        raise ValueError("model contracts must be an object")
+    payload = cast(dict[object, object], raw)
+    if payload.get("schema_version") != 1 or payload.get("status") != "verified":
+        raise ValueError("model contracts are not verified schema version 1")
+    if payload.get("maximum_run_age_policy") != "max(6,2*update_frequency_hours)":
+        raise ValueError("model contract run-age policy is unsupported")
+    checked_at_raw = payload.get("checked_at")
+    if not isinstance(checked_at_raw, str):
+        raise ValueError("model contract checked_at must be an ISO date")
+    try:
+        checked_at = date.fromisoformat(checked_at_raw)
+    except ValueError as error:
+        raise ValueError("model contract checked_at must be an ISO date") from error
+    age_days = (today - checked_at).days
+    if age_days < 0 or age_days > 90:
+        raise ValueError("model contract audit is stale or in the future")
+    contracts_raw = payload.get("contracts")
+    if not isinstance(contracts_raw, list):
+        raise ValueError("model contracts must be a list")
+    contracts: list[ModelContract] = []
+    for raw_contract in cast(list[object], contracts_raw):
+        if not isinstance(raw_contract, dict):
+            raise ValueError("model contract must be an object")
+        contract = cast(dict[object, object], raw_contract)
+        model_id = contract.get("model_id")
+        resolution = contract.get("resolution_km")
+        update_frequency = contract.get("update_frequency_hours")
+        documentation_url = contract.get("documentation_url")
+        if not isinstance(model_id, str) or not model_id:
+            raise ValueError("model contract model_id must be text")
+        if (
+            isinstance(resolution, bool)
+            or not isinstance(resolution, int | float)
+            or not isfinite(resolution)
+            or resolution <= 0
+        ):
+            raise ValueError("model contract resolution_km must be finite and positive")
+        if (
+            isinstance(update_frequency, bool)
+            or not isinstance(update_frequency, int)
+            or update_frequency <= 0
+        ):
+            raise ValueError("model contract update_frequency_hours must be positive")
+        if (
+            not isinstance(documentation_url, str)
+            or not documentation_url.startswith("https://open-meteo.com/en/docs/")
+        ):
+            raise ValueError("model contract documentation_url is invalid")
+        contracts.append(
+            ModelContract(
+                model_id,
+                max(6, 2 * update_frequency),
+                float(resolution),
+            )
+        )
+    actual_ids = {contract.model_id for contract in contracts}
+    if actual_ids != set(expected_model_ids) or len(actual_ids) != len(contracts):
+        raise ValueError("model contract model IDs do not match the registry")
+    return tuple(sorted(contracts, key=lambda contract: contract.model_id))
 
 
 @dataclass(frozen=True, slots=True)

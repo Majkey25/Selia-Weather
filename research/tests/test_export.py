@@ -17,9 +17,11 @@ from aladin_ensemble.export import (
     ModelContract,
     build_artifact,
     export_artifact,
+    load_model_contracts,
     write_artifact,
 )
 from aladin_ensemble.fallback import SegmentSelector
+from aladin_ensemble.run_backtest import load_registry_model_ids
 from aladin_ensemble.train import WeightFit
 
 DATASET_HASH = "0123456789abcdef" * 4
@@ -161,3 +163,46 @@ def test_segment_minimum_source_count_uses_only_positive_weights() -> None:
         )
     with pytest.raises(ValueError, match="fallback"):
         ExportSegment(_evaluation(accepted=False), None, 2)
+
+
+def test_model_contract_loader_requires_fresh_exact_audit(tmp_path: Path) -> None:
+    path = tmp_path / "model-contracts.json"
+    path.write_text(
+        '{"checked_at":"2026-08-31","contracts":['
+        '{"documentation_url":"https://open-meteo.com/en/docs/dwd-api",'
+        '"model_id":"model_a","resolution_km":7.0,"update_frequency_hours":3}],'
+        '"maximum_run_age_policy":"max(6,2*update_frequency_hours)",'
+        '"schema_version":1,"status":"verified"}\n',
+        encoding="utf-8",
+    )
+
+    assert load_model_contracts(
+        path,
+        expected_model_ids=("model_a",),
+        today=date(2026, 8, 31),
+    ) == (ModelContract("model_a", 6, 7.0),)
+    with pytest.raises(ValueError, match="model IDs"):
+        load_model_contracts(
+            path,
+            expected_model_ids=("model_b",),
+            today=date(2026, 8, 31),
+        )
+    with pytest.raises(ValueError, match="stale"):
+        load_model_contracts(
+            path,
+            expected_model_ids=("model_a",),
+            today=date(2026, 12, 1),
+        )
+
+
+def test_checked_in_model_contracts_match_registry() -> None:
+    research_root = Path(__file__).parents[1]
+    model_ids = load_registry_model_ids(research_root / "model-registry.json")
+
+    contracts = load_model_contracts(
+        research_root / "model-contracts.json",
+        expected_model_ids=model_ids,
+        today=date(2026, 8, 31),
+    )
+
+    assert tuple(contract.model_id for contract in contracts) == model_ids

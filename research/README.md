@@ -49,6 +49,9 @@ weights were exported. The exact production gate and results are recorded in
 [`docs/research/czech-ensemble-validation.md`](../docs/research/czech-ensemble-validation.md).
 The current model registry is complete with 15 eligible candidates and 2 definitive exclusions.
 The export code still refuses any future registry whose status is not `complete`.
+[`model-contracts.json`](model-contracts.json) records the checked grid resolution and update
+cadence for all 15 models. The loader requires an exact model-ID match and a contract audit no
+older than 90 days. See [Model runtime contracts](../docs/research/model-contracts.md).
 
 Run the locked-backtest preflight before any download:
 

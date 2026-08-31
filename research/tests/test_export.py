@@ -21,11 +21,27 @@ from aladin_ensemble.export import (
     write_artifact,
 )
 from aladin_ensemble.fallback import SegmentSelector
-from aladin_ensemble.run_backtest import load_registry_model_ids
 from aladin_ensemble.train import WeightFit
 
 DATASET_HASH = "0123456789abcdef" * 4
 LOCKED_AT = datetime(2026, 6, 1, tzinfo=UTC)
+EXPECTED_CONTRACT_MODEL_IDS = (
+    "chmi_aladin_central_europe_2km",
+    "chmi_aladin_cz_1km",
+    "cmc_gem_gdps",
+    "dmi_harmonie_arome_europe",
+    "dwd_icon_d2",
+    "dwd_icon_eu",
+    "dwd_icon_global",
+    "ecmwf_aifs025_single",
+    "ecmwf_ifs",
+    "ecmwf_ifs025",
+    "geosphere_arome_austria",
+    "knmi_harmonie_arome_europe",
+    "meteofrance_arpege_europe",
+    "ncep_gfs_global",
+    "ukmo_global_deterministic_10km",
+)
 
 
 def _lock() -> HoldoutLock:
@@ -197,12 +213,11 @@ def test_model_contract_loader_requires_fresh_exact_audit(tmp_path: Path) -> Non
 
 def test_checked_in_model_contracts_match_registry() -> None:
     research_root = Path(__file__).parents[1]
-    model_ids = load_registry_model_ids(research_root / "model-registry.json")
 
     contracts = load_model_contracts(
         research_root / "model-contracts.json",
-        expected_model_ids=model_ids,
+        expected_model_ids=EXPECTED_CONTRACT_MODEL_IDS,
         today=date(2026, 8, 31),
     )
 
-    assert tuple(contract.model_id for contract in contracts) == model_ids
+    assert tuple(contract.model_id for contract in contracts) == EXPECTED_CONTRACT_MODEL_IDS

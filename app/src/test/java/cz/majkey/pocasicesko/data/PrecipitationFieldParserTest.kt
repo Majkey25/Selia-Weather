@@ -6,6 +6,7 @@ import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
+import java.time.Instant
 
 class PrecipitationFieldParserTest {
     @Test
@@ -21,6 +22,37 @@ class PrecipitationFieldParserTest {
         assertEquals(0.0, requireNotNull(centre.minimumMm), 0.0)
         assertEquals(0.4, requireNotNull(centre.maximumMm), 0.0)
         assertEquals(PrecipitationKind.RAIN, centre.kind)
+    }
+
+    @Test
+    fun appliesTheLocationPrecipitationWeightsToEveryCell() {
+        val artifact = parseCalibrationArtifact(
+            CALIBRATION,
+            Instant.parse("2026-08-29T19:00:00Z").epochSecond,
+        )
+
+        val field = parsePrecipitationField(payload(), points, MODELS, LOCATION, artifact)
+        val centre = field.frames.first().cells[12]
+
+        assertEquals(0.32, requireNotNull(centre.precipitationMm), 0.0001)
+        assertEquals(80, centre.probabilityPercent)
+        assertEquals(80, centre.agreementPercent)
+        assertEquals(2, centre.contributorCount)
+    }
+
+    @Test
+    fun fallsBackToDiagnosticMedianWhenCalibratedModelsAreMissing() {
+        val artifact = parseCalibrationArtifact(
+            CALIBRATION.replace("\"c\"", "\"missing\""),
+            Instant.parse("2026-08-29T19:00:00Z").epochSecond,
+        )
+
+        val field = parsePrecipitationField(payload(), points, MODELS, LOCATION, artifact)
+        val centre = field.frames.first().cells[12]
+
+        assertEquals(0.2, requireNotNull(centre.precipitationMm), 0.0)
+        assertEquals(67, centre.probabilityPercent)
+        assertEquals(3, centre.contributorCount)
     }
 
     @Test
@@ -120,11 +152,38 @@ class PrecipitationFieldParserTest {
     }
 
     companion object {
+        private val LOCATION = CzechLocation("Praha", REGION_PRAGUE, 50.0755, 14.4378, "CZ")
         private val MODELS = listOf("a", "b", "c", "missing")
         private val VARIABLES = listOf("precipitation", "rain", "showers", "snowfall")
         private val TIMES = longArrayOf(1_788_030_000L, 1_788_033_600L)
-        private val points = precipitationFieldPoints(
-            CzechLocation("Praha", REGION_PRAGUE, 50.0755, 14.4378, "CZ"),
-        )
+        private val points = precipitationFieldPoints(LOCATION)
+        private val CALIBRATION = """
+            {
+              "schema_version":2,
+              "dataset_manifest_hash":"${"a".repeat(64)}",
+              "model_contract_hash":"${"b".repeat(64)}",
+              "generated_at":"2026-08-29T18:00:00Z",
+              "expires_at":"2026-09-29T18:00:00Z",
+              "models":[
+                {"model_id":"a","maximum_run_age_hours":12,"resolution_km":10.0},
+                {"model_id":"c","maximum_run_age_hours":12,"resolution_km":10.0}
+              ],
+              "segments":[{
+                "selector":{
+                  "region":"CZECHIA",
+                  "variable":"precipitation",
+                  "minimum_lead_hours":0,
+                  "maximum_lead_hours":24,
+                  "months":[8]
+                },
+                "truth_class":"radar_gauge",
+                "mode":"blend",
+                "weights":{"a":0.2,"c":0.8},
+                "minimum_source_count":2,
+                "fallback_model":"c",
+                "holdout":{"accepted":true}
+              }]
+            }
+        """.trimIndent()
     }
 }

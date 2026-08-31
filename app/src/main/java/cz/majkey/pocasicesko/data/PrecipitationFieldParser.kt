@@ -1,6 +1,7 @@
 package cz.majkey.pocasicesko.data
 
 import java.time.Instant
+import java.time.ZoneOffset
 import kotlin.math.max
 import kotlin.math.roundToInt
 import org.json.JSONArray
@@ -11,6 +12,8 @@ internal fun parsePrecipitationField(
     json: String,
     points: List<PrecipitationFieldPoint>,
     modelIds: List<String>,
+    location: CzechLocation? = null,
+    calibration: CalibrationArtifact? = null,
 ): PrecipitationField {
     if (points.size != EXPECTED_POINTS) throw JSONException("Expected 25 field points.")
     if (modelIds.size < MINIMUM_MODELS || modelIds.toSet().size != modelIds.size) {
@@ -66,7 +69,15 @@ internal fun parsePrecipitationField(
             PrecipitationFieldFrame(
                 validTime = Instant.ofEpochSecond(validTimes[timeIndex]),
                 cells = points.indices.map { pointIndex ->
-                    calculateCell(points[pointIndex], hourlyObjects[pointIndex], modelIds, timeIndex)
+                    calculateCell(
+                        points[pointIndex],
+                        hourlyObjects[pointIndex],
+                        modelIds,
+                        timeIndex,
+                        validTimes[timeIndex],
+                        location,
+                        calibration,
+                    )
                 },
             )
         },
@@ -78,6 +89,9 @@ private fun calculateCell(
     hourly: JSONObject,
     modelIds: List<String>,
     timeIndex: Int,
+    validTime: Long,
+    location: CzechLocation?,
+    calibration: CalibrationArtifact?,
 ): PrecipitationFieldCell {
     val values = modelIds.mapNotNull { model ->
         val precipitation = hourly.getJSONArray("precipitation_$model")
@@ -88,37 +102,87 @@ private fun calculateCell(
             .nonNegativeOrNull(timeIndex, "showers_$model") ?: return@mapNotNull null
         val snowfall = hourly.getJSONArray("snowfall_$model")
             .nonNegativeOrNull(timeIndex, "snowfall_$model") ?: return@mapNotNull null
-        ModelPrecipitation(precipitation, rain, showers, snowfall)
+        ModelPrecipitation(model, precipitation, rain, showers, snowfall)
     }
-    if (values.size < MINIMUM_MODELS) return unavailableCell(point)
-    val precipitation = values.map(ModelPrecipitation::precipitation).sorted()
-    val rain = values.map(ModelPrecipitation::rain).median()
-    val showers = values.map(ModelPrecipitation::showers).median()
-    val snowfall = values.map(ModelPrecipitation::snowfall).median()
-    val median = precipitation.median()
-    val wetCount = precipitation.count { it >= WET_THRESHOLD_MM }
-    val probability = (wetCount * 100.0 / values.size).roundToInt()
-    val agreement = (max(wetCount, values.size - wetCount) * 100.0 / values.size).roundToInt()
-    val liquid = rain + showers >= LIQUID_THRESHOLD_MM
-    val snow = snowfall >= SNOW_THRESHOLD_CM
+    val segment = if (location == null || calibration == null) {
+        null
+    } else {
+        calibration.segment(
+            forecastRegionFor(location),
+            "precipitation",
+            leadHours = timeIndex,
+            month = Instant.ofEpochSecond(validTime).atZone(ZoneOffset.UTC).monthValue,
+        )
+    }
+    val calculated = calculatePrecipitation(values, segment) ?: return unavailableCell(point)
+    val liquid = calculated.rainMm + calculated.showersMm >= LIQUID_THRESHOLD_MM
+    val snow = calculated.snowfallCm >= SNOW_THRESHOLD_CM
     val kind = when {
-        median < WET_THRESHOLD_MM -> PrecipitationKind.DRY
+        calculated.precipitationMm < WET_THRESHOLD_MM -> PrecipitationKind.DRY
         liquid && snow -> PrecipitationKind.MIXED
         snow -> PrecipitationKind.SNOW
         else -> PrecipitationKind.RAIN
     }
     return PrecipitationFieldCell(
         point = point,
-        precipitationMm = median,
-        rainMm = rain,
-        showersMm = showers,
-        snowfallCm = snowfall,
-        probabilityPercent = probability,
-        agreementPercent = agreement,
+        precipitationMm = calculated.precipitationMm,
+        rainMm = calculated.rainMm,
+        showersMm = calculated.showersMm,
+        snowfallCm = calculated.snowfallCm,
+        probabilityPercent = calculated.probabilityPercent,
+        agreementPercent = calculated.agreementPercent,
+        contributorCount = calculated.contributorCount,
+        minimumMm = calculated.minimumMm,
+        maximumMm = calculated.maximumMm,
+        kind = kind,
+    )
+}
+
+private fun calculatePrecipitation(
+    values: List<ModelPrecipitation>,
+    segment: CalibrationSegment?,
+): CalculatedPrecipitation? {
+    if (segment != null) {
+        val byModel = values.associateBy(ModelPrecipitation::modelId)
+        val weighted = segment.weights.mapNotNull { (modelId, weight) ->
+            if (weight <= 0) return@mapNotNull null
+            byModel[modelId]?.let { value -> WeightedPrecipitation(value, weight) }
+        }
+        if (weighted.size >= segment.minimumContributors) {
+            val totalWeight = weighted.sumOf(WeightedPrecipitation::weight)
+            fun weightedValue(value: (ModelPrecipitation) -> Double): Double =
+                weighted.sumOf { item -> value(item.value) * item.weight } / totalWeight
+            val precipitation = weighted.map { it.value.precipitation }
+            val probability = weighted.sumOf { item ->
+                if (item.value.precipitation >= WET_THRESHOLD_MM) item.weight else 0.0
+            } / totalWeight * 100.0
+            return CalculatedPrecipitation(
+                precipitationMm = weightedValue(ModelPrecipitation::precipitation),
+                rainMm = weightedValue(ModelPrecipitation::rain),
+                showersMm = weightedValue(ModelPrecipitation::showers),
+                snowfallCm = weightedValue(ModelPrecipitation::snowfall),
+                probabilityPercent = probability.roundToInt(),
+                agreementPercent = max(probability, 100.0 - probability).roundToInt(),
+                contributorCount = weighted.size,
+                minimumMm = precipitation.min(),
+                maximumMm = precipitation.max(),
+            )
+        }
+    }
+    if (values.size < MINIMUM_MODELS) return null
+    val precipitation = values.map(ModelPrecipitation::precipitation).sorted()
+    val wetCount = precipitation.count { it >= WET_THRESHOLD_MM }
+    return CalculatedPrecipitation(
+        precipitationMm = precipitation.median(),
+        rainMm = values.map(ModelPrecipitation::rain).median(),
+        showersMm = values.map(ModelPrecipitation::showers).median(),
+        snowfallCm = values.map(ModelPrecipitation::snowfall).median(),
+        probabilityPercent = (wetCount * 100.0 / values.size).roundToInt(),
+        agreementPercent = (max(wetCount, values.size - wetCount) * 100.0 / values.size)
+            .roundToInt(),
         contributorCount = values.size,
         minimumMm = precipitation.first(),
         maximumMm = precipitation.last(),
-        kind = kind,
     )
 }
 
@@ -162,10 +226,25 @@ private fun List<Double>.median(): Double {
 }
 
 private data class ModelPrecipitation(
+    val modelId: String,
     val precipitation: Double,
     val rain: Double,
     val showers: Double,
     val snowfall: Double,
+)
+
+private data class WeightedPrecipitation(val value: ModelPrecipitation, val weight: Double)
+
+private data class CalculatedPrecipitation(
+    val precipitationMm: Double,
+    val rainMm: Double,
+    val showersMm: Double,
+    val snowfallCm: Double,
+    val probabilityPercent: Int,
+    val agreementPercent: Int,
+    val contributorCount: Int,
+    val minimumMm: Double,
+    val maximumMm: Double,
 )
 
 private val VARIABLES = listOf("precipitation", "rain", "showers", "snowfall")

@@ -30,6 +30,7 @@ class WeatherRepository(context: Context) {
     private val precipitationFieldRepository = PrecipitationFieldRepository()
     private val historyRepository = HistoryRepository(File(appContext.cacheDir, "history"))
     private val staticForecastRepository = StaticForecastRepository()
+    @Volatile private var calibrationArtifact: CalibrationArtifact? = null
 
     fun lastLocation(): CzechLocation {
         val location = CzechLocation(
@@ -100,7 +101,7 @@ class WeatherRepository(context: Context) {
     }
 
     internal suspend fun fetchPrecipitationField(location: CzechLocation): PrecipitationField =
-        precipitationFieldRepository.fetch(location)
+        precipitationFieldRepository.fetch(location, calibrationArtifact)
 
     internal suspend fun fetchHistory(location: CzechLocation): HistoryArchive =
         historyRepository.fetch(location)
@@ -117,6 +118,7 @@ class WeatherRepository(context: Context) {
         } catch (_: JSONException) {
             null
         }
+        calibrationArtifact = calibration
         val blend = try {
             blendModelForecast(
                 bestMatchJson,

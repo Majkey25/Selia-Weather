@@ -10,10 +10,13 @@ import kotlinx.coroutines.withContext
 internal class PrecipitationFieldRepository(
     private val fetchText: (String) -> String = ::requestPrecipitationField,
 ) {
-    suspend fun fetch(location: CzechLocation): PrecipitationField = withContext(Dispatchers.IO) {
+    suspend fun fetch(
+        location: CzechLocation,
+        calibration: CalibrationArtifact? = null,
+    ): PrecipitationField = withContext(Dispatchers.IO) {
         val points = precipitationFieldPoints(location)
         val models = forecastApiModelsFor(location)
-        parsePrecipitationField(fetchText(url(points, models)), points, models)
+        parsePrecipitationField(fetchText(url(points, models)), points, models, location, calibration)
     }
 
     companion object {

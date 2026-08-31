@@ -48,7 +48,7 @@ class PrecipitationFieldModelsTest {
             validCell().copy(probabilityPercent = 101)
         }
         assertThrows(IllegalArgumentException::class.java) {
-            validCell().copy(contributorCount = 2)
+            validCell().copy(contributorCount = 1)
         }
         assertThrows(IllegalArgumentException::class.java) {
             validCell().copy(kind = PrecipitationKind.UNAVAILABLE)

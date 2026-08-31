@@ -137,7 +137,7 @@ private fun destination(
 private const val GRID_SIZE = 5
 private const val FIELD_RADIUS_KM = 20.0
 private const val EARTH_RADIUS_KM = 6_371.0088
-private const val MINIMUM_CONTRIBUTORS = 3
+private const val MINIMUM_CONTRIBUTORS = 2
 private const val MAX_FRAMES = 24
 private const val EPSILON = 1e-9
 private val GRID_OFFSETS_KM = doubleArrayOf(-14.0, -7.0, 0.0, 7.0, 14.0)

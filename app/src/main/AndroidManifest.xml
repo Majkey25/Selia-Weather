@@ -16,10 +16,6 @@
         android:theme="@style/Theme.PocasiCesko"
         android:usesCleartextTraffic="false">
 
-        <meta-data
-            android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="${adMobAppId}" />
-
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.files"

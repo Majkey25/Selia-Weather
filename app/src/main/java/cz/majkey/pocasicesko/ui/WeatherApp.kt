@@ -94,6 +94,8 @@ import cz.majkey.pocasicesko.data.WeatherSnapshot
 import cz.majkey.pocasicesko.data.conditionFor
 import cz.majkey.pocasicesko.locale.AppLocale
 import cz.majkey.pocasicesko.monetization.AdsController
+import cz.majkey.pocasicesko.monetization.BillingMessage
+import cz.majkey.pocasicesko.monetization.EntitlementState
 import cz.majkey.pocasicesko.monetization.PremiumBillingController
 import cz.majkey.pocasicesko.units.MeasurementSystem
 import cz.majkey.pocasicesko.units.MeasurementUnits
@@ -142,8 +144,8 @@ private sealed interface WeatherUiState {
 @Composable
 fun WeatherApp(
     repository: WeatherRepository,
-    adsController: AdsController,
-    premiumBillingController: PremiumBillingController,
+    adsController: AdsController?,
+    premiumBillingController: PremiumBillingController?,
     paymentsEnabled: Boolean,
     onLanguage: (String) -> Unit,
 ) {
@@ -161,10 +163,13 @@ fun WeatherApp(
     val supportUnavailable = stringResource(R.string.support_unavailable)
     val widgetAddUnavailable = stringResource(R.string.widget_add_unavailable)
     var supportError by remember { mutableStateOf<String?>(null) }
-    val entitlement by premiumBillingController.entitlement.collectAsState()
-    val premiumOffers by premiumBillingController.offers.collectAsState()
-    val billingMessage by premiumBillingController.message.collectAsState()
-    val privacyOptionsRequired by adsController.privacyOptionsRequired.collectAsState()
+    val entitlement = premiumBillingController?.entitlement?.collectAsState()?.value
+        ?: EntitlementState.FREE
+    val premiumOffers = premiumBillingController?.offers?.collectAsState()?.value.orEmpty()
+    val billingMessage = premiumBillingController?.message?.collectAsState()?.value
+        ?: BillingMessage.NONE
+    val privacyOptionsRequired = adsController?.privacyOptionsRequired?.collectAsState()?.value
+        ?: false
 
     LaunchedEffect(location, reloadKey) {
         val cached = withContext(Dispatchers.IO) { repository.cachedForecast(location) }
@@ -216,7 +221,8 @@ fun WeatherApp(
                 modifier = Modifier.align(Alignment.BottomCenter),
                 onDestination = { selected ->
                     if (destination == Destination.MAPS && selected == Destination.WEATHER) {
-                        adsController.maybeShowInterstitial(entitlement) { destination = selected }
+                        adsController?.maybeShowInterstitial(entitlement) { destination = selected }
+                            ?: run { destination = selected }
                     } else {
                         destination = selected
                     }
@@ -277,10 +283,10 @@ fun WeatherApp(
                         }
                     },
                     supportError = supportError,
-                    onPurchase = premiumBillingController::launch,
-                    onRestorePurchases = premiumBillingController::refresh,
-                    onPrivacyOptions = adsController::showPrivacyOptions,
-                    onClearBillingMessage = premiumBillingController::clearMessage,
+                    onPurchase = { premiumBillingController?.launch(it) },
+                    onRestorePurchases = { premiumBillingController?.refresh() },
+                    onPrivacyOptions = { adsController?.showPrivacyOptions() },
+                    onClearBillingMessage = { premiumBillingController?.clearMessage() },
                     onDismiss = { showSettings = false },
                 )
             }

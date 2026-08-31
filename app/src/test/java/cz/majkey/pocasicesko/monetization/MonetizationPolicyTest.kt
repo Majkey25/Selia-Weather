@@ -15,17 +15,37 @@ class MonetizationPolicyTest {
         val mainActivity = File(root, "src/main/java/cz/majkey/pocasicesko/MainActivity.kt").readText()
         val weatherApp = File(root, "src/main/java/cz/majkey/pocasicesko/ui/WeatherApp.kt").readText()
         val settings = File(root, "src/main/java/cz/majkey/pocasicesko/ui/SettingsSheet.kt").readText()
+        val mainManifest = File(root, "src/main/AndroidManifest.xml").readText()
+        val debugManifest = File(root, "src/debug/AndroidManifest.xml").readText()
 
         assertTrue(gradle.contains("buildConfigField(\"boolean\", \"MONETIZATION_CONFIGURED\", \"false\")"))
         assertTrue(gradle.contains("buildConfigField(\"boolean\", \"PAYMENTS_ENABLED\", \"false\")"))
         assertTrue(debugBlock.contains("buildConfigField(\"boolean\", \"MONETIZATION_CONFIGURED\", \"true\")"))
         assertTrue(debugBlock.contains("buildConfigField(\"boolean\", \"PAYMENTS_ENABLED\", \"true\")"))
-        assertTrue(mainActivity.contains("if (BuildConfig.PAYMENTS_ENABLED) premiumBillingController.start()"))
+        assertTrue(mainActivity.contains("premiumBillingController?.start()"))
+        assertTrue(
+            mainActivity.contains(
+                "if (BuildConfig.MONETIZATION_CONFIGURED) AdsController(this) else null",
+            ),
+        )
+        assertTrue(
+            mainActivity.contains(
+                "if (BuildConfig.PAYMENTS_ENABLED) PremiumBillingController(this) else null",
+            ),
+        )
         assertTrue(mainActivity.contains("paymentsEnabled = BuildConfig.PAYMENTS_ENABLED"))
         assertTrue(weatherApp.contains("paymentsEnabled: Boolean"))
         assertTrue(weatherApp.contains("paymentsEnabled = paymentsEnabled"))
         assertTrue(settings.contains("paymentsEnabled: Boolean"))
         assertTrue(settings.contains("if (paymentsEnabled)"))
+        assertTrue(gradle.contains("compileOnly(\"com.android.billingclient:billing-ktx:9.1.0\")"))
+        assertTrue(gradle.contains("debugImplementation(\"com.android.billingclient:billing-ktx:9.1.0\")"))
+        assertTrue(gradle.contains("compileOnly(\"com.google.android.gms:play-services-ads:25.4.0\")"))
+        assertTrue(gradle.contains("debugImplementation(\"com.google.android.gms:play-services-ads:25.4.0\")"))
+        assertFalse(gradle.contains("implementation(\"com.google.android.gms:play-services-ads:25.4.0\")"))
+        assertFalse(gradle.contains("implementation(\"com.android.billingclient:billing-ktx:9.1.0\")"))
+        assertFalse(mainManifest.contains("com.google.android.gms.ads.APPLICATION_ID"))
+        assertTrue(debugManifest.contains("com.google.android.gms.ads.APPLICATION_ID"))
     }
 
     @Test

@@ -14,8 +14,8 @@ import cz.majkey.pocasicesko.monetization.PremiumBillingController
 import cz.majkey.pocasicesko.ui.WeatherApp
 
 class MainActivity : ComponentActivity() {
-    private lateinit var adsController: AdsController
-    private lateinit var premiumBillingController: PremiumBillingController
+    private var adsController: AdsController? = null
+    private var premiumBillingController: PremiumBillingController? = null
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(AppLocale.wrap(newBase))
@@ -23,8 +23,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        adsController = AdsController(this)
-        premiumBillingController = PremiumBillingController(this)
+        adsController = if (BuildConfig.MONETIZATION_CONFIGURED) AdsController(this) else null
+        premiumBillingController =
+            if (BuildConfig.PAYMENTS_ENABLED) PremiumBillingController(this) else null
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
@@ -38,19 +39,17 @@ class MainActivity : ComponentActivity() {
                 onLanguage = { tag -> AppLocale.set(this, tag) },
             )
         }
-        if (BuildConfig.PAYMENTS_ENABLED) premiumBillingController.start()
-        adsController.start()
+        premiumBillingController?.start()
+        adsController?.start()
     }
 
     override fun onResume() {
         super.onResume()
-        if (::premiumBillingController.isInitialized && BuildConfig.PAYMENTS_ENABLED) {
-            premiumBillingController.start()
-        }
+        premiumBillingController?.start()
     }
 
     override fun onDestroy() {
-        if (::premiumBillingController.isInitialized) premiumBillingController.close()
+        premiumBillingController?.close()
         super.onDestroy()
     }
 }

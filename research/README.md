@@ -77,3 +77,9 @@ fallback. The artifact builder preserves those region guards and serializes prec
 separate occurrence and positive-amount fits. The CLI does not write that artifact automatically.
 The report remains diagnostic and sets `exported` to `false`. A separate release gate must validate
 model runtime contracts and source licences before weight export.
+
+To write a review-only calibration candidate after a completed run, add
+`--write-candidate --model-contracts research/model-contracts.json`. The command writes
+`candidate-ensemble-weights.json` inside the new output directory. Do not copy this candidate into
+Android assets or a production Pages feed while `report.json` remains diagnostic or the source
+licence gate is blocked.

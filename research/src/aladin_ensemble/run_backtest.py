@@ -35,6 +35,8 @@ from aladin_ensemble.export import (
     ExportSegment,
     ModelContract,
     build_artifact,
+    load_model_contracts,
+    write_artifact,
 )
 from aladin_ensemble.fallback import FitFailure, SegmentSelector
 from aladin_ensemble.metrics import (
@@ -639,6 +641,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--truth-cache", type=Path)
     parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--pause-seconds", type=float, default=0.5)
+    parser.add_argument("--write-candidate", action="store_true")
+    parser.add_argument("--model-contracts", type=Path)
     arguments = parser.parse_args(argv)
     registry = cast(Path, arguments.registry)
     station_metadata = cast(Path, arguments.station_metadata)
@@ -681,9 +685,26 @@ def main(argv: Sequence[str] | None = None) -> int:
         provider_limit=cast(int, arguments.provider_limit),
         pause_seconds=cast(float, arguments.pause_seconds),
     )
+    candidate_path: Path | None = None
+    if cast(bool, arguments.write_candidate):
+        contract_path = cast(Path | None, arguments.model_contracts)
+        contract_path = contract_path or registry.parent / "model-contracts.json"
+        artifact = build_backtest_artifact(
+            result,
+            models=load_model_contracts(
+                contract_path,
+                expected_model_ids=config.model_ids,
+                today=datetime.now(UTC).date(),
+            ),
+            registry_status="complete",
+            generated_at=datetime.now(UTC),
+        )
+        candidate_path = output_dir / "candidate-ensemble-weights.json"
+        write_artifact(candidate_path, artifact)
     print(
         json.dumps(
             {
+                "candidate": None if candidate_path is None else str(candidate_path),
                 "dataset_manifest_hash": result.lock.dataset_manifest_hash,
                 "report": str(output_dir / "report.json"),
                 "status": "completed_diagnostic",

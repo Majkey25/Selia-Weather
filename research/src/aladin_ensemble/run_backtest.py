@@ -12,13 +12,19 @@ from time import sleep
 from typing import Literal, cast
 
 from aladin_ensemble.align import DateRange
-from aladin_ensemble.backtest import BacktestConfig, SegmentDataset
+from aladin_ensemble.backtest import (
+    BacktestConfig,
+    BacktestDataset,
+    SegmentDataset,
+    write_dataset_manifest,
+)
 from aladin_ensemble.baselines import ScalarForecastCase
 from aladin_ensemble.evaluate import (
     EvaluationSample,
     HoldoutLock,
     SegmentEvaluation,
     evaluate_segment,
+    write_holdout_lock,
 )
 from aladin_ensemble.fallback import FitFailure, SegmentSelector
 from aladin_ensemble.registry import JsonValue, RequestBudget
@@ -152,6 +158,28 @@ def preflight_payload(preflight: BacktestPreflight) -> dict[str, JsonValue]:
         },
         "truth_requests": preflight.truth_requests,
     }
+
+
+def lock_backtest_dataset(
+    dataset: BacktestDataset,
+    *,
+    registry_hash: str,
+    source_hashes: Mapping[str, str],
+    output_dir: Path,
+    locked_at: datetime,
+) -> HoldoutLock:
+    if output_dir.exists():
+        raise ValueError("output_dir already exists")
+    output_dir.mkdir(parents=True)
+    manifest_hash = write_dataset_manifest(
+        output_dir / "dataset-manifest.json",
+        dataset,
+        registry_hash,
+        source_hashes,
+    )
+    lock = HoldoutLock(dataset.config.train, dataset.config.holdout, manifest_hash, locked_at)
+    write_holdout_lock(output_dir / "holdout-lock.json", lock)
+    return lock
 
 
 def main(argv: Sequence[str] | None = None) -> int:

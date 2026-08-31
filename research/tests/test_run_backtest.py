@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 from dataclasses import replace
@@ -10,7 +11,7 @@ from urllib.request import Request
 import pytest
 
 from aladin_ensemble.align import DateRange
-from aladin_ensemble.backtest import BacktestConfig, SegmentDataset, SegmentKey
+from aladin_ensemble.backtest import BacktestConfig, BacktestDataset, SegmentDataset, SegmentKey
 from aladin_ensemble.baselines import ScalarForecastCase
 from aladin_ensemble.evaluate import HoldoutLock
 from aladin_ensemble.run_backtest import (
@@ -20,6 +21,7 @@ from aladin_ensemble.run_backtest import (
     fit_scalar_segment,
     fit_wind_vector_segment,
     load_registry_model_ids,
+    lock_backtest_dataset,
     monthly_truth_requests,
     preflight_payload,
     sample_forecast_hours,
@@ -167,6 +169,41 @@ def test_preflight_is_ready_after_month_boundary_with_deterministic_counts() -> 
         "training": {"end": "2026-06-30", "start": "2026-04-02"},
         "truth_requests": 8,
     }
+
+
+def test_dataset_lock_records_manifest_hash_and_refuses_overwrite(tmp_path: Path) -> None:
+    segment = _segment()
+    station = Station("0-20000-0-11519", "Praha", 50.07, 14.43, 260.5)
+    selected = (SelectedStation(CZECH_TARGETS[0], station),)
+    dataset = BacktestDataset(
+        BacktestConfig(TRAIN, HOLDOUT, ("model_a", "model_b")),
+        selected,
+        {segment.key: segment},
+    )
+    output = tmp_path / "locked"
+    locked_at = datetime(2026, 8, 1, tzinfo=UTC)
+
+    lock = lock_backtest_dataset(
+        dataset,
+        registry_hash="a" * 64,
+        source_hashes={"forecast": "b" * 64, "truth": "c" * 64},
+        output_dir=output,
+        locked_at=locked_at,
+    )
+
+    assert lock.locked_at == locked_at
+    assert lock.dataset_manifest_hash == hashlib.sha256(
+        (output / "dataset-manifest.json").read_bytes()
+    ).hexdigest()
+    assert (output / "holdout-lock.json").is_file()
+    with pytest.raises(ValueError, match="output_dir"):
+        lock_backtest_dataset(
+            dataset,
+            registry_hash="a" * 64,
+            source_hashes={"forecast": "b" * 64},
+            output_dir=output,
+            locked_at=locked_at,
+        )
 
 
 def _wind_segment(variable: str, model_a: float, model_b: float, truth: float) -> SegmentDataset:

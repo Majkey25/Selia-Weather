@@ -4,8 +4,8 @@ import gzip
 import hashlib
 import json
 from collections import defaultdict
-from datetime import datetime
-from math import floor, isclose
+from datetime import UTC, datetime, timedelta
+from math import floor, isclose, isfinite
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import cast
@@ -178,16 +178,24 @@ def _validate_calibration(value: bytes, eligible_models: frozenset[str]) -> str:
         root = _json_object(cast(object, json.loads(value.decode("utf-8"))), "calibration")
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
         raise ValueError("calibration is not valid UTF-8 JSON") from error
-    expected = {"dataset_manifest_hash", "generated_at", "models", "schema_version", "segments"}
-    if set(root) != expected or root["schema_version"] != 1:
+    expected = {
+        "dataset_manifest_hash",
+        "expires_at",
+        "generated_at",
+        "model_contract_hash",
+        "models",
+        "schema_version",
+        "segments",
+    }
+    if set(root) != expected or root["schema_version"] != 2:
         raise ValueError("calibration schema is invalid")
     dataset_hash = root["dataset_manifest_hash"]
-    if not isinstance(dataset_hash, str) or len(dataset_hash) != 64 or any(
-        character not in "0123456789abcdef" for character in dataset_hash
-    ):
-        raise ValueError("calibration dataset_manifest_hash is invalid")
-    if not isinstance(root["generated_at"], str):
-        raise ValueError("calibration generated_at is invalid")
+    _checksum(dataset_hash, "dataset_manifest_hash")
+    _checksum(root["model_contract_hash"], "model_contract_hash")
+    generated_at = _iso_time(root["generated_at"], "generated_at")
+    expires_at = _iso_time(root["expires_at"], "expires_at")
+    if expires_at <= generated_at or expires_at - generated_at > timedelta(days=90):
+        raise ValueError("calibration validity window is invalid")
     models = root["models"]
     segments = root["segments"]
     if not isinstance(models, list) or not models or not isinstance(segments, list) or not segments:
@@ -195,16 +203,157 @@ def _validate_calibration(value: bytes, eligible_models: frozenset[str]) -> str:
     model_ids: set[str] = set()
     for item in cast(list[object], models):
         model = _json_object(item, "calibration model")
+        if set(model) != {"maximum_run_age_hours", "model_id", "resolution_km"}:
+            raise ValueError("calibration model contract schema is invalid")
         model_id = model.get("model_id")
         if not isinstance(model_id, str) or not model_id:
             raise ValueError("calibration model_id is invalid")
+        maximum_age = model["maximum_run_age_hours"]
+        resolution = model["resolution_km"]
+        if not _positive_integer(maximum_age) or (
+            isinstance(resolution, bool)
+            or not isinstance(resolution, int | float)
+            or not isfinite(resolution)
+            or resolution <= 0
+        ):
+            raise ValueError("calibration model contract is invalid")
         if model_id in model_ids:
             raise ValueError("calibration model_id is duplicated")
         model_ids.add(model_id)
     unknown = model_ids.difference(eligible_models)
     if unknown:
         raise ValueError(f"unknown calibration model: {sorted(unknown)}")
-    return dataset_hash
+    selectors: set[tuple[object, ...]] = set()
+    for item in cast(list[object], segments):
+        selector = _validate_runtime_segment(item, model_ids)
+        if selector in selectors:
+            raise ValueError("calibration segment selector is duplicated")
+        selectors.add(selector)
+    return cast(str, dataset_hash)
+
+
+def _validate_runtime_segment(
+    value: object,
+    model_ids: set[str],
+) -> tuple[object, ...]:
+    segment = _json_object(value, "calibration segment")
+    expected = {
+        "fallback_model",
+        "holdout",
+        "minimum_source_count",
+        "mode",
+        "selector",
+        "truth_class",
+        "weights",
+    }
+    if set(segment) != expected or segment["mode"] != "blend":
+        raise ValueError("calibration segment schema is invalid")
+    holdout = _json_object(segment["holdout"], "calibration holdout")
+    if holdout.get("accepted") is not True or not _positive_integer(holdout.get("sample_count")):
+        raise ValueError("calibration segment holdout is invalid")
+    if cast(int, holdout["sample_count"]) < 30:
+        raise ValueError("calibration segment holdout is too small")
+    truth_class = segment["truth_class"]
+    if truth_class not in {"station", "radar_gauge", "satellite_precipitation", "reanalysis"}:
+        raise ValueError("calibration truth class is invalid")
+    weights = _json_object(segment["weights"], "calibration weights")
+    if not weights or not set(weights).issubset(model_ids):
+        raise ValueError("calibration weights reference an unknown model")
+    numeric_weights: list[float] = []
+    for weight in weights.values():
+        if isinstance(weight, bool) or not isinstance(weight, int | float) or not isfinite(weight):
+            raise ValueError("calibration weight is invalid")
+        numeric_weights.append(float(weight))
+    if any(weight < 0 for weight in numeric_weights) or not isclose(
+        sum(numeric_weights), 1.0, abs_tol=1e-8
+    ):
+        raise ValueError("calibration weights are not normalized")
+    minimum = segment["minimum_source_count"]
+    if not _positive_integer(minimum) or not 2 <= cast(int, minimum) <= sum(
+        weight > 0 for weight in numeric_weights
+    ):
+        raise ValueError("calibration minimum source count is invalid")
+    fallback = segment["fallback_model"]
+    if fallback not in model_ids | {"best_match"}:
+        raise ValueError("calibration fallback model is unknown")
+    selector = _json_object(segment["selector"], "calibration selector")
+    expected_selector = {
+        "maximum_lead_hours",
+        "minimum_lead_hours",
+        "months",
+        "region",
+        "variable",
+    }
+    if set(selector) != expected_selector:
+        raise ValueError("calibration selector schema is invalid")
+    minimum_lead = selector["minimum_lead_hours"]
+    maximum_lead = selector["maximum_lead_hours"]
+    if (
+        not isinstance(minimum_lead, int)
+        or isinstance(minimum_lead, bool)
+        or not isinstance(maximum_lead, int)
+        or isinstance(maximum_lead, bool)
+        or minimum_lead < 0
+        or maximum_lead < minimum_lead
+    ):
+        raise ValueError("calibration lead range is invalid")
+    months = selector["months"]
+    if not isinstance(months, list):
+        raise ValueError("calibration months are invalid")
+    typed_months = cast(list[object], months)
+    if not typed_months or any(
+        not isinstance(month, int)
+        or isinstance(month, bool)
+        or month not in range(1, 13)
+        for month in typed_months
+    ):
+        raise ValueError("calibration months are invalid")
+    integer_months = cast(list[int], typed_months)
+    if integer_months != sorted(set(integer_months)):
+        raise ValueError("calibration months are invalid")
+    if selector["region"] not in _CALIBRATION_REGIONS:
+        raise ValueError("calibration region is invalid")
+    variable = selector["variable"]
+    if not isinstance(variable, str) or not variable:
+        raise ValueError("calibration variable is invalid")
+    return selector["region"], variable, minimum_lead, maximum_lead, tuple(integer_months)
+
+
+def _checksum(value: object, name: str) -> None:
+    if not isinstance(value, str) or len(value) != 64 or any(
+        character not in "0123456789abcdef" for character in value
+    ):
+        raise ValueError(f"calibration {name} is invalid")
+
+
+def _iso_time(value: object, name: str) -> datetime:
+    if not isinstance(value, str):
+        raise ValueError(f"calibration {name} is invalid")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise ValueError(f"calibration {name} is invalid") from error
+    if parsed.tzinfo is None or parsed.utcoffset() != UTC.utcoffset(parsed):
+        raise ValueError(f"calibration {name} must be UTC")
+    return parsed
+
+
+def _positive_integer(value: object) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and value > 0
+
+
+_CALIBRATION_REGIONS = {
+    "CZECHIA",
+    "EUROPE",
+    "NORTH_AMERICA",
+    "SOUTH_AMERICA",
+    "AFRICA",
+    "SOUTH_CENTRAL_ASIA",
+    "EAST_ASIA",
+    "NORTHERN_ASIA",
+    "OCEANIA",
+    "GLOBAL",
+}
 
 
 def _json_object(value: object, name: str) -> dict[str, object]:

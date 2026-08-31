@@ -53,6 +53,12 @@ The export code still refuses any future registry whose status is not `complete`
 cadence for all 15 models. The loader requires an exact model-ID match and a contract audit no
 older than 90 days. See [Model runtime contracts](../docs/research/model-contracts.md).
 
+Worldwide preparation adds strict NOAA ISD and NASA GPM IMERG parsers plus a separate schema-2
+runtime exporter. The exporter accepts only holdout-approved segments trained on the exact
+provider-family IDs returned to Android. No worldwide segment currently satisfies that contract,
+so no production runtime artifact is checked in or published. See
+[Worldwide ensemble validation status](../docs/research/worldwide-ensemble-validation.md).
+
 Run the locked-backtest preflight before any download:
 
 ```powershell

@@ -73,15 +73,34 @@ def fixture_values() -> tuple[ForecastValue, ...]:
 
 
 def calibration(*model_ids: str) -> bytes:
+    weight = 1.0 / len(model_ids)
     document = {
         "dataset_manifest_hash": "a" * 64,
+        "expires_at": "2026-09-05T12:00:00Z",
         "generated_at": "2026-08-29T12:00:00Z",
+        "model_contract_hash": "b" * 64,
         "models": [
             {"maximum_run_age_hours": 6, "model_id": model_id, "resolution_km": 9.0}
             for model_id in model_ids
         ],
-        "schema_version": 1,
-        "segments": [{"mode": "fallback"}],
+        "schema_version": 2,
+        "segments": [
+            {
+                "fallback_model": model_ids[0],
+                "holdout": {"accepted": True, "sample_count": 30},
+                "minimum_source_count": 2,
+                "mode": "blend",
+                "selector": {
+                    "maximum_lead_hours": 24,
+                    "minimum_lead_hours": 0,
+                    "months": [6, 7, 8],
+                    "region": "CZECHIA",
+                    "variable": "temperature_2m",
+                },
+                "truth_class": "station",
+                "weights": {model_id: weight for model_id in model_ids},
+            }
+        ],
     }
     return (json.dumps(document, separators=(",", ":"), sort_keys=True) + "\n").encode()
 
@@ -251,6 +270,21 @@ def test_production_feed_rejects_unknown_calibration_model(tmp_path: Path) -> No
             fixture_values(),
             state="production",
             calibration=calibration("model_a", "unlicensed"),
+            dataset_manifest_hash="a" * 64,
+        )
+
+
+def test_production_feed_rejects_invalid_runtime_model_contract(tmp_path: Path) -> None:
+    document = json.loads(calibration("model_a", "model_b"))
+    document["models"][0]["maximum_run_age_hours"] = 0
+    invalid = (json.dumps(document, separators=(",", ":"), sort_keys=True) + "\n").encode()
+
+    with pytest.raises(ValueError, match="model contract"):
+        build(
+            tmp_path / "invalid-contract",
+            fixture_values(),
+            state="production",
+            calibration=invalid,
             dataset_manifest_hash="a" * 64,
         )
 

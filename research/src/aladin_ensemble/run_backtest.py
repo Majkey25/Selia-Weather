@@ -29,6 +29,13 @@ from aladin_ensemble.evaluate import (
     evaluate_segment,
     write_holdout_lock,
 )
+from aladin_ensemble.export import (
+    EnsembleArtifact,
+    ExportPrecipitationSegment,
+    ExportSegment,
+    ModelContract,
+    build_artifact,
+)
 from aladin_ensemble.fallback import FitFailure, SegmentSelector
 from aladin_ensemble.metrics import (
     BrierDecomposition,
@@ -392,6 +399,80 @@ def evaluate_backtest_training(
         for lead_hours, fitted in training.precipitation
     )
     return BacktestRun(training, lock, scalar, wind, precipitation)
+
+
+def build_backtest_artifact(
+    result: BacktestRun,
+    *,
+    models: tuple[ModelContract, ...],
+    registry_status: str,
+    generated_at: datetime,
+) -> EnsembleArtifact:
+    scalar_training = dict(result.training.scalar)
+    wind_training = dict(result.training.wind)
+    precipitation_training = dict(result.training.precipitation)
+    segments: list[ExportSegment | ExportPrecipitationSegment] = []
+    for key, fitted in result.scalar:
+        accepted = fitted.evaluation.accepted
+        segments.append(
+            ExportSegment(
+                fitted.evaluation,
+                fitted.fit if accepted else None,
+                _minimum_source_count(scalar_training[key].eligible_models) if accepted else 1,
+                tuple(sorted(scalar_training[key].fallback_regions)) if accepted else (),
+            )
+        )
+    for lead_hours, fitted in result.wind:
+        accepted = fitted.evaluation.accepted
+        segments.append(
+            ExportSegment(
+                fitted.evaluation,
+                fitted.fit if accepted else None,
+                _minimum_source_count(wind_training[lead_hours].eligible_models)
+                if accepted
+                else 1,
+                tuple(sorted(wind_training[lead_hours].fallback_regions)) if accepted else (),
+            )
+        )
+    for lead_hours, fitted in result.precipitation:
+        accepted = fitted.accepted
+        segments.append(
+            ExportPrecipitationSegment(
+                selector=SegmentSelector(
+                    "precipitation",
+                    f"{lead_hours}h",
+                    None,
+                    None,
+                    None,
+                ),
+                fallback_model=fitted.fallback_model,
+                occurrence_evaluation=fitted.occurrence_evaluation,
+                amount_evaluation=fitted.amount_evaluation,
+                occurrence=fitted.occurrence if accepted else None,
+                occurrence_threshold=fitted.occurrence_threshold,
+                amount=fitted.amount if accepted else None,
+                minimum_source_count=(
+                    _minimum_source_count(
+                        precipitation_training[lead_hours].eligible_models
+                    )
+                    if accepted
+                    else 1
+                ),
+                occurrence_fallback_regions=(
+                    tuple(sorted(fitted.occurrence_fallback_regions)) if accepted else ()
+                ),
+                amount_fallback_regions=(
+                    tuple(sorted(fitted.amount_fallback_regions)) if accepted else ()
+                ),
+            )
+        )
+    return build_artifact(
+        lock=result.lock,
+        generated_at=generated_at,
+        registry_status=registry_status,
+        models=models,
+        segments=tuple(segments),
+    )
 
 
 def write_backtest_report(path: Path, result: BacktestRun) -> None:
@@ -888,6 +969,7 @@ def evaluate_scalar_training(
         fallback_model=training.fallback_model,
         fold_improvements=training.fold_improvements,
         missing_fallback_ok=True,
+        minimum_sources_ok=_weight_sources_ok(training.fit, training.eligible_models),
         trained_at=trained_at,
         lock=lock,
         bootstrap_repetitions=bootstrap_repetitions,
@@ -1023,6 +1105,10 @@ def evaluate_precipitation_training(
         fallback_model=training.fallback_model,
         fold_improvements=training.occurrence_fold_improvements,
         missing_fallback_ok=True,
+        minimum_sources_ok=_occurrence_sources_ok(
+            training.occurrence,
+            training.eligible_models,
+        ),
         trained_at=trained_at,
         lock=lock,
         bootstrap_repetitions=bootstrap_repetitions,
@@ -1048,6 +1134,10 @@ def evaluate_precipitation_training(
         fallback_model=training.fallback_model,
         fold_improvements=training.amount_fold_improvements,
         missing_fallback_ok=True,
+        minimum_sources_ok=_weight_sources_ok(
+            training.amount,
+            training.eligible_models,
+        ),
         trained_at=trained_at,
         lock=lock,
         bootstrap_repetitions=bootstrap_repetitions,
@@ -1172,6 +1262,7 @@ def evaluate_wind_vector_training(
         fallback_model=training.fallback_model,
         fold_improvements=training.fold_improvements,
         missing_fallback_ok=True,
+        minimum_sources_ok=_weight_sources_ok(training.fit, training.eligible_models),
         trained_at=trained_at,
         lock=lock,
         bootstrap_repetitions=bootstrap_repetitions,
@@ -1597,6 +1688,27 @@ def _model_value(case: ScalarForecastCase, model_id: str) -> float:
     if value is None or not isfinite(value):
         raise ValueError(f"case has no finite value for {model_id}")
     return value
+
+
+def _weight_sources_ok(fit: WeightFit | None, eligible_models: Sequence[str]) -> bool:
+    required = _minimum_source_count(eligible_models)
+    return fit is not None and sum(weight > 0 for weight in fit.weights.values()) >= required
+
+
+def _occurrence_sources_ok(
+    occurrence: OccurrenceCalibration | None,
+    eligible_models: Sequence[str],
+) -> bool:
+    required = _minimum_source_count(eligible_models)
+    return occurrence is not None and sum(
+        coefficient > 0 for coefficient in occurrence.coefficients.values()
+    ) >= required
+
+
+def _minimum_source_count(eligible_models: Sequence[str]) -> int:
+    if not eligible_models:
+        raise ValueError("eligible_models must be non-empty")
+    return min(3, len(eligible_models))
 
 
 def _blend_or_fallback(

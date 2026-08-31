@@ -72,5 +72,8 @@ After the preflight prints `"status":"ready"`, run the same command with these a
 `--execute` downloads or reuses cached inputs, builds the dataset, and fits only the training
 range. The command then writes `dataset-manifest.json` and `holdout-lock.json` before it reads the
 holdout for evaluation. `report.json` records scalar, wind-vector, precipitation-occurrence, and
-positive-amount results. The report remains diagnostic and sets `exported` to `false`. A separate
-release gate must validate model runtime contracts and source licences before weight export.
+positive-amount results. It also records the evaluation counts and every training-selected region
+fallback. The artifact builder preserves those region guards and serializes precipitation as
+separate occurrence and positive-amount fits. The CLI does not write that artifact automatically.
+The report remains diagnostic and sets `exported` to `false`. A separate release gate must validate
+model runtime contracts and source licences before weight export.

@@ -14,7 +14,9 @@ from aladin_ensemble.align import DateRange
 from aladin_ensemble.backtest import BacktestConfig, BacktestDataset, SegmentDataset, SegmentKey
 from aladin_ensemble.baselines import ScalarForecastCase
 from aladin_ensemble.evaluate import HoldoutLock
+from aladin_ensemble.export import ModelContract, export_artifact
 from aladin_ensemble.run_backtest import (
+    build_backtest_artifact,
     build_backtest_preflight,
     build_previous_requests,
     download_previous_forecasts,
@@ -300,6 +302,14 @@ def test_locked_run_fits_before_lock_and_writes_diagnostic_report(tmp_path: Path
         "scalar",
         "wind_vector",
     }
+    artifact = build_backtest_artifact(
+        result,
+        models=(ModelContract("model_a", 6, 1.0), ModelContract("model_b", 6, 1.0)),
+        registry_status="complete",
+        generated_at=datetime(2026, 8, 1, 0, 1, tzinfo=UTC),
+    )
+    assert len(artifact.segments) == 3
+    assert b'"method":"zero_inflated"' in export_artifact(artifact)
 
 
 def _wind_segment(variable: str, model_a: float, model_b: float, truth: float) -> SegmentDataset:

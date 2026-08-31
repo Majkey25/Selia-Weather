@@ -23,6 +23,7 @@ class EvaluationFailure(str, Enum):
     REGION_DEGRADATION = "region_degradation"
     UNSTABLE_FOLDS = "unstable_folds"
     MISSING_FALLBACK = "missing_fallback"
+    INSUFFICIENT_SOURCES = "insufficient_sources"
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,6 +87,7 @@ def evaluate_segment(
     fallback_model: str,
     fold_improvements: tuple[float, ...],
     missing_fallback_ok: bool,
+    minimum_sources_ok: bool = True,
     trained_at: datetime,
     lock: HoldoutLock,
     bootstrap_repetitions: int = 1_000,
@@ -126,6 +128,8 @@ def evaluate_segment(
         reasons.append(EvaluationFailure.UNSTABLE_FOLDS)
     if not missing_fallback_ok:
         reasons.append(EvaluationFailure.MISSING_FALLBACK)
+    if not minimum_sources_ok:
+        reasons.append(EvaluationFailure.INSUFFICIENT_SOURCES)
     return SegmentEvaluation(
         selector,
         metric,

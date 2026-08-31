@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
@@ -13,6 +14,7 @@ from aladin_ensemble.evaluate import (
     evaluate_segment,
 )
 from aladin_ensemble.export import (
+    ExportPrecipitationSegment,
     ExportSegment,
     ModelContract,
     build_artifact,
@@ -21,7 +23,7 @@ from aladin_ensemble.export import (
     write_artifact,
 )
 from aladin_ensemble.fallback import SegmentSelector
-from aladin_ensemble.train import WeightFit
+from aladin_ensemble.train import OccurrenceCalibration, WeightFit
 
 DATASET_HASH = "0123456789abcdef" * 4
 LOCKED_AT = datetime(2026, 6, 1, tzinfo=UTC)
@@ -97,6 +99,7 @@ def test_export_is_deterministic_and_uses_fallback_for_rejected_segment() -> Non
         _evaluation(),
         WeightFit({"model_b": 0.25, "model_a": 0.75}, 100, 0.5),
         minimum_source_count=2,
+        fallback_regions=("REGION_BRNO",),
     )
     rejected = ExportSegment(_evaluation(accepted=False), None, minimum_source_count=1)
     artifact = build_artifact(
@@ -113,6 +116,7 @@ def test_export_is_deterministic_and_uses_fallback_for_rejected_segment() -> Non
     assert b'"mode":"blend"' in payload
     assert b'"mode":"fallback"' in payload
     assert b'"weights":{"model_a":0.75,"model_b":0.25}' in payload
+    assert b'"fallback_regions":["REGION_BRNO"]' in payload
     assert payload.endswith(b"\n")
 
 
@@ -169,6 +173,64 @@ def test_export_fails_closed_for_incomplete_registry_and_unknown_models() -> Non
             ),
         )
 
+    artifact = build_artifact(
+        lock=_lock(),
+        generated_at=datetime(2026, 6, 2, tzinfo=UTC),
+        registry_status="complete",
+        models=(ModelContract("model_a", 3, 1.0),),
+        segments=(
+            ExportSegment(
+                replace(_evaluation(accepted=False), fallback_model="best_match"),
+                None,
+                1,
+            ),
+        ),
+    )
+    assert b'"fallback_model":"best_match"' in export_artifact(artifact)
+
+
+def test_export_preserves_zero_inflated_precipitation_contract() -> None:
+    occurrence_evaluation = replace(
+        _evaluation(),
+        selector=SegmentSelector("precipitation_occurrence", "24h", None, None, None),
+        metric="brier",
+    )
+    amount_evaluation = replace(
+        _evaluation(),
+        selector=SegmentSelector("precipitation_amount", "24h", None, None, None),
+    )
+    segment = ExportPrecipitationSegment(
+        selector=SegmentSelector("precipitation", "24h", None, None, None),
+        fallback_model="model_a",
+        occurrence_evaluation=occurrence_evaluation,
+        amount_evaluation=amount_evaluation,
+        occurrence=OccurrenceCalibration(
+            -1.0,
+            {"model_a": 1.5, "model_b": 0.5},
+            0.1,
+            100,
+        ),
+        occurrence_threshold=0.35,
+        amount=WeightFit({"model_a": 0.75, "model_b": 0.25}, 40, 0.2),
+        minimum_source_count=2,
+        occurrence_fallback_regions=("REGION_BRNO",),
+        amount_fallback_regions=("REGION_BRNO",),
+    )
+    artifact = build_artifact(
+        lock=_lock(),
+        generated_at=datetime(2026, 6, 2, tzinfo=UTC),
+        registry_status="complete",
+        models=(ModelContract("model_a", 3, 1.0), ModelContract("model_b", 3, 1.0)),
+        segments=(segment,),
+    )
+
+    payload = export_artifact(artifact)
+
+    assert b'"method":"zero_inflated"' in payload
+    assert b'"threshold":0.35' in payload
+    assert b'"occurrence_fallback_regions":["REGION_BRNO"]' in payload
+    assert b'"amount_fallback_regions":["REGION_BRNO"]' in payload
+
 
 def test_segment_minimum_source_count_uses_only_positive_weights() -> None:
     with pytest.raises(ValueError, match="minimum_source_count"):
@@ -179,6 +241,13 @@ def test_segment_minimum_source_count_uses_only_positive_weights() -> None:
         )
     with pytest.raises(ValueError, match="fallback"):
         ExportSegment(_evaluation(accepted=False), None, 2)
+    with pytest.raises(ValueError, match="fallback_regions"):
+        ExportSegment(
+            _evaluation(accepted=False),
+            None,
+            1,
+            fallback_regions=("REGION_BRNO",),
+        )
 
 
 def test_model_contract_loader_requires_fresh_exact_audit(tmp_path: Path) -> None:

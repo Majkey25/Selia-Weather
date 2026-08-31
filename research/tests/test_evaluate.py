@@ -120,6 +120,34 @@ def test_segment_records_every_failed_ship_rule() -> None:
     }
 
 
+def test_segment_rejects_too_few_active_sources() -> None:
+    samples = tuple(
+        EvaluationSample(
+            date(2026, 4, 2) + timedelta(days=offset),
+            "REGION_PRAGUE",
+            1.0,
+            2.0,
+        )
+        for offset in range(30)
+    )
+
+    result = evaluate_segment(
+        _selector(),
+        samples,
+        metric="mae",
+        fallback_model="model_a",
+        fold_improvements=(1.0, 1.0),
+        missing_fallback_ok=True,
+        minimum_sources_ok=False,
+        trained_at=datetime(2026, 5, 31, tzinfo=UTC),
+        lock=_lock(),
+        bootstrap_repetitions=20,
+    )
+
+    assert not result.accepted
+    assert EvaluationFailure.INSUFFICIENT_SOURCES in result.rejection_reasons
+
+
 def test_segment_rejects_less_than_30_distinct_holdout_days() -> None:
     result = evaluate_segment(
         _selector(),

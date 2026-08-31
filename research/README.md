@@ -59,3 +59,15 @@ Run the locked-backtest preflight before any download:
 The command is network-free. It validates the complete registry, corrected station cohort, date
 split, Open-Meteo request budget, ČHMÚ monthly request count, and immutable-month boundary. Exit
 code `0` means ready. Exit code `2` prints a machine-readable blocking reason.
+
+After the preflight prints `"status":"ready"`, run the same command with these arguments:
+
+```powershell
+& 'C:\Users\mates\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -m uv run --project research python -m aladin_ensemble.run_backtest --registry research/model-registry.json --station-metadata research/data/raw/chmi-meta/meta1-20260828.json --element-metadata research/data/raw/chmi-meta/meta2-20260828.json --train-start 2026-05-03 --train-end 2026-07-31 --holdout-start 2026-08-01 --holdout-end 2026-08-30 --provider-limit 10000 --execute --output-dir research/output/august-holdout-20260901
+```
+
+`--execute` downloads or reuses cached inputs, builds the dataset, and fits only the training
+range. The command then writes `dataset-manifest.json` and `holdout-lock.json` before it reads the
+holdout for evaluation. `report.json` records scalar, wind-vector, precipitation-occurrence, and
+positive-amount results. The report remains diagnostic and sets `exported` to `false`. A separate
+release gate must validate model runtime contracts and source licences before weight export.

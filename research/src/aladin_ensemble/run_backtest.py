@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -16,6 +17,8 @@ from aladin_ensemble.backtest import (
     BacktestConfig,
     BacktestDataset,
     SegmentDataset,
+    SegmentKey,
+    build_backtest_dataset,
     write_dataset_manifest,
 )
 from aladin_ensemble.baselines import ScalarForecastCase
@@ -79,6 +82,7 @@ FIXED_LEADS = tuple(range(1, 8))
 PRECIPITATION_EVENT_THRESHOLD_MM = 0.1
 PRECIPITATION_THRESHOLDS_MM = (0.1, 1.0, 5.0)
 Sleeper = Callable[[float], None]
+UtcClock = Callable[[], datetime]
 PreflightStatus = Literal["ready", "blocked"]
 
 
@@ -142,6 +146,26 @@ class FittedPrecipitation:
     @property
     def accepted(self) -> bool:
         return self.occurrence_evaluation.accepted and self.amount_evaluation.accepted
+
+
+@dataclass(frozen=True, slots=True)
+class BacktestTraining:
+    trained_at: datetime
+    scalar: tuple[tuple[SegmentKey, ScalarTraining], ...]
+    wind: tuple[tuple[int, WindTraining], ...]
+    precipitation: tuple[tuple[int, PrecipitationTraining], ...]
+
+    def __post_init__(self) -> None:
+        _require_utc(self.trained_at, "trained_at")
+
+
+@dataclass(frozen=True, slots=True)
+class BacktestRun:
+    training: BacktestTraining
+    lock: HoldoutLock
+    scalar: tuple[tuple[SegmentKey, FittedSegment], ...]
+    wind: tuple[tuple[int, FittedSegment], ...]
+    precipitation: tuple[tuple[int, FittedPrecipitation], ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -246,6 +270,241 @@ def lock_backtest_dataset(
     return lock
 
 
+def run_locked_backtest(
+    dataset: BacktestDataset,
+    *,
+    registry_hash: str,
+    source_hashes: Mapping[str, str],
+    output_dir: Path,
+    clock: UtcClock = lambda: datetime.now(UTC),
+    bootstrap_repetitions: int = 1_000,
+) -> BacktestRun:
+    if output_dir.exists():
+        raise ValueError("output_dir already exists")
+    training = fit_backtest_training(dataset, clock=clock)
+    locked_at = clock()
+    _require_utc(locked_at, "locked_at")
+    if locked_at < training.trained_at:
+        raise ValueError("holdout lock precedes fitted training artifacts")
+    lock = lock_backtest_dataset(
+        dataset,
+        registry_hash=registry_hash,
+        source_hashes=source_hashes,
+        output_dir=output_dir,
+        locked_at=locked_at,
+    )
+    result = evaluate_backtest_training(
+        dataset,
+        training,
+        lock,
+        bootstrap_repetitions=bootstrap_repetitions,
+    )
+    write_backtest_report(output_dir / "report.json", result)
+    return result
+
+
+def fit_backtest_training(
+    dataset: BacktestDataset,
+    *,
+    clock: UtcClock = lambda: datetime.now(UTC),
+) -> BacktestTraining:
+    scalar: list[tuple[SegmentKey, ScalarTraining]] = []
+    precipitation: list[tuple[int, PrecipitationTraining]] = []
+    for key, segment in sorted(dataset.segments.items()):
+        if key.variable == "precipitation":
+            precipitation.append((key.lead_hours, fit_precipitation_training(segment)))
+        elif key.variable not in {"wind_speed", "wind_direction"}:
+            scalar.append((key, fit_scalar_training(segment)))
+    speed_leads = {
+        key.lead_hours for key in dataset.segments if key.variable == "wind_speed"
+    }
+    direction_leads = {
+        key.lead_hours for key in dataset.segments if key.variable == "wind_direction"
+    }
+    if speed_leads != direction_leads:
+        raise ValueError("wind speed and direction lead sets do not match")
+    wind = tuple(
+        (
+            lead_hours,
+            fit_wind_vector_training(
+                dataset.segments[SegmentKey("wind_speed", lead_hours)],
+                dataset.segments[SegmentKey("wind_direction", lead_hours)],
+            ),
+        )
+        for lead_hours in sorted(speed_leads)
+    )
+    return BacktestTraining(clock(), tuple(scalar), wind, tuple(precipitation))
+
+
+def evaluate_backtest_training(
+    dataset: BacktestDataset,
+    training: BacktestTraining,
+    lock: HoldoutLock,
+    *,
+    bootstrap_repetitions: int = 1_000,
+) -> BacktestRun:
+    if lock.train != dataset.config.train or lock.holdout != dataset.config.holdout:
+        raise ValueError("holdout lock ranges do not match dataset")
+    scalar = tuple(
+        (
+            key,
+            evaluate_scalar_training(
+                dataset.segments[key],
+                fitted,
+                lock,
+                trained_at=training.trained_at,
+                bootstrap_repetitions=bootstrap_repetitions,
+            ),
+        )
+        for key, fitted in training.scalar
+    )
+    wind = tuple(
+        (
+            lead_hours,
+            evaluate_wind_vector_training(
+                dataset.segments[SegmentKey("wind_speed", lead_hours)],
+                dataset.segments[SegmentKey("wind_direction", lead_hours)],
+                fitted,
+                lock,
+                trained_at=training.trained_at,
+                bootstrap_repetitions=bootstrap_repetitions,
+            ),
+        )
+        for lead_hours, fitted in training.wind
+    )
+    precipitation = tuple(
+        (
+            lead_hours,
+            evaluate_precipitation_training(
+                dataset.segments[SegmentKey("precipitation", lead_hours)],
+                fitted,
+                lock,
+                trained_at=training.trained_at,
+                bootstrap_repetitions=bootstrap_repetitions,
+            ),
+        )
+        for lead_hours, fitted in training.precipitation
+    )
+    return BacktestRun(training, lock, scalar, wind, precipitation)
+
+
+def write_backtest_report(path: Path, result: BacktestRun) -> None:
+    segments: list[JsonValue] = []
+    for key, fitted in result.scalar:
+        segments.append(
+            {
+                "evaluation": _evaluation_payload(fitted.evaluation),
+                "kind": "scalar",
+                "lead_hours": key.lead_hours,
+                "variable": key.variable,
+                "weights": _weight_payload(fitted.fit),
+            }
+        )
+    for lead_hours, fitted in result.wind:
+        segments.append(
+            {
+                "evaluation": _evaluation_payload(fitted.evaluation),
+                "kind": "wind_vector",
+                "lead_hours": lead_hours,
+                "variable": "wind_vector",
+                "weights": _weight_payload(fitted.fit),
+            }
+        )
+    for lead_hours, fitted in result.precipitation:
+        segments.append(
+            {
+                "amount_evaluation": _evaluation_payload(fitted.amount_evaluation),
+                "amount_weights": _weight_payload(fitted.amount),
+                "brier": {
+                    "reliability": fitted.brier.reliability,
+                    "resolution": fitted.brier.resolution,
+                    "score": fitted.brier.score,
+                    "uncertainty": fitted.brier.uncertainty,
+                },
+                "kind": "precipitation",
+                "lead_hours": lead_hours,
+                "occurrence": _occurrence_payload(fitted),
+                "occurrence_evaluation": _evaluation_payload(
+                    fitted.occurrence_evaluation
+                ),
+                "thresholds": [
+                    {
+                        "correct_negatives": score.correct_negatives,
+                        "critical_success_index": score.critical_success_index,
+                        "false_alarm_ratio": score.false_alarm_ratio,
+                        "false_alarms": score.false_alarms,
+                        "frequency_bias": score.frequency_bias,
+                        "hits": score.hits,
+                        "misses": score.misses,
+                        "probability_of_detection": score.probability_of_detection,
+                        "threshold_mm": threshold,
+                    }
+                    for threshold, score in fitted.thresholds
+                ],
+                "variable": "precipitation",
+            }
+        )
+    payload: dict[str, JsonValue] = {
+        "dataset_manifest_hash": result.lock.dataset_manifest_hash,
+        "exported": False,
+        "locked_at": result.lock.locked_at.isoformat().replace("+00:00", "Z"),
+        "segments": segments,
+        "status": "diagnostic",
+        "trained_at": result.training.trained_at.isoformat().replace("+00:00", "Z"),
+    }
+    path.write_text(
+        json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def download_and_run_backtest(
+    config: BacktestConfig,
+    selected: tuple[SelectedStation, ...],
+    stations: tuple[Station, ...],
+    metadata: Mapping[tuple[str, str, str], ElementMetadata],
+    *,
+    registry_path: Path,
+    forecast_cache: Path,
+    truth_cache: Path,
+    output_dir: Path,
+    provider_limit: int,
+    pause_seconds: float,
+) -> BacktestRun:
+    if output_dir.exists():
+        raise ValueError("output_dir already exists")
+    requests, budget = build_previous_requests(
+        config.model_ids,
+        selected,
+        config.train.start,
+        config.holdout.end,
+        provider_limit=provider_limit,
+    )
+    budget.require_within_limit()
+    forecasts, forecast_hashes = download_previous_forecasts(
+        requests,
+        CachedDownloader(forecast_cache),
+        pause_seconds=pause_seconds,
+    )
+    observations, truth_hashes = download_truth_observations(
+        config,
+        selected,
+        stations,
+        metadata,
+        ChmiMonthlyDownloader(truth_cache),
+    )
+    duplicate_hash_keys = forecast_hashes.keys() & truth_hashes.keys()
+    if duplicate_hash_keys:
+        raise ValueError(f"duplicate source hash key: {sorted(duplicate_hash_keys)}")
+    dataset = build_backtest_dataset(config, forecasts, observations, selected)
+    return run_locked_backtest(
+        dataset,
+        registry_hash=hashlib.sha256(registry_path.read_bytes()).hexdigest(),
+        source_hashes={**forecast_hashes, **truth_hashes},
+        output_dir=output_dir,
+    )
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Preflight a locked Czech forecast backtest.")
     parser.add_argument("--registry", type=Path, required=True)
@@ -256,6 +515,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--holdout-start", type=date.fromisoformat, required=True)
     parser.add_argument("--holdout-end", type=date.fromisoformat, required=True)
     parser.add_argument("--provider-limit", type=int, default=10_000)
+    parser.add_argument("--execute", action="store_true")
+    parser.add_argument("--forecast-cache", type=Path)
+    parser.add_argument("--truth-cache", type=Path)
+    parser.add_argument("--output-dir", type=Path)
+    parser.add_argument("--pause-seconds", type=float, default=0.5)
     arguments = parser.parse_args(argv)
     registry = cast(Path, arguments.registry)
     station_metadata = cast(Path, arguments.station_metadata)
@@ -277,7 +541,39 @@ def main(argv: Sequence[str] | None = None) -> int:
         provider_limit=cast(int, arguments.provider_limit),
     )
     print(json.dumps(preflight_payload(preflight), sort_keys=True, separators=(",", ":")))
-    return 0 if preflight.status == "ready" else 2
+    if preflight.status != "ready":
+        return 2
+    if not cast(bool, arguments.execute):
+        return 0
+    output_dir = cast(Path | None, arguments.output_dir)
+    if output_dir is None:
+        raise ValueError("--output-dir is required with --execute")
+    forecast_cache = cast(Path | None, arguments.forecast_cache)
+    truth_cache = cast(Path | None, arguments.truth_cache)
+    result = download_and_run_backtest(
+        config,
+        selected,
+        stations,
+        metadata,
+        registry_path=registry,
+        forecast_cache=forecast_cache or registry.parent / "data/raw/open-meteo",
+        truth_cache=truth_cache or registry.parent / "data/raw/chmi-climate",
+        output_dir=output_dir,
+        provider_limit=cast(int, arguments.provider_limit),
+        pause_seconds=cast(float, arguments.pause_seconds),
+    )
+    print(
+        json.dumps(
+            {
+                "dataset_manifest_hash": result.lock.dataset_manifest_hash,
+                "report": str(output_dir / "report.json"),
+                "status": "completed_diagnostic",
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+    )
+    return 0
 
 
 def load_registry_model_ids(path: Path) -> tuple[str, ...]:
@@ -1111,6 +1407,52 @@ def _fold_improvements(
         )
         for _, fold in sorted(folds.items())
     )
+
+
+def _evaluation_payload(evaluation: SegmentEvaluation) -> dict[str, JsonValue]:
+    return {
+        "accepted": evaluation.accepted,
+        "best_model_score": evaluation.best_model_score,
+        "blend_score": evaluation.blend_score,
+        "fallback_model": evaluation.fallback_model,
+        "fold_improvements": list(evaluation.fold_improvements),
+        "improvement": {
+            "estimate": evaluation.improvement.estimate,
+            "lower": evaluation.improvement.lower,
+            "upper": evaluation.improvement.upper,
+        },
+        "maximum_region_degradation": evaluation.maximum_region_degradation,
+        "metric": evaluation.metric,
+        "rejection_reasons": [reason.value for reason in evaluation.rejection_reasons],
+        "sample_count": evaluation.sample_count,
+    }
+
+
+def _weight_payload(fit: WeightFit | None) -> JsonValue:
+    if fit is None:
+        return None
+    return {
+        "objective": fit.objective,
+        "sample_count": fit.sample_count,
+        "weights": dict(sorted(fit.weights.items())),
+    }
+
+
+def _occurrence_payload(fitted: FittedPrecipitation) -> JsonValue:
+    if fitted.occurrence is None:
+        return None
+    return {
+        "coefficients": dict(sorted(fitted.occurrence.coefficients.items())),
+        "intercept": fitted.occurrence.intercept,
+        "regularization": fitted.occurrence.regularization,
+        "sample_count": fitted.occurrence.sample_count,
+        "threshold": fitted.occurrence_threshold,
+    }
+
+
+def _require_utc(value: datetime, name: str) -> None:
+    if value.tzinfo is None or value.utcoffset() != UTC.utcoffset(value):
+        raise ValueError(f"{name} must be timezone-aware UTC")
 
 
 def _json_value(value: object) -> JsonValue:

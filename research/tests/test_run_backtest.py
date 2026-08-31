@@ -28,6 +28,7 @@ from aladin_ensemble.run_backtest import (
     lock_backtest_dataset,
     monthly_truth_requests,
     preflight_payload,
+    run_locked_backtest,
     sample_forecast_hours,
     select_training_fallback,
     usable_truth_observation,
@@ -122,6 +123,24 @@ def _precipitation_segment(*, incomplete_holdout: bool = False) -> SegmentDatase
 
 def _lock() -> HoldoutLock:
     return HoldoutLock(TRAIN, HOLDOUT, "a" * 64, datetime(2026, 8, 1, tzinfo=UTC))
+
+
+def _complete_dataset() -> BacktestDataset:
+    scalar = _segment()
+    precipitation = _precipitation_segment()
+    wind_speed = _wind_segment("wind_speed", 10.0, 10.0, 10.0)
+    wind_direction = _wind_segment("wind_direction", 350.0, 10.0, 0.0)
+    station = Station("0-20000-0-11519", "Praha", 50.07, 14.43, 260.5)
+    return BacktestDataset(
+        BacktestConfig(TRAIN, HOLDOUT, ("model_a", "model_b")),
+        (SelectedStation(CZECH_TARGETS[0], station),),
+        {
+            scalar.key: scalar,
+            precipitation.key: precipitation,
+            wind_speed.key: wind_speed,
+            wind_direction.key: wind_direction,
+        },
+    )
 
 
 def test_registry_loader_requires_complete_verified_models(tmp_path: Path) -> None:
@@ -245,6 +264,37 @@ def test_dataset_lock_records_manifest_hash_and_refuses_overwrite(tmp_path: Path
             output_dir=output,
             locked_at=locked_at,
         )
+
+
+def test_locked_run_fits_before_lock_and_writes_diagnostic_report(tmp_path: Path) -> None:
+    timestamps = iter(
+        (
+            datetime(2026, 7, 31, 23, 59, tzinfo=UTC),
+            datetime(2026, 8, 1, tzinfo=UTC),
+        )
+    )
+
+    result = run_locked_backtest(
+        _complete_dataset(),
+        registry_hash="a" * 64,
+        source_hashes={"forecast": "b" * 64, "truth": "c" * 64},
+        output_dir=tmp_path / "run",
+        clock=lambda: next(timestamps),
+        bootstrap_repetitions=50,
+    )
+
+    assert result.training.trained_at < result.lock.locked_at
+    assert len(result.scalar) == 1
+    assert len(result.wind) == 1
+    assert len(result.precipitation) == 1
+    report = json.loads((tmp_path / "run" / "report.json").read_text(encoding="utf-8"))
+    assert report["status"] == "diagnostic"
+    assert report["exported"] is False
+    assert {row["kind"] for row in report["segments"]} == {
+        "precipitation",
+        "scalar",
+        "wind_vector",
+    }
 
 
 def _wind_segment(variable: str, model_a: float, model_b: float, truth: float) -> SegmentDataset:

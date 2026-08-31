@@ -190,6 +190,12 @@ monthly truth requests, and returned exit code `2` with
 `reason=holdout_month_incomplete`. No network download, holdout lock, evaluation, or weight export
 occurred. The same command can become ready only after the UTC month boundary.
 
+The backtest command now has an `--execute` mode. It fits scalar, wind-vector, precipitation
+occurrence, and positive-amount artifacts before it writes the immutable holdout lock. It then
+evaluates the locked holdout and writes a deterministic diagnostic report. A live `--execute`
+check on 31 August returned `holdout_month_incomplete` and did not create the requested output
+directory. No August evaluation or weight export has occurred.
+
 Open-Meteo documents issued model runs in the
 [Single Runs API](https://open-meteo.com/en/docs/single-runs-api) and fixed lead comparisons in the
 [Previous Runs API](https://open-meteo.com/en/docs/previous-runs-api). Its Free API terms limit

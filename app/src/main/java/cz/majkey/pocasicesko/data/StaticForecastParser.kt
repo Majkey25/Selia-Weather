@@ -75,7 +75,7 @@ internal object StaticForecastParser {
     ): StaticForecastTile = try {
         val expectedChecksum = manifest.tileChecksums[path]
             ?: throw IllegalArgumentException("Tile is absent from manifest checksums.")
-        require(sha256(bytes) == expectedChecksum) { "Tile checksum mismatch." }
+        require(sha256Hex(bytes) == expectedChecksum) { "Tile checksum mismatch." }
         val root = JSONObject(decompressTile(bytes).toString(Charsets.UTF_8))
         require(root.getInt("schema_version") == SCHEMA_VERSION) { "Unsupported tile schema." }
         val runId = root.getString("run_id")
@@ -192,13 +192,13 @@ internal object StaticForecastParser {
         return this
     }
 
-    private fun sha256(value: ByteArray): String = MessageDigest.getInstance("SHA-256")
-        .digest(value)
-        .joinToString("") { "%02x".format(it) }
-
     private const val SCHEMA_VERSION = 1
     private const val MAX_DECOMPRESSED_TILE_BYTES = 50_000_000
     private const val GRID_EPSILON = 1e-8
     private val RUN_ID = Regex("[0-9]{8}T[0-9]{6}Z")
     private val CHECKSUM = Regex("[0-9a-f]{64}")
 }
+
+internal fun sha256Hex(value: ByteArray): String = MessageDigest.getInstance("SHA-256")
+    .digest(value)
+    .joinToString("") { "%02x".format(it) }

@@ -60,6 +60,58 @@ class StaticForecastRepositoryTest {
     }
 
     @Test
+    fun fetchesCalibrationOnlyAfterVerifyingItsManifestChecksum() {
+        val artifact = CalibrationArtifactTest.VALID_ARTIFACT.toByteArray()
+        val requestedUrls = mutableListOf<String>()
+        val repository = StaticForecastRepository(
+            fetchText = {
+                manifest(
+                    state = "production",
+                    calibration = "\"${checksum(artifact)}\"",
+                    dataset = "\"${"c".repeat(64)}\"",
+                    tiles = "{\"tiles/20260829T120000Z/0/0.json.gz\":\"${"a".repeat(64)}\"}",
+                )
+            },
+            fetchBytes = { url ->
+                requestedUrls += url
+                artifact
+            },
+        )
+
+        val calibration = repository.fetchCalibrationArtifact(
+            Instant.ofEpochSecond(CalibrationArtifactTest.NOW),
+        )
+
+        assertEquals(2, calibration.schemaVersion)
+        assertEquals(
+            listOf("https://majkey25.github.io/Selia-Weather/data/v1/calibration/ensemble_weights.json"),
+            requestedUrls,
+        )
+    }
+
+    @Test
+    fun rejectsCalibrationWhoseBytesDoNotMatchTheManifest() {
+        val repository = StaticForecastRepository(
+            fetchText = {
+                manifest(
+                    state = "production",
+                    calibration = "\"${"f".repeat(64)}\"",
+                    dataset = "\"${"c".repeat(64)}\"",
+                    tiles = "{\"tiles/20260829T120000Z/0/0.json.gz\":\"${"a".repeat(64)}\"}",
+                )
+            },
+            fetchBytes = { CalibrationArtifactTest.VALID_ARTIFACT.toByteArray() },
+        )
+
+        val error = runCatching {
+            repository.fetchCalibrationArtifact(Instant.ofEpochSecond(CalibrationArtifactTest.NOW))
+        }.exceptionOrNull()
+
+        assertTrue(error is IllegalArgumentException)
+        assertTrue(error?.message.orEmpty().contains("checksum"))
+    }
+
+    @Test
     fun selectsEveryTileNeededAcrossTileBoundaries() {
         val manifest = StaticForecastParser.parseManifest(PRODUCTION_MANIFEST)
 

@@ -35,12 +35,25 @@ internal class StaticForecastRepository(
         return interpolateStaticValues(values, manifest.grid, latitude, longitude)
     }
 
+    fun fetchCalibrationArtifact(now: Instant): CalibrationArtifact {
+        val manifest = fetchUsableManifest(now)
+        val expectedChecksum = requireNotNull(manifest.calibrationChecksum)
+        val bytes = fetchBytes(BASE_URL + CALIBRATION_PATH)
+        if (bytes.size > MAX_CALIBRATION_BYTES) {
+            throw IOException("Calibration payload is too large.")
+        }
+        require(sha256Hex(bytes) == expectedChecksum) { "Calibration checksum mismatch." }
+        return parseCalibrationArtifact(bytes.toString(Charsets.UTF_8), now.epochSecond)
+    }
+
     companion object {
         private const val BASE_URL = "https://majkey25.github.io/Selia-Weather/data/v1/"
         internal const val MANIFEST_URL = "${BASE_URL}manifest.json"
+        private const val CALIBRATION_PATH = "calibration/ensemble_weights.json"
         private const val CONNECT_TIMEOUT_MILLIS = 5_000
         private const val READ_TIMEOUT_MILLIS = 10_000
         private const val MAX_MANIFEST_BYTES = 1_000_000
+        private const val MAX_CALIBRATION_BYTES = 2_000_000
         private const val MAX_TILE_BYTES = 20_000_000
 
         private fun request(url: String, maxBytes: Int): ByteArray {

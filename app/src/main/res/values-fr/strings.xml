@@ -100,6 +100,8 @@
     <string name="sea_level">Niveau de la mer</string>
     <string name="precipitation_value">%1$s mm</string>
     <string name="local_rain_field">Champ local de précipitations</string>
+    <string name="precipitation_target">Cible de précipitations</string>
+    <string name="show_precipitation_target">Afficher la cible</string>
     <string name="rain_field_centre">Lieu sélectionné</string>
     <string name="rain_field_unavailable">Indisponible</string>
     <string name="rain_field_dry">Sec</string>
@@ -177,6 +179,7 @@
     <string name="remove_favorite">Retirer des favoris</string>
     <string name="forecast_load_failed">Impossible de charger les prévisions</string>
     <string name="location_permission_required">Autorisation de localisation requise</string>
+    <string name="open_app_settings">Ouvrir les paramètres de l’application</string>
     <string name="location_lookup_failed">Impossible de déterminer la position</string>
     <string name="search_failed">Échec de la recherche</string>
     <string name="enable_system_location">Activer la localisation système</string>

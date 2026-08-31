@@ -100,6 +100,8 @@
     <string name="sea_level">Nivel del mar</string>
     <string name="precipitation_value">%1$s mm</string>
     <string name="local_rain_field">Campo local de precipitación</string>
+    <string name="precipitation_target">Objetivo de precipitación</string>
+    <string name="show_precipitation_target">Mostrar objetivo</string>
     <string name="rain_field_centre">Ubicación seleccionada</string>
     <string name="rain_field_unavailable">No disponible</string>
     <string name="rain_field_dry">Seco</string>
@@ -177,6 +179,7 @@
     <string name="remove_favorite">Eliminar favorito</string>
     <string name="forecast_load_failed">No se pudo cargar el pronóstico</string>
     <string name="location_permission_required">Se requiere permiso de ubicación</string>
+    <string name="open_app_settings">Abrir ajustes de la aplicación</string>
     <string name="location_lookup_failed">No se pudo determinar la ubicación</string>
     <string name="search_failed">La búsqueda falló</string>
     <string name="enable_system_location">Activar ubicación del sistema</string>

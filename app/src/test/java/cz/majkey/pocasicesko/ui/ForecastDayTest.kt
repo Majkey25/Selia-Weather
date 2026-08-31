@@ -3,6 +3,8 @@ package cz.majkey.pocasicesko.ui
 import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.data.DailyWeather
 import cz.majkey.pocasicesko.data.HourlyWeather
+import cz.majkey.pocasicesko.units.MeasurementSystem
+import cz.majkey.pocasicesko.units.WeatherUnitFormatter
 import java.io.File
 import java.time.Instant
 import java.util.Locale
@@ -87,6 +89,30 @@ class ForecastDayTest {
 
         assertEquals(23, hourlyForDay(springHours, "2026-03-29").size)
         assertEquals(25, hourlyForDay(fallHours, "2026-10-25").size)
+    }
+
+    @Test
+    fun dailyPrecipitationSummaryShowsProbabilityAndAmount() {
+        val units = WeatherUnitFormatter(MeasurementSystem.METRIC, Locale.US)
+        val rainyDay = day("2026-08-25").copy(
+            precipitationSum = 1.2,
+            precipitationProbability = 70,
+        )
+
+        assertEquals("70% · 1.2 mm", dailyPrecipitationSummary(rainyDay, units))
+    }
+
+    @Test
+    fun precipitationTargetIsOfferedOnlyInsideNextTwentyFourHours() {
+        val hours = (0..47).map { offset ->
+            val day = 24 + offset / 24
+            val hour = offset % 24
+            hour("2026-08-${day}T%02d:00".format(hour))
+        }
+
+        assertTrue(hasPrecipitationTargetHour(hours, "2026-08-24T03", "2026-08-24"))
+        assertTrue(hasPrecipitationTargetHour(hours, "2026-08-24T03", "2026-08-25"))
+        assertEquals(false, hasPrecipitationTargetHour(hours, "2026-08-24T03", "2026-08-26"))
     }
 
     @Test

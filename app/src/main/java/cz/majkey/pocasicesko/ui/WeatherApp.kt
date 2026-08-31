@@ -1,10 +1,16 @@
 package cz.majkey.pocasicesko.ui
 
 import android.Manifest
+import android.app.Activity
 import android.appwidget.AppWidgetManager
 import android.content.ActivityNotFoundException
 import android.content.ComponentName
+import android.content.Context
+import android.content.ContextWrapper
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
@@ -102,6 +108,21 @@ import kotlinx.coroutines.withContext
 private enum class Destination {
     WEATHER,
     MAPS,
+}
+
+internal enum class LocationPermissionAction {
+    LOAD_LOCATION,
+    REQUEST_PERMISSION,
+    OPEN_SETTINGS,
+}
+
+internal fun locationPermissionAction(
+    granted: Boolean,
+    permanentlyDenied: Boolean,
+): LocationPermissionAction = when {
+    granted -> LocationPermissionAction.LOAD_LOCATION
+    permanentlyDenied -> LocationPermissionAction.OPEN_SETTINGS
+    else -> LocationPermissionAction.REQUEST_PERMISSION
 }
 
 private sealed interface WeatherUiState {
@@ -499,6 +520,7 @@ private fun LocationSearchSheet(
     var searching by remember { mutableStateOf(false) }
     var locating by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var locationPermissionPermanentlyDenied by remember { mutableStateOf(false) }
     var pickingPoint by remember { mutableStateOf(false) }
     var pinnedSaveError by remember { mutableStateOf<String?>(null) }
     val focusManager = LocalFocusManager.current
@@ -557,10 +579,23 @@ private fun LocationSearchSheet(
         ActivityResultContracts.RequestMultiplePermissions(),
     ) { grants ->
         if (grants.values.any { it }) {
+            locationPermissionPermanentlyDenied = false
             loadDeviceLocation()
         } else {
+            locationPermissionPermanentlyDenied = context.locationPermissionPermanentlyDenied()
             error = locationPermissionRequired
         }
+    }
+
+    fun openLocationSettings() {
+        runCatching {
+            context.startActivity(
+                Intent(
+                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.parse("package:${context.packageName}"),
+                ),
+            )
+        }.onFailure { error = locationPermissionRequired }
     }
 
     fun requestDeviceLocation() {
@@ -571,14 +606,11 @@ private fun LocationSearchSheet(
             context,
             Manifest.permission.ACCESS_FINE_LOCATION,
         ) == PackageManager.PERMISSION_GRANTED
-        if (granted) {
-            loadDeviceLocation()
-        } else {
-            permissionLauncher.launch(
-                arrayOf(
-                    Manifest.permission.ACCESS_COARSE_LOCATION,
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                ),
+        when (locationPermissionAction(granted, locationPermissionPermanentlyDenied)) {
+            LocationPermissionAction.LOAD_LOCATION -> loadDeviceLocation()
+            LocationPermissionAction.OPEN_SETTINGS -> openLocationSettings()
+            LocationPermissionAction.REQUEST_PERMISSION -> permissionLauncher.launch(
+                LOCATION_PERMISSIONS,
             )
         }
     }
@@ -762,6 +794,11 @@ private fun LocationSearchSheet(
             }
             error?.let {
                 Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(vertical = 8.dp))
+                if (locationPermissionPermanentlyDenied) {
+                    TextButton(onClick = ::openLocationSettings) {
+                        Text(stringResource(R.string.open_app_settings))
+                    }
+                }
             }
             results.forEach { result ->
                 LocationRow(
@@ -817,6 +854,22 @@ private fun List<CzechLocation>.containsLocation(location: CzechLocation): Boole
     kotlin.math.abs(it.latitude - location.latitude) <= 0.000_001 &&
         kotlin.math.abs(it.longitude - location.longitude) <= 0.000_001
 }
+
+private fun Context.locationPermissionPermanentlyDenied(): Boolean {
+    val activity = findActivity() ?: return false
+    return LOCATION_PERMISSIONS.none(activity::shouldShowRequestPermissionRationale)
+}
+
+private fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
+
+private val LOCATION_PERMISSIONS = arrayOf(
+    Manifest.permission.ACCESS_COARSE_LOCATION,
+    Manifest.permission.ACCESS_FINE_LOCATION,
+)
 
 private val NIGHT_STARS = listOf(
     Triple(0.12f, 0.11f, 0.34f),

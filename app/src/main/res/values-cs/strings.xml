@@ -100,6 +100,8 @@
     <string name="sea_level">Hladina moře</string>
     <string name="precipitation_value">%1$s mm</string>
     <string name="local_rain_field">Lokální pole srážek</string>
+    <string name="precipitation_target">Terč srážek</string>
+    <string name="show_precipitation_target">Zobrazit terč</string>
     <string name="rain_field_centre">Vybraná lokalita</string>
     <string name="rain_field_unavailable">Nedostupné</string>
     <string name="rain_field_dry">Beze srážek</string>
@@ -177,6 +179,7 @@
     <string name="remove_favorite">Odebrat z oblíbených</string>
     <string name="forecast_load_failed">Předpověď se nepodařilo načíst</string>
     <string name="location_permission_required">Je vyžadováno oprávnění k poloze</string>
+    <string name="open_app_settings">Otevřít nastavení aplikace</string>
     <string name="location_lookup_failed">Polohu se nepodařilo určit</string>
     <string name="search_failed">Vyhledávání se nezdařilo</string>
     <string name="enable_system_location">Zapněte systémovou polohu</string>

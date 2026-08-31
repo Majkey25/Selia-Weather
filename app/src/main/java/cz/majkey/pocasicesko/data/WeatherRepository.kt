@@ -27,6 +27,7 @@ class WeatherRepository(context: Context) {
     private val appContext = context.applicationContext
     private val preferences = appContext.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
     private val currentConditions = ChmiCurrentConditionsRepository(appContext)
+    private val metarCurrentConditions = MetarCurrentConditionsRepository()
     private val precipitationFieldRepository = PrecipitationFieldRepository()
     private val historyRepository = HistoryRepository(File(appContext.cacheDir, "history"))
     private val staticForecastRepository = StaticForecastRepository()
@@ -155,14 +156,23 @@ class WeatherRepository(context: Context) {
         val updatedAt = System.currentTimeMillis()
         val modelSnapshot = WeatherParser.parseForecast(forecastJson, updatedAt)
         val now = Instant.ofEpochMilli(updatedAt)
+        val observations = try {
+            if (location.isInCzechia()) {
+                currentConditions.fetch(location, now)
+            } else {
+                metarCurrentConditions.fetch(location)
+            }
+        } catch (_: IOException) {
+            emptyList()
+        } catch (_: JSONException) {
+            emptyList()
+        } catch (_: IllegalArgumentException) {
+            emptyList()
+        }
         val observedCurrent = fuseCurrentConditions(
             model = modelSnapshot.current,
             location = location,
-            observations = if (location.isInCzechia()) {
-                currentConditions.fetch(location, now)
-            } else {
-                emptyList()
-            },
+            observations = observations,
             now = now,
         )
         val correctedJson = applyCurrentConditionsToForecastJson(forecastJson, observedCurrent)

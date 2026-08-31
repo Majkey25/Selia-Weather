@@ -39,9 +39,9 @@ class ChmiCurrentConditionsTest {
 
         requireNotNull(observation)
         assertEquals(Instant.parse("2026-08-29T09:00:00Z"), observation.time)
-        assertEquals(20.4, observation.temperature, 0.0)
+        assertEquals(20.4, requireNotNull(observation.temperature), 0.0)
         assertEquals(64, observation.humidity)
-        assertEquals(0.0, observation.precipitation, 0.0)
+        assertEquals(0.0, requireNotNull(observation.precipitation), 0.0)
         assertEquals(7.2, requireNotNull(observation.windSpeed), 0.0)
         assertEquals(270.0, requireNotNull(observation.windDirection), 0.0)
         assertEquals(600.0, requireNotNull(observation.sunshineSeconds), 0.0)

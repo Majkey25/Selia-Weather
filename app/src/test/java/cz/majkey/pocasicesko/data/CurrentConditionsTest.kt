@@ -80,6 +80,69 @@ class CurrentConditionsTest {
     }
 
     @Test
+    fun partialWorldwideObservationDoesNotInventPrecipitation() {
+        val now = Instant.parse("2026-08-31T20:40:00Z")
+        val fused = fuseCurrentConditions(
+            model = current(weatherCode = 61, precipitation = 0.4, cloudCover = 100),
+            location = CzechLocation("Delhi", "Delhi", 28.6139, 77.209, "IN"),
+            observations = listOf(
+                CurrentStationObservation(
+                    stationId = "VIDP",
+                    latitude = 28.567,
+                    longitude = 77.117,
+                    time = now.minusSeconds(600),
+                    temperature = 30.0,
+                    humidity = 66,
+                    precipitation = null,
+                    windSpeed = 9.26,
+                    windDirection = 250.0,
+                    sunshineSeconds = null,
+                    dewPoint = 23.0,
+                    pressureHpa = 1_003.0,
+                    visibilityMeters = 4_506.1632,
+                    cloudCoverPercent = 75,
+                ),
+            ),
+            now = now,
+        )
+
+        assertEquals(30.0, fused.temperature, 0.0)
+        assertEquals(0.4, fused.precipitation, 0.0)
+        assertEquals(1_003.0, fused.pressure, 1e-9)
+        assertEquals(4_506.1632, requireNotNull(fused.visibilityMeters), 0.0001)
+        assertEquals(75, fused.cloudCover)
+    }
+
+    @Test
+    fun observedCloudCoverCorrectsOnlyDryModelCloudCode() {
+        val now = Instant.parse("2026-08-31T20:40:00Z")
+        val fused = fuseCurrentConditions(
+            model = current(weatherCode = 0, precipitation = 0.0, cloudCover = 0),
+            location = CzechLocation("Delhi", "Delhi", 28.6139, 77.209, "IN"),
+            observations = listOf(
+                CurrentStationObservation(
+                    stationId = "VIDP",
+                    latitude = 28.567,
+                    longitude = 77.117,
+                    time = now.minusSeconds(600),
+                    temperature = null,
+                    humidity = null,
+                    precipitation = null,
+                    windSpeed = null,
+                    windDirection = null,
+                    sunshineSeconds = null,
+                    cloudCoverPercent = 75,
+                ),
+            ),
+            now = now,
+        )
+
+        assertEquals(2, fused.weatherCode)
+        assertEquals(75, fused.cloudCover)
+        assertEquals(0.0, fused.precipitation, 0.0)
+    }
+
+    @Test
     fun correctedJsonUpdatesCurrentAndMatchingHourlyValue() {
         val corrected = JSONObject(
             applyCurrentConditionsToForecastJson(

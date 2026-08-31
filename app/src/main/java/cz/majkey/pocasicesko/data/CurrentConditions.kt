@@ -16,23 +16,45 @@ internal data class CurrentStationObservation(
     val latitude: Double,
     val longitude: Double,
     val time: Instant,
-    val temperature: Double,
-    val humidity: Int,
-    val precipitation: Double,
+    val temperature: Double?,
+    val humidity: Int?,
+    val precipitation: Double?,
     val windSpeed: Double?,
     val windDirection: Double?,
     val sunshineSeconds: Double?,
+    val dewPoint: Double? = null,
+    val pressureHpa: Double? = null,
+    val visibilityMeters: Double? = null,
+    val cloudCoverPercent: Int? = null,
 ) {
     init {
         require(stationId.isNotBlank())
         require(latitude.isFinite() && latitude in -90.0..90.0)
         require(longitude.isFinite() && longitude in -180.0..180.0)
-        require(temperature.isFinite())
-        require(humidity in 0..100)
-        require(precipitation.isFinite() && precipitation >= 0)
+        require(temperature == null || temperature.isFinite() && temperature in -100.0..70.0)
+        require(humidity == null || humidity in 0..100)
+        require(precipitation == null || precipitation.isFinite() && precipitation >= 0)
         require(windSpeed == null || windSpeed.isFinite() && windSpeed >= 0)
         require(windDirection == null || windDirection.isFinite() && windDirection in 0.0..360.0)
         require(sunshineSeconds == null || sunshineSeconds.isFinite() && sunshineSeconds in 0.0..600.0)
+        require(dewPoint == null || dewPoint.isFinite() && dewPoint in -120.0..70.0)
+        require(pressureHpa == null || pressureHpa.isFinite() && pressureHpa > 0)
+        require(visibilityMeters == null || visibilityMeters.isFinite() && visibilityMeters >= 0)
+        require(cloudCoverPercent == null || cloudCoverPercent in 0..100)
+        require(
+            listOf(
+                temperature,
+                humidity,
+                precipitation,
+                windSpeed,
+                windDirection,
+                sunshineSeconds,
+                dewPoint,
+                pressureHpa,
+                visibilityMeters,
+                cloudCoverPercent,
+            ).any { it != null },
+        )
     }
 }
 
@@ -53,14 +75,23 @@ internal fun fuseCurrentConditions(
     if (nearby.isEmpty()) return model
 
     val weights = nearby.map { (_, distance) -> 1.0 / max(distance, 1.0).let { it * it } }
-    fun weighted(values: List<Double>): Double {
-        val pairs = values.zip(weights)
-        return pairs.sumOf { (value, weight) -> value * weight } / pairs.sumOf { it.second }
+    fun weighted(value: (CurrentStationObservation) -> Double?): Double? {
+        val pairs = nearby.mapIndexedNotNull { index, (observation, _) ->
+            value(observation)?.let { observed -> observed to weights[index] }
+        }
+        if (pairs.isEmpty()) return null
+        return pairs.sumOf { (observed, weight) -> observed * weight } / pairs.sumOf { it.second }
     }
 
-    val temperature = weighted(nearby.map { it.first.temperature })
-    val humidity = weighted(nearby.map { it.first.humidity.toDouble() }).roundToInt().coerceIn(0, 100)
-    val precipitation = weighted(nearby.map { it.first.precipitation })
+    val temperature = weighted(CurrentStationObservation::temperature)
+    val humidity = weighted { it.humidity?.toDouble() }?.roundToInt()?.coerceIn(0, 100)
+    val precipitation = weighted(CurrentStationObservation::precipitation)
+    val dewPoint = weighted(CurrentStationObservation::dewPoint)
+    val pressure = weighted(CurrentStationObservation::pressureHpa)
+    val visibility = weighted(CurrentStationObservation::visibilityMeters)
+    val reportedCloudCover = weighted { it.cloudCoverPercent?.toDouble() }
+        ?.roundToInt()
+        ?.coerceIn(0, 100)
     val sunshine = nearby.mapIndexedNotNull { index, (observation, _) ->
         observation.sunshineSeconds?.let { value -> value to weights[index] }
     }
@@ -79,29 +110,35 @@ internal fun fuseCurrentConditions(
         hypot(east, north) to (Math.toDegrees(kotlin.math.atan2(east, north)) + 360.0) % 360.0
     }
     val (weatherCode, cloudCover) = when {
-        precipitation >= RAIN_THRESHOLD_MM -> 61 to 100
+        precipitation != null && precipitation >= RAIN_THRESHOLD_MM -> 61 to 100
         model.isDay && sunshineFraction != null && sunshineFraction >= CLEAR_SUNSHINE_FRACTION -> 0 to 5
         model.isDay && sunshineFraction != null && sunshineFraction >= MOSTLY_CLEAR_SUNSHINE_FRACTION -> 1 to 25
-        else -> model.weatherCode to model.cloudCover
+        reportedCloudCover != null && model.weatherCode in 0..3 -> {
+            cloudWeatherCode(reportedCloudCover) to reportedCloudCover
+        }
+        else -> model.weatherCode to (reportedCloudCover ?: model.cloudCover)
     }
-    val observedCloudCover = cloudCover.takeIf {
-        precipitation < RAIN_THRESHOLD_MM && sunshineFraction != null &&
+    val observedLayerCover = cloudCover.takeIf {
+        precipitation != null && precipitation < RAIN_THRESHOLD_MM && sunshineFraction != null &&
             sunshineFraction >= MOSTLY_CLEAR_SUNSHINE_FRACTION
     }
-    val temperatureDelta = temperature - model.temperature
+    val temperatureDelta = temperature?.minus(model.temperature)
     return model.copy(
-        temperature = temperature,
-        feelsLike = model.feelsLike + temperatureDelta,
-        humidity = humidity,
-        precipitation = precipitation,
-        rain = precipitation,
+        temperature = temperature ?: model.temperature,
+        feelsLike = temperatureDelta?.let(model.feelsLike::plus) ?: model.feelsLike,
+        humidity = humidity ?: model.humidity,
+        precipitation = precipitation ?: model.precipitation,
+        rain = precipitation ?: model.rain,
         weatherCode = weatherCode,
         cloudCover = cloudCover,
-        cloudCoverLow = observedCloudCover ?: model.cloudCoverLow,
-        cloudCoverMid = observedCloudCover ?: model.cloudCoverMid,
-        cloudCoverHigh = observedCloudCover ?: model.cloudCoverHigh,
+        cloudCoverLow = observedLayerCover ?: model.cloudCoverLow,
+        cloudCoverMid = observedLayerCover ?: model.cloudCoverMid,
+        cloudCoverHigh = observedLayerCover ?: model.cloudCoverHigh,
         windSpeed = windVector?.first ?: model.windSpeed,
         windDirection = windVector?.second?.roundToInt() ?: model.windDirection,
+        dewPoint = dewPoint ?: model.dewPoint,
+        pressure = pressure ?: model.pressure,
+        visibilityMeters = visibility ?: model.visibilityMeters,
     )
 }
 
@@ -112,6 +149,7 @@ internal fun applyCurrentConditionsToForecastJson(json: String, current: Current
         "temperature_2m" to current.temperature,
         "apparent_temperature" to current.feelsLike,
         "relative_humidity_2m" to current.humidity,
+        "dew_point_2m" to current.dewPoint,
         "precipitation" to current.precipitation,
         "rain" to current.rain,
         "weather_code" to current.weatherCode,
@@ -119,6 +157,8 @@ internal fun applyCurrentConditionsToForecastJson(json: String, current: Current
         "cloud_cover_low" to current.cloudCoverLow,
         "cloud_cover_mid" to current.cloudCoverMid,
         "cloud_cover_high" to current.cloudCoverHigh,
+        "pressure_msl" to current.pressure,
+        "visibility" to current.visibilityMeters,
         "wind_speed_10m" to current.windSpeed,
         "wind_direction_10m" to current.windDirection,
     )
@@ -134,6 +174,13 @@ internal fun applyCurrentConditionsToForecastJson(json: String, current: Current
         if (value != null && array != null && index < array.length()) array.put(index, value)
     }
     return root.toString()
+}
+
+private fun cloudWeatherCode(cloudCover: Int): Int = when {
+    cloudCover <= 20 -> 0
+    cloudCover <= 50 -> 1
+    cloudCover <= 80 -> 2
+    else -> 3
 }
 
 private fun distanceKm(location: CzechLocation, observation: CurrentStationObservation): Double {

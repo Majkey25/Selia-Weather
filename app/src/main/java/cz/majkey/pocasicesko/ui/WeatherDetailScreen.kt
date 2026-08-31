@@ -900,7 +900,11 @@ private fun ForecastRegion.labelResource(): Int = when (this) {
     ForecastRegion.CZECHIA -> R.string.forecast_region_czechia
     ForecastRegion.EUROPE -> R.string.forecast_region_europe
     ForecastRegion.NORTH_AMERICA -> R.string.forecast_region_north_america
+    ForecastRegion.SOUTH_AMERICA -> R.string.forecast_region_south_america
+    ForecastRegion.AFRICA -> R.string.forecast_region_africa
+    ForecastRegion.SOUTH_CENTRAL_ASIA -> R.string.forecast_region_south_central_asia
     ForecastRegion.EAST_ASIA -> R.string.forecast_region_east_asia
+    ForecastRegion.NORTHERN_ASIA -> R.string.forecast_region_northern_asia
     ForecastRegion.OCEANIA -> R.string.forecast_region_oceania
     ForecastRegion.GLOBAL -> R.string.forecast_region_global
 }

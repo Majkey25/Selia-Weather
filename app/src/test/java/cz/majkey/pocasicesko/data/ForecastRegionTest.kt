@@ -35,6 +35,54 @@ class ForecastRegionTest {
     }
 
     @Test
+    fun routesEveryWorldwideDetailLocation() {
+        assertEquals(
+            ForecastRegion.NORTHERN_ASIA,
+            forecastRegionFor(CzechLocation("Moscow", "Moscow", 55.7558, 37.6173, "RU")),
+        )
+        assertEquals(
+            ForecastRegion.SOUTH_CENTRAL_ASIA,
+            forecastRegionFor(CzechLocation("Delhi", "Delhi", 28.6139, 77.209, "IN")),
+        )
+        assertEquals(
+            ForecastRegion.AFRICA,
+            forecastRegionFor(CzechLocation("Lagos", "Lagos", 6.5244, 3.3792, "NG")),
+        )
+        assertEquals(
+            ForecastRegion.AFRICA,
+            forecastRegionFor(CzechLocation("Nairobi", "Nairobi", -1.2921, 36.8219, "KE")),
+        )
+        assertEquals(
+            ForecastRegion.SOUTH_AMERICA,
+            forecastRegionFor(CzechLocation("São Paulo", "São Paulo", -23.5505, -46.6333, "BR")),
+        )
+        assertEquals(
+            ForecastRegion.GLOBAL,
+            forecastRegionFor(CzechLocation("Arctic", REGION_WORLD, 82.0, 20.0)),
+        )
+    }
+
+    @Test
+    fun keepsGlobalProviderFamiliesAtEveryWorldwideDetailLocation() {
+        val locations = listOf(
+            CzechLocation("Moscow", "Moscow", 55.7558, 37.6173, "RU"),
+            CzechLocation("Delhi", "Delhi", 28.6139, 77.209, "IN"),
+            CzechLocation("Lagos", "Lagos", 6.5244, 3.3792, "NG"),
+            CzechLocation("Nairobi", "Nairobi", -1.2921, 36.8219, "KE"),
+            CzechLocation("São Paulo", "São Paulo", -23.5505, -46.6333, "BR"),
+            CzechLocation("Pacific", REGION_WORLD, 0.0, -140.0),
+            CzechLocation("Arctic", REGION_WORLD, 82.0, 20.0),
+        )
+
+        locations.forEach { location ->
+            val models = forecastApiModelsFor(location)
+            assertTrue(models.size >= 3)
+            assertEquals(models.size, models.distinct().size)
+            assertFalse("chmi_aladin_seamless" in models)
+        }
+    }
+
+    @Test
     fun requestsEveryVerifiedGlobalFamilyAndOnlyAddsChmiInsideCzechia() {
         val prague = forecastApiModelsFor(
             CzechLocation("Praha", REGION_PRAGUE, 50.0755, 14.4378, "CZ"),

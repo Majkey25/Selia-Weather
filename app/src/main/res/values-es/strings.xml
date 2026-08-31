@@ -316,7 +316,11 @@
     <string name="forecast_region_czechia">Chequia</string>
     <string name="forecast_region_europe">Europa</string>
     <string name="forecast_region_north_america">Norteamérica</string>
+    <string name="forecast_region_south_america">Sudamérica</string>
+    <string name="forecast_region_africa">África</string>
+    <string name="forecast_region_south_central_asia">Asia meridional y central</string>
     <string name="forecast_region_east_asia">Asia oriental</string>
+    <string name="forecast_region_northern_asia">Rusia y Asia septentrional</string>
     <string name="forecast_region_oceania">Oceanía</string>
     <string name="forecast_region_global">Global</string>
     <string name="history_title">Historial meteorológico</string>

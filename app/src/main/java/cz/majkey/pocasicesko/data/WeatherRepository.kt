@@ -149,6 +149,7 @@ class WeatherRepository(context: Context) {
             contributorIds = blend.contributorIds,
             fallbackReason = blend.fallbackReason,
             artifactVersion = blend.artifactVersion,
+            artifactGeneratedAtEpochSeconds = blend.artifactGeneratedAtEpochSeconds,
             truthClass = blend.truthClass,
             weights = blend.appliedWeights,
         )

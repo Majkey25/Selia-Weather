@@ -309,6 +309,14 @@
     <string name="forecast_calculation_model_count">%1$d sur %2$d</string>
     <string name="forecast_calculation_contributors">Modèles contributeurs</string>
     <string name="forecast_calculation_fallback">Repli</string>
+    <string name="forecast_calculation_truth">Source de vérification</string>
+    <string name="forecast_calculation_artifact">Artefact d’étalonnage</string>
+    <string name="forecast_calculation_artifact_value">v%1$s · %2$s</string>
+    <string name="forecast_calculation_weights">Poids appliqués</string>
+    <string name="forecast_truth_station">Stations contrôlées</string>
+    <string name="forecast_truth_radar_gauge">Radar et pluviomètres</string>
+    <string name="forecast_truth_satellite">Précipitations satellitaires</string>
+    <string name="forecast_truth_reanalysis">Réanalyse de repli</string>
     <string name="forecast_calculation_note">Provenance diagnostique. Aucune garantie de précision.</string>
     <string name="forecast_mode_calibrated">Combinaison calibrée</string>
     <string name="forecast_mode_diagnostic_median">Médiane diagnostique</string>

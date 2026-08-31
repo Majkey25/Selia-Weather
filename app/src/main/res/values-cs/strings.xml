@@ -309,6 +309,14 @@
     <string name="forecast_calculation_model_count">%1$d z %2$d</string>
     <string name="forecast_calculation_contributors">Přispívající modely</string>
     <string name="forecast_calculation_fallback">Náhradní režim</string>
+    <string name="forecast_calculation_truth">Ověřovací zdroj</string>
+    <string name="forecast_calculation_artifact">Kalibrační artefakt</string>
+    <string name="forecast_calculation_artifact_value">v%1$s · %2$s</string>
+    <string name="forecast_calculation_weights">Použité váhy</string>
+    <string name="forecast_truth_station">Kontrolované stanice</string>
+    <string name="forecast_truth_radar_gauge">Radar a srážkoměry</string>
+    <string name="forecast_truth_satellite">Družicové srážky</string>
+    <string name="forecast_truth_reanalysis">Náhradní reanalýza</string>
     <string name="forecast_calculation_note">Diagnostický původ dat. Nejde o záruku přesnosti.</string>
     <string name="forecast_mode_calibrated">Kalibrovaný výpočet</string>
     <string name="forecast_mode_diagnostic_median">Diagnostický medián</string>

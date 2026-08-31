@@ -16,6 +16,7 @@ internal data class ModelBlendResult(
     val appliedWeights: Map<String, Double> = emptyMap(),
     val truthClass: CalibrationTruthClass? = null,
     val artifactVersion: Int? = null,
+    val artifactGeneratedAtEpochSeconds: Long? = null,
 )
 
 internal fun blendModelForecast(
@@ -124,6 +125,7 @@ internal fun blendModelForecast(
         appliedWeights,
         currentTruthClass,
         calibration?.schemaVersion?.takeIf { calibrated },
+        calibration?.generatedAt?.epochSecond?.takeIf { calibrated },
     )
 }
 

@@ -55,6 +55,7 @@ import cz.majkey.pocasicesko.astro.MoonCalculator
 import cz.majkey.pocasicesko.astro.MoonDetails
 import cz.majkey.pocasicesko.astro.MoonPhaseKey
 import cz.majkey.pocasicesko.data.CzechLocation
+import cz.majkey.pocasicesko.data.CalibrationTruthClass
 import cz.majkey.pocasicesko.data.DailyWeather
 import cz.majkey.pocasicesko.data.ForecastCalculation
 import cz.majkey.pocasicesko.data.ForecastCalculationMode
@@ -69,6 +70,7 @@ import cz.majkey.pocasicesko.data.currentDay
 import cz.majkey.pocasicesko.data.summary
 import cz.majkey.pocasicesko.units.WeatherUnitFormatter
 import java.time.LocalDateTime
+import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -478,6 +480,30 @@ private fun ForecastCalculationSection(calculation: ForecastCalculation) {
                 calculation.requestedModelIds.size,
             ),
         )
+        calculation.truthClass?.let { truthClass ->
+            DetailRow(
+                stringResource(R.string.forecast_calculation_truth),
+                stringResource(truthClass.labelResource()),
+            )
+        }
+        calculation.artifactGeneratedAtEpochSeconds?.let { generatedAt ->
+            DetailRow(
+                stringResource(R.string.forecast_calculation_artifact),
+                stringResource(
+                    R.string.forecast_calculation_artifact_value,
+                    requireNotNull(calculation.artifactVersion),
+                    Instant.ofEpochSecond(generatedAt).toString(),
+                ),
+            )
+        }
+        if (calculation.weights.isNotEmpty()) {
+            DetailRow(
+                stringResource(R.string.forecast_calculation_weights),
+                calculation.weights.entries.joinToString(", ") { (modelId, weight) ->
+                    "$modelId ${(weight * 100).roundToInt()}%"
+                },
+            )
+        }
         Text(
             stringResource(R.string.forecast_calculation_contributors),
             color = Color.White.copy(alpha = 0.62f),
@@ -914,6 +940,14 @@ private fun ForecastCalculationMode.labelResource(): Int = when (this) {
     ForecastCalculationMode.CALIBRATED -> R.string.forecast_mode_calibrated
     ForecastCalculationMode.DIAGNOSTIC_MEDIAN -> R.string.forecast_mode_diagnostic_median
     ForecastCalculationMode.BEST_MATCH -> R.string.forecast_mode_best_match
+}
+
+@StringRes
+private fun CalibrationTruthClass.labelResource(): Int = when (this) {
+    CalibrationTruthClass.STATION -> R.string.forecast_truth_station
+    CalibrationTruthClass.RADAR_GAUGE -> R.string.forecast_truth_radar_gauge
+    CalibrationTruthClass.SATELLITE_PRECIPITATION -> R.string.forecast_truth_satellite
+    CalibrationTruthClass.REANALYSIS -> R.string.forecast_truth_reanalysis
 }
 
 @StringRes

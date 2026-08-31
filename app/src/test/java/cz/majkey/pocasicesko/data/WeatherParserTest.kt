@@ -85,6 +85,7 @@ class WeatherParserTest {
             contributorIds = listOf("a", "b"),
             fallbackReason = null,
             artifactVersion = 2,
+            artifactGeneratedAtEpochSeconds = 1_788_000_000L,
             truthClass = CalibrationTruthClass.STATION,
             weights = mapOf("a" to 0.4, "b" to 0.6),
         )

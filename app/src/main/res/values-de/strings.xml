@@ -309,6 +309,14 @@
     <string name="forecast_calculation_model_count">%1$d von %2$d</string>
     <string name="forecast_calculation_contributors">Beitragende Modelle</string>
     <string name="forecast_calculation_fallback">Rückfall</string>
+    <string name="forecast_calculation_truth">Prüfquelle</string>
+    <string name="forecast_calculation_artifact">Kalibrierungsartefakt</string>
+    <string name="forecast_calculation_artifact_value">v%1$s · %2$s</string>
+    <string name="forecast_calculation_weights">Verwendete Gewichte</string>
+    <string name="forecast_truth_station">Qualitätsgeprüfte Stationen</string>
+    <string name="forecast_truth_radar_gauge">Radar und Regenmesser</string>
+    <string name="forecast_truth_satellite">Satellitenniederschlag</string>
+    <string name="forecast_truth_reanalysis">Reanalyse als Ersatz</string>
     <string name="forecast_calculation_note">Diagnostische Herkunft. Keine Genauigkeitsgarantie.</string>
     <string name="forecast_mode_calibrated">Kalibrierte Mischung</string>
     <string name="forecast_mode_diagnostic_median">Diagnostischer Median</string>

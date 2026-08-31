@@ -43,6 +43,21 @@ class WeatherDetailScreenTest {
         assertTrue(markers.zipWithNext().all { (first, second) -> source.indexOf(first) < source.indexOf(second) })
     }
 
+    @Test
+    fun calculationDetailsExposeCalibrationEvidence() {
+        val source = File(
+            System.getProperty("user.dir"),
+            "src/main/java/cz/majkey/pocasicesko/ui/WeatherDetailScreen.kt",
+        ).readText()
+
+        assertTrue(source.contains("R.string.forecast_calculation_truth"))
+        assertTrue(source.contains("R.string.forecast_calculation_artifact"))
+        assertTrue(source.contains("R.string.forecast_calculation_weights"))
+        assertTrue(source.contains("calculation.truthClass"))
+        assertTrue(source.contains("calculation.artifactGeneratedAtEpochSeconds"))
+        assertTrue(source.contains("calculation.weights"))
+    }
+
     private fun hour(time: String, probability: Int, precipitation: Double) = HourlyWeather(
         time = time,
         temperature = 20.0,

@@ -23,6 +23,7 @@ data class ForecastCalculation(
     val contributorIds: List<String>,
     val fallbackReason: ForecastFallbackReason?,
     val artifactVersion: Int? = null,
+    val artifactGeneratedAtEpochSeconds: Long? = null,
     val truthClass: CalibrationTruthClass? = null,
     val weights: Map<String, Double> = emptyMap(),
 ) {
@@ -35,17 +36,27 @@ data class ForecastCalculation(
         when (mode) {
             ForecastCalculationMode.CALIBRATED -> {
                 require(contributorIds.size >= MINIMUM_CALIBRATED_MODELS && fallbackReason == null)
-                require(artifactVersion == 2 && truthClass != null)
+                require(
+                    artifactVersion == 2 &&
+                        artifactGeneratedAtEpochSeconds != null && artifactGeneratedAtEpochSeconds > 0 &&
+                        truthClass != null,
+                )
                 require(weights.keys == contributorIds.toSet())
                 require(abs(weights.values.sum() - 1.0) <= WEIGHT_EPSILON)
             }
             ForecastCalculationMode.DIAGNOSTIC_MEDIAN -> {
                 require(contributorIds.size >= MINIMUM_DIAGNOSTIC_MODELS && fallbackReason == null)
-                require(artifactVersion == null && truthClass == null && weights.isEmpty())
+                require(
+                    artifactVersion == null && artifactGeneratedAtEpochSeconds == null &&
+                        truthClass == null && weights.isEmpty(),
+                )
             }
             ForecastCalculationMode.BEST_MATCH -> {
                 require(fallbackReason != null)
-                require(artifactVersion == null && truthClass == null && weights.isEmpty())
+                require(
+                    artifactVersion == null && artifactGeneratedAtEpochSeconds == null &&
+                        truthClass == null && weights.isEmpty(),
+                )
             }
         }
     }
@@ -61,6 +72,10 @@ internal fun JSONObject.putForecastCalculation(calculation: ForecastCalculation)
         .put("contributor_ids", JSONArray(calculation.contributorIds))
         .put("fallback_reason", calculation.fallbackReason?.name ?: JSONObject.NULL)
         .put("artifact_version", calculation.artifactVersion ?: JSONObject.NULL)
+        .put(
+            "artifact_generated_at_epoch_seconds",
+            calculation.artifactGeneratedAtEpochSeconds ?: JSONObject.NULL,
+        )
         .put("truth_class", calculation.truthClass?.name ?: JSONObject.NULL)
         .put("weights", JSONObject(calculation.weights)),
 )
@@ -86,6 +101,14 @@ internal fun JSONObject.forecastCalculationOrNull(): ForecastCalculation? {
                 null
             } else {
                 value.getInt("artifact_version")
+            },
+            artifactGeneratedAtEpochSeconds = if (
+                schemaVersion == LEGACY_CALCULATION_SCHEMA_VERSION ||
+                value.isNull("artifact_generated_at_epoch_seconds")
+            ) {
+                null
+            } else {
+                value.getLong("artifact_generated_at_epoch_seconds")
             },
             truthClass = if (schemaVersion == LEGACY_CALCULATION_SCHEMA_VERSION ||
                 value.isNull("truth_class")

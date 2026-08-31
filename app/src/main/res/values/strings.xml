@@ -310,6 +310,14 @@
     <string name="forecast_calculation_model_count">%1$d of %2$d</string>
     <string name="forecast_calculation_contributors">Contributors</string>
     <string name="forecast_calculation_fallback">Fallback</string>
+    <string name="forecast_calculation_truth">Verification source</string>
+    <string name="forecast_calculation_artifact">Calibration artifact</string>
+    <string name="forecast_calculation_artifact_value">v%1$s · %2$s</string>
+    <string name="forecast_calculation_weights">Applied weights</string>
+    <string name="forecast_truth_station">Quality-controlled stations</string>
+    <string name="forecast_truth_radar_gauge">Radar and rain gauges</string>
+    <string name="forecast_truth_satellite">Satellite precipitation</string>
+    <string name="forecast_truth_reanalysis">Reanalysis fallback</string>
     <string name="forecast_calculation_note">Diagnostic provenance. It is not an accuracy guarantee.</string>
     <string name="forecast_mode_calibrated">Calibrated blend</string>
     <string name="forecast_mode_diagnostic_median">Diagnostic median</string>

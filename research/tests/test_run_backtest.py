@@ -18,8 +18,12 @@ from aladin_ensemble.run_backtest import (
     build_backtest_preflight,
     build_previous_requests,
     download_previous_forecasts,
+    evaluate_precipitation_training,
+    fit_precipitation_training,
     fit_scalar_segment,
+    fit_scalar_training,
     fit_wind_vector_segment,
+    fit_wind_vector_training,
     load_registry_model_ids,
     lock_backtest_dataset,
     monthly_truth_requests,
@@ -72,6 +76,43 @@ def _segment(*, degraded_holdout: bool = False) -> SegmentDataset:
     )
     return SegmentDataset(
         SegmentKey("temperature", 24),
+        training,
+        holdout,
+        ("model_a", "model_b"),
+        {"model_a": 1.0, "model_b": 1.0},
+    )
+
+
+def _precipitation_segment(*, incomplete_holdout: bool = False) -> SegmentDataset:
+    def precipitation_case(day: date, offset: int) -> ScalarForecastCase:
+        phase = offset % 3
+        return ScalarForecastCase(
+            day,
+            "precipitation",
+            24,
+            "REGION_PRAGUE",
+            "low",
+            "spring" if day.month < 6 else "summer",
+            2.0 if phase == 0 else 0.0,
+            {
+                "model_a": 2.0 if phase in {0, 1} else 0.0,
+                "model_b": 2.0 if phase in {0, 2} else 0.0,
+            },
+            4.0,
+        )
+
+    training = tuple(
+        precipitation_case(TRAIN.start + timedelta(days=offset), offset)
+        for offset in range(90)
+    )
+    holdout = tuple(
+        precipitation_case(HOLDOUT.start + timedelta(days=offset), offset)
+        for offset in range(30)
+    )
+    if incomplete_holdout:
+        holdout = holdout[:-1]
+    return SegmentDataset(
+        SegmentKey("precipitation", 24),
         training,
         holdout,
         ("model_a", "model_b"),
@@ -346,6 +387,43 @@ def test_scalar_fit_accepts_real_improvement_and_rejects_holdout_degradation() -
     assert rejected.export_fit is None
 
 
+def test_scalar_training_does_not_read_holdout() -> None:
+    assert fit_scalar_training(_segment()) == fit_scalar_training(
+        _segment(degraded_holdout=True)
+    )
+
+
+def test_precipitation_training_is_holdout_blind_and_evaluates_both_parts() -> None:
+    training = fit_precipitation_training(_precipitation_segment())
+
+    assert training == fit_precipitation_training(
+        _precipitation_segment(incomplete_holdout=True)
+    )
+    fitted = evaluate_precipitation_training(
+        _precipitation_segment(),
+        training,
+        _lock(),
+        trained_at=datetime(2026, 7, 31, tzinfo=UTC),
+        bootstrap_repetitions=50,
+    )
+    assert fitted.occurrence_evaluation.accepted
+    assert fitted.amount_evaluation.accepted
+    assert fitted.brier.score < fitted.occurrence_evaluation.best_model_score
+    assert fitted.thresholds[0][0] == 0.1
+    assert fitted.thresholds[0][1].misses == 0
+    assert fitted.thresholds[0][1].false_alarms == 0
+
+
+def test_precipitation_training_rejects_negative_amounts() -> None:
+    segment = _precipitation_segment()
+    invalid_case = replace(segment.training[0], observation=-0.1)
+
+    with pytest.raises(ValueError, match="non-negative"):
+        fit_precipitation_training(
+            replace(segment, training=(invalid_case, *segment.training[1:]))
+        )
+
+
 def test_wind_vector_segment_blends_across_north_and_passes_holdout() -> None:
     fitted = fit_wind_vector_segment(
         _wind_segment("wind_speed", 10.0, 10.0, 10.0),
@@ -375,6 +453,16 @@ def test_wind_vector_segment_rejects_unpaired_speed_and_direction_cases() -> Non
             trained_at=datetime(2026, 7, 31, tzinfo=UTC),
             bootstrap_repetitions=50,
         )
+
+
+def test_wind_training_does_not_read_holdout() -> None:
+    speed = _wind_segment("wind_speed", 10.0, 10.0, 10.0)
+    direction = _wind_segment("wind_direction", 350.0, 10.0, 0.0)
+    incomplete_holdout = replace(direction, holdout=direction.holdout[:-1])
+
+    assert fit_wind_vector_training(speed, direction) == fit_wind_vector_training(
+        speed, incomplete_holdout
+    )
 
 
 def test_monthly_truth_plan_and_forecast_hour_sampling_are_bounded() -> None:

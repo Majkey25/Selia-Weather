@@ -27,6 +27,12 @@ from aladin_ensemble.evaluate import (
     write_holdout_lock,
 )
 from aladin_ensemble.fallback import FitFailure, SegmentSelector
+from aladin_ensemble.metrics import (
+    BrierDecomposition,
+    ContingencyScores,
+    brier_decomposition,
+    threshold_scores,
+)
 from aladin_ensemble.registry import JsonValue, RequestBudget
 from aladin_ensemble.sources.chmi_download import (
     CZECH_TARGETS,
@@ -50,11 +56,16 @@ from aladin_ensemble.sources.open_meteo_runs import (
     parse_previous_run_values,
 )
 from aladin_ensemble.train import (
+    OccurrenceCalibration,
     WeightFit,
+    blend_positive_amount,
     blend_scalar,
     blend_wind,
+    fit_occurrence_calibration,
+    fit_positive_amount_weights,
     fit_scalar_weights,
     fit_wind_vector_weights,
+    predict_occurrence,
 )
 from aladin_ensemble.types import ForecastValue, Observation
 
@@ -65,6 +76,8 @@ FORECAST_VARIABLES = (
     "precipitation",
 )
 FIXED_LEADS = tuple(range(1, 8))
+PRECIPITATION_EVENT_THRESHOLD_MM = 0.1
+PRECIPITATION_THRESHOLDS_MM = (0.1, 1.0, 5.0)
 Sleeper = Callable[[float], None]
 PreflightStatus = Literal["ready", "blocked"]
 
@@ -78,6 +91,57 @@ class FittedSegment:
     @property
     def export_fit(self) -> WeightFit | None:
         return self.fit if self.evaluation.accepted else None
+
+
+@dataclass(frozen=True, slots=True)
+class ScalarTraining:
+    eligible_models: tuple[str, ...]
+    fallback_model: str
+    fit: WeightFit | None
+    fold_improvements: tuple[float, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class WindTraining:
+    eligible_models: tuple[str, ...]
+    fallback_model: str
+    fit: WeightFit | None
+    fold_improvements: tuple[float, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class PrecipitationTraining:
+    eligible_models: tuple[str, ...]
+    fallback_model: str
+    occurrence: OccurrenceCalibration | None
+    occurrence_threshold: float
+    amount: WeightFit | None
+    occurrence_fold_improvements: tuple[float, ...]
+    amount_fold_improvements: tuple[float, ...]
+
+    def __post_init__(self) -> None:
+        if not 0 <= self.occurrence_threshold <= 1:
+            raise ValueError("occurrence_threshold must be from zero through one")
+
+
+@dataclass(frozen=True, slots=True)
+class FittedPrecipitation:
+    fallback_model: str
+    occurrence: OccurrenceCalibration | None
+    occurrence_threshold: float
+    amount: WeightFit | None
+    occurrence_evaluation: SegmentEvaluation
+    amount_evaluation: SegmentEvaluation
+    brier: BrierDecomposition
+    thresholds: tuple[tuple[float, ContingencyScores], ...]
+
+    def __post_init__(self) -> None:
+        if not 0 <= self.occurrence_threshold <= 1:
+            raise ValueError("occurrence_threshold must be from zero through one")
+
+    @property
+    def accepted(self) -> bool:
+        return self.occurrence_evaluation.accepted and self.amount_evaluation.accepted
 
 
 @dataclass(frozen=True, slots=True)
@@ -411,15 +475,21 @@ def fit_scalar_segment(
     trained_at: datetime,
     bootstrap_repetitions: int = 1_000,
 ) -> FittedSegment:
+    training = fit_scalar_training(segment)
+    return evaluate_scalar_training(
+        segment,
+        training,
+        lock,
+        trained_at=trained_at,
+        bootstrap_repetitions=bootstrap_repetitions,
+    )
+
+
+def fit_scalar_training(segment: SegmentDataset) -> ScalarTraining:
     training = _complete_cases(segment.training, segment.eligible_models)
     if not training:
         raise ValueError("segment requires complete training cases")
     fallback_model = select_training_fallback(segment)
-    holdout = _complete_cases(segment.holdout, segment.eligible_models)
-    if fallback_model == "best_match":
-        holdout = tuple(case for case in holdout if case.best_match is not None)
-    if not holdout:
-        raise ValueError("segment requires complete holdout cases")
     fit_result = fit_scalar_weights(
         segment.eligible_models,
         tuple(_model_row(case, segment.eligible_models) for case in training),
@@ -428,12 +498,38 @@ def fit_scalar_segment(
         minimum_samples=30,
     )
     fit = None if isinstance(fit_result, FitFailure) else fit_result
+    return ScalarTraining(
+        segment.eligible_models,
+        fallback_model,
+        fit,
+        _fold_improvements(training, fit, fallback_model),
+    )
+
+
+def evaluate_scalar_training(
+    segment: SegmentDataset,
+    training: ScalarTraining,
+    lock: HoldoutLock,
+    *,
+    trained_at: datetime,
+    bootstrap_repetitions: int = 1_000,
+) -> FittedSegment:
+    if training.eligible_models != segment.eligible_models:
+        raise ValueError("scalar training models do not match evaluation segment")
+    holdout = _complete_cases(segment.holdout, segment.eligible_models)
+    if training.fallback_model == "best_match":
+        holdout = tuple(case for case in holdout if case.best_match is not None)
+    if not holdout:
+        raise ValueError("segment requires complete holdout cases")
     samples = tuple(
         EvaluationSample(
             case.forecast_date,
             case.region,
-            abs(_blend_or_fallback(case, fit, fallback_model) - case.observation),
-            abs(_model_value(case, fallback_model) - case.observation),
+            abs(
+                _blend_or_fallback(case, training.fit, training.fallback_model)
+                - case.observation
+            ),
+            abs(_model_value(case, training.fallback_model) - case.observation),
         )
         for case in holdout
     )
@@ -448,14 +544,162 @@ def fit_scalar_segment(
         selector,
         samples,
         metric="mae",
-        fallback_model=fallback_model,
-        fold_improvements=_fold_improvements(training, fit, fallback_model),
+        fallback_model=training.fallback_model,
+        fold_improvements=training.fold_improvements,
         missing_fallback_ok=True,
         trained_at=trained_at,
         lock=lock,
         bootstrap_repetitions=bootstrap_repetitions,
     )
-    return FittedSegment(fallback_model, fit, evaluation)
+    return FittedSegment(training.fallback_model, training.fit, evaluation)
+
+
+def fit_precipitation_training(segment: SegmentDataset) -> PrecipitationTraining:
+    _require_precipitation_segment(segment)
+    cases = _complete_cases(segment.training, segment.eligible_models)
+    _require_non_negative_precipitation(cases, segment.eligible_models)
+    fallback_model = select_training_fallback(segment)
+    occurrence_result = fit_occurrence_calibration(
+        segment.eligible_models,
+        tuple(_precipitation_event_row(case, segment.eligible_models) for case in cases),
+        tuple(case.observation >= PRECIPITATION_EVENT_THRESHOLD_MM for case in cases),
+        fold_ids=tuple(case.forecast_date.year * 12 + case.forecast_date.month for case in cases),
+        regularization_candidates=(0.01, 0.1, 1.0),
+        minimum_samples=60,
+    )
+    occurrence = None if isinstance(occurrence_result, FitFailure) else occurrence_result
+    occurrence_threshold = _select_precipitation_threshold(
+        cases,
+        occurrence,
+        fallback_model,
+    )
+    amount_result = fit_positive_amount_weights(
+        segment.eligible_models,
+        tuple(_model_row(case, segment.eligible_models) for case in cases),
+        tuple(case.observation for case in cases),
+        eligible_models=frozenset(segment.eligible_models),
+        minimum_positive_samples=30,
+    )
+    amount = None if isinstance(amount_result, FitFailure) else amount_result
+    occurrence_folds, amount_folds = _precipitation_fold_improvements(
+        cases,
+        occurrence,
+        amount,
+        fallback_model,
+        occurrence_threshold,
+    )
+    return PrecipitationTraining(
+        segment.eligible_models,
+        fallback_model,
+        occurrence,
+        occurrence_threshold,
+        amount,
+        occurrence_folds,
+        amount_folds,
+    )
+
+
+def evaluate_precipitation_training(
+    segment: SegmentDataset,
+    training: PrecipitationTraining,
+    lock: HoldoutLock,
+    *,
+    trained_at: datetime,
+    bootstrap_repetitions: int = 1_000,
+) -> FittedPrecipitation:
+    _require_precipitation_segment(segment)
+    if training.eligible_models != segment.eligible_models:
+        raise ValueError("precipitation training models do not match evaluation segment")
+    holdout = _complete_cases(segment.holdout, segment.eligible_models)
+    if training.fallback_model == "best_match":
+        holdout = tuple(case for case in holdout if case.best_match is not None)
+    _require_non_negative_precipitation(holdout, segment.eligible_models)
+    probabilities = tuple(
+        _precipitation_probability(case, training.occurrence, training.fallback_model)
+        for case in holdout
+    )
+    amounts = tuple(
+        _precipitation_amount(
+            case,
+            training.occurrence,
+            training.occurrence_threshold,
+            training.amount,
+            training.fallback_model,
+        )
+        for case in holdout
+    )
+    events = tuple(case.observation >= PRECIPITATION_EVENT_THRESHOLD_MM for case in holdout)
+    occurrence_evaluation = evaluate_segment(
+        SegmentSelector(
+            "precipitation_occurrence",
+            f"{segment.key.lead_hours}h",
+            None,
+            None,
+            None,
+        ),
+        tuple(
+            EvaluationSample(
+                case.forecast_date,
+                case.region,
+                (probability - float(event)) ** 2,
+                (
+                    float(
+                        _model_value(case, training.fallback_model)
+                        >= PRECIPITATION_EVENT_THRESHOLD_MM
+                    )
+                    - float(event)
+                )
+                ** 2,
+            )
+            for case, probability, event in zip(holdout, probabilities, events, strict=True)
+        ),
+        metric="brier",
+        fallback_model=training.fallback_model,
+        fold_improvements=training.occurrence_fold_improvements,
+        missing_fallback_ok=True,
+        trained_at=trained_at,
+        lock=lock,
+        bootstrap_repetitions=bootstrap_repetitions,
+    )
+    amount_evaluation = evaluate_segment(
+        SegmentSelector(
+            "precipitation_amount",
+            f"{segment.key.lead_hours}h",
+            None,
+            None,
+            None,
+        ),
+        tuple(
+            EvaluationSample(
+                case.forecast_date,
+                case.region,
+                abs(amount - case.observation),
+                abs(_model_value(case, training.fallback_model) - case.observation),
+            )
+            for case, amount in zip(holdout, amounts, strict=True)
+        ),
+        metric="mae",
+        fallback_model=training.fallback_model,
+        fold_improvements=training.amount_fold_improvements,
+        missing_fallback_ok=True,
+        trained_at=trained_at,
+        lock=lock,
+        bootstrap_repetitions=bootstrap_repetitions,
+    )
+    observed_amounts = tuple(case.observation for case in holdout)
+    return FittedPrecipitation(
+        training.fallback_model,
+        training.occurrence,
+        training.occurrence_threshold,
+        training.amount,
+        occurrence_evaluation,
+        amount_evaluation,
+        brier_decomposition(probabilities, events),
+        tuple(
+            (threshold, threshold_scores(amounts, observed_amounts, threshold))
+            for threshold in PRECIPITATION_THRESHOLDS_MM
+        ),
+    )
 
 
 def fit_wind_vector_segment(
@@ -466,38 +710,28 @@ def fit_wind_vector_segment(
     trained_at: datetime,
     bootstrap_repetitions: int = 1_000,
 ) -> FittedSegment:
-    if (
-        speed_segment.key.variable != "wind_speed"
-        or direction_segment.key.variable != "wind_direction"
-        or speed_segment.key.lead_hours != direction_segment.key.lead_hours
-    ):
-        raise ValueError("paired wind speed and direction segments are required")
-    eligible_models = tuple(
-        model_id
-        for model_id in speed_segment.eligible_models
-        if model_id in direction_segment.eligible_models
+    training = fit_wind_vector_training(speed_segment, direction_segment)
+    return evaluate_wind_vector_training(
+        speed_segment,
+        direction_segment,
+        training,
+        lock,
+        trained_at=trained_at,
+        bootstrap_repetitions=bootstrap_repetitions,
     )
-    if not eligible_models:
-        raise ValueError("paired wind segments have no eligible model")
+
+
+def fit_wind_vector_training(
+    speed_segment: SegmentDataset,
+    direction_segment: SegmentDataset,
+) -> WindTraining:
+    eligible_models = _wind_eligible_models(speed_segment, direction_segment)
     training = _paired_wind_cases(
         speed_segment.training,
         direction_segment.training,
         eligible_models,
     )
-    holdout = _paired_wind_cases(
-        speed_segment.holdout,
-        direction_segment.holdout,
-        eligible_models,
-    )
     fallback_model = _select_wind_fallback(training, eligible_models)
-    if fallback_model == "best_match":
-        holdout = tuple(
-            pair
-            for pair in holdout
-            if pair[0].best_match is not None and pair[1].best_match is not None
-        )
-    if not holdout:
-        raise ValueError("paired wind segments require complete holdout cases")
     fit_result = fit_wind_vector_weights(
         eligible_models,
         speed_rows=tuple(_model_row(pair[0], eligible_models) for pair in training),
@@ -508,12 +742,44 @@ def fit_wind_vector_segment(
         minimum_samples=30,
     )
     fit = None if isinstance(fit_result, FitFailure) else fit_result
+    return WindTraining(
+        eligible_models,
+        fallback_model,
+        fit,
+        _wind_fold_improvements(training, fit, fallback_model),
+    )
+
+
+def evaluate_wind_vector_training(
+    speed_segment: SegmentDataset,
+    direction_segment: SegmentDataset,
+    training: WindTraining,
+    lock: HoldoutLock,
+    *,
+    trained_at: datetime,
+    bootstrap_repetitions: int = 1_000,
+) -> FittedSegment:
+    if training.eligible_models != _wind_eligible_models(speed_segment, direction_segment):
+        raise ValueError("wind training models do not match evaluation segments")
+    holdout = _paired_wind_cases(
+        speed_segment.holdout,
+        direction_segment.holdout,
+        training.eligible_models,
+    )
+    if training.fallback_model == "best_match":
+        holdout = tuple(
+            pair
+            for pair in holdout
+            if pair[0].best_match is not None and pair[1].best_match is not None
+        )
+    if not holdout:
+        raise ValueError("paired wind segments require complete holdout cases")
     samples = tuple(
         EvaluationSample(
             speed.forecast_date,
             speed.region,
-            _wind_pair_loss(speed, direction, fit, fallback_model),
-            _wind_pair_loss(speed, direction, None, fallback_model),
+            _wind_pair_loss(speed, direction, training.fit, training.fallback_model),
+            _wind_pair_loss(speed, direction, None, training.fallback_model),
         )
         for speed, direction in holdout
     )
@@ -527,14 +793,34 @@ def fit_wind_vector_segment(
         ),
         samples,
         metric="vector_mae",
-        fallback_model=fallback_model,
-        fold_improvements=_wind_fold_improvements(training, fit, fallback_model),
+        fallback_model=training.fallback_model,
+        fold_improvements=training.fold_improvements,
         missing_fallback_ok=True,
         trained_at=trained_at,
         lock=lock,
         bootstrap_repetitions=bootstrap_repetitions,
     )
-    return FittedSegment(fallback_model, fit, evaluation)
+    return FittedSegment(training.fallback_model, training.fit, evaluation)
+
+
+def _wind_eligible_models(
+    speed_segment: SegmentDataset,
+    direction_segment: SegmentDataset,
+) -> tuple[str, ...]:
+    if (
+        speed_segment.key.variable != "wind_speed"
+        or direction_segment.key.variable != "wind_direction"
+        or speed_segment.key.lead_hours != direction_segment.key.lead_hours
+    ):
+        raise ValueError("paired wind speed and direction segments are required")
+    eligible_models = tuple(
+        model_id
+        for model_id in speed_segment.eligible_models
+        if model_id in direction_segment.eligible_models
+    )
+    if not eligible_models:
+        raise ValueError("paired wind segments have no eligible model")
+    return eligible_models
 
 
 def _paired_wind_cases(
@@ -633,6 +919,150 @@ def _wind_fold_improvements(
         )
         for _, fold in sorted(folds.items())
     )
+
+
+def _require_precipitation_segment(segment: SegmentDataset) -> None:
+    if segment.key.variable != "precipitation":
+        raise ValueError("precipitation segment is required")
+
+
+def _require_non_negative_precipitation(
+    cases: Sequence[ScalarForecastCase], model_ids: Sequence[str]
+) -> None:
+    if not cases:
+        raise ValueError("precipitation cases are required")
+    for case in cases:
+        if case.observation < 0 or any(_model_value(case, model_id) < 0 for model_id in model_ids):
+            raise ValueError("precipitation values must be non-negative")
+        if case.best_match is not None and case.best_match < 0:
+            raise ValueError("precipitation values must be non-negative")
+
+
+def _precipitation_event_row(
+    case: ScalarForecastCase, model_ids: Sequence[str]
+) -> tuple[float, ...]:
+    return tuple(
+        float(_model_value(case, model_id) >= PRECIPITATION_EVENT_THRESHOLD_MM)
+        for model_id in model_ids
+    )
+
+
+def _precipitation_probability(
+    case: ScalarForecastCase,
+    occurrence: OccurrenceCalibration | None,
+    fallback_model: str,
+) -> float:
+    if occurrence is None:
+        return float(
+            _model_value(case, fallback_model) >= PRECIPITATION_EVENT_THRESHOLD_MM
+        )
+    return predict_occurrence(
+        occurrence,
+        {
+            model_id: float(
+                _model_value(case, model_id) >= PRECIPITATION_EVENT_THRESHOLD_MM
+            )
+            for model_id in occurrence.coefficients
+        },
+    )
+
+
+def _select_precipitation_threshold(
+    cases: Sequence[ScalarForecastCase],
+    occurrence: OccurrenceCalibration | None,
+    fallback_model: str,
+) -> float:
+    if occurrence is None:
+        return 0.5
+    probabilities = tuple(
+        _precipitation_probability(case, occurrence, fallback_model) for case in cases
+    )
+    events = tuple(case.observation >= PRECIPITATION_EVENT_THRESHOLD_MM for case in cases)
+    return min(
+        set(probabilities),
+        key=lambda threshold: (
+            sum(
+                (probability >= threshold) != event
+                for probability, event in zip(probabilities, events, strict=True)
+            ),
+            abs(threshold - 0.5),
+            threshold,
+        ),
+    )
+
+
+def _precipitation_amount(
+    case: ScalarForecastCase,
+    occurrence: OccurrenceCalibration | None,
+    occurrence_threshold: float,
+    amount: WeightFit | None,
+    fallback_model: str,
+) -> float:
+    if occurrence is None or amount is None:
+        return _model_value(case, fallback_model)
+    if _precipitation_probability(case, occurrence, fallback_model) < occurrence_threshold:
+        return 0.0
+    return blend_positive_amount(
+        amount,
+        {model_id: _model_value(case, model_id) for model_id in amount.weights},
+    )
+
+
+def _precipitation_fold_improvements(
+    cases: Sequence[ScalarForecastCase],
+    occurrence: OccurrenceCalibration | None,
+    amount: WeightFit | None,
+    fallback_model: str,
+    occurrence_threshold: float,
+) -> tuple[tuple[float, ...], tuple[float, ...]]:
+    folds: dict[tuple[int, int], list[ScalarForecastCase]] = {}
+    for case in cases:
+        folds.setdefault((case.forecast_date.year, case.forecast_date.month), []).append(case)
+    occurrence_improvements = (
+        ()
+        if occurrence is None
+        else tuple(
+            fmean(
+                (
+                    float(
+                        _model_value(case, fallback_model)
+                        >= PRECIPITATION_EVENT_THRESHOLD_MM
+                    )
+                    - float(case.observation >= PRECIPITATION_EVENT_THRESHOLD_MM)
+                )
+                ** 2
+                - (
+                    _precipitation_probability(case, occurrence, fallback_model)
+                    - float(case.observation >= PRECIPITATION_EVENT_THRESHOLD_MM)
+                )
+                ** 2
+                for case in fold
+            )
+            for _, fold in sorted(folds.items())
+        )
+    )
+    amount_improvements = (
+        ()
+        if occurrence is None or amount is None
+        else tuple(
+            fmean(
+                abs(_model_value(case, fallback_model) - case.observation)
+                - abs(
+                    _precipitation_amount(
+                        case,
+                        occurrence,
+                        occurrence_threshold,
+                        amount,
+                        fallback_model,
+                    )
+                    - case.observation
+                )
+                for case in fold
+            )
+            for _, fold in sorted(folds.items())
+        )
+    )
+    return occurrence_improvements, amount_improvements
 
 
 def _complete_cases(

@@ -3,334 +3,154 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5,user-scalable=yes">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https://produkty.chmi.cz; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'">
-  <title>ČHMÚ Radar</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src https://api.rainviewer.com; img-src data: https://tile.openstreetmap.org https://tilecache.rainviewer.com; style-src 'self' file: 'unsafe-inline'; script-src 'self' file: 'unsafe-inline'; base-uri 'none'; object-src 'none'">
+  <title>Observed radar</title>
+  <link rel="stylesheet" href="leaflet-1.9.4.css">
   <style>
     * { box-sizing: border-box; }
-    html, body { height: 100%; margin: 0; overflow: hidden; background: #071018; color: #f4fafc; font-family: system-ui, sans-serif; }
-    .layers { position: fixed; z-index: 10; top: 10px; left: 10px; right: 10px; height: 42px; display: flex; }
-    button { margin-right: 7px; border: 1px solid #ffffff20; border-radius: 14px; background: #172731; color: #d9e8ed; padding: 10px 13px; font: inherit; font-size: 13px; font-weight: 650; }
-    button:focus { outline: none; }
-    button.active { background: #2b6878; color: #fff; }
-    .map { position: fixed; top: 62px; left: 10px; right: 10px; bottom: 86px; overflow: hidden; border: 1px solid #ffffff18; border-radius: 20px; background: #05090d; }
-    .map img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
-    .radar-crop { position: absolute; left: 0; right: 0; top: 50%; aspect-ratio: 600 / 380; overflow: hidden; transform: translateY(-50%); }
-    #base, #radar, #strikes { inset: auto auto 0 0; width: 113.333%; height: 121.053%; object-fit: fill; }
-    #strikes { z-index: 1; pointer-events: none; }
-    #satellite, #satBorders { display: none; }
-    #satBorders { pointer-events: none; }
-    .status { position: absolute; z-index: 5; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 80%; color: #a9bbc3; text-align: center; font-size: 13px; }
-    .time { position: absolute; z-index: 5; left: 10px; bottom: 10px; padding: 7px 10px; border-radius: 12px; background: #07131ce8; font-size: 12px; }
-    .source { position: absolute; z-index: 5; right: 10px; bottom: 10px; color: #a8bac2; font-size: 10px; }
-    .timeline { position: fixed; left: 10px; right: 10px; bottom: 12px; height: 62px; padding-left: 52px; }
-    #play { position: absolute; left: 0; top: 8px; width: 42px; height: 42px; padding: 0; border-radius: 50%; font-size: 17px; }
-    input[type=range] { width: 100%; margin: 16px 0 0; accent-color: #66c9df; }
-    .legend { position: fixed; left: 62px; right: 10px; bottom: 7px; height: 5px; border-radius: 3px; background: linear-gradient(90deg,#51a3ff,#33d6a6,#f3e744,#ff8a30,#ef3153,#b12ce1); opacity: .85; }
+    html, body, #map { width: 100%; height: 100%; margin: 0; background: #071018; }
+    body { overflow: hidden; color: #f4fafc; font-family: system-ui, sans-serif; }
+    #map { position: absolute; inset: 0; }
+    .leaflet-container { background: #071018; }
+    .panel { position: fixed; z-index: 1000; left: 10px; right: 10px; bottom: 10px; padding: 10px 12px 9px; border: 1px solid #ffffff22; border-radius: 18px; background: #07131cee; backdrop-filter: blur(10px); }
+    .topline { display: flex; align-items: center; min-height: 28px; gap: 8px; }
+    .time { flex: 1; font-size: 13px; font-weight: 650; }
+    .source { color: #a9bbc3; font-size: 10px; text-align: right; }
+    button { min-width: 38px; height: 34px; border: 1px solid #ffffff24; border-radius: 12px; background: #172731; color: #f4fafc; font: inherit; }
+    button.active { background: #2b6878; }
+    button:focus-visible { outline: 2px solid #6dd3ea; outline-offset: 2px; }
+    input[type=range] { width: 100%; margin: 8px 0 0; accent-color: #66c9df; }
+    .status { position: fixed; z-index: 1001; left: 50%; top: 50%; width: min(82%, 360px); transform: translate(-50%, -50%); padding: 11px 14px; border-radius: 14px; background: #07131ce8; color: #d9e8ed; text-align: center; font-size: 13px; }
+    .status[hidden] { display: none; }
+    .leaflet-control-attribution { max-width: 82%; font-size: 8px; background: #07131ccc !important; color: #c7d5da; }
+    .leaflet-control-attribution a { color: #8bd8ea; }
   </style>
 </head>
 <body>
-  <div class="layers">
-    <button id="rain" class="active" type="button" onclick="setLayer('rain')">Rain</button>
-    <button id="clouds" type="button" onclick="setLayer('clouds')">Clouds</button>
-    <button id="lightning" class="active" type="button" aria-pressed="true" onclick="toggleLightning()">Lightning</button>
-  </div>
-  <div class="map">
-    <div class="radar-crop">
-      <img id="base" src="https://produkty.chmi.cz/radar/und/pacz2gmaps6.und3.png" alt="Map of Czechia">
-      <img id="radar" alt="ČHMÚ radar rainfall">
-      <img id="strikes" alt="">
+  <div id="map" aria-label="Observed precipitation radar"></div>
+  <div id="status" class="status">Loading observed radar…</div>
+  <div class="panel">
+    <div class="topline">
+      <button id="play" type="button" aria-label="Play" onclick="togglePlay()">▶</button>
+      <button id="coverage" class="active" type="button" aria-pressed="true" onclick="toggleCoverage()">Coverage</button>
+      <div id="time" class="time">—</div>
+      <div class="source">RainViewer · UTC</div>
     </div>
-    <img id="satellite" alt="ČHMÚ satellite image">
-    <img id="satBorders" src="https://produkty.chmi.cz/druzice/und/msgcz-1160x800.und.010.hranice.png" alt="">
-    <div class="status" id="status">Looking for the latest ČHMÚ data…</div>
-    <div class="time" id="time" hidden></div>
-    <div class="source">ČHMÚ · UTC</div>
+    <input id="slider" type="range" min="0" max="0" value="0" aria-label="Observed radar timeline" oninput="showFrame(Number(this.value))">
   </div>
-  <div class="timeline">
-    <button id="play" type="button" onclick="togglePlay()" aria-label="Play">▶</button>
-    <input id="slider" type="range" min="0" max="0" value="0" aria-label="Timeline" oninput="showFrame(Number(this.value))">
-  </div>
-  <div class="legend" aria-label="Rain intensity"></div>
+  <script src="leaflet-1.9.4.js"></script>
   <script>
-    var DICTIONARY = {
-      en: {
-        title: 'ČHMÚ Radar', rain: 'Rain', clouds: 'Clouds', lightning: 'Lightning',
-        map: 'Map of Czechia', radar: 'ČHMÚ radar rainfall', lightningImage: 'ČHMÚ lightning',
-        satellite: 'ČHMÚ satellite image', latestData: 'Looking for the latest ČHMÚ data…',
-        satelliteUnavailable: 'Selected satellite image is unavailable.', dataUnavailable: 'ČHMÚ data are not available yet.',
-        radarUnavailable: 'Selected radar frame is unavailable.', nowcastUnavailable: 'Selected ČHMÚ nowcast is unavailable.',
-        nowcastLoading: 'Loading ČHMÚ nowcast…', radarFailed: 'ČHMÚ radar could not be loaded.',
-        play: 'Play', pause: 'Pause', timeline: 'Timeline', intensity: 'Rain intensity', nowcast: 'nowcast', minute: 'min'
-      },
-      cs: {
-        title: 'Radar ČHMÚ', rain: 'Srážky', clouds: 'Mraky', lightning: 'Blesky',
-        map: 'Mapa Česka', radar: 'Radarové srážky ČHMÚ', lightningImage: 'Blesky ČHMÚ',
-        satellite: 'Družicový snímek ČHMÚ', latestData: 'Hledám nejnovější data ČHMÚ…',
-        satelliteUnavailable: 'Zvolený družicový snímek není dostupný.', dataUnavailable: 'Data ČHMÚ zatím nejsou dostupná.',
-        radarUnavailable: 'Zvolený radarový snímek není dostupný.', nowcastUnavailable: 'Zvolený nowcast ČHMÚ není dostupný.',
-        nowcastLoading: 'Načítám nowcast ČHMÚ…', radarFailed: 'Radar ČHMÚ se nepodařilo načíst.',
-        play: 'Přehrát', pause: 'Pozastavit', timeline: 'Časová osa', intensity: 'Intenzita srážek', nowcast: 'nowcast', minute: 'min'
-      },
-      de: {
-        title: 'ČHMÚ-Radar', rain: 'Regen', clouds: 'Wolken', lightning: 'Blitze',
-        map: 'Karte von Tschechien', radar: 'ČHMÚ-Radarniederschlag', lightningImage: 'ČHMÚ-Blitze',
-        satellite: 'ČHMÚ-Satellitenbild', latestData: 'Neueste ČHMÚ-Daten werden gesucht…',
-        satelliteUnavailable: 'Das ausgewählte Satellitenbild ist nicht verfügbar.', dataUnavailable: 'ČHMÚ-Daten sind noch nicht verfügbar.',
-        radarUnavailable: 'Das ausgewählte Radarbild ist nicht verfügbar.', nowcastUnavailable: 'Der ausgewählte ČHMÚ-nowcast ist nicht verfügbar.',
-        nowcastLoading: 'ČHMÚ-nowcast wird geladen…', radarFailed: 'ČHMÚ-Radar konnte nicht geladen werden.',
-        play: 'Abspielen', pause: 'Pausieren', timeline: 'Zeitleiste', intensity: 'Regenintensität', nowcast: 'nowcast', minute: 'Min.'
-      },
-      es: {
-        title: 'Radar ČHMÚ', rain: 'Lluvia', clouds: 'Nubes', lightning: 'Rayos',
-        map: 'Mapa de Chequia', radar: 'Precipitación de radar ČHMÚ', lightningImage: 'Rayos ČHMÚ',
-        satellite: 'Imagen satelital ČHMÚ', latestData: 'Buscando los datos más recientes de ČHMÚ…',
-        satelliteUnavailable: 'La imagen satelital seleccionada no está disponible.', dataUnavailable: 'Los datos de ČHMÚ aún no están disponibles.',
-        radarUnavailable: 'La imagen de radar seleccionada no está disponible.', nowcastUnavailable: 'El nowcast de ČHMÚ seleccionado no está disponible.',
-        nowcastLoading: 'Cargando nowcast de ČHMÚ…', radarFailed: 'No se pudo cargar el radar de ČHMÚ.',
-        play: 'Reproducir', pause: 'Pausar', timeline: 'Línea de tiempo', intensity: 'Intensidad de lluvia', nowcast: 'nowcast', minute: 'min'
-      },
-      fr: {
-        title: 'Radar ČHMÚ', rain: 'Pluie', clouds: 'Nuages', lightning: 'Éclairs',
-        map: 'Carte de Tchéquie', radar: 'Précipitations radar ČHMÚ', lightningImage: 'Éclairs ČHMÚ',
-        satellite: 'Image satellite ČHMÚ', latestData: 'Recherche des dernières données ČHMÚ…',
-        satelliteUnavailable: 'L’image satellite sélectionnée n’est pas disponible.', dataUnavailable: 'Les données ČHMÚ ne sont pas encore disponibles.',
-        radarUnavailable: 'L’image radar sélectionnée n’est pas disponible.', nowcastUnavailable: 'Le nowcast ČHMÚ sélectionné n’est pas disponible.',
-        nowcastLoading: 'Chargement du nowcast ČHMÚ…', radarFailed: 'Le radar ČHMÚ n’a pas pu être chargé.',
-        play: 'Lire', pause: 'Pause', timeline: 'Chronologie', intensity: 'Intensité des précipitations', nowcast: 'nowcast', minute: 'min'
-      }
+    var TEXTS = {
+      en: { loading: 'Loading observed radar…', unavailable: 'Observed radar is unavailable for this area or time.', play: 'Play', pause: 'Pause', coverage: 'Coverage', map: 'Observed precipitation radar' },
+      cs: { loading: 'Načítám pozorovaný radar…', unavailable: 'Pozorovaný radar pro tuto oblast nebo čas není dostupný.', play: 'Přehrát', pause: 'Pozastavit', coverage: 'Pokrytí', map: 'Pozorovaný srážkový radar' },
+      de: { loading: 'Beobachtungsradar wird geladen…', unavailable: 'Für dieses Gebiet oder diese Zeit sind keine Radarbeobachtungen verfügbar.', play: 'Abspielen', pause: 'Pause', coverage: 'Abdeckung', map: 'Beobachtetes Niederschlagsradar' },
+      es: { loading: 'Cargando radar observado…', unavailable: 'El radar observado no está disponible para esta zona o momento.', play: 'Reproducir', pause: 'Pausa', coverage: 'Cobertura', map: 'Radar de precipitación observado' },
+      fr: { loading: 'Chargement du radar observé…', unavailable: 'Le radar observé est indisponible pour cette zone ou cette heure.', play: 'Lire', pause: 'Pause', coverage: 'Couverture', map: 'Radar des précipitations observées' }
     };
-    function languageDictionary(tag) { return DICTIONARY[tag] || DICTIONARY.en; }
-    var requestedLanguage = new URLSearchParams(window.location.search).get('lang');
-    var language = Object.prototype.hasOwnProperty.call(DICTIONARY, requestedLanguage) ? requestedLanguage : 'en';
-    var TEXT = languageDictionary(language);
-    document.documentElement.lang = language;
-    document.title = TEXT.title;
-    function applyText() {
-      document.getElementById('rain').textContent = TEXT.rain;
-      document.getElementById('clouds').textContent = TEXT.clouds;
-      document.getElementById('lightning').textContent = TEXT.lightning;
-      document.getElementById('base').alt = TEXT.map;
-      document.getElementById('radar').alt = TEXT.radar;
-      document.getElementById('satellite').alt = TEXT.satellite;
-      document.getElementById('play').setAttribute('aria-label', TEXT.play);
-      document.getElementById('slider').setAttribute('aria-label', TEXT.timeline);
-      document.querySelector('.legend').setAttribute('aria-label', TEXT.intensity);
-      setStatus(TEXT.latestData);
-    }
-
-    var radarFrames = [];
-    var cloudFrames = [];
-    var baseLayer = 'rain';
-    var lightningVisible = true;
+    var parameters = new URLSearchParams(window.location.search);
+    var language = Object.prototype.hasOwnProperty.call(TEXTS, parameters.get('lang')) ? parameters.get('lang') : 'en';
+    var TEXT = TEXTS[language];
+    var latitude = coordinate(parameters.get('lat'), -90, 90, 50.0755);
+    var longitude = coordinate(parameters.get('lon'), -180, 180, 14.4378);
+    var MAX_FRAMES = 20;
+    var frames = [];
     var frameIndex = 0;
+    var radarLayer = null;
+    var coverageLayer = null;
+    var coverageVisible = true;
     var timer = null;
-    var latestRadar = null;
-    var activeFrame = null;
     var requestToken = 0;
-    var lightningSource = null;
-    var radarSource = null;
-    var satelliteSource = null;
-    var nowcastOffsets = [15, 10, 5, 0, -5, -10, -15, -20, -25, -30];
+    var tileHost = '';
 
-    function pad(value) { return String(value).padStart(2, '0'); }
-    function stamp(date) {
-      return date.getUTCFullYear() + pad(date.getUTCMonth() + 1) + pad(date.getUTCDate()) + pad(date.getUTCHours()) + pad(date.getUTCMinutes());
+    document.documentElement.lang = language;
+    document.getElementById('status').textContent = TEXT.loading;
+    document.getElementById('play').setAttribute('aria-label', TEXT.play);
+    document.getElementById('coverage').textContent = TEXT.coverage;
+    document.getElementById('map').setAttribute('aria-label', TEXT.map);
+
+    var map = L.map('map', { maxZoom: 7, minZoom: 2, zoomControl: true }).setView([latitude, longitude], 6);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      minZoom: 2,
+      maxZoom: 7,
+      maxNativeZoom: 7,
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(map);
+
+    function coordinate(raw, minimum, maximum, fallback) {
+      var value = Number(raw);
+      return Number.isFinite(value) && value >= minimum && value <= maximum ? value : fallback;
     }
-    function addMinutes(date, minutes) { return new Date(date.getTime() + minutes * 60000); }
-    function floorUtc(minutes) {
-      var date = new Date();
-      date.setUTCSeconds(0, 0);
-      date.setUTCMinutes(Math.floor(date.getUTCMinutes() / minutes) * minutes);
-      return date;
-    }
-    function radarUrl(date) {
-      var value = stamp(date);
-      return 'https://produkty.chmi.cz/radar/input_data/czrad-z_max3d_masked/pacz2gmaps3.z_max3d.' + value.slice(0, 8) + '.' + value.slice(8) + '.0.png';
-    }
-    function lightningUrl(date) {
-      var rounded = new Date(date.getTime());
-      rounded.setUTCMinutes(Math.floor(rounded.getUTCMinutes() / 10) * 10);
-      var value = stamp(rounded);
-      return 'https://produkty.chmi.cz/radar/input_data/blesk/pacz2gmaps3.blesk.' + value.slice(0, 8) + '.' + value.slice(8) + '.png';
-    }
-    function nowcastUrl(base, lead) {
-      var value = stamp(base);
-      var directory = value.slice(0, 8) + '.' + value.slice(8);
-      var target = stamp(addMinutes(base, lead));
-      return 'https://produkty.chmi.cz/radar/input_data/czrad-z_max3d_fct_masked/' + directory + '/pacz2gmaps3.fct_z_max.' + target.slice(0, 8) + '.' + target.slice(8) + '.' + lead + '.png';
-    }
-    function satelliteUrl(date) {
-      var value = stamp(date);
-      return 'https://produkty.chmi.cz/druzice/input_data/hrfi/' + value.slice(0, 8) + '/CZ1_1160x800-vis_ir/CZ1_1160x800.vis_ir.' + value + '.jpeg';
-    }
-    function probe(buildUrl, date, step, attempts, done) {
-      var image = new Image();
-      image.onload = function() { done(date); };
-      image.onerror = function() {
-        if (attempts <= 1) { done(null); return; }
-        probe(buildUrl, addMinutes(date, -step), step, attempts - 1, done);
-      };
-      image.src = buildUrl(date);
-    }
-    function formatTime(date) { return pad(date.getUTCHours()) + ':' + pad(date.getUTCMinutes()) + ' UTC'; }
+
     function setStatus(message) {
       var status = document.getElementById('status');
       status.textContent = message;
       status.hidden = !message;
     }
-    function setLayer(next) {
-      baseLayer = next;
-      document.getElementById('rain').className = next === 'rain' ? 'active' : '';
-      document.getElementById('clouds').className = next === 'clouds' ? 'active' : '';
-      document.getElementById('lightning').style.display = '';
-      document.querySelector('.legend').style.visibility = next === 'rain' ? 'visible' : 'hidden';
-      document.getElementById('base').style.display = next === 'rain' ? 'block' : 'none';
-      document.getElementById('radar').style.display = next === 'rain' ? 'block' : 'none';
-      document.getElementById('strikes').style.visibility = 'hidden';
-      document.getElementById('satellite').style.display = next === 'clouds' ? 'block' : 'none';
-      document.getElementById('satBorders').style.display = next === 'clouds' ? 'block' : 'none';
-      var frames = next === 'rain' ? radarFrames : cloudFrames;
-      frameIndex = next === 'rain' ? Math.max(0, Math.min(11, frames.length - 1)) : Math.max(0, frames.length - 1);
-      replaceSlider(frames.length, frameIndex);
-      showFrame(frameIndex);
+
+    function clearRadarLayer() {
+      if (radarLayer) {
+        map.removeLayer(radarLayer);
+        radarLayer = null;
+      }
     }
-    function replaceSlider(frameCount, value) {
-      var previous = document.getElementById('slider');
-      var slider = document.createElement('input');
-      slider.id = 'slider';
-      slider.type = 'range';
-      slider.min = 0;
-      slider.max = Math.max(0, frameCount - 1);
-      slider.value = value;
-      slider.setAttribute('aria-label', TEXT.timeline);
-      slider.oninput = function() { showFrame(Number(this.value)); };
-      previous.parentNode.replaceChild(slider, previous);
+
+    function radarTileUrl(frame) {
+      return tileHost + frame.path + '/256/{z}/{x}/{y}/2/1_1.png';
     }
-    function toggleLightning() {
-      lightningVisible = !lightningVisible;
-      document.getElementById('lightning').className = lightningVisible ? 'active' : '';
-      document.getElementById('lightning').setAttribute('aria-pressed', String(lightningVisible));
-      showFrame(frameIndex);
+
+    function coverageTileUrl() {
+      return tileHost + '/v2/coverage/0/256/{z}/{x}/{y}/0/0_0.png';
     }
-    function layerVisibility(baseLayer, lightningVisible) {
-      return {
-        rain: baseLayer === 'rain',
-        clouds: baseLayer === 'clouds',
-        lightning: lightningVisible
-      };
-    }
-    function isActiveImageRequest(token, frame, source, activeSource) {
-      return token === requestToken && frame === activeFrame && source === activeSource;
-    }
-    function loadImage(source, onload, onerror) {
-      var image = new Image();
-      image.onload = onload;
-      image.onerror = onerror;
-      image.src = source;
-    }
-    function loadCurrentImage(source, token, frame, activeSource, onload, onerror) {
-      loadImage(source, function() {
-        if (isActiveImageRequest(token, frame, source, activeSource())) { onload(); }
-      }, function() {
-        if (isActiveImageRequest(token, frame, source, activeSource())) { onerror(); }
+
+    function installCoverageLayer() {
+      if (!tileHost || coverageLayer) return;
+      coverageLayer = L.tileLayer(coverageTileUrl(), {
+        minZoom: 2,
+        maxZoom: 7,
+        maxNativeZoom: 7,
+        opacity: 0.16,
+        attribution: '<a href="https://www.rainviewer.com/">RainViewer</a>'
       });
+      if (coverageVisible) coverageLayer.addTo(map);
     }
-    function hideImage(image) {
-      image.style.visibility = 'hidden';
-      image.alt = '';
-      image.removeAttribute('src');
+
+    function toggleCoverage() {
+      coverageVisible = !coverageVisible;
+      var button = document.getElementById('coverage');
+      button.className = coverageVisible ? 'active' : '';
+      button.setAttribute('aria-pressed', String(coverageVisible));
+      if (!coverageLayer) return;
+      if (coverageVisible) coverageLayer.addTo(map); else map.removeLayer(coverageLayer);
     }
-    function showLightning(frame, token) {
-      var strikes = document.getElementById('strikes');
-      var lightning = lightningVisible ? lightningUrl(frame.date) : null;
-      if (!lightning) {
-        lightningSource = null;
-        hideImage(strikes);
+
+    function showFrame(index) {
+      if (!frames.length) {
+        setStatus(TEXT.unavailable);
         return;
       }
-      lightningSource = lightning;
-      hideImage(strikes);
-      loadCurrentImage(lightning, token, frame, function() { return lightningSource; }, function() {
-        strikes.src = lightning;
-        strikes.alt = TEXT.lightningImage;
-        strikes.style.visibility = 'visible';
-      }, function() {
-        lightningSource = null;
-        hideImage(strikes);
-      });
-    }
-    function showRadar(frame, token, onerror) {
-      var radar = document.getElementById('radar');
-      var source = frame.url;
-      radarSource = source;
-      hideImage(radar);
-      loadCurrentImage(source, token, frame, function() { return radarSource; }, function() {
-        radar.src = source;
-        radar.alt = TEXT.radar;
-        radar.style.visibility = 'visible';
-        setStatus('');
-      }, function() {
-        radarSource = null;
-        hideImage(radar);
-        onerror();
-      });
-    }
-    function showSatellite(frame, token) {
-      var satellite = document.getElementById('satellite');
-      var source = frame.url;
-      satelliteSource = source;
-      hideImage(satellite);
-      loadCurrentImage(source, token, frame, function() { return satelliteSource; }, function() {
-        satellite.src = source;
-        satellite.alt = TEXT.satellite;
-        satellite.style.visibility = 'visible';
-      }, function() {
-        satelliteSource = null;
-        hideImage(satellite);
-        setStatus(TEXT.satelliteUnavailable);
-      });
-    }
-    function showFrame(index) {
-      var token = ++requestToken;
-      var frames = baseLayer === 'rain' ? radarFrames : cloudFrames;
-      if (!frames.length) { setStatus(TEXT.dataUnavailable); return; }
       frameIndex = Math.max(0, Math.min(index, frames.length - 1));
       document.getElementById('slider').value = frameIndex;
-      var frame = frames[frameIndex];
-      activeFrame = frame;
-      setStatus('');
-      showLightning(frame, token);
-      if (baseLayer === 'rain') {
-        if (frame.forecast) {
-          loadForecastFrame(frame, 0, token);
-        } else {
-          setFrameTime(frame);
-          showRadar(frame, token, function() { setStatus(TEXT.radarUnavailable); });
-        }
-      } else {
-        setFrameTime(frame);
-        showSatellite(frame, token);
-      }
+      clearRadarLayer();
+      radarLayer = L.tileLayer(radarTileUrl(frames[frameIndex]), {
+        minZoom: 2,
+        maxZoom: 7,
+        maxNativeZoom: 7,
+        opacity: 0.78,
+        attribution: '<a href="https://www.rainviewer.com/">RainViewer</a>'
+      });
+      radarLayer.on('loading', function() { setStatus(TEXT.loading); });
+      radarLayer.on('load', function() { setStatus(''); });
+      radarLayer.on('tileerror', function() { setStatus(TEXT.unavailable); });
+      radarLayer.addTo(map);
+      document.getElementById('time').textContent = formatUtc(frames[frameIndex].time);
     }
-    function setFrameTime(frame) {
-      var time = document.getElementById('time');
-      time.textContent = formatTime(frame.date) + (frame.forecast ? ' · ' + TEXT.nowcast + ' +' + frame.lead + ' ' + TEXT.minute : '');
-      time.hidden = false;
+
+    function formatUtc(epochSeconds) {
+      var date = new Date(epochSeconds * 1000);
+      return String(date.getUTCHours()).padStart(2, '0') + ':' +
+        String(date.getUTCMinutes()).padStart(2, '0') + ' UTC';
     }
-    function loadForecastFrame(frame, attempt, token) {
-      if (token !== requestToken || activeFrame !== frame) { return; }
-      if (!latestRadar || attempt >= nowcastOffsets.length) {
-        setStatus(TEXT.nowcastUnavailable);
-        return;
-      }
-      var base = addMinutes(latestRadar, nowcastOffsets[attempt]);
-      frame.date = addMinutes(base, frame.lead);
-      frame.url = nowcastUrl(base, frame.lead);
-      showLightning(frame, token);
-      setFrameTime(frame);
-      setStatus(TEXT.nowcastLoading);
-      showRadar(frame, token, function() { loadForecastFrame(frame, attempt + 1, token); });
-    }
+
     function togglePlay() {
       var button = document.getElementById('play');
       if (timer) {
@@ -340,88 +160,53 @@
         button.setAttribute('aria-label', TEXT.play);
         return;
       }
-      var available = baseLayer === 'rain' ? radarFrames : cloudFrames;
-      if (!available.length) { return; }
+      if (!frames.length) return;
       button.textContent = 'Ⅱ';
       button.setAttribute('aria-label', TEXT.pause);
-      timer = setInterval(function() {
-        var frames = baseLayer === 'rain' ? radarFrames : cloudFrames;
-        showFrame((frameIndex + 1) % frames.length);
-      }, 700);
+      timer = setInterval(function() { showFrame((frameIndex + 1) % frames.length); }, 700);
     }
-    function load() {
-      probe(radarUrl, floorUtc(5), 5, 18, function(latest) {
-        if (!latest) { setStatus(TEXT.radarFailed); return; }
-        latestRadar = latest;
-        var i;
-        for (i = 11; i >= 0; i--) {
-          var date = addMinutes(latest, -i * 5);
-          radarFrames.push({ date: date, url: radarUrl(date), lightning: lightningUrl(date), forecast: false, lead: 0 });
-        }
-        frameIndex = 11;
-        for (i = 10; i <= 60; i += 10) {
-          radarFrames.push({ date: addMinutes(latest, i), url: '', lightning: '', forecast: true, lead: i });
-        }
-        document.getElementById('slider').max = radarFrames.length - 1;
-        showFrame(frameIndex);
-      });
-      probe(satelliteUrl, floorUtc(10), 10, 24, function(latest) {
-        if (!latest) { return; }
-        for (var i = 5; i >= 0; i--) {
-          var date = addMinutes(latest, -i * 10);
-          cloudFrames.push({ date: date, url: satelliteUrl(date), forecast: false, lead: 0 });
-        }
-        if (baseLayer === 'clouds') {
-          frameIndex = cloudFrames.length - 1;
-          replaceSlider(cloudFrames.length, frameIndex);
+
+    function loadRadar() {
+      var token = ++requestToken;
+      setStatus(TEXT.loading);
+      fetch('https://api.rainviewer.com/public/weather-maps.json', { cache: 'no-store' })
+        .then(function(response) {
+          if (!response.ok) throw new Error('HTTP ' + response.status);
+          return response.json();
+        })
+        .then(function(manifest) {
+          if (token !== requestToken) return;
+          if (!manifest || !manifest.host || !manifest.radar || !Array.isArray(manifest.radar.past)) {
+            throw new Error('Invalid RainViewer manifest');
+          }
+          tileHost = manifest.host;
+          frames = manifest.radar.past.slice(-MAX_FRAMES);
+          if (!frames.length) throw new Error('No radar frames');
+          installCoverageLayer();
+          var slider = document.getElementById('slider');
+          slider.max = frames.length - 1;
+          frameIndex = frames.length - 1;
+          slider.value = frameIndex;
           showFrame(frameIndex);
-        }
-      });
+        })
+        .catch(function() {
+          if (token !== requestToken) return;
+          clearRadarLayer();
+          setStatus(TEXT.unavailable);
+        });
     }
+
     function selfTest() {
-      var date = new Date(Date.UTC(2026, 7, 24, 14, 35));
-      if (radarUrl(date).indexOf('20260824.1435.0.png') < 0 ||
-          satelliteUrl(date).indexOf('202608241435.jpeg') < 0 ||
-          nowcastUrl(date, 10).indexOf('/20260824.1435/pacz2gmaps3.fct_z_max.20260824.1445.10.png') < 0) {
-        throw new Error('CHMI URL self-test failed');
+      if (coordinate('91', -90, 90, 1) !== 1 || coordinate('-33.8', -90, 90, 1) !== -33.8) {
+        throw new Error('Radar coordinate self-test failed');
+      }
+      if (MAX_FRAMES !== 20 || !coverageTileUrl().includes('/v2/coverage/0/')) {
+        throw new Error('Radar contract self-test failed');
       }
     }
-    function dictionarySelfTest() {
-      if (languageDictionary('cs').rain !== 'Srážky' ||
-          languageDictionary('fr').clouds !== 'Nuages' ||
-          languageDictionary('invalid') !== DICTIONARY.en) {
-        throw new Error('Radar dictionary self-test failed');
-      }
-    }
-    function layerStateSelfTest() {
-      var rain = layerVisibility('rain', true);
-      var clouds = layerVisibility('clouds', true);
-      if (!rain.rain || !rain.lightning || rain.clouds ||
-          !clouds.clouds || !clouds.lightning || clouds.rain) {
-        throw new Error('Radar layer-state self-test failed');
-      }
-    }
-    function imageRequestSelfTest() {
-      var previousToken = requestToken;
-      var previousFrame = activeFrame;
-      var frame = {};
-      requestToken = 1;
-      activeFrame = frame;
-      if (!isActiveImageRequest(1, frame, 'current', 'current') ||
-          isActiveImageRequest(0, frame, 'current', 'current') ||
-          isActiveImageRequest(1, {}, 'current', 'current') ||
-          isActiveImageRequest(1, frame, 'stale', 'current')) {
-        throw new Error('Radar image request self-test failed');
-      }
-      requestToken = previousToken;
-      activeFrame = previousFrame;
-    }
-    applyText();
+
     selfTest();
-    dictionarySelfTest();
-    layerStateSelfTest();
-    imageRequestSelfTest();
-    load();
+    loadRadar();
   </script>
 </body>
 </html>

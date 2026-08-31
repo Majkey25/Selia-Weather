@@ -232,12 +232,13 @@
     <string name="condition_storm">Thunderstorm</string>
     <string name="condition_unknown">Unknown</string>
     <string name="radar_title">Radar</string>
-    <string name="radar_subtitle">Observed Czechia radar + 60-minute nowcast</string>
-    <string name="radar_footer">Radar, satellite and nowcast: ČHMÚ</string>
+    <string name="radar_subtitle">Worldwide observed precipitation and local 24-hour forecast</string>
+    <string name="radar_footer">Observed radar: RainViewer · map: OpenStreetMap</string>
     <string name="radar_retry">Retry radar</string>
     <string name="radar_unavailable">Radar unavailable</string>
-    <string name="radar_observed">Observed CZ</string>
-    <string name="radar_forecast_24h">Next 24h</string>
+    <string name="radar_observed_past_2h">Observed · past 2 h</string>
+    <string name="radar_now">Now</string>
+    <string name="radar_forecast_next_24h">Forecast · next 24 h</string>
     <string name="radar_forecast_subtitle">24-hour model forecast around %1$s</string>
     <string name="radar_forecast_note">Model consensus around the selected location. This is a forecast, not observed radar.</string>
     <string name="radar_forecast_unavailable">24-hour precipitation forecast unavailable</string>

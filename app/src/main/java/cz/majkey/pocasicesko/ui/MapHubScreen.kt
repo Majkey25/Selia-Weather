@@ -9,9 +9,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
@@ -30,11 +32,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.data.CzechLocation
 import cz.majkey.pocasicesko.data.PrecipitationField
+import cz.majkey.pocasicesko.data.isInCzechia
 import cz.majkey.pocasicesko.units.MeasurementSystem
 import cz.majkey.pocasicesko.units.WeatherUnitFormatter
 import java.io.IOException
@@ -96,25 +100,13 @@ internal fun MapHubScreen(
             fontSize = 13.sp,
             modifier = Modifier.padding(top = 3.dp),
         )
-        Row(
+        MapTimelineBand(
+            mode = mode,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            MapModeButton(
-                text = stringResource(R.string.radar_observed),
-                selected = mode == MapMode.OBSERVED,
-                modifier = Modifier.weight(1f),
-                onClick = { mode = MapMode.OBSERVED },
-            )
-            MapModeButton(
-                text = stringResource(R.string.radar_forecast_24h),
-                selected = mode == MapMode.FORECAST,
-                modifier = Modifier.weight(1f),
-                onClick = { mode = MapMode.FORECAST },
-            )
-        }
+            onSelect = { mode = it },
+        )
         Spacer(Modifier.height(12.dp))
         if (mode == MapMode.OBSERVED) {
             Surface(
@@ -125,7 +117,14 @@ internal fun MapHubScreen(
                 shape = RoundedCornerShape(26.dp),
                 border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
             ) {
-                ChmiWebScreen(localizedRadarUrl(languageTag))
+                ChmiWebScreen(
+                    localizedRadarUrl(
+                        languageTag,
+                        location.latitude,
+                        location.longitude,
+                        location.isInCzechia(),
+                    ),
+                )
             }
             Text(
                 stringResource(R.string.radar_footer),
@@ -145,7 +144,43 @@ internal fun MapHubScreen(
 }
 
 @Composable
-private fun MapModeButton(
+private fun MapTimelineBand(
+    mode: MapMode,
+    modifier: Modifier = Modifier,
+    onSelect: (MapMode) -> Unit,
+) {
+    Surface(
+        modifier = modifier.height(52.dp),
+        color = Color(0xFF172731),
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            MapTimelineSegment(
+                text = stringResource(R.string.radar_observed_past_2h),
+                selected = mode == MapMode.OBSERVED,
+                modifier = Modifier.weight(1f),
+                onClick = { onSelect(MapMode.OBSERVED) },
+            )
+            Text(
+                text = stringResource(R.string.radar_now),
+                color = Color.White.copy(alpha = 0.58f),
+                fontSize = 10.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.width(42.dp),
+            )
+            MapTimelineSegment(
+                text = stringResource(R.string.radar_forecast_next_24h),
+                selected = mode == MapMode.FORECAST,
+                modifier = Modifier.weight(1f),
+                onClick = { onSelect(MapMode.FORECAST) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun MapTimelineSegment(
     text: String,
     selected: Boolean,
     modifier: Modifier = Modifier,
@@ -153,11 +188,10 @@ private fun MapModeButton(
 ) {
     Surface(
         onClick = onClick,
-        modifier = modifier.height(48.dp),
-        color = if (selected) Color(0xFF2E6474) else Color(0xFF172731),
+        modifier = modifier.fillMaxHeight(),
+        color = if (selected) Color(0xFF2E6474) else Color.Transparent,
         contentColor = Color.White,
         shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = if (selected) 0.2f else 0.08f)),
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(text, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium)

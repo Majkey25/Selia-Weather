@@ -37,8 +37,18 @@ import cz.majkey.pocasicesko.locale.normalizeLanguageTag
 
 const val RADAR_APP_URL = "file:///android_asset/radar.html"
 
-internal fun localizedRadarUrl(languageTag: String?): String =
-    "$RADAR_APP_URL?lang=${normalizeLanguageTag(languageTag).ifEmpty { "en" }}"
+internal fun localizedRadarUrl(
+    languageTag: String?,
+    latitude: Double,
+    longitude: Double,
+    chmiDetail: Boolean,
+): String {
+    require(latitude.isFinite() && latitude in -90.0..90.0)
+    require(longitude.isFinite() && longitude in -180.0..180.0)
+    val language = normalizeLanguageTag(languageTag).ifEmpty { "en" }
+    return "$RADAR_APP_URL?lang=$language&lat=$latitude&lon=$longitude" +
+        "&chmi=${if (chmiDetail) 1 else 0}"
+}
 
 @Composable
 @SuppressLint("SetJavaScriptEnabled")

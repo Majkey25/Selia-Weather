@@ -77,6 +77,25 @@ class WeatherParserTest {
     }
 
     @Test
+    fun roundTripsCalibratedCalculationMetadata() {
+        val calculation = ForecastCalculation(
+            region = ForecastRegion.AFRICA,
+            mode = ForecastCalculationMode.CALIBRATED,
+            requestedModelIds = listOf("a", "b", "c"),
+            contributorIds = listOf("a", "b"),
+            fallbackReason = null,
+            artifactVersion = 2,
+            truthClass = CalibrationTruthClass.STATION,
+            weights = mapOf("a" to 0.4, "b" to 0.6),
+        )
+
+        assertEquals(
+            calculation,
+            JSONObject().putForecastCalculation(calculation).forecastCalculationOrNull(),
+        )
+    }
+
+    @Test
     fun rejectsMismatchedHourlyArrays() {
         val broken = VALID_FORECAST.replace(
             "\"temperature_2m\":[19.0,20.0]",

@@ -309,6 +309,7 @@
     <string name="forecast_calculation_contributors">Přispívající modely</string>
     <string name="forecast_calculation_fallback">Náhradní režim</string>
     <string name="forecast_calculation_note">Diagnostický původ dat. Nejde o záruku přesnosti.</string>
+    <string name="forecast_mode_calibrated">Kalibrovaný výpočet</string>
     <string name="forecast_mode_diagnostic_median">Diagnostický medián</string>
     <string name="forecast_mode_best_match">Open-Meteo Best Match</string>
     <string name="forecast_fallback_insufficient">Méně než tři platné modely</string>

@@ -29,6 +29,7 @@ class WeatherRepository(context: Context) {
     private val currentConditions = ChmiCurrentConditionsRepository(appContext)
     private val precipitationFieldRepository = PrecipitationFieldRepository()
     private val historyRepository = HistoryRepository(File(appContext.cacheDir, "history"))
+    private val staticForecastRepository = StaticForecastRepository()
 
     fun lastLocation(): CzechLocation {
         val location = CzechLocation(
@@ -107,8 +108,22 @@ class WeatherRepository(context: Context) {
     fun fetchForecastBlocking(location: CzechLocation): WeatherSnapshot {
         val bestMatchJson = request(forecastUri(location).toString())
         val requestedModels = forecastApiModelsFor(location)
+        val calibration = try {
+            staticForecastRepository.fetchCalibrationArtifact(Instant.now())
+        } catch (_: IOException) {
+            null
+        } catch (_: IllegalArgumentException) {
+            null
+        } catch (_: JSONException) {
+            null
+        }
         val blend = try {
-            blendModelForecast(bestMatchJson, request(modelForecastUrl(location)))
+            blendModelForecast(
+                bestMatchJson,
+                request(modelForecastUrl(location)),
+                location,
+                calibration,
+            )
         } catch (_: IOException) {
             ModelBlendResult(
                 bestMatchJson,
@@ -130,6 +145,9 @@ class WeatherRepository(context: Context) {
             requestedModelIds = requestedModels,
             contributorIds = blend.contributorIds,
             fallbackReason = blend.fallbackReason,
+            artifactVersion = blend.artifactVersion,
+            truthClass = blend.truthClass,
+            weights = blend.appliedWeights,
         )
         val forecastJson = JSONObject(blend.json).putForecastCalculation(calculation).toString()
         val updatedAt = System.currentTimeMillis()

@@ -6,7 +6,7 @@ import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 
-internal enum class CalibrationTruthClass {
+enum class CalibrationTruthClass {
     STATION,
     RADAR_GAUGE,
     SATELLITE_PRECIPITATION,

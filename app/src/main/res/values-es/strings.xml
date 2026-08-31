@@ -309,6 +309,7 @@
     <string name="forecast_calculation_contributors">Modelos contribuyentes</string>
     <string name="forecast_calculation_fallback">Alternativa</string>
     <string name="forecast_calculation_note">Procedencia diagnóstica. No garantiza la precisión.</string>
+    <string name="forecast_mode_calibrated">Combinación calibrada</string>
     <string name="forecast_mode_diagnostic_median">Mediana diagnóstica</string>
     <string name="forecast_mode_best_match">Open-Meteo Best Match</string>
     <string name="forecast_fallback_insufficient">Menos de tres modelos válidos</string>

@@ -309,6 +309,7 @@
     <string name="forecast_calculation_contributors">Beitragende Modelle</string>
     <string name="forecast_calculation_fallback">Rückfall</string>
     <string name="forecast_calculation_note">Diagnostische Herkunft. Keine Genauigkeitsgarantie.</string>
+    <string name="forecast_mode_calibrated">Kalibrierte Mischung</string>
     <string name="forecast_mode_diagnostic_median">Diagnostischer Median</string>
     <string name="forecast_mode_best_match">Open-Meteo Best Match</string>
     <string name="forecast_fallback_insufficient">Weniger als drei gültige Modelle</string>

@@ -13,9 +13,17 @@ internal data class ModelBlendResult(
     val mode: ForecastCalculationMode,
     val contributorIds: List<String>,
     val fallbackReason: ForecastFallbackReason?,
+    val appliedWeights: Map<String, Double> = emptyMap(),
+    val truthClass: CalibrationTruthClass? = null,
+    val artifactVersion: Int? = null,
 )
 
-internal fun blendModelForecast(bestMatchJson: String, modelsJson: String): ModelBlendResult {
+internal fun blendModelForecast(
+    bestMatchJson: String,
+    modelsJson: String,
+    location: CzechLocation? = null,
+    calibration: CalibrationArtifact? = null,
+): ModelBlendResult {
     val root = JSONObject(bestMatchJson)
     val target = root.getJSONObject("hourly")
     val source = JSONObject(modelsJson).getJSONObject("hourly")
@@ -25,35 +33,97 @@ internal fun blendModelForecast(bestMatchJson: String, modelsJson: String): Mode
         .sorted()
         .toList()
     val sourceTimes = source.getJSONArray("time")
-    val contributorIds = currentTemperatureContributors(root, source, sourceTimes, suffixes)
-    if (suffixes.size < MINIMUM_MODELS) {
+    val diagnosticContributors = currentTemperatureContributors(root, source, sourceTimes, suffixes)
+    if (suffixes.size < MINIMUM_MODELS && (location == null || calibration == null)) {
         return ModelBlendResult(
             bestMatchJson,
             ForecastCalculationMode.BEST_MATCH,
-            contributorIds,
+            diagnosticContributors,
             ForecastFallbackReason.INSUFFICIENT_CONTRIBUTORS,
         )
     }
 
     val sourceIndices = (0 until sourceTimes.length()).associateBy { sourceTimes.getString(it) }
     val targetTimes = target.getJSONArray("time")
+    val currentTargetIndex = currentIndex(root, targetTimes)
+    val region = location?.let(::forecastRegionFor)
+    var currentCalibration: WeightedModelValue? = null
+    var currentTruthClass: CalibrationTruthClass? = null
+    var blendedAny = false
     for (targetIndex in 0 until targetTimes.length()) {
         val sourceIndex = sourceIndices[targetTimes.getString(targetIndex)] ?: continue
-        CONTINUOUS_FIELDS.forEach { field ->
-            modelValues(source, suffixes, field, sourceIndex).takeIf { it.size >= MINIMUM_MODELS }
-                ?.let { values -> target.optJSONArray(field)?.put(targetIndex, values.median()) }
+        val leadHours = currentTargetIndex?.let { current ->
+            (targetIndex - current).takeIf { it >= 0 }
         }
-        blendWind(source, target, suffixes, sourceIndex, targetIndex)
-        derivePrecipitationAndCondition(source, target, suffixes, sourceIndex, targetIndex)
+        val month = targetTimes.getString(targetIndex).substring(5, 7).toIntOrNull()
+        CONTINUOUS_FIELDS.forEach { field ->
+            val segment = if (region != null && leadHours != null && month != null) {
+                calibration?.segment(region, field, leadHours, month)
+            } else {
+                null
+            }
+            val calibrated = segment?.let { calibratedSegment ->
+                weightedModelValue(source, field, sourceIndex, calibratedSegment)
+            }
+            val value = calibrated?.value ?: modelValues(source, suffixes, field, sourceIndex)
+                .takeIf { it.size >= MINIMUM_MODELS }
+                ?.median()
+            if (value != null && target.optJSONArray(field) != null) {
+                target.getJSONArray(field).put(targetIndex, value)
+                blendedAny = true
+            }
+            if (targetIndex == currentTargetIndex && field == "temperature_2m" && calibrated != null) {
+                currentCalibration = calibrated
+                currentTruthClass = segment.truthClass
+            }
+        }
+        val windSegment = if (region != null && leadHours != null && month != null) {
+            calibration?.segment(region, WIND_VECTOR_VARIABLE, leadHours, month)
+        } else {
+            null
+        }
+        blendedAny = blendWind(
+            source,
+            target,
+            suffixes,
+            sourceIndex,
+            targetIndex,
+            windSegment,
+        ) || blendedAny
+        blendedAny = derivePrecipitationAndCondition(
+            source,
+            target,
+            suffixes,
+            sourceIndex,
+            targetIndex,
+        ) || blendedAny
+    }
+    if (!blendedAny) {
+        return ModelBlendResult(
+            bestMatchJson,
+            ForecastCalculationMode.BEST_MATCH,
+            diagnosticContributors,
+            ForecastFallbackReason.INSUFFICIENT_CONTRIBUTORS,
+        )
     }
     updateCurrent(root, target, targetTimes)
     updateDaily(root, target, targetTimes)
-    val diagnostic = contributorIds.size >= MINIMUM_MODELS
+    val appliedWeights = currentCalibration?.weights.orEmpty()
+    val contributorIds = currentCalibration?.weights?.keys?.toList() ?: diagnosticContributors
+    val calibrated = currentCalibration != null
+    val diagnostic = diagnosticContributors.size >= MINIMUM_MODELS
     return ModelBlendResult(
         root.toString(),
-        if (diagnostic) ForecastCalculationMode.DIAGNOSTIC_MEDIAN else ForecastCalculationMode.BEST_MATCH,
+        when {
+            calibrated -> ForecastCalculationMode.CALIBRATED
+            diagnostic -> ForecastCalculationMode.DIAGNOSTIC_MEDIAN
+            else -> ForecastCalculationMode.BEST_MATCH
+        },
         contributorIds,
-        if (diagnostic) null else ForecastFallbackReason.INSUFFICIENT_CONTRIBUTORS,
+        if (calibrated || diagnostic) null else ForecastFallbackReason.INSUFFICIENT_CONTRIBUTORS,
+        appliedWeights,
+        currentTruthClass,
+        calibration?.schemaVersion?.takeIf { calibrated },
     )
 }
 
@@ -79,23 +149,28 @@ private fun blendWind(
     suffixes: List<String>,
     sourceIndex: Int,
     targetIndex: Int,
-) {
-    val vectors = suffixes.mapNotNull { suffix ->
+    segment: CalibrationSegment?,
+): Boolean {
+    val sourceIds = segment?.weights?.keys ?: suffixes
+    val vectors = sourceIds.mapNotNull { suffix ->
         val speed = source.optJSONArray("wind_speed_10m_$suffix").numberOrNull(sourceIndex)
             ?: return@mapNotNull null
         val direction = source.optJSONArray("wind_direction_10m_$suffix").numberOrNull(sourceIndex)
             ?: return@mapNotNull null
         if (speed < 0 || direction !in 0.0..360.0) return@mapNotNull null
-        speed to Math.toRadians(direction)
+        WindVector(speed, Math.toRadians(direction), segment?.weights?.get(suffix) ?: 1.0)
     }
-    if (vectors.size < MINIMUM_MODELS) return
-    val east = vectors.sumOf { (speed, angle) -> speed * sin(angle) } / vectors.size
-    val north = vectors.sumOf { (speed, angle) -> speed * cos(angle) } / vectors.size
+    val minimum = segment?.minimumContributors ?: MINIMUM_MODELS
+    if (vectors.size < minimum) return false
+    val totalWeight = vectors.sumOf(WindVector::weight)
+    val east = vectors.sumOf { vector -> vector.speed * sin(vector.angle) * vector.weight } / totalWeight
+    val north = vectors.sumOf { vector -> vector.speed * cos(vector.angle) * vector.weight } / totalWeight
     target.optJSONArray("wind_speed_10m")?.put(targetIndex, hypot(east, north))
     target.optJSONArray("wind_direction_10m")?.put(
         targetIndex,
         ((Math.toDegrees(atan2(east, north)) + 360.0) % 360.0).roundToInt() % 360,
     )
+    return true
 }
 
 private fun derivePrecipitationAndCondition(
@@ -104,10 +179,10 @@ private fun derivePrecipitationAndCondition(
     suffixes: List<String>,
     sourceIndex: Int,
     targetIndex: Int,
-) {
+): Boolean {
     val precipitation = modelValues(source, suffixes, "precipitation", sourceIndex)
     val clouds = modelValues(source, suffixes, "cloud_cover", sourceIndex)
-    if (precipitation.size < MINIMUM_MODELS || clouds.size < MINIMUM_MODELS) return
+    if (precipitation.size < MINIMUM_MODELS || clouds.size < MINIMUM_MODELS) return false
     val probability = (precipitation.count { it >= WET_THRESHOLD_MM } * 100.0 / precipitation.size)
         .roundToInt()
     val cloudCover = clouds.median().roundToInt().coerceIn(0, 100)
@@ -120,6 +195,7 @@ private fun derivePrecipitationAndCondition(
             cloudCover,
         ),
     )
+    return true
 }
 
 private fun deriveWeatherCode(codes: List<Int>, rainProbability: Int, cloudCover: Int): Int {
@@ -202,6 +278,33 @@ private fun modelValues(
         ?.takeIf { value -> isValidModelValue(field, value) }
 }
 
+private fun weightedModelValue(
+    source: JSONObject,
+    field: String,
+    index: Int,
+    segment: CalibrationSegment,
+): WeightedModelValue? {
+    val available = segment.weights.mapNotNull { (modelId, weight) ->
+        if (weight <= 0) return@mapNotNull null
+        val value = source.optJSONArray("${field}_$modelId").numberOrNull(index)
+            ?.takeIf { candidate -> isValidModelValue(field, candidate) }
+            ?: return@mapNotNull null
+        WeightedModelInput(modelId, value, weight)
+    }
+    if (available.size < segment.minimumContributors) return null
+    val totalWeight = available.sumOf(WeightedModelInput::weight)
+    val normalized = available.associate { input -> input.modelId to input.weight / totalWeight }
+    return WeightedModelValue(
+        value = available.sumOf { input -> input.value * input.weight } / totalWeight,
+        weights = normalized,
+    )
+}
+
+private fun currentIndex(root: JSONObject, times: JSONArray): Int? {
+    val currentHour = root.getJSONObject("current").getString("time").take(13)
+    return (0 until times.length()).firstOrNull { times.getString(it).take(13) == currentHour }
+}
+
 private fun isValidModelValue(field: String, value: Double): Boolean = when {
     field in NON_NEGATIVE_FIELDS -> value >= 0
     field == "relative_humidity_2m" || field.startsWith("cloud_cover") -> value in 0.0..100.0
@@ -218,6 +321,10 @@ private fun List<Double>.median(): Double = sorted().let { values ->
     val middle = values.size / 2
     if (values.size % 2 == 1) values[middle] else (values[middle - 1] + values[middle]) / 2
 }
+
+private data class WeightedModelInput(val modelId: String, val value: Double, val weight: Double)
+private data class WeightedModelValue(val value: Double, val weights: Map<String, Double>)
+private data class WindVector(val speed: Double, val angle: Double, val weight: Double)
 
 private fun weatherSeverity(code: Int): Int = when (code) {
     in 95..99 -> 7
@@ -263,3 +370,4 @@ private val NON_NEGATIVE_FIELDS = setOf(
 )
 private const val MINIMUM_MODELS = 3
 private const val WET_THRESHOLD_MM = 0.1
+private const val WIND_VECTOR_VARIABLE = "wind_vector_10m"

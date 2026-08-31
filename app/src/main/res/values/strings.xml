@@ -310,6 +310,7 @@
     <string name="forecast_calculation_contributors">Contributors</string>
     <string name="forecast_calculation_fallback">Fallback</string>
     <string name="forecast_calculation_note">Diagnostic provenance. It is not an accuracy guarantee.</string>
+    <string name="forecast_mode_calibrated">Calibrated blend</string>
     <string name="forecast_mode_diagnostic_median">Diagnostic median</string>
     <string name="forecast_mode_best_match">Open-Meteo Best Match</string>
     <string name="forecast_fallback_insufficient">Fewer than three valid models</string>

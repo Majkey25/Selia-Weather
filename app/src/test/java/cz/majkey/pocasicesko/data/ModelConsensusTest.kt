@@ -5,6 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.Instant
 
 class ModelConsensusTest {
     @Test
@@ -52,6 +53,24 @@ class ModelConsensusTest {
     }
 
     @Test
+    fun appliesOnlyAcceptedVariableSpecificWeights() {
+        val artifact = parseCalibrationArtifact(
+            CALIBRATION,
+            Instant.parse("2026-08-29T19:00:00Z").epochSecond,
+        )
+
+        val result = blendModelForecast(BASE, MODELS, PRAGUE, artifact)
+        val current = JSONObject(result.json).getJSONObject("current")
+
+        assertEquals(21.2, current.getDouble("temperature_2m"), 0.0001)
+        assertEquals(ForecastCalculationMode.CALIBRATED, result.mode)
+        assertEquals(listOf("a", "b"), result.contributorIds)
+        assertEquals(mapOf("a" to 0.4, "b" to 0.6), result.appliedWeights)
+        assertEquals(CalibrationTruthClass.STATION, result.truthClass)
+        assertEquals(2, result.artifactVersion)
+    }
+
+    @Test
     fun keepsBestMatchWhenFewerThanThreeModelsArePresent() {
         val result = blendModelForecast(BASE, ONE_MODEL)
         val root = JSONObject(result.json)
@@ -91,6 +110,37 @@ class ModelConsensusTest {
     }
 
     companion object {
+        private val PRAGUE = CzechLocation("Praha", REGION_PRAGUE, 50.0755, 14.4378, "CZ")
+
+        private val CALIBRATION = """
+            {
+              "schema_version":2,
+              "dataset_manifest_hash":"${"a".repeat(64)}",
+              "model_contract_hash":"${"b".repeat(64)}",
+              "generated_at":"2026-08-29T18:00:00Z",
+              "expires_at":"2026-09-29T18:00:00Z",
+              "models":[
+                {"model_id":"a","maximum_run_age_hours":12,"resolution_km":10.0},
+                {"model_id":"b","maximum_run_age_hours":12,"resolution_km":10.0}
+              ],
+              "segments":[{
+                "selector":{
+                  "region":"CZECHIA",
+                  "variable":"temperature_2m",
+                  "minimum_lead_hours":0,
+                  "maximum_lead_hours":24,
+                  "months":[8]
+                },
+                "truth_class":"station",
+                "mode":"blend",
+                "weights":{"a":0.4,"b":0.6},
+                "minimum_source_count":2,
+                "fallback_model":"a",
+                "holdout":{"accepted":true}
+              }]
+            }
+        """.trimIndent()
+
         private val BASE = """
             {
               "timezone":"Europe/Prague",

@@ -309,6 +309,7 @@
     <string name="forecast_calculation_contributors">Modèles contributeurs</string>
     <string name="forecast_calculation_fallback">Repli</string>
     <string name="forecast_calculation_note">Provenance diagnostique. Aucune garantie de précision.</string>
+    <string name="forecast_mode_calibrated">Combinaison calibrée</string>
     <string name="forecast_mode_diagnostic_median">Médiane diagnostique</string>
     <string name="forecast_mode_best_match">Open-Meteo Best Match</string>
     <string name="forecast_fallback_insufficient">Moins de trois modèles valides</string>

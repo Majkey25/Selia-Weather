@@ -911,6 +911,7 @@ private fun ForecastRegion.labelResource(): Int = when (this) {
 
 @StringRes
 private fun ForecastCalculationMode.labelResource(): Int = when (this) {
+    ForecastCalculationMode.CALIBRATED -> R.string.forecast_mode_calibrated
     ForecastCalculationMode.DIAGNOSTIC_MEDIAN -> R.string.forecast_mode_diagnostic_median
     ForecastCalculationMode.BEST_MATCH -> R.string.forecast_mode_best_match
 }

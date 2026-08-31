@@ -1,0 +1,1 @@
+Přidán světový pozorovaný radar s maskou pokrytí a oddělenou 24hodinovou modelovou předpovědí. Přidána korekce z čerstvých světových METAR stanic. Rozšířeny oblasti pro Afriku, Asii, Rusko, Jižní Ameriku, Oceánii, oceány a póly. Přidána hlídaná regionální kalibrace a jasnější původ výpočtu. Verze neobsahuje reklamy, Premium, Billing, UMP ani AD_ID.

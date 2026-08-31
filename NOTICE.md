@@ -10,8 +10,34 @@ The worldwide point picker bundles Leaflet 1.9.4.
 - JavaScript SHA-256: `db49d009c841f5ca34a888c96511ae936fd9f5533e90d8b2c4d57596f4e5641a`.
 - Bundled CSS SHA-256: `337bfca5cabd03b39815b2700febe2b3b7edf55921c59cd49f88ecb328212303`.
 
-Map tiles are loaded interactively from OpenStreetMap only while the point picker is open and
-retain the required OpenStreetMap attribution.
+Map tiles are loaded interactively from OpenStreetMap only while the point picker or observed
+radar is open and retain the required OpenStreetMap attribution.
+
+## RainViewer Weather Maps API
+
+The observed map loads the available past radar frames and coverage mask from RainViewer. The
+screen displays RainViewer attribution. The public API is used only in the non-commercial build
+and has no availability guarantee.
+
+- Documentation: <https://www.rainviewer.com/api/weather-maps-api.html>
+- Current public API limits: <https://www.rainviewer.com/api/transition-faq.html>
+
+## AviationWeather Data API
+
+Outside Czechia, the app requests recent worldwide METAR reports from the U.S. National Weather
+Service Aviation Weather Center. Requests use a bounded coordinate box and follow the documented
+100-request-per-minute limit.
+
+- Documentation: <https://aviationweather.gov/data/api/>
+
+## NOAA ISD and NASA GPM IMERG
+
+The offline research pipeline can parse NOAA Integrated Surface Database station observations and
+NASA GPM IMERG V07 satellite precipitation. These products verify forecasts and are not embedded
+as live user-facing model output.
+
+- NOAA ISD: <https://www.ncei.noaa.gov/products/land-based-station/integrated-surface-database>
+- NASA GPM IMERG: <https://gpm.nasa.gov/data/imerg>
 
 ## Czech Hydrometeorological Institute open data
 

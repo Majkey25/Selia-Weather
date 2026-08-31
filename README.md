@@ -4,7 +4,7 @@
 
 <h1 align="center">Selia Vetra</h1>
 
-<p align="center">A focused worldwide Android weather app with extra ČHMÚ observations and radar in Czechia, plus an adaptive widget.</p>
+<p align="center">A focused worldwide Android weather app with regional model routing, observed radar, and an adaptive widget.</p>
 
 <p align="center">
   <a href="https://github.com/Majkey25/Selia-Weather/actions/workflows/android.yml"><img alt="Android CI" src="https://github.com/Majkey25/Selia-Weather/actions/workflows/android.yml/badge.svg"></a>
@@ -16,7 +16,7 @@
 <p align="center">
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/01-weather.png" width="240" alt="Selia Vetra forecast">
   &nbsp;&nbsp;
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/03-radar.png" width="240" alt="ČHMÚ radar with controls">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/03-radar.png" width="240" alt="Observed precipitation radar">
   &nbsp;&nbsp;
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/05-widget-editor.png" width="240" alt="Weather widget editor">
 </p>
@@ -25,30 +25,33 @@
 
 - Shows current and apparent temperature, dew point, wet-bulb temperature, precipitation, cloud layers, visibility, pressure, wind, sun, and Moon details.
 - Adds UV, freezing-level, boundary-layer, atmospheric-water, instability, showers, and ground details.
-- Separates observed ČHMÚ radar from a worldwide 24-hour forecast map. The forecast view samples a 5 by 5 field around the selected location, combines available models, and never labels model output as observed radar.
+- Shows worldwide observed precipitation through RainViewer for the available past two hours, including a radar-coverage mask. The separate 24-hour forecast samples a 5 by 5 field around the selected location and never labels model output as observed radar.
 - Shows a horizontal 24-hour outlook, a 14-day forecast, and an hourly detail for each day. A complete day normally has 24 hours.
 - Loads a bounded five-year NASA POWER archive on demand, calculates rainfall and climate summaries locally, shows every daily row, and exports one provenance-labelled CSV through Android's share sheet for analysis in ChatGPT or another app.
 - Searches places worldwide, stores favourites, can use your optional current location, and can save an exact named point on an interactive world map or by coordinate.
-- Includes ČHMÚ rain radar, satellite clouds, nowcast, and lightning. Rain and clouds are base layers. Lightning is an independent overlay on either layer.
 - In Czechia, corrects current temperature, humidity, wind, precipitation, and sky condition from up to three nearby ČHMÚ automatic stations when their observations are fresh.
+- Outside Czechia, uses nearby fresh worldwide METAR reports to correct available temperature, humidity, dew point, pressure, visibility, cloud-cover, and wind fields. A METAR report never invents a precipitation amount.
 - Keeps the last successful forecast for offline display.
 - Includes a resizable launcher widget with per-widget colours, transparency, gradient or custom-image backgrounds, text scale, alignment, custom label, and selectable weather fields.
 - Supports Metric and Imperial display units in the app and widgets.
-- The free build can show an occasional fullscreen interstitial after a completed map visit. Google UMP controls consent. Either Premium purchase removes ads.
 
 ## Forecast data and accuracy
 
-The base forecast uses Open-Meteo Best Match worldwide, which selects the highest-resolution applicable model for the requested coordinates and returns the location's local timezone. Current unreleased builds also request verified global-capable provider series and calculate a robust median on the device when at least three values are available. Provider seamless series automatically use local high-resolution grids inside their domains and global output elsewhere. Czech locations additionally request CHMI ALADIN and apply fresh nearby ČHMÚ station observations. Suspended providers are excluded. Weather details show the current-hour calculation region, method, contributors, and fallback reason, including after cache reload. The prototype falls back to Best Match and is not presented as calibrated or more accurate until a locked regional holdout supports that claim.
+The base forecast uses Open-Meteo Best Match worldwide. The app also requests verified provider-family series and calculates a robust median on the device when at least three values are available. Provider seamless series use local high-resolution grids inside their domains and global output elsewhere. Czech locations additionally request CHMI ALADIN. Suspended providers are excluded.
 
-The verified worldwide routing evidence and current limitations are recorded in [Global model routing](docs/research/global-model-routing.md).
+The runtime accepts checksum-verified regional weights only after their exact provider-family inputs beat the training-selected fallback on a locked holdout. No worldwide segment currently passes that contract, so beta.10 uses the diagnostic median or Best Match. Weather details show the region, mode, contributors, fallback, and any accepted artifact evidence after cache reload.
+
+The evidence and limits are recorded in [Global model routing](docs/research/global-model-routing.md) and [Worldwide ensemble validation](docs/research/worldwide-ensemble-validation.md).
 
 - [Open-Meteo Forecast API](https://open-meteo.com/en/docs)
 - [NASA POWER Daily API](https://power.larc.nasa.gov/docs/services/api/temporal/daily/)
 - [NASA POWER referencing guide](https://power.larc.nasa.gov/docs/referencing/)
+- [AviationWeather worldwide METAR API](https://aviationweather.gov/data/api/)
+- [NOAA ISD](https://www.ncei.noaa.gov/products/land-based-station/integrated-surface-database)
+- [NASA GPM IMERG](https://gpm.nasa.gov/data/imerg)
+- [RainViewer Weather Maps API](https://www.rainviewer.com/api/weather-maps-api.html)
 - [ČHMÚ current station data](https://opendata.chmi.cz/meteorology/climate/now/)
 - [ČHMÚ open weather data](https://opendata.chmi.cz/meteorology/weather/)
-- [ČHMÚ radar](https://produkty.chmi.cz/radar/)
-- [ČHMÚ satellite data](https://opendata.chmi.cz/meteorology/weather/satellite/geo/vis-ir/)
 
 The historical data was obtained from the NASA Langley Research Center POWER project funded through the NASA Earth Science Division. CSV exports include the POWER Daily API version and access time. Selia Vetra is not an official NASA, ČHMÚ, or Open-Meteo app.
 
@@ -68,11 +71,9 @@ For a custom background, the editor asks Android to grant access to the selected
 
 The settings screen includes an optional [Buy Me a Coffee](https://www.buymeacoffee.com/majkey) link. It opens in Android's external browser. Support does not unlock features, give priority, or change the app.
 
-## Ads and Premium
+## Monetisation status
 
-Google Play offers `remove_ads_lifetime` as a one-time purchase and `premium_monthly` as an auto-renewing subscription. Either option removes ads. The app checks active purchases whenever Play Billing connects or the app resumes. A pending or unknown entitlement never enables ads.
-
-The debug build uses Google's published test ad IDs and keeps Billing available for QA. Current release builds fail closed: they do not initialise ads, connect Billing, or show purchase controls while forecasts use the Open-Meteo Free API. Production monetisation can be enabled only after the app uses a commercially licensed forecast path.
+Release builds do not contain or initialise Ads, UMP, Play Billing, Premium, or `AD_ID`. Debug-only QA builds keep optional test integrations outside the release dependency graph. Monetisation can return only after the app uses a commercially licensed forecast path and the public disclosures are updated.
 
 ## Build
 
@@ -84,11 +85,11 @@ The debug APK is at `app/build/outputs/apk/debug/app-debug.apk`.
 
 ## Privacy
 
-The app has no developer account or separate analytics SDK. It keeps the selected place, favourites, widget settings, forecast cache, and a bounded history cache in internal app storage. Current location is optional. Forecast coordinates are sent to Open-Meteo. After you select **Load archive**, the selected coordinates are sent to NASA POWER. A history CSV leaves the app only after you select **Ask ChatGPT** and choose a recipient in Android's share sheet. The worldwide point picker loads visible OpenStreetMap tiles only while open. In Czechia, the app selects nearby ČHMÚ station IDs locally and requests their public observation files without sending the selected coordinates to ČHMÚ. The free build uses Google Mobile Ads and UMP. Purchases use Google Play Billing. Read the [privacy policy](https://majkey25.github.io/Selia-Weather/).
+The app has no developer account or separate analytics SDK. It keeps the selected place, favourites, widget settings, forecast cache, and a bounded history cache in internal app storage. Current location is optional. Forecast coordinates are sent to Open-Meteo. Outside Czechia, a bounded coordinate box is sent to AviationWeather to find nearby METAR reports. The observed map loads visible OpenStreetMap and RainViewer tiles. After you select **Load archive**, the selected coordinates are sent to NASA POWER. A history CSV leaves the app only after you select **Ask ChatGPT** and choose a recipient in Android's share sheet. In Czechia, the app selects nearby ČHMÚ station IDs locally and requests their public observation files without sending the selected coordinates to ČHMÚ. Read the [privacy policy](https://majkey25.github.io/Selia-Weather/).
 
 ## Status
 
-The app uses the product identity Selia Vetra and the short launcher label Vetra. It keeps the public package `com.majkeylab.weatheraladin`, so existing Play installations update normally. GitHub prereleases are for testing. The published six-model feed remains diagnostic until calibration passes; the consensus prototype is not an accuracy claim. Google Play uses a separate private upload key and Play App Signing.
+The app uses the product identity Selia Vetra and the short launcher label Vetra. It keeps the public package `com.majkeylab.weatheraladin`, so existing Play installations update normally. GitHub prereleases are for testing. Worldwide calibration remains diagnostic until the seamless-model holdout passes. Google Play uses a separate private upload key and Play App Signing.
 
 ## License
 

@@ -1,1 +1,1 @@
-Předpověď Best Match, měření a radar ČHMÚ a vlastní widget.
+Světová předpověď, pozorovaný radar, historie a vlastní widget.

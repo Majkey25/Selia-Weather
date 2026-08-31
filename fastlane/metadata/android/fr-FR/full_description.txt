@@ -1,10 +1,10 @@
-Selia Vetra affiche la météo mondiale sans compte, avec en plus les mesures et le radar ČHMÚ en Tchéquie. La version gratuite contient des publicités limitées ; les deux options Premium les suppriment.
+Selia Vetra affiche la météo mondiale sans compte, avec radar observé, sélection régionale des modèles et widget personnalisable. Cette version ne contient ni publicité ni Premium.
 
-La prévision utilise Open-Meteo Best Match jusqu'à 14 jours. En Tchéquie, les mesures récentes de stations ČHMÚ proches corrigent la température, l'humidité, le vent, les précipitations et l'état du ciel actuels. Les heures futures restent des prévisions de modèles. Consultez 24 heures et balayez les détails quotidiens disponibles.
+La prévision utilise Open-Meteo Best Match et un calcul diagnostique multimodèle sur 14 jours. En Tchéquie, les observations récentes de ČHMÚ corrigent l’état actuel. Ailleurs, des rapports METAR proches peuvent corriger la température, l’humidité, le point de rosée, la pression, la visibilité, la nébulosité et le vent disponibles. Les heures futures restent des prévisions de modèles.
 
 Recherchez des lieux dans le monde entier, enregistrez des favoris, choisissez un point exact sur la carte mondiale ou saisissez des coordonnées. Vous pouvez aussi utiliser votre position actuelle. La dernière prévision réussie reste disponible hors connexion.
 
-Le radar ČHMÚ inclut la pluie, les nuages satellite, nowcast et la foudre. La pluie et les nuages sont des couches de base distinctes. La foudre peut être affichée ou masquée indépendamment sur les deux couches.
+La carte observée utilise la chronologie mondiale du radar RainViewer et un masque de couverture. Un champ local séparé montre les précipitations de modèle des 24 prochaines heures et reste identifié comme prévision.
 
 Créez votre propre widget d'accueil. Chaque widget peut utiliser ses couleurs, sa transparence, un dégradé ou une image de fond, une taille de texte, un alignement, une étiquette et des données météo visibles. Si Android ne peut plus lire une image, le widget utilise son fond coloré et continue de fonctionner.
 

@@ -1,1 +1,1 @@
-Prévision Best Match, mesures et radar ČHMÚ, et widget personnalisable.
+Prévision mondiale, radar observé, historique et widget personnalisable.

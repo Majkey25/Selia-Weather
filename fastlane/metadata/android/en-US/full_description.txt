@@ -1,10 +1,10 @@
-Selia Vetra gives you a clear worldwide weather view without an account, with extra ČHMÚ observations and radar in Czechia. The free version contains limited ads; either Premium option removes them.
+Selia Vetra gives you a clear worldwide weather view without an account, with observed precipitation radar, regional model routing, and a custom widget. This build contains no ads or Premium.
 
-The forecast uses Open-Meteo Best Match for up to 14 days. In Czechia, fresh observations from nearby ČHMÚ stations correct the current temperature, humidity, wind, precipitation, and sky condition. Future hours remain model forecasts. See a scrollable 24-hour outlook and swipe between available daily details.
+The forecast uses Open-Meteo Best Match and a diagnostic multi-model calculation for up to 14 days. Fresh ČHMÚ observations correct current conditions in Czechia. Elsewhere, nearby fresh METAR reports can correct available temperature, humidity, dew point, pressure, visibility, cloud cover, and wind fields. Future hours remain model forecasts.
 
 Search places worldwide, save favourites, choose an exact named point on the world map, enter coordinates, or use your optional current location. The last successful forecast remains available offline.
 
-ČHMÚ radar includes rain, satellite clouds, nowcast, and lightning. Rain and clouds are separate base layers. Turn lightning on or off independently over either layer.
+The observed map uses the worldwide RainViewer radar timeline and coverage mask. A separate 24-hour local field shows model precipitation around the selected coordinate and is always labelled as a forecast.
 
 Build your own launcher widget. Each widget can use its own colours, transparency, gradient or custom-image background, text scale, alignment, label, and visible weather fields. If Android can no longer read a selected image, the widget uses its configured colour background and keeps working.
 

@@ -1,6 +1,6 @@
 # Google Play submission reference
 
-- Store name: `Selia Vetra: Czech Forecast`
+- Store name: `Selia Vetra: Weather Radar`
 - Launcher name: `Vetra`
 - Package: `com.majkeylab.weatheraladin`
 - Default language: English (`en-US`)
@@ -24,9 +24,9 @@
 - In-app search history: place search terms are collected and shared with Open-Meteo for geocoding. This data is optional, used for app functionality, and encrypted in transit.
 - Ephemeral processing: No. The app does not retain this data off-device, but [Open-Meteo states](https://open-meteo.com/en/terms) that free API server logs may contain coordinates and are deleted after 90 days.
 - Users can delete local app data in Android settings or by uninstalling the app.
-- Google Mobile Ads and UMP are bundled but current release builds do not initialise ads or request an ad. Revisit Data safety before enabling release monetisation.
-- OpenStreetMap receives requests for the visible map tiles only while the worldwide point picker is open. Tile requests reveal the approximate visible map area and IP-derived location. The exact selected coordinate remains in the app.
-- Google Play Billing is bundled but current release builds do not connect Billing or expose purchases. Revisit Data safety before enabling Premium.
+- Outside Czechia, AviationWeather receives a bounded coordinate box around the selected location to find recent METAR reports. This transfer is used for app functionality and is encrypted in transit.
+- OpenStreetMap receives requests for visible tiles while the point picker or observed radar map is open. RainViewer receives requests for the radar manifest, visible radar tiles, and coverage mask. Tile requests reveal the approximate visible map area and IP-derived location.
+- Release builds do not contain or contact Google Mobile Ads, UMP, Play Billing, Premium, or `AD_ID`.
 - The app has no separate analytics SDK and does not collect health, contacts, messages, photos, files, audio, or payment-card data.
 - A selected widget image stays on the device. The app retains read access to the Android document URI only while a configured widget uses it.
 - The optional Buy Me a Coffee action opens an external HTTPS page. It grants no app feature, entitlement, or priority.
@@ -34,15 +34,11 @@
 
 ## Monetization
 
-- One-time product: `remove_ads_lifetime` — permanently removes ads.
-- Subscription: `premium_monthly` — monthly auto-renewing Premium that removes ads.
-- Both products remain configured in Play Console but are unavailable in the current release build.
-- Debug builds keep test ads and Billing available for QA.
-- AdMob app and interstitial IDs must replace the debug test IDs before production upload.
-- Release BuildConfig forces ads and payments off while the app calls the Open-Meteo Free API. A licensed customer endpoint behind a secret-safe backend, self-hosted service, or direct commercially reusable feed is required before enabling either.
-- A server-side Play Developer API verifier is recommended before public rollout; the current client-only beta rechecks active purchases on every Billing connection and resume.
+- Current release builds contain no advertising or purchase payload.
+- Products can remain configured in Play Console but are unavailable in the current app.
+- Monetization requires a commercially licensed forecast path, a new Data safety review, updated public disclosures, and a separately verified release.
 
-The location disclosure covers forecast coordinates sent to Open-Meteo for every forecast request, archive coordinates sent to NASA POWER after **Load archive**, and approximate map areas requested from OpenStreetMap while the point picker is open. Android Geocoder can receive coordinates only after the user selects **Use my location**. In Czechia, the app selects nearby ČHMÚ station IDs locally and requests public station, radar, and satellite files over HTTPS. Selected coordinates are not sent to ČHMÚ. Do not claim a service-provider or user-action exception for the Open-Meteo transfer.
+The location disclosure covers forecast coordinates sent to Open-Meteo, archive coordinates sent to NASA POWER after **Load archive**, a bounded coordinate box sent to AviationWeather outside Czechia, and approximate visible map areas requested from OpenStreetMap and RainViewer. Android Geocoder can receive coordinates only after the user selects **Use my location**. In Czechia, the app selects nearby ČHMÚ station IDs locally and requests public station files over HTTPS. Selected coordinates are not sent to ČHMÚ.
 
 ## Assets
 

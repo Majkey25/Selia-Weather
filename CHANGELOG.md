@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## [0.2.0-beta.10] - 2026-08-31
+
+- Replaced the Czech-only radar page with a worldwide RainViewer map centred on the selected coordinate, a coverage mask, and the available two-hour observed timeline.
+- Kept the 24-hour local precipitation field clearly labelled as a model forecast rather than radar.
+- Added worldwide METAR correction for fresh temperature, humidity, dew point, pressure, visibility, cloud cover, and wind observations without inventing precipitation totals.
+- Added worldwide forecast domains for Africa, South America, South and Central Asia, Russia and northern Asia, polar locations, and open ocean.
+- Added checksum-verified schema-2 regional calibration support with local weighted calculation and fail-closed Best Match or diagnostic-median fallback.
+- Added strict NOAA ISD and NASA GPM IMERG research parsers and production gates. No worldwide calibration weights are published until a matching seamless-model holdout passes.
+- Kept release Ads, UMP, Billing, Premium, and `AD_ID` payloads disabled and absent.
+
+## [0.2.0-beta.9] - 2026-08-31
+
 - Added worldwide place search, current location, exact coordinates, local timezone handling, and an interactive world map picker.
 - Kept ČHMÚ station correction and radar scoped to Czechia while routing other locations to models that cover them.
 - Clarified mainly-clear and partly-cloudy icons with a visible sun or Moon behind the cloud.

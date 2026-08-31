@@ -1,0 +1,1 @@
+Neu: weltweites beobachtetes Radar mit Abdeckungsmaske und getrennter 24-Stunden-Modellprognose. Frische weltweite METAR-Berichte können aktuelle Werte korrigieren. Regionen für Afrika, Asien, Russland, Südamerika, Ozeanien, Ozeane und Pole wurden ergänzt. Dazu kommen geschützte regionale Kalibrierung und klarere Herkunft. Ohne Werbung, Premium, Billing, UMP oder AD_ID.

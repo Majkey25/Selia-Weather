@@ -1,1 +1,1 @@
-Best Match forecast, ČHMÚ observations and radar, plus a custom weather widget.
+Worldwide forecast, observed radar, local details, history, and a custom widget.

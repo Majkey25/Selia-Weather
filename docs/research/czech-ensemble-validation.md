@@ -196,6 +196,20 @@ evaluates the locked holdout and writes a deterministic diagnostic report. A liv
 check on 31 August returned `holdout_month_incomplete` and did not create the requested output
 directory. No August evaluation or weight export has occurred.
 
+### Region fallback development check
+
+A complete rerun against the already inspected July development holdout used dataset hash
+`f3a795b2ce759edcc30d1c1d82a2dc907ba99ec35aaedcb6c05324ef532573d0`. The first run accepted 11
+of 28 scalar, wind, occurrence, and amount evaluations. A training-only region guard increased
+that count to 13 without changing any input checksum. Wind-vector leads 24 and 48 hours newly
+passed. Five temperature leads, five precipitation-occurrence leads, and precipitation amount at
+168 hours also passed. All other evaluations still select their recorded fallback.
+
+The region guard compares each region with the global training-selected fallback and disables the
+blend where training error is not lower. The diagnostic report records every protected region.
+July remains development evidence because its holdout had already been inspected. The untouched
+August holdout remains the production acceptance test.
+
 Open-Meteo documents issued model runs in the
 [Single Runs API](https://open-meteo.com/en/docs/single-runs-api) and fixed lead comparisons in the
 [Previous Runs API](https://open-meteo.com/en/docs/previous-runs-api). Its Free API terms limit

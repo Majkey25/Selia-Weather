@@ -102,6 +102,7 @@ class ScalarTraining:
     eligible_models: tuple[str, ...]
     fallback_model: str
     fit: WeightFit | None
+    fallback_regions: frozenset[str]
     fold_improvements: tuple[float, ...]
 
 
@@ -110,6 +111,7 @@ class WindTraining:
     eligible_models: tuple[str, ...]
     fallback_model: str
     fit: WeightFit | None
+    fallback_regions: frozenset[str]
     fold_improvements: tuple[float, ...]
 
 
@@ -118,8 +120,10 @@ class PrecipitationTraining:
     eligible_models: tuple[str, ...]
     fallback_model: str
     occurrence: OccurrenceCalibration | None
+    occurrence_fallback_regions: frozenset[str]
     occurrence_threshold: float
     amount: WeightFit | None
+    amount_fallback_regions: frozenset[str]
     occurrence_fold_improvements: tuple[float, ...]
     amount_fold_improvements: tuple[float, ...]
 
@@ -132,8 +136,10 @@ class PrecipitationTraining:
 class FittedPrecipitation:
     fallback_model: str
     occurrence: OccurrenceCalibration | None
+    occurrence_fallback_regions: frozenset[str]
     occurrence_threshold: float
     amount: WeightFit | None
+    amount_fallback_regions: frozenset[str]
     occurrence_evaluation: SegmentEvaluation
     amount_evaluation: SegmentEvaluation
     brier: BrierDecomposition
@@ -390,10 +396,16 @@ def evaluate_backtest_training(
 
 def write_backtest_report(path: Path, result: BacktestRun) -> None:
     segments: list[JsonValue] = []
+    scalar_training = dict(result.training.scalar)
+    wind_training = dict(result.training.wind)
     for key, fitted in result.scalar:
         segments.append(
             {
                 "evaluation": _evaluation_payload(fitted.evaluation),
+                "fallback_regions": cast(
+                    list[JsonValue],
+                    sorted(scalar_training[key].fallback_regions),
+                ),
                 "kind": "scalar",
                 "lead_hours": key.lead_hours,
                 "variable": key.variable,
@@ -404,6 +416,10 @@ def write_backtest_report(path: Path, result: BacktestRun) -> None:
         segments.append(
             {
                 "evaluation": _evaluation_payload(fitted.evaluation),
+                "fallback_regions": cast(
+                    list[JsonValue],
+                    sorted(wind_training[lead_hours].fallback_regions),
+                ),
                 "kind": "wind_vector",
                 "lead_hours": lead_hours,
                 "variable": "wind_vector",
@@ -414,6 +430,10 @@ def write_backtest_report(path: Path, result: BacktestRun) -> None:
         segments.append(
             {
                 "amount_evaluation": _evaluation_payload(fitted.amount_evaluation),
+                "amount_fallback_regions": cast(
+                    list[JsonValue],
+                    sorted(fitted.amount_fallback_regions),
+                ),
                 "amount_weights": _weight_payload(fitted.amount),
                 "brier": {
                     "reliability": fitted.brier.reliability,
@@ -426,6 +446,10 @@ def write_backtest_report(path: Path, result: BacktestRun) -> None:
                 "occurrence": _occurrence_payload(fitted),
                 "occurrence_evaluation": _evaluation_payload(
                     fitted.occurrence_evaluation
+                ),
+                "occurrence_fallback_regions": cast(
+                    list[JsonValue],
+                    sorted(fitted.occurrence_fallback_regions),
                 ),
                 "thresholds": [
                     {
@@ -444,8 +468,22 @@ def write_backtest_report(path: Path, result: BacktestRun) -> None:
                 "variable": "precipitation",
             }
         )
+    accepted_evaluations = (
+        sum(fitted.evaluation.accepted for _, fitted in result.scalar)
+        + sum(fitted.evaluation.accepted for _, fitted in result.wind)
+        + sum(
+            fitted.occurrence_evaluation.accepted + fitted.amount_evaluation.accepted
+            for _, fitted in result.precipitation
+        )
+    )
+    evaluation_count = len(result.scalar) + len(result.wind) + 2 * len(result.precipitation)
     payload: dict[str, JsonValue] = {
         "dataset_manifest_hash": result.lock.dataset_manifest_hash,
+        "evaluation_summary": {
+            "accepted": accepted_evaluations,
+            "rejected": evaluation_count - accepted_evaluations,
+            "total": evaluation_count,
+        },
         "exported": False,
         "locked_at": result.lock.locked_at.isoformat().replace("+00:00", "Z"),
         "segments": segments,
@@ -794,11 +832,13 @@ def fit_scalar_training(segment: SegmentDataset) -> ScalarTraining:
         minimum_samples=30,
     )
     fit = None if isinstance(fit_result, FitFailure) else fit_result
+    fallback_regions = _scalar_fallback_regions(training, fit, fallback_model)
     return ScalarTraining(
         segment.eligible_models,
         fallback_model,
         fit,
-        _fold_improvements(training, fit, fallback_model),
+        fallback_regions,
+        _fold_improvements(training, fit, fallback_model, fallback_regions),
     )
 
 
@@ -822,7 +862,12 @@ def evaluate_scalar_training(
             case.forecast_date,
             case.region,
             abs(
-                _blend_or_fallback(case, training.fit, training.fallback_model)
+                _scalar_prediction(
+                    case,
+                    training.fit,
+                    training.fallback_model,
+                    training.fallback_regions,
+                )
                 - case.observation
             ),
             abs(_model_value(case, training.fallback_model) - case.observation),
@@ -864,10 +909,16 @@ def fit_precipitation_training(segment: SegmentDataset) -> PrecipitationTraining
         minimum_samples=60,
     )
     occurrence = None if isinstance(occurrence_result, FitFailure) else occurrence_result
+    occurrence_fallback_regions = _precipitation_occurrence_fallback_regions(
+        cases,
+        occurrence,
+        fallback_model,
+    )
     occurrence_threshold = _select_precipitation_threshold(
         cases,
         occurrence,
         fallback_model,
+        occurrence_fallback_regions,
     )
     amount_result = fit_positive_amount_weights(
         segment.eligible_models,
@@ -877,10 +928,20 @@ def fit_precipitation_training(segment: SegmentDataset) -> PrecipitationTraining
         minimum_positive_samples=30,
     )
     amount = None if isinstance(amount_result, FitFailure) else amount_result
+    amount_fallback_regions = _precipitation_amount_fallback_regions(
+        cases,
+        occurrence,
+        occurrence_fallback_regions,
+        occurrence_threshold,
+        amount,
+        fallback_model,
+    )
     occurrence_folds, amount_folds = _precipitation_fold_improvements(
         cases,
         occurrence,
+        occurrence_fallback_regions,
         amount,
+        amount_fallback_regions,
         fallback_model,
         occurrence_threshold,
     )
@@ -888,8 +949,10 @@ def fit_precipitation_training(segment: SegmentDataset) -> PrecipitationTraining
         segment.eligible_models,
         fallback_model,
         occurrence,
+        occurrence_fallback_regions,
         occurrence_threshold,
         amount,
+        amount_fallback_regions,
         occurrence_folds,
         amount_folds,
     )
@@ -911,15 +974,22 @@ def evaluate_precipitation_training(
         holdout = tuple(case for case in holdout if case.best_match is not None)
     _require_non_negative_precipitation(holdout, segment.eligible_models)
     probabilities = tuple(
-        _precipitation_probability(case, training.occurrence, training.fallback_model)
+        _precipitation_probability(
+            case,
+            training.occurrence,
+            training.fallback_model,
+            training.occurrence_fallback_regions,
+        )
         for case in holdout
     )
     amounts = tuple(
         _precipitation_amount(
             case,
             training.occurrence,
+            training.occurrence_fallback_regions,
             training.occurrence_threshold,
             training.amount,
+            training.amount_fallback_regions,
             training.fallback_model,
         )
         for case in holdout
@@ -986,8 +1056,10 @@ def evaluate_precipitation_training(
     return FittedPrecipitation(
         training.fallback_model,
         training.occurrence,
+        training.occurrence_fallback_regions,
         training.occurrence_threshold,
         training.amount,
+        training.amount_fallback_regions,
         occurrence_evaluation,
         amount_evaluation,
         brier_decomposition(probabilities, events),
@@ -1038,11 +1110,13 @@ def fit_wind_vector_training(
         minimum_samples=30,
     )
     fit = None if isinstance(fit_result, FitFailure) else fit_result
+    fallback_regions = _wind_fallback_regions(training, fit, fallback_model)
     return WindTraining(
         eligible_models,
         fallback_model,
         fit,
-        _wind_fold_improvements(training, fit, fallback_model),
+        fallback_regions,
+        _wind_fold_improvements(training, fit, fallback_model, fallback_regions),
     )
 
 
@@ -1074,7 +1148,13 @@ def evaluate_wind_vector_training(
         EvaluationSample(
             speed.forecast_date,
             speed.region,
-            _wind_pair_loss(speed, direction, training.fit, training.fallback_model),
+            _wind_prediction_loss(
+                speed,
+                direction,
+                training.fit,
+                training.fallback_model,
+                training.fallback_regions,
+            ),
             _wind_pair_loss(speed, direction, None, training.fallback_model),
         )
         for speed, direction in holdout
@@ -1197,10 +1277,47 @@ def _wind_pair_loss(
     )
 
 
+def _wind_prediction_loss(
+    speed: ScalarForecastCase,
+    direction: ScalarForecastCase,
+    fit: WeightFit | None,
+    fallback_model: str,
+    fallback_regions: frozenset[str],
+) -> float:
+    return _wind_pair_loss(
+        speed,
+        direction,
+        None if speed.region in fallback_regions else fit,
+        fallback_model,
+    )
+
+
+def _wind_fallback_regions(
+    pairs: Sequence[tuple[ScalarForecastCase, ScalarForecastCase]],
+    fit: WeightFit | None,
+    fallback_model: str,
+) -> frozenset[str]:
+    regions = {speed.region for speed, _ in pairs}
+    if fit is None:
+        return frozenset(regions)
+    return frozenset(
+        region
+        for region in regions
+        if fmean(
+            _wind_pair_loss(speed, direction, fit, fallback_model)
+            - _wind_pair_loss(speed, direction, None, fallback_model)
+            for speed, direction in pairs
+            if speed.region == region
+        )
+        >= 0
+    )
+
+
 def _wind_fold_improvements(
     pairs: Sequence[tuple[ScalarForecastCase, ScalarForecastCase]],
     fit: WeightFit | None,
     fallback_model: str,
+    fallback_regions: frozenset[str],
 ) -> tuple[float, ...]:
     if fit is None:
         return ()
@@ -1210,7 +1327,13 @@ def _wind_fold_improvements(
     return tuple(
         fmean(
             _wind_pair_loss(speed, direction, None, fallback_model)
-            - _wind_pair_loss(speed, direction, fit, fallback_model)
+            - _wind_prediction_loss(
+                speed,
+                direction,
+                fit,
+                fallback_model,
+                fallback_regions,
+            )
             for speed, direction in fold
         )
         for _, fold in sorted(folds.items())
@@ -1247,8 +1370,9 @@ def _precipitation_probability(
     case: ScalarForecastCase,
     occurrence: OccurrenceCalibration | None,
     fallback_model: str,
+    fallback_regions: frozenset[str],
 ) -> float:
-    if occurrence is None:
+    if occurrence is None or case.region in fallback_regions:
         return float(
             _model_value(case, fallback_model) >= PRECIPITATION_EVENT_THRESHOLD_MM
         )
@@ -1263,15 +1387,49 @@ def _precipitation_probability(
     )
 
 
+def _precipitation_occurrence_fallback_regions(
+    cases: Sequence[ScalarForecastCase],
+    occurrence: OccurrenceCalibration | None,
+    fallback_model: str,
+) -> frozenset[str]:
+    regions = {case.region for case in cases}
+    if occurrence is None:
+        return frozenset(regions)
+    return frozenset(
+        region
+        for region in regions
+        if fmean(
+            (
+                _precipitation_probability(case, occurrence, fallback_model, frozenset())
+                - float(case.observation >= PRECIPITATION_EVENT_THRESHOLD_MM)
+            )
+            ** 2
+            - (
+                float(
+                    _model_value(case, fallback_model)
+                    >= PRECIPITATION_EVENT_THRESHOLD_MM
+                )
+                - float(case.observation >= PRECIPITATION_EVENT_THRESHOLD_MM)
+            )
+            ** 2
+            for case in cases
+            if case.region == region
+        )
+        >= 0
+    )
+
+
 def _select_precipitation_threshold(
     cases: Sequence[ScalarForecastCase],
     occurrence: OccurrenceCalibration | None,
     fallback_model: str,
+    fallback_regions: frozenset[str],
 ) -> float:
     if occurrence is None:
         return 0.5
     probabilities = tuple(
-        _precipitation_probability(case, occurrence, fallback_model) for case in cases
+        _precipitation_probability(case, occurrence, fallback_model, fallback_regions)
+        for case in cases
     )
     events = tuple(case.observation >= PRECIPITATION_EVENT_THRESHOLD_MM for case in cases)
     return min(
@@ -1290,13 +1448,28 @@ def _select_precipitation_threshold(
 def _precipitation_amount(
     case: ScalarForecastCase,
     occurrence: OccurrenceCalibration | None,
+    occurrence_fallback_regions: frozenset[str],
     occurrence_threshold: float,
     amount: WeightFit | None,
+    amount_fallback_regions: frozenset[str],
     fallback_model: str,
 ) -> float:
-    if occurrence is None or amount is None:
+    if (
+        occurrence is None
+        or amount is None
+        or case.region in occurrence_fallback_regions
+        or case.region in amount_fallback_regions
+    ):
         return _model_value(case, fallback_model)
-    if _precipitation_probability(case, occurrence, fallback_model) < occurrence_threshold:
+    if (
+        _precipitation_probability(
+            case,
+            occurrence,
+            fallback_model,
+            occurrence_fallback_regions,
+        )
+        < occurrence_threshold
+    ):
         return 0.0
     return blend_positive_amount(
         amount,
@@ -1304,10 +1477,47 @@ def _precipitation_amount(
     )
 
 
+def _precipitation_amount_fallback_regions(
+    cases: Sequence[ScalarForecastCase],
+    occurrence: OccurrenceCalibration | None,
+    occurrence_fallback_regions: frozenset[str],
+    occurrence_threshold: float,
+    amount: WeightFit | None,
+    fallback_model: str,
+) -> frozenset[str]:
+    regions = {case.region for case in cases}
+    if occurrence is None or amount is None:
+        return frozenset(regions)
+    return frozenset(
+        region
+        for region in regions
+        if fmean(
+            abs(
+                _precipitation_amount(
+                    case,
+                    occurrence,
+                    occurrence_fallback_regions,
+                    occurrence_threshold,
+                    amount,
+                    frozenset(),
+                    fallback_model,
+                )
+                - case.observation
+            )
+            - abs(_model_value(case, fallback_model) - case.observation)
+            for case in cases
+            if case.region == region
+        )
+        >= 0
+    )
+
+
 def _precipitation_fold_improvements(
     cases: Sequence[ScalarForecastCase],
     occurrence: OccurrenceCalibration | None,
+    occurrence_fallback_regions: frozenset[str],
     amount: WeightFit | None,
+    amount_fallback_regions: frozenset[str],
     fallback_model: str,
     occurrence_threshold: float,
 ) -> tuple[tuple[float, ...], tuple[float, ...]]:
@@ -1328,7 +1538,12 @@ def _precipitation_fold_improvements(
                 )
                 ** 2
                 - (
-                    _precipitation_probability(case, occurrence, fallback_model)
+                    _precipitation_probability(
+                        case,
+                        occurrence,
+                        fallback_model,
+                        occurrence_fallback_regions,
+                    )
                     - float(case.observation >= PRECIPITATION_EVENT_THRESHOLD_MM)
                 )
                 ** 2
@@ -1347,8 +1562,10 @@ def _precipitation_fold_improvements(
                     _precipitation_amount(
                         case,
                         occurrence,
+                        occurrence_fallback_regions,
                         occurrence_threshold,
                         amount,
+                        amount_fallback_regions,
                         fallback_model,
                     )
                     - case.observation
@@ -1391,8 +1608,43 @@ def _blend_or_fallback(
     return blend_scalar(fit, values)
 
 
+def _scalar_prediction(
+    case: ScalarForecastCase,
+    fit: WeightFit | None,
+    fallback_model: str,
+    fallback_regions: frozenset[str],
+) -> float:
+    if case.region in fallback_regions:
+        return _model_value(case, fallback_model)
+    return _blend_or_fallback(case, fit, fallback_model)
+
+
+def _scalar_fallback_regions(
+    cases: Sequence[ScalarForecastCase],
+    fit: WeightFit | None,
+    fallback_model: str,
+) -> frozenset[str]:
+    regions = {case.region for case in cases}
+    if fit is None:
+        return frozenset(regions)
+    return frozenset(
+        region
+        for region in regions
+        if fmean(
+            abs(_blend_or_fallback(case, fit, fallback_model) - case.observation)
+            - abs(_model_value(case, fallback_model) - case.observation)
+            for case in cases
+            if case.region == region
+        )
+        >= 0
+    )
+
+
 def _fold_improvements(
-    cases: Sequence[ScalarForecastCase], fit: WeightFit | None, fallback_model: str
+    cases: Sequence[ScalarForecastCase],
+    fit: WeightFit | None,
+    fallback_model: str,
+    fallback_regions: frozenset[str],
 ) -> tuple[float, ...]:
     if fit is None:
         return ()
@@ -1402,7 +1654,10 @@ def _fold_improvements(
     return tuple(
         fmean(
             abs(_model_value(case, fallback_model) - case.observation)
-            - abs(_blend_or_fallback(case, fit, fallback_model) - case.observation)
+            - abs(
+                _scalar_prediction(case, fit, fallback_model, fallback_regions)
+                - case.observation
+            )
             for case in fold
         )
         for _, fold in sorted(folds.items())

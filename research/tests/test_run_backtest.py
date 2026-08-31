@@ -290,6 +290,11 @@ def test_locked_run_fits_before_lock_and_writes_diagnostic_report(tmp_path: Path
     report = json.loads((tmp_path / "run" / "report.json").read_text(encoding="utf-8"))
     assert report["status"] == "diagnostic"
     assert report["exported"] is False
+    assert report["evaluation_summary"] == {
+        "accepted": 4,
+        "rejected": 0,
+        "total": 4,
+    }
     assert {row["kind"] for row in report["segments"]} == {
         "precipitation",
         "scalar",
@@ -443,6 +448,43 @@ def test_scalar_training_does_not_read_holdout() -> None:
     )
 
 
+def test_scalar_training_falls_back_only_in_harmful_regions() -> None:
+    def regional_cases(start: date, days: int) -> tuple[ScalarForecastCase, ...]:
+        return tuple(
+            case
+            for offset in range(days)
+            for case in (
+                replace(
+                    _case(start + timedelta(days=offset), 10.0, 11.0, 9.0),
+                    region="REGION_GOOD",
+                ),
+                replace(
+                    _case(start + timedelta(days=offset), 10.0, 10.0, 20.0),
+                    region="REGION_HARMFUL",
+                ),
+            )
+        )
+
+    segment = SegmentDataset(
+        SegmentKey("temperature", 24),
+        regional_cases(TRAIN.start, 90),
+        regional_cases(HOLDOUT.start, 30),
+        ("model_a", "model_b"),
+        {"model_a": 1.0, "model_b": 1.0},
+    )
+    training = fit_scalar_training(segment)
+
+    assert training.fallback_regions == frozenset({"REGION_HARMFUL"})
+    fitted = fit_scalar_segment(
+        segment,
+        _lock(),
+        trained_at=datetime(2026, 7, 31, tzinfo=UTC),
+        bootstrap_repetitions=50,
+    )
+    assert fitted.evaluation.accepted
+    assert fitted.evaluation.maximum_region_degradation == 0.0
+
+
 def test_precipitation_training_is_holdout_blind_and_evaluates_both_parts() -> None:
     training = fit_precipitation_training(_precipitation_segment())
 
@@ -472,6 +514,51 @@ def test_precipitation_training_rejects_negative_amounts() -> None:
         fit_precipitation_training(
             replace(segment, training=(invalid_case, *segment.training[1:]))
         )
+
+
+def test_precipitation_training_protects_harmful_regions() -> None:
+    base = _precipitation_segment()
+
+    def model_a(case: ScalarForecastCase) -> float:
+        value = case.model_values["model_a"]
+        assert value is not None
+        return value
+
+    def regional(cases: tuple[ScalarForecastCase, ...]) -> tuple[ScalarForecastCase, ...]:
+        return tuple(
+            item
+            for case in cases
+            for item in (
+                replace(case, region="REGION_GOOD"),
+                replace(
+                    case,
+                    region="REGION_HARMFUL",
+                    observation=model_a(case),
+                ),
+            )
+        )
+
+    segment = replace(
+        base,
+        training=regional(base.training),
+        holdout=regional(base.holdout),
+    )
+    training = fit_precipitation_training(segment)
+
+    assert "REGION_HARMFUL" in (
+        training.occurrence_fallback_regions | training.amount_fallback_regions
+    )
+    fitted = evaluate_precipitation_training(
+        segment,
+        training,
+        _lock(),
+        trained_at=datetime(2026, 7, 31, tzinfo=UTC),
+        bootstrap_repetitions=50,
+    )
+    occurrence_degradation = fitted.occurrence_evaluation.maximum_region_degradation
+    amount_degradation = fitted.amount_evaluation.maximum_region_degradation
+    assert occurrence_degradation is not None and occurrence_degradation <= 0.05
+    assert amount_degradation is not None and amount_degradation <= 0.05
 
 
 def test_wind_vector_segment_blends_across_north_and_passes_holdout() -> None:
@@ -513,6 +600,68 @@ def test_wind_training_does_not_read_holdout() -> None:
     assert fit_wind_vector_training(speed, direction) == fit_wind_vector_training(
         speed, incomplete_holdout
     )
+
+
+def test_wind_training_falls_back_only_in_harmful_regions() -> None:
+    def regional_wind(variable: str, start: date, days: int) -> tuple[ScalarForecastCase, ...]:
+        rows: list[ScalarForecastCase] = []
+        for offset in range(days):
+            day = start + timedelta(days=offset)
+            if variable == "wind_speed":
+                truth, good_values, harmful_values = 10.0, (10.0, 10.0), (10.0, 10.0)
+            else:
+                truth, good_values, harmful_values = 0.0, (350.0, 10.0), (0.0, 180.0)
+            rows.extend(
+                (
+                    ScalarForecastCase(
+                        day,
+                        variable,
+                        24,
+                        "REGION_GOOD",
+                        "low",
+                        "summer",
+                        truth,
+                        {"model_a": good_values[0], "model_b": good_values[1]},
+                        None,
+                    ),
+                    ScalarForecastCase(
+                        day,
+                        variable,
+                        24,
+                        "REGION_HARMFUL",
+                        "low",
+                        "summer",
+                        truth,
+                        {"model_a": harmful_values[0], "model_b": harmful_values[1]},
+                        None,
+                    ),
+                )
+            )
+        return tuple(rows)
+
+    def segment(variable: str) -> SegmentDataset:
+        return SegmentDataset(
+            SegmentKey(variable, 24),
+            regional_wind(variable, TRAIN.start, 90),
+            regional_wind(variable, HOLDOUT.start, 30),
+            ("model_a", "model_b"),
+            {"model_a": 1.0, "model_b": 1.0},
+        )
+
+    speed = segment("wind_speed")
+    direction = segment("wind_direction")
+    training = fit_wind_vector_training(speed, direction)
+
+    assert training.fallback_regions == frozenset({"REGION_HARMFUL"})
+    fitted = fit_wind_vector_segment(
+        speed,
+        direction,
+        _lock(),
+        trained_at=datetime(2026, 7, 31, tzinfo=UTC),
+        bootstrap_repetitions=50,
+    )
+    assert fitted.evaluation.accepted
+    assert fitted.evaluation.maximum_region_degradation == 0.0
 
 
 def test_monthly_truth_plan_and_forecast_hour_sampling_are_bounded() -> None:

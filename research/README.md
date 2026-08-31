@@ -49,3 +49,13 @@ weights were exported. The exact production gate and results are recorded in
 [`docs/research/czech-ensemble-validation.md`](../docs/research/czech-ensemble-validation.md).
 The current model registry is complete with 15 eligible candidates and 2 definitive exclusions.
 The export code still refuses any future registry whose status is not `complete`.
+
+Run the locked-backtest preflight before any download:
+
+```powershell
+& 'C:\Users\mates\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -m uv run --project research python -m aladin_ensemble.run_backtest --registry research/model-registry.json --station-metadata research/data/raw/chmi-meta/meta1-20260828.json --element-metadata research/data/raw/chmi-meta/meta2-20260828.json --train-start 2026-05-03 --train-end 2026-07-31 --holdout-start 2026-08-01 --holdout-end 2026-08-30 --provider-limit 10000
+```
+
+The command is network-free. It validates the complete registry, corrected station cohort, date
+split, Open-Meteo request budget, ČHMÚ monthly request count, and immutable-month boundary. Exit
+code `0` means ready. Exit code `2` prints a machine-readable blocking reason.

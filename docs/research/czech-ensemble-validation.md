@@ -173,13 +173,22 @@ the official DWD grid file is used for a verified remap or reusable spatial inde
 
 ## Work required before production
 
-1. After 30 August is complete, lock an untouched August holdout and evaluate the corrected
-   15-station cohort without changing the fitted method.
+1. After the 1 September UTC month boundary, lock the untouched 1–30 August holdout and evaluate
+   the corrected 15-station cohort without changing the fitted method. The boundary is required
+   because the ČHMÚ monthly truth file can still change during August.
 2. Keep the wind-vector method fixed for the untouched holdout. Run precipitation through the
    separate occurrence and positive-amount pipeline.
 3. Lock a new untouched holdout before changing any failed model or segment selection.
 4. Re-run the source licence gate before any release with advertising or paid features.
 5. Export `ensemble_weights.json` only when nationwide coverage and every artifact rule pass.
+
+### August holdout preflight
+
+The reproducible preflight command ran on 31 August 2026. It selected the corrected 15-station
+cohort and the complete 15-model registry, estimated 112 Previous Runs requests and 120 ČHMÚ
+monthly truth requests, and returned exit code `2` with
+`reason=holdout_month_incomplete`. No network download, holdout lock, evaluation, or weight export
+occurred. The same command can become ready only after the UTC month boundary.
 
 Open-Meteo documents issued model runs in the
 [Single Runs API](https://open-meteo.com/en/docs/single-runs-api) and fixed lead comparisons in the

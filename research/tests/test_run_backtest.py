@@ -14,12 +14,14 @@ from aladin_ensemble.backtest import BacktestConfig, SegmentDataset, SegmentKey
 from aladin_ensemble.baselines import ScalarForecastCase
 from aladin_ensemble.evaluate import HoldoutLock
 from aladin_ensemble.run_backtest import (
+    build_backtest_preflight,
     build_previous_requests,
     download_previous_forecasts,
     fit_scalar_segment,
     fit_wind_vector_segment,
     load_registry_model_ids,
     monthly_truth_requests,
+    preflight_payload,
     sample_forecast_hours,
     select_training_fallback,
     usable_truth_observation,
@@ -125,6 +127,46 @@ def test_previous_request_plan_batches_points_and_all_fixed_leads() -> None:
     assert requests[0].points[0].point_id == station.wigos_id
     assert budget.expected_http_requests == 21
     budget.require_within_limit()
+
+
+def test_preflight_blocks_while_holdout_month_can_still_change() -> None:
+    station = Station("0-20000-0-11519", "Praha", 50.07, 14.43, 260.5)
+    selected = (SelectedStation(CZECH_TARGETS[0], station),)
+    config = BacktestConfig(TRAIN, HOLDOUT, ("model_a", "model_b"))
+
+    result = build_backtest_preflight(
+        config,
+        selected,
+        now=datetime(2026, 7, 31, 12, tzinfo=UTC),
+        provider_limit=10_000,
+    )
+
+    assert result.status == "blocked"
+    assert result.reason == "holdout_month_incomplete"
+
+
+def test_preflight_is_ready_after_month_boundary_with_deterministic_counts() -> None:
+    station = Station("0-20000-0-11519", "Praha", 50.07, 14.43, 260.5)
+    selected = (SelectedStation(CZECH_TARGETS[0], station),)
+    config = BacktestConfig(TRAIN, HOLDOUT, ("model_a", "model_b"))
+
+    result = build_backtest_preflight(
+        config,
+        selected,
+        now=datetime(2026, 8, 1, tzinfo=UTC),
+        provider_limit=10_000,
+    )
+
+    assert preflight_payload(result) == {
+        "forecast_requests": 21,
+        "holdout": {"end": "2026-07-30", "start": "2026-07-01"},
+        "model_count": 2,
+        "reason": None,
+        "station_count": 1,
+        "status": "ready",
+        "training": {"end": "2026-06-30", "start": "2026-04-02"},
+        "truth_requests": 8,
+    }
 
 
 def _wind_segment(variable: str, model_a: float, model_b: float, truth: float) -> SegmentDataset:

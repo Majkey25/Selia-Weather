@@ -1,15 +1,17 @@
 from __future__ import annotations
 
+import argparse
 import json
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from math import cos, hypot, isfinite, radians, sin
 from pathlib import Path
 from statistics import fmean
 from time import sleep
-from typing import cast
+from typing import Literal, cast
 
+from aladin_ensemble.align import DateRange
 from aladin_ensemble.backtest import BacktestConfig, SegmentDataset
 from aladin_ensemble.baselines import ScalarForecastCase
 from aladin_ensemble.evaluate import (
@@ -21,13 +23,17 @@ from aladin_ensemble.evaluate import (
 from aladin_ensemble.fallback import FitFailure, SegmentSelector
 from aladin_ensemble.registry import JsonValue, RequestBudget
 from aladin_ensemble.sources.chmi_download import (
+    CZECH_TARGETS,
     ChmiMonthlyDownloader,
     ChmiMonthlyRequest,
     SelectedStation,
+    select_station_cohort,
 )
 from aladin_ensemble.sources.chmi_station import (
     ElementMetadata,
     Station,
+    parse_element_metadata,
+    parse_station_metadata,
     parse_station_observations,
 )
 from aladin_ensemble.sources.open_meteo_runs import (
@@ -54,6 +60,7 @@ FORECAST_VARIABLES = (
 )
 FIXED_LEADS = tuple(range(1, 8))
 Sleeper = Callable[[float], None]
+PreflightStatus = Literal["ready", "blocked"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,6 +72,120 @@ class FittedSegment:
     @property
     def export_fit(self) -> WeightFit | None:
         return self.fit if self.evaluation.accepted else None
+
+
+@dataclass(frozen=True, slots=True)
+class BacktestPreflight:
+    status: PreflightStatus
+    reason: str | None
+    training_start: date
+    training_end: date
+    holdout_start: date
+    holdout_end: date
+    model_count: int
+    station_count: int
+    forecast_requests: int
+    truth_requests: int
+
+    def __post_init__(self) -> None:
+        if self.status == "ready" and self.reason is not None:
+            raise ValueError("ready preflight cannot have a blocking reason")
+        if self.status == "blocked" and not self.reason:
+            raise ValueError("blocked preflight requires a reason")
+        if min(
+            self.model_count,
+            self.station_count,
+            self.forecast_requests,
+            self.truth_requests,
+        ) <= 0:
+            raise ValueError("preflight counts must be positive")
+
+
+def build_backtest_preflight(
+    config: BacktestConfig,
+    stations: Sequence[SelectedStation],
+    *,
+    now: datetime,
+    provider_limit: int,
+) -> BacktestPreflight:
+    if now.tzinfo is None or now.utcoffset() != UTC.utcoffset(now):
+        raise ValueError("now must be timezone-aware UTC")
+    requests, budget = build_previous_requests(
+        config.model_ids,
+        stations,
+        config.train.start,
+        config.holdout.end,
+        provider_limit=provider_limit,
+    )
+    budget.require_within_limit()
+    truth = monthly_truth_requests(stations, config.train.start, config.holdout.end)
+    complete_before = date(now.year, now.month, 1)
+    reason = None if config.holdout.end < complete_before else "holdout_month_incomplete"
+    return BacktestPreflight(
+        status="ready" if reason is None else "blocked",
+        reason=reason,
+        training_start=config.train.start,
+        training_end=config.train.end,
+        holdout_start=config.holdout.start,
+        holdout_end=config.holdout.end,
+        model_count=len(config.model_ids),
+        station_count=len(stations),
+        forecast_requests=len(requests),
+        truth_requests=len(truth),
+    )
+
+
+def preflight_payload(preflight: BacktestPreflight) -> dict[str, JsonValue]:
+    return {
+        "forecast_requests": preflight.forecast_requests,
+        "holdout": {
+            "end": preflight.holdout_end.isoformat(),
+            "start": preflight.holdout_start.isoformat(),
+        },
+        "model_count": preflight.model_count,
+        "reason": preflight.reason,
+        "station_count": preflight.station_count,
+        "status": preflight.status,
+        "training": {
+            "end": preflight.training_end.isoformat(),
+            "start": preflight.training_start.isoformat(),
+        },
+        "truth_requests": preflight.truth_requests,
+    }
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Preflight a locked Czech forecast backtest.")
+    parser.add_argument("--registry", type=Path, required=True)
+    parser.add_argument("--station-metadata", type=Path, required=True)
+    parser.add_argument("--element-metadata", type=Path, required=True)
+    parser.add_argument("--train-start", type=date.fromisoformat, required=True)
+    parser.add_argument("--train-end", type=date.fromisoformat, required=True)
+    parser.add_argument("--holdout-start", type=date.fromisoformat, required=True)
+    parser.add_argument("--holdout-end", type=date.fromisoformat, required=True)
+    parser.add_argument("--provider-limit", type=int, default=10_000)
+    arguments = parser.parse_args(argv)
+    registry = cast(Path, arguments.registry)
+    station_metadata = cast(Path, arguments.station_metadata)
+    element_metadata = cast(Path, arguments.element_metadata)
+    with station_metadata.open(encoding="utf-8") as source:
+        stations = tuple(parse_station_metadata(source))
+    with element_metadata.open(encoding="utf-8") as source:
+        metadata = parse_element_metadata(source)
+    selected = select_station_cohort(CZECH_TARGETS, stations, metadata)
+    config = BacktestConfig(
+        DateRange(cast(date, arguments.train_start), cast(date, arguments.train_end)),
+        DateRange(cast(date, arguments.holdout_start), cast(date, arguments.holdout_end)),
+        load_registry_model_ids(registry),
+    )
+    preflight = build_backtest_preflight(
+        config,
+        selected,
+        now=datetime.now(UTC),
+        provider_limit=cast(int, arguments.provider_limit),
+    )
+    print(json.dumps(preflight_payload(preflight), sort_keys=True, separators=(",", ":")))
+    return 0 if preflight.status == "ready" else 2
 
 
 def load_registry_model_ids(path: Path) -> tuple[str, ...]:
@@ -547,3 +668,7 @@ def _json_value(value: object) -> JsonValue:
             result[key] = _json_value(item)
         return result
     raise ValueError("invalid registry JSON value")
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

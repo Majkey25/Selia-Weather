@@ -19,6 +19,7 @@
 - Added a native Settings action that asks the launcher to pin and configure the weather widget.
 - Added worldwide calibration regions, kept verified global-capable provider families at every coordinate, limited CHMI ALADIN to Czechia, and excluded suspended KMA output.
 - Added cached calculation provenance to Weather details: region, diagnostic or fallback mode, contributor count and IDs, and fallback reason.
+- Added a reproducible Czech backtest preflight that validates dates, station/model cohorts, request budgets, and the immutable-month gate before downloading or locking a holdout.
 
 ## [0.2.0-beta.8] - 2026-08-29
 

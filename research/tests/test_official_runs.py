@@ -477,3 +477,38 @@ def test_http_download_honours_retry_after() -> None:
     assert payload == b"GRIBfixture7777"
     assert calls == 2
     assert delays == [2.0]
+
+
+def test_http_download_retries_socket_timeout() -> None:
+    calls = 0
+    delays: list[float] = []
+
+    class Response:
+        def __enter__(self) -> Response:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def read(self, _limit: int) -> bytes:
+            return b"GRIBfixture7777"
+
+    def open_url(_url: str, _timeout: float) -> Response:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise TimeoutError("read timed out")
+        return Response()
+
+    payload = download_http_with_retry(
+        "https://example.com/field.grib2",
+        timeout=10.0,
+        max_bytes=1_000,
+        open_url=open_url,
+        sleeper=delays.append,
+        attempts=2,
+    )
+
+    assert payload == b"GRIBfixture7777"
+    assert calls == 2
+    assert delays == [1.0]

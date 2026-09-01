@@ -481,6 +481,10 @@ def download_http_with_retry(
                 raise
             retry_after = error.headers.get("Retry-After")
             sleeper(_retry_delay(retry_after))
+        except OSError:
+            if attempt + 1 == attempts:
+                raise
+            sleeper(1.0)
     else:
         raise RuntimeError("HTTP retry loop ended without a result")
     if len(payload) > max_bytes:

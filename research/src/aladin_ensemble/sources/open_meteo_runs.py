@@ -21,6 +21,7 @@ PREVIOUS_RUNS_URL = "https://previous-runs-api.open-meteo.com/v1/forecast"
 TERMS_URL = "https://open-meteo.com/en/terms"
 DEFAULT_CACHE_ROOT = Path("data/raw/open-meteo")
 MAX_RETRY_AFTER_SECONDS = 60.0
+DEFAULT_MAX_RESPONSE_BYTES = 50_000_000
 _SECRET_PARAMETERS = frozenset({"api_key", "apikey", "authorization", "key", "token"})
 _VARIABLES = {
     "temperature_2m": ("temperature", "°C"),
@@ -219,17 +220,21 @@ class CachedDownloader:
         retry_attempts: int = 2,
         retry_delay_seconds: float = 1.0,
         sleeper: Sleeper | None = None,
+        max_response_bytes: int = DEFAULT_MAX_RESPONSE_BYTES,
     ) -> None:
         if retry_attempts <= 0:
             raise ValueError("retry_attempts must be positive")
         if not isfinite(retry_delay_seconds) or retry_delay_seconds < 0:
             raise ValueError("retry_delay_seconds must be finite and non-negative")
+        if max_response_bytes <= 0:
+            raise ValueError("max_response_bytes must be positive")
         self._root = root
-        self._fetch = fetch or _fetch
+        self._fetch = fetch or (lambda request: _fetch(request, max_response_bytes))
         self._now = now or (lambda: datetime.now(UTC))
         self._retry_attempts = retry_attempts
         self._retry_delay_seconds = retry_delay_seconds
         self._sleep = sleeper or sleep
+        self._max_response_bytes = max_response_bytes
 
     def download(self, request: IssuedRunRequest) -> CachedResponse:
         url, parameters = build_single_run_url(request)
@@ -389,6 +394,8 @@ class CachedDownloader:
                 if attempt + 1 == self._retry_attempts:
                     raise
             else:
+                if len(response.body) > self._max_response_bytes:
+                    raise ValueError("Open-Meteo response exceeds size limit")
                 retryable = response.status == 429 or response.status >= 500
                 if not retryable or attempt + 1 == self._retry_attempts:
                     return response
@@ -641,12 +648,18 @@ def _parameters(request: IssuedRunRequest) -> tuple[tuple[str, str], ...]:
     )
 
 
-def _fetch(request: Request) -> HttpResponse:
+def _fetch(request: Request, max_bytes: int) -> HttpResponse:
     try:
         with urlopen(request, timeout=30) as response:
-            return HttpResponse(response.status, dict(response.headers.items()), response.read())
+            body = response.read(max_bytes + 1)
+            if len(body) > max_bytes:
+                raise ValueError("Open-Meteo response exceeds size limit")
+            return HttpResponse(response.status, dict(response.headers.items()), body)
     except HTTPError as error:
-        return HttpResponse(error.code, dict(error.headers.items()), error.read())
+        body = error.read(max_bytes + 1)
+        if len(body) > max_bytes:
+            raise ValueError("Open-Meteo response exceeds size limit") from error
+        return HttpResponse(error.code, dict(error.headers.items()), body)
     except (OSError, TimeoutError) as error:
         raise RuntimeError(f"request failed: {error}") from error
 

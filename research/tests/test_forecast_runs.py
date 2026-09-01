@@ -382,6 +382,19 @@ def test_downloader_caches_batched_previous_runs(tmp_path: Path) -> None:
     assert calls[1].get_header("If-none-match") == '"previous"'
 
 
+def test_previous_downloader_rejects_oversized_response_before_cache(tmp_path: Path) -> None:
+    downloader = CachedDownloader(
+        tmp_path,
+        fetch=lambda _: HttpResponse(200, {}, b"x" * 33),
+        max_response_bytes=32,
+    )
+
+    with pytest.raises(ValueError, match="size limit"):
+        downloader.download_previous(_previous_request())
+
+    assert not (tmp_path / "raw").exists()
+
+
 def test_previous_downloader_retries_only_operational_failure(tmp_path: Path) -> None:
     calls = 0
 

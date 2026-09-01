@@ -223,6 +223,26 @@ def blend_scalar(fit: WeightFit, values: Mapping[str, float]) -> float:
     return sum(weight * _model_value(values, model_id) for model_id, weight in fit.weights.items())
 
 
+def blend_scalar_available(
+    fit: WeightFit,
+    values: Mapping[str, float | None],
+    minimum_sources: int,
+) -> float | None:
+    if minimum_sources <= 0:
+        raise ValueError("minimum_sources must be positive")
+    available = tuple(
+        (weight, value)
+        for model_id, weight in fit.weights.items()
+        if weight > 0
+        and (value := values.get(model_id)) is not None
+        and isfinite(value)
+    )
+    if len(available) < minimum_sources:
+        return None
+    total_weight = sum(weight for weight, _ in available)
+    return sum(weight * value for weight, value in available) / total_weight
+
+
 def blend_wind(
     fit: WeightFit, values: Mapping[str, tuple[float, float]]
 ) -> tuple[float, float]:
@@ -236,6 +256,35 @@ def blend_wind(
         east += weight * speed * sin(angle)
         north += weight * speed * cos(angle)
     return hypot(east, north), degrees(atan2(east, north)) % 360.0
+
+
+def blend_wind_available(
+    fit: WeightFit,
+    values: Mapping[str, tuple[float | None, float | None]],
+    minimum_sources: int,
+) -> tuple[float, float] | None:
+    if minimum_sources <= 0:
+        raise ValueError("minimum_sources must be positive")
+    vectors: list[tuple[float, float, float]] = []
+    for model_id, weight in fit.weights.items():
+        speed, direction = values.get(model_id, (None, None))
+        if (
+            weight <= 0
+            or speed is None
+            or direction is None
+            or not isfinite(speed)
+            or speed < 0
+            or not isfinite(direction)
+            or not 0 <= direction <= 360
+        ):
+            continue
+        vectors.append((weight, speed, direction))
+    if len(vectors) < minimum_sources:
+        return None
+    total_weight = sum(weight for weight, _, _ in vectors)
+    east = sum(weight * speed * sin(radians(direction)) for weight, speed, direction in vectors)
+    north = sum(weight * speed * cos(radians(direction)) for weight, speed, direction in vectors)
+    return hypot(east, north) / total_weight, degrees(atan2(east, north)) % 360.0
 
 
 def blend_positive_amount(fit: WeightFit, values: Mapping[str, float]) -> float:

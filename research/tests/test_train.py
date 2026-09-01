@@ -10,7 +10,9 @@ from aladin_ensemble.train import (
     WeightFit,
     blend_positive_amount,
     blend_scalar,
+    blend_scalar_available,
     blend_wind,
+    blend_wind_available,
     fit_occurrence_calibration,
     fit_positive_amount_weights,
     fit_scalar_weights,
@@ -102,6 +104,30 @@ def test_wind_fit_uses_components_instead_of_averaging_degrees() -> None:
     speed, direction = blend_wind(fit, {"accurate": (10.0, 350.0), "opposite": (10.0, 170.0)})
     assert isclose(speed, 10.0)
     assert isclose(direction, 350.0)
+
+
+def test_available_blends_renormalize_and_enforce_minimum_sources() -> None:
+    fit = WeightFit({"a": 0.5, "b": 0.3, "c": 0.2}, 100, 1.0)
+
+    scalar = blend_scalar_available(fit, {"a": 10.0, "b": None, "c": 20.0}, 2)
+    assert scalar is not None
+    assert isclose(scalar, (0.5 * 10.0 + 0.2 * 20.0) / 0.7)
+    assert blend_scalar_available(fit, {"a": 10.0, "b": None, "c": 20.0}, 3) is None
+
+    wind = blend_wind_available(
+        fit,
+        {"a": (10.0, 0.0), "b": (None, None), "c": (10.0, 90.0)},
+        2,
+    )
+    assert wind is not None
+    speed, direction = wind
+    assert isclose(speed, 10.0 * (0.5**2 + 0.2**2) ** 0.5 / 0.7)
+    assert isclose(direction, 21.80140948635181)
+    assert blend_wind_available(
+        fit,
+        {"a": (10.0, 0.0), "b": (None, None), "c": (10.0, 90.0)},
+        3,
+    ) is None
 
 
 def test_occurrence_calibration_selects_regularization_inside_training_folds() -> None:

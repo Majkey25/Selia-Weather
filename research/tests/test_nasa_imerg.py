@@ -2,12 +2,25 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Protocol, cast
 
 import h5py
 import numpy as np
 import pytest
+from numpy.typing import NDArray
 
 from aladin_ensemble.sources.nasa_imerg import iter_imerg_observations
+
+
+class _WritableGroup(Protocol):
+    def create_group(self, name: str) -> _WritableGroup: ...
+
+    def create_dataset(
+        self,
+        name: str,
+        *,
+        data: NDArray[np.float32],
+    ) -> h5py.Dataset: ...
 
 
 def test_imerg_parses_v07_grid_rate_as_half_hour_amount(tmp_path: Path) -> None:
@@ -73,7 +86,8 @@ def write_imerg(
     units: str = "mm/hr",
     shape: tuple[int, int, int] = (1, 2, 2),
 ) -> None:
-    with h5py.File(path, "w") as destination:
+    with h5py.File(path, "w") as raw_destination:
+        destination = cast(_WritableGroup, raw_destination)
         grid = destination.create_group("Grid")
         grid.create_dataset("lat", data=np.array([-0.05, 0.05], dtype=np.float32))
         grid.create_dataset("lon", data=np.array([10.05, 10.15], dtype=np.float32))

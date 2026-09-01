@@ -112,13 +112,18 @@ def download_isd_csv(
         if expected != actual:
             raise ValueError("NOAA ISD cache checksum mismatch")
         return CachedIsdCsv(path, actual, url, True)
-    getter = http_get or (
-        lambda source_url, request_timeout, request_max_bytes: download_http_with_retry(
+    def default_get(
+        source_url: str,
+        request_timeout: float,
+        request_max_bytes: int,
+    ) -> bytes:
+        return download_http_with_retry(
             source_url,
             timeout=request_timeout,
             max_bytes=request_max_bytes,
         )
-    )
+
+    getter = http_get or default_get
     payload = getter(url, timeout, max_bytes)
     if len(payload) > max_bytes:
         raise ValueError("NOAA ISD payload exceeds size limit")

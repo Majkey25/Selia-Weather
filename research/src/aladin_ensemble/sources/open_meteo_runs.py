@@ -229,7 +229,10 @@ class CachedDownloader:
         if max_response_bytes <= 0:
             raise ValueError("max_response_bytes must be positive")
         self._root = root
-        self._fetch = fetch or (lambda request: _fetch(request, max_response_bytes))
+        def bounded_fetch(request: Request) -> HttpResponse:
+            return _fetch(request, max_response_bytes)
+
+        self._fetch = fetch or bounded_fetch
         self._now = now or (lambda: datetime.now(UTC))
         self._retry_attempts = retry_attempts
         self._retry_delay_seconds = retry_delay_seconds

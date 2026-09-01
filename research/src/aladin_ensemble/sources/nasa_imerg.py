@@ -20,9 +20,17 @@ _FILENAME = re.compile(
 )
 
 
+class _Attributes(Protocol):
+    def get(self, key: str) -> object | None: ...
+
+
+class _Group(Protocol):
+    def get(self, name: str) -> object | None: ...
+
+
 class _Dataset(Protocol):
     shape: tuple[int, ...]
-    attrs: h5py.AttributeManager
+    attrs: _Attributes
 
     def __getitem__(self, key: object) -> object: ...
 
@@ -39,17 +47,18 @@ def iter_imerg_observations(
     filename = source_filename or path.name
     valid_start, valid_end = _validity(filename)
     with h5py.File(path, "r") as source:
-        grid = source.get("Grid")
-        if not isinstance(grid, h5py.Group):
+        grid_value = cast(_Group, source).get("Grid")
+        if not isinstance(grid_value, h5py.Group):
             raise ValueError("IMERG Grid group is missing")
+        grid = cast(_Group, grid_value)
         latitudes = _axis(grid, "lat")
         longitudes = _axis(grid, "lon")
         latitude_step = _step(latitudes, "latitude")
         longitude_step = _step(longitudes, "longitude")
-        precipitation = grid.get("precipitation")
-        if not isinstance(precipitation, h5py.Dataset):
+        precipitation_value = grid.get("precipitation")
+        if not isinstance(precipitation_value, h5py.Dataset):
             raise ValueError("IMERG precipitation dataset is missing")
-        dataset = cast(_Dataset, precipitation)
+        dataset = cast(_Dataset, precipitation_value)
         if dataset.shape != (1, len(longitudes), len(latitudes)):
             raise ValueError("IMERG precipitation shape is invalid")
         if _text(dataset.attrs.get("units")) != "mm/hr":
@@ -111,11 +120,14 @@ def _validity(filename: str) -> tuple[datetime, datetime]:
     return start, end
 
 
-def _axis(grid: h5py.Group, name: str) -> NDArray[np.float32]:
+def _axis(grid: _Group, name: str) -> NDArray[np.float32]:
     value = grid.get(name)
-    if not isinstance(value, h5py.Dataset) or len(value.shape) != 1 or value.shape[0] < 2:
+    if not isinstance(value, h5py.Dataset):
         raise ValueError(f"IMERG {name} axis is invalid")
-    axis = cast(NDArray[np.float32], value[:])
+    dataset = cast(_Dataset, value)
+    if len(dataset.shape) != 1 or dataset.shape[0] < 2:
+        raise ValueError(f"IMERG {name} axis is invalid")
+    axis = cast(NDArray[np.float32], dataset[:])
     if not np.isfinite(axis).all() or np.any(np.diff(axis) <= 0):
         raise ValueError(f"IMERG {name} axis is invalid")
     return axis

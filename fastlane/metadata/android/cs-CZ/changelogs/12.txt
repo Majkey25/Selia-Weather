@@ -1,0 +1,1 @@
+Aktuální podmínky nyní používají nejbližší stanice, které danou veličinu skutečně měří. České lokality kombinují čerstvá pozorování ČHMÚ a METAR; ve světě zůstává korekce METAR. Regionální výzkum nově pokrývá tři stanice na oblast, ale neověřené váhy se nevydávají. Verze neobsahuje reklamy, Premium, Billing, UMP ani AD_ID.

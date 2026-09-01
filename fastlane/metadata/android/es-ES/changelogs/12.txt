@@ -1,0 +1,1 @@
+Las condiciones actuales ahora usan las estaciones cercanas que realmente informan cada valor. En Chequia se combinan observaciones recientes de CHMI y METAR; en el resto del mundo se mantiene la corrección METAR. La investigación regional cubre tres estaciones por región, pero no se publican pesos sin verificar. Sin anuncios, Premium, Billing, UMP ni AD_ID.

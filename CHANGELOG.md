@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## [0.2.0-beta.11] - 2026-09-01
+
+- Fixed current-condition fusion so each metric uses the nearest stations that actually report it.
+- Combined fresh ČHMÚ and METAR observations in Czechia while retaining METAR coverage worldwide.
+- Expanded the worldwide research cohort to three stations per region and added separate locked regional evaluations. No new calibration weights are published while the source corpus remains incomplete.
+- Kept release Ads, UMP, Billing, Premium, and `AD_ID` payloads disabled and absent.
+
 ## [0.2.0-beta.10] - 2026-08-31
 
 - Replaced the Czech-only radar page with a worldwide RainViewer map centred on the selected coordinate, a coverage mask, and the available two-hour observed timeline.

@@ -1,0 +1,1 @@
+Les conditions actuelles utilisent désormais les stations proches qui mesurent réellement chaque valeur. En Tchéquie, les observations récentes CHMI et METAR sont combinées ; ailleurs, la correction METAR reste active. La recherche régionale couvre trois stations par région, mais aucun poids non vérifié n’est publié. Sans publicité, Premium, Billing, UMP ni AD_ID.

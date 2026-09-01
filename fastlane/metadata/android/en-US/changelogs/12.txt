@@ -1,0 +1,1 @@
+Current conditions now use the nearest stations that actually report each metric. Czech locations combine fresh CHMI and METAR observations; worldwide locations retain METAR correction. Regional calibration research now covers three stations per region, but no unverified weights are shipped. This build contains no ads, Premium, Billing, UMP, or AD_ID.

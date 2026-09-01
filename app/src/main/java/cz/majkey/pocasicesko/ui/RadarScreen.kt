@@ -32,6 +32,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import cz.majkey.pocasicesko.BuildConfig
 import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.locale.normalizeLanguageTag
 
@@ -67,6 +68,7 @@ fun ChmiWebScreen(url: String, modifier: Modifier = Modifier) {
         key(url) {
             AndroidView(
                 factory = { viewContext ->
+                    if (BuildConfig.DEBUG) WebView.setWebContentsDebuggingEnabled(true)
                     WebView(viewContext).apply web@{
                         webView = this
                         settings.javaScriptEnabled = true

@@ -100,8 +100,6 @@
     <string name="sea_level">Niveau de la mer</string>
     <string name="precipitation_value">%1$s mm</string>
     <string name="local_rain_field">Champ local de précipitations</string>
-    <string name="precipitation_target">Cible de précipitations</string>
-    <string name="show_precipitation_target">Afficher la cible</string>
     <string name="rain_field_centre">Lieu sélectionné</string>
     <string name="rain_field_unavailable">Indisponible</string>
     <string name="rain_field_dry">Sec</string>
@@ -351,4 +349,21 @@
     <string name="history_daily_title">Archive quotidienne</string>
     <string name="history_share_chooser">Demander à ChatGPT ou partager</string>
     <string name="history_share_failed">Impossible de partager l’archive.</string>
+    <string name="daily_briefing">Résumé du matin</string>
+    <string name="daily_briefing_summary">Chaque matin à 7:00 · conseils vêtements et parapluie</string>
+    <string name="daily_briefing_channel">Résumé météo du matin</string>
+    <string name="daily_briefing_notification_title">%1$s aujourd’hui · ressenti de %2$s à %3$s</string>
+    <string name="daily_briefing_outfit_winter">Portez un manteau d’hiver et des couches chaudes.</string>
+    <string name="daily_briefing_outfit_warm_coat">Portez un manteau chaud.</string>
+    <string name="daily_briefing_outfit_jacket">Prenez une veste ou plusieurs couches.</string>
+    <string name="daily_briefing_outfit_light_layers">Des couches légères devraient être confortables.</string>
+    <string name="daily_briefing_outfit_hot">Choisissez des vêtements légers et respirants.</string>
+    <string name="daily_briefing_umbrella">Prenez un parapluie.</string>
+    <string name="daily_briefing_no_umbrella">Un parapluie ne devrait pas être nécessaire.</string>
+    <string name="daily_briefing_sun_protection">Utilisez une protection solaire.</string>
+    <string name="hourly_rain_none">Aucune pluie mesurable n’est attendue cette heure (%1$d%% de probabilité).</string>
+    <string name="hourly_rain_unlikely">La pluie est peu probable : %1$s attendu (%2$d%% de probabilité).</string>
+    <string name="hourly_rain_possible">La pluie est possible : %1$s attendu (%2$d%% de probabilité).</string>
+    <string name="hourly_rain_likely">La pluie est probable : %1$s attendu (%2$d%% de probabilité).</string>
+    <string name="hourly_rain_heavy">De fortes pluies sont possibles : %1$s attendu (%2$d%% de probabilité).</string>
 </resources>

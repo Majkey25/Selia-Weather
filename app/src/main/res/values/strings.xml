@@ -101,8 +101,6 @@
     <string name="sea_level">Sea level</string>
     <string name="precipitation_value">%1$s mm</string>
     <string name="local_rain_field">Local rain field</string>
-    <string name="precipitation_target">Precipitation target</string>
-    <string name="show_precipitation_target">Show target</string>
     <string name="rain_field_centre">Selected location</string>
     <string name="rain_field_unavailable">Unavailable</string>
     <string name="rain_field_dry">Dry</string>
@@ -352,4 +350,21 @@
     <string name="history_daily_title">Daily archive</string>
     <string name="history_share_chooser">Ask ChatGPT or share</string>
     <string name="history_share_failed">Could not share the archive.</string>
+    <string name="daily_briefing">Morning briefing</string>
+    <string name="daily_briefing_summary">Every morning at 7:00 · clothing and umbrella advice</string>
+    <string name="daily_briefing_channel">Morning weather briefing</string>
+    <string name="daily_briefing_notification_title">%1$s today · feels like %2$s to %3$s</string>
+    <string name="daily_briefing_outfit_winter">Wear a winter coat and warm layers.</string>
+    <string name="daily_briefing_outfit_warm_coat">Wear a warm coat.</string>
+    <string name="daily_briefing_outfit_jacket">Take a jacket or layered clothing.</string>
+    <string name="daily_briefing_outfit_light_layers">Light layers should be comfortable.</string>
+    <string name="daily_briefing_outfit_hot">Choose light, breathable clothing.</string>
+    <string name="daily_briefing_umbrella">Take an umbrella.</string>
+    <string name="daily_briefing_no_umbrella">No umbrella should be needed.</string>
+    <string name="daily_briefing_sun_protection">Use sun protection.</string>
+    <string name="hourly_rain_none">No measurable rain is expected this hour (%1$d%% chance).</string>
+    <string name="hourly_rain_unlikely">Rain is unlikely: %1$s expected this hour (%2$d%% chance).</string>
+    <string name="hourly_rain_possible">Rain is possible: %1$s expected this hour (%2$d%% chance).</string>
+    <string name="hourly_rain_likely">Rain is likely: %1$s expected this hour (%2$d%% chance).</string>
+    <string name="hourly_rain_heavy">Heavy rain is possible: %1$s expected this hour (%2$d%% chance).</string>
 </resources>

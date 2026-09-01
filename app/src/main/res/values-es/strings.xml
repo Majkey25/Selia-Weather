@@ -100,8 +100,6 @@
     <string name="sea_level">Nivel del mar</string>
     <string name="precipitation_value">%1$s mm</string>
     <string name="local_rain_field">Campo local de precipitación</string>
-    <string name="precipitation_target">Objetivo de precipitación</string>
-    <string name="show_precipitation_target">Mostrar objetivo</string>
     <string name="rain_field_centre">Ubicación seleccionada</string>
     <string name="rain_field_unavailable">No disponible</string>
     <string name="rain_field_dry">Seco</string>
@@ -351,4 +349,21 @@
     <string name="history_daily_title">Archivo diario</string>
     <string name="history_share_chooser">Preguntar a ChatGPT o compartir</string>
     <string name="history_share_failed">No se pudo compartir el archivo.</string>
+    <string name="daily_briefing">Resumen matinal</string>
+    <string name="daily_briefing_summary">Cada mañana a las 7:00 · consejos de ropa y paraguas</string>
+    <string name="daily_briefing_channel">Resumen meteorológico matinal</string>
+    <string name="daily_briefing_notification_title">%1$s hoy · sensación de %2$s a %3$s</string>
+    <string name="daily_briefing_outfit_winter">Lleva abrigo de invierno y capas cálidas.</string>
+    <string name="daily_briefing_outfit_warm_coat">Lleva un abrigo cálido.</string>
+    <string name="daily_briefing_outfit_jacket">Lleva chaqueta o ropa por capas.</string>
+    <string name="daily_briefing_outfit_light_layers">Las capas ligeras deberían ser cómodas.</string>
+    <string name="daily_briefing_outfit_hot">Elige ropa ligera y transpirable.</string>
+    <string name="daily_briefing_umbrella">Lleva paraguas.</string>
+    <string name="daily_briefing_no_umbrella">No debería hacer falta paraguas.</string>
+    <string name="daily_briefing_sun_protection">Usa protección solar.</string>
+    <string name="hourly_rain_none">No se espera lluvia medible esta hora (%1$d%% de probabilidad).</string>
+    <string name="hourly_rain_unlikely">La lluvia es poco probable: se esperan %1$s (%2$d%% de probabilidad).</string>
+    <string name="hourly_rain_possible">Puede llover: se esperan %1$s (%2$d%% de probabilidad).</string>
+    <string name="hourly_rain_likely">Es probable que llueva: se esperan %1$s (%2$d%% de probabilidad).</string>
+    <string name="hourly_rain_heavy">Puede llover con fuerza: se esperan %1$s (%2$d%% de probabilidad).</string>
 </resources>

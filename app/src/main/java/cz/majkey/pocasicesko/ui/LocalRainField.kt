@@ -29,7 +29,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -138,15 +137,6 @@ private fun RainFieldGrid(
             .fillMaxWidth()
             .height(294.dp),
     ) {
-        Canvas(
-            modifier = Modifier
-                .size(270.dp)
-                .align(Alignment.Center),
-        ) {
-            val ring = Color.White.copy(alpha = 0.10f)
-            drawCircle(ring, radius = size.minDimension * 0.46f, style = Stroke(1.dp.toPx()))
-            drawCircle(ring, radius = size.minDimension * 0.25f, style = Stroke(1.dp.toPx()))
-        }
         Text(labels.north, Modifier.align(Alignment.TopCenter), color = DIRECTION_COLOR, fontSize = 11.sp)
         Text(labels.south, Modifier.align(Alignment.BottomCenter), color = DIRECTION_COLOR, fontSize = 11.sp)
         Text(labels.west, Modifier.align(Alignment.CenterStart), color = DIRECTION_COLOR, fontSize = 11.sp)

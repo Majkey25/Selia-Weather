@@ -100,8 +100,6 @@
     <string name="sea_level">Meereshöhe</string>
     <string name="precipitation_value">%1$s mm</string>
     <string name="local_rain_field">Lokales Niederschlagsfeld</string>
-    <string name="precipitation_target">Niederschlagsziel</string>
-    <string name="show_precipitation_target">Ziel anzeigen</string>
     <string name="rain_field_centre">Ausgewählter Ort</string>
     <string name="rain_field_unavailable">Nicht verfügbar</string>
     <string name="rain_field_dry">Trocken</string>
@@ -351,4 +349,21 @@
     <string name="history_daily_title">Tagesarchiv</string>
     <string name="history_share_chooser">ChatGPT fragen oder teilen</string>
     <string name="history_share_failed">Das Archiv konnte nicht geteilt werden.</string>
+    <string name="daily_briefing">Morgenübersicht</string>
+    <string name="daily_briefing_summary">Jeden Morgen um 7:00 · Kleidung- und Regenschirmempfehlung</string>
+    <string name="daily_briefing_channel">Morgendliche Wetterübersicht</string>
+    <string name="daily_briefing_notification_title">%1$s heute · gefühlt %2$s bis %3$s</string>
+    <string name="daily_briefing_outfit_winter">Wintermantel und warme Schichten anziehen.</string>
+    <string name="daily_briefing_outfit_warm_coat">Einen warmen Mantel anziehen.</string>
+    <string name="daily_briefing_outfit_jacket">Jacke oder Kleidung in Schichten mitnehmen.</string>
+    <string name="daily_briefing_outfit_light_layers">Leichte Schichten sollten angenehm sein.</string>
+    <string name="daily_briefing_outfit_hot">Leichte, atmungsaktive Kleidung wählen.</string>
+    <string name="daily_briefing_umbrella">Einen Regenschirm mitnehmen.</string>
+    <string name="daily_briefing_no_umbrella">Ein Regenschirm sollte nicht nötig sein.</string>
+    <string name="daily_briefing_sun_protection">Sonnenschutz verwenden.</string>
+    <string name="hourly_rain_none">In dieser Stunde wird kein messbarer Regen erwartet (%1$d%% Wahrscheinlichkeit).</string>
+    <string name="hourly_rain_unlikely">Regen ist unwahrscheinlich: %1$s erwartet (%2$d%% Wahrscheinlichkeit).</string>
+    <string name="hourly_rain_possible">Regen ist möglich: %1$s erwartet (%2$d%% Wahrscheinlichkeit).</string>
+    <string name="hourly_rain_likely">Regen ist wahrscheinlich: %1$s erwartet (%2$d%% Wahrscheinlichkeit).</string>
+    <string name="hourly_rain_heavy">Starker Regen ist möglich: %1$s erwartet (%2$d%% Wahrscheinlichkeit).</string>
 </resources>

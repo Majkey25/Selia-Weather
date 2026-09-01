@@ -24,6 +24,7 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -48,6 +49,7 @@ import cz.majkey.pocasicesko.units.MeasurementSystem
 fun SettingsSheet(
     selectedTag: String,
     selectedMeasurementSystem: MeasurementSystem,
+    dailyBriefingEnabled: Boolean,
     entitlement: EntitlementState,
     premiumOffers: List<PremiumOffer>,
     billingMessage: BillingMessage,
@@ -55,6 +57,7 @@ fun SettingsSheet(
     privacyOptionsRequired: Boolean,
     onLanguage: (String) -> Unit,
     onMeasurementSystem: (MeasurementSystem) -> Unit,
+    onDailyBriefingChange: (Boolean) -> Unit,
     onAddWidget: () -> Unit,
     onWeatherDataAttribution: () -> Unit,
     onSupport: () -> Unit,
@@ -124,6 +127,20 @@ fun SettingsSheet(
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                 )
             }
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.daily_briefing)) },
+                supportingContent = { Text(stringResource(R.string.daily_briefing_summary)) },
+                trailingContent = {
+                    Switch(
+                        checked = dailyBriefingEnabled,
+                        onCheckedChange = onDailyBriefingChange,
+                    )
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onDailyBriefingChange(!dailyBriefingEnabled) },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            )
             Text(
                 text = stringResource(R.string.widget_title),
                 color = Color.White.copy(alpha = 0.58f),

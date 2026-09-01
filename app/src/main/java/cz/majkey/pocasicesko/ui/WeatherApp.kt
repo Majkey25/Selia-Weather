@@ -10,6 +10,7 @@ import android.content.ContextWrapper
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -97,6 +98,7 @@ import cz.majkey.pocasicesko.monetization.AdsController
 import cz.majkey.pocasicesko.monetization.BillingMessage
 import cz.majkey.pocasicesko.monetization.EntitlementState
 import cz.majkey.pocasicesko.monetization.PremiumBillingController
+import cz.majkey.pocasicesko.notification.DailyBriefingScheduler
 import cz.majkey.pocasicesko.units.MeasurementSystem
 import cz.majkey.pocasicesko.units.MeasurementUnits
 import cz.majkey.pocasicesko.widget.WeatherWidgetProvider
@@ -157,6 +159,9 @@ fun WeatherApp(
     var showLocationSearch by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
     var measurementSystem by remember { mutableStateOf(MeasurementUnits.current(context)) }
+    var dailyBriefingEnabled by remember {
+        mutableStateOf(DailyBriefingScheduler.isEnabled(context))
+    }
     var state by remember { mutableStateOf<WeatherUiState>(WeatherUiState.Loading) }
     val forecastLoadFailed = stringResource(R.string.forecast_load_failed)
     val serverError = stringResource(R.string.server_error)
@@ -170,6 +175,33 @@ fun WeatherApp(
         ?: BillingMessage.NONE
     val privacyOptionsRequired = adsController?.privacyOptionsRequired?.collectAsState()?.value
         ?: false
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            DailyBriefingScheduler.setEnabled(context, true)
+            dailyBriefingEnabled = true
+        }
+    }
+
+    fun setDailyBriefing(enabled: Boolean) {
+        if (!enabled) {
+            DailyBriefingScheduler.setEnabled(context, false)
+            dailyBriefingEnabled = false
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            DailyBriefingScheduler.setEnabled(context, true)
+            dailyBriefingEnabled = true
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        DailyBriefingScheduler.schedule(context)
+    }
 
     LaunchedEffect(location, reloadKey) {
         val cached = withContext(Dispatchers.IO) { repository.cachedForecast(location) }
@@ -246,6 +278,7 @@ fun WeatherApp(
                 SettingsSheet(
                     selectedTag = AppLocale.selectedTag(context),
                     selectedMeasurementSystem = measurementSystem,
+                    dailyBriefingEnabled = dailyBriefingEnabled,
                     entitlement = entitlement,
                     premiumOffers = premiumOffers,
                     billingMessage = billingMessage,
@@ -257,6 +290,7 @@ fun WeatherApp(
                         measurementSystem = selected
                         WeatherWidgetProvider.updateAll(context)
                     },
+                    onDailyBriefingChange = ::setDailyBriefing,
                     onAddWidget = {
                         val manager = AppWidgetManager.getInstance(context)
                         val requested = manager.isRequestPinAppWidgetSupported && manager.requestPinAppWidget(

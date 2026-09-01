@@ -42,14 +42,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -84,7 +82,6 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
-import kotlinx.coroutines.launch
 
 private const val HOURLY_OUTLOOK_COUNT = 24
 
@@ -154,13 +151,9 @@ internal fun ForecastScreen(
         DayDetailSheet(
             days = snapshot.daily,
             hourly = snapshot.hourly,
-            location = location,
             initialPage = initialPage,
             currentDate = snapshot.current.time.take(10),
-            currentTime = snapshot.current.time,
-            timezone = snapshot.timezone,
             units = units,
-            loadPrecipitationField = loadPrecipitationField,
             onDismiss = { selectedDayIndex = null },
         )
     }
@@ -645,6 +638,14 @@ private fun DailyRow(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+            Text(
+                text = "${stringResource(R.string.feels_like)} " +
+                    "${units.temperature(day.apparentTemperatureMin ?: day.temperatureMin)} / " +
+                    units.temperature(day.apparentTemperatureMax ?: day.temperatureMax),
+                color = Color.White.copy(alpha = 0.46f),
+                fontSize = 9.sp,
+                maxLines = 1,
+            )
         }
         Column(horizontalAlignment = Alignment.End) {
             Text(
@@ -674,13 +675,9 @@ private fun DailyRow(
 private fun DayDetailSheet(
     days: List<DailyWeather>,
     hourly: List<HourlyWeather>,
-    location: CzechLocation,
     initialPage: Int,
     currentDate: String,
-    currentTime: String,
-    timezone: String,
     units: WeatherUnitFormatter,
-    loadPrecipitationField: suspend (CzechLocation) -> PrecipitationField,
     onDismiss: () -> Unit,
 ) {
     if (days.isEmpty()) return
@@ -707,27 +704,6 @@ private fun DayDetailSheet(
             val day = dayForPage(days, page) ?: return@HorizontalPager
             val hours = hourlyForDay(hourly, day.date)
             var expandedHourTime by remember(day.date) { mutableStateOf<String?>(null) }
-            var rainTargetState by remember(day.date) {
-                mutableStateOf<DayRainTargetState>(DayRainTargetState.Idle)
-            }
-            val scope = rememberCoroutineScope()
-            val rainTargetAvailable = hasPrecipitationTargetHour(hourly, currentTime, day.date)
-
-            fun loadRainTarget() {
-                if (rainTargetState == DayRainTargetState.Loading) return
-                scope.launch {
-                    rainTargetState = DayRainTargetState.Loading
-                    rainTargetState = try {
-                        precipitationFieldForDay(
-                            loadPrecipitationField(location),
-                            day.date,
-                            timezone,
-                        )?.let { DayRainTargetState.Content(it) } ?: DayRainTargetState.Error
-                    } catch (_: Exception) {
-                        DayRainTargetState.Error
-                    }
-                }
-            }
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -772,16 +748,14 @@ private fun DayDetailSheet(
                             modifier = Modifier.weight(1f),
                         )
                     }
-                }
-                if (rainTargetAvailable) {
-                    item {
-                        DayRainTarget(
-                            state = rainTargetState,
-                            timezone = timezone,
-                            units = units,
-                            onLoad = ::loadRainTarget,
-                        )
-                    }
+                    Text(
+                        text = "${stringResource(R.string.feels_like)} · " +
+                            "${units.temperature(day.apparentTemperatureMin ?: day.temperatureMin)} / " +
+                            units.temperature(day.apparentTemperatureMax ?: day.temperatureMax),
+                        color = Color.White.copy(alpha = 0.56f),
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(bottom = 12.dp),
+                    )
                 }
                 itemsIndexed(hours, key = { index, hour -> "${hour.time}-$index" }) { _, hour ->
                     val condition = conditionFor(hour.weatherCode, hour.isDay)
@@ -833,9 +807,10 @@ private fun DayDetailSheet(
                             )
                         }
                         Text(
-                            "${stringResource(R.string.precipitation)} ${hour.precipitationProbability}% · " +
-                                "${units.precipitation(hour.precipitation)} · " +
-                                "${stringResource(R.string.wind)} ${units.windSpeed(hour.windSpeed)} " +
+                            "${stringResource(R.string.feels_like)} " +
+                                "${units.temperature(hourlyApparentTemperature(hour))} · " +
+                                "${hour.precipitationProbability}% · ${units.precipitation(hour.precipitation)} · " +
+                                "${units.windSpeed(hour.windSpeed)} " +
                                 stringResource(windDirectionResource(hour.windDirection)),
                             modifier = Modifier.padding(start = 81.dp, top = 4.dp),
                             color = Color(0xFF8EDCF0),
@@ -867,107 +842,10 @@ private fun DaySummaryMetric(label: String, value: String, modifier: Modifier = 
     }
 }
 
-private sealed interface DayRainTargetState {
-    data object Idle : DayRainTargetState
-    data object Loading : DayRainTargetState
-    data class Content(val field: PrecipitationField) : DayRainTargetState
-    data object Error : DayRainTargetState
-}
-
-@Composable
-private fun DayRainTarget(
-    state: DayRainTargetState,
-    timezone: String,
-    units: WeatherUnitFormatter,
-    onLoad: () -> Unit,
-) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 14.dp),
-        color = Color(0xA61A252E),
-        shape = RoundedCornerShape(22.dp),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.09f)),
-    ) {
-        Column(Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Rounded.WaterDrop,
-                    contentDescription = null,
-                    tint = Color(0xFF8EDCF0),
-                )
-                Text(
-                    stringResource(R.string.precipitation_target),
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 10.dp),
-                    fontWeight = FontWeight.SemiBold,
-                )
-                if (state == DayRainTargetState.Idle || state == DayRainTargetState.Error) {
-                    TextButton(onClick = onLoad) {
-                        Text(
-                            stringResource(
-                                if (state == DayRainTargetState.Error) {
-                                    R.string.retry
-                                } else {
-                                    R.string.show_precipitation_target
-                                },
-                            ),
-                        )
-                    }
-                }
-            }
-            when (state) {
-                DayRainTargetState.Idle -> Unit
-                DayRainTargetState.Loading -> Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(96.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(30.dp),
-                        color = Color(0xFF83D6E8),
-                        strokeWidth = 2.dp,
-                    )
-                }
-                is DayRainTargetState.Content -> LocalRainField(
-                    field = state.field,
-                    timezone = timezone,
-                    units = units,
-                )
-                DayRainTargetState.Error -> Text(
-                    stringResource(R.string.spatial_precipitation_unavailable),
-                    color = Color.White.copy(alpha = 0.58f),
-                    fontSize = 12.sp,
-                )
-            }
-        }
-    }
-}
-
 internal fun dailyPrecipitationSummary(
     day: DailyWeather,
     units: WeatherUnitFormatter,
 ): String = "${day.precipitationProbability}% · ${units.precipitation(day.precipitationSum)}"
-
-internal fun hasPrecipitationTargetHour(
-    hourly: List<HourlyWeather>,
-    currentTime: String,
-    date: String,
-): Boolean = upcomingHours(hourly, currentTime).any { it.time.startsWith(date) }
-
-private fun precipitationFieldForDay(
-    field: PrecipitationField,
-    date: String,
-    timezone: String,
-): PrecipitationField? {
-    val zone = ZoneId.of(timezone)
-    val frames = field.frames.filter { frame ->
-        frame.validTime.atZone(zone).toLocalDate().toString() == date
-    }
-    return if (frames.isEmpty()) null else PrecipitationField(frames)
-}
 
 @Composable
 private fun WeatherPanel(content: @Composable () -> Unit) {

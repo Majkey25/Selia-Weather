@@ -100,8 +100,6 @@
     <string name="sea_level">Hladina moře</string>
     <string name="precipitation_value">%1$s mm</string>
     <string name="local_rain_field">Lokální pole srážek</string>
-    <string name="precipitation_target">Terč srážek</string>
-    <string name="show_precipitation_target">Zobrazit terč</string>
     <string name="rain_field_centre">Vybraná lokalita</string>
     <string name="rain_field_unavailable">Nedostupné</string>
     <string name="rain_field_dry">Beze srážek</string>
@@ -351,4 +349,21 @@
     <string name="history_daily_title">Denní archiv</string>
     <string name="history_share_chooser">Zeptat se ChatGPT nebo sdílet</string>
     <string name="history_share_failed">Archiv se nepodařilo sdílet.</string>
+    <string name="daily_briefing">Ranní přehled</string>
+    <string name="daily_briefing_summary">Každé ráno v 7:00 · doporučení oblečení a deštníku</string>
+    <string name="daily_briefing_channel">Ranní přehled počasí</string>
+    <string name="daily_briefing_notification_title">%1$s dnes · pocitově %2$s až %3$s</string>
+    <string name="daily_briefing_outfit_winter">Vezměte si zimní kabát a teplé vrstvy.</string>
+    <string name="daily_briefing_outfit_warm_coat">Vezměte si teplý kabát.</string>
+    <string name="daily_briefing_outfit_jacket">Vezměte si bundu nebo vrstvené oblečení.</string>
+    <string name="daily_briefing_outfit_light_layers">Lehké vrstvy by měly být pohodlné.</string>
+    <string name="daily_briefing_outfit_hot">Zvolte lehké a prodyšné oblečení.</string>
+    <string name="daily_briefing_umbrella">Vezměte si deštník.</string>
+    <string name="daily_briefing_no_umbrella">Deštník by neměl být potřeba.</string>
+    <string name="daily_briefing_sun_protection">Použijte ochranu proti slunci.</string>
+    <string name="hourly_rain_none">V této hodině se neočekává měřitelný déšť (pravděpodobnost %1$d%%).</string>
+    <string name="hourly_rain_unlikely">Déšť je nepravděpodobný: očekává se %1$s (pravděpodobnost %2$d%%).</string>
+    <string name="hourly_rain_possible">Déšť je možný: očekává se %1$s (pravděpodobnost %2$d%%).</string>
+    <string name="hourly_rain_likely">Déšť je pravděpodobný: očekává se %1$s (pravděpodobnost %2$d%%).</string>
+    <string name="hourly_rain_heavy">Může silně pršet: očekává se %1$s (pravděpodobnost %2$d%%).</string>
 </resources>

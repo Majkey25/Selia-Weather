@@ -26,29 +26,88 @@ internal fun toggleExpandedHour(current: String?, clicked: String): String? {
 }
 
 internal enum class HourMetricKind {
+    TEMPERATURE,
     FEELS_LIKE,
+    DEW_POINT,
+    WET_BULB,
     PRECIPITATION,
+    RAIN,
+    SHOWERS,
+    SNOWFALL,
+    SNOW_WATER,
     HUMIDITY,
+    WIND,
     WIND_GUSTS,
     PRESSURE,
+    SURFACE_PRESSURE,
     LOW_CLOUDS,
     MIDDLE_CLOUDS,
     HIGH_CLOUDS,
     UV,
     VISIBILITY,
+    FREEZING_LEVEL,
+    BOUNDARY_LAYER,
+    INTEGRATED_WATER,
+    LIFTED_INDEX,
+    CONVECTIVE_INHIBITION,
+    CAPE,
+    VAPOUR_PRESSURE_DEFICIT,
+    SURFACE_TEMPERATURE,
+    ET0,
+    SOIL_TEMPERATURE,
+    SOIL_MOISTURE,
 }
 
 internal fun availableHourMetricKinds(hour: HourlyWeather): List<HourMetricKind> = buildList {
-    if (hour.apparentTemperature != null) add(HourMetricKind.FEELS_LIKE)
+    add(HourMetricKind.TEMPERATURE)
+    add(HourMetricKind.FEELS_LIKE)
+    if (hour.dewPoint != null) add(HourMetricKind.DEW_POINT)
+    if (hour.wetBulbTemperature != null) add(HourMetricKind.WET_BULB)
     add(HourMetricKind.PRECIPITATION)
+    if (hour.rain != null) add(HourMetricKind.RAIN)
+    if (hour.showers != null) add(HourMetricKind.SHOWERS)
+    if (hour.snowfall != null) add(HourMetricKind.SNOWFALL)
+    if (hour.snowDepthWaterEquivalent != null) add(HourMetricKind.SNOW_WATER)
     add(HourMetricKind.HUMIDITY)
+    add(HourMetricKind.WIND)
     if (hour.windGusts != null) add(HourMetricKind.WIND_GUSTS)
     add(HourMetricKind.PRESSURE)
+    if (hour.surfacePressure != null) add(HourMetricKind.SURFACE_PRESSURE)
     if (hour.cloudCoverLow != null) add(HourMetricKind.LOW_CLOUDS)
     if (hour.cloudCoverMid != null) add(HourMetricKind.MIDDLE_CLOUDS)
     if (hour.cloudCoverHigh != null) add(HourMetricKind.HIGH_CLOUDS)
     if (hour.uvIndex != null) add(HourMetricKind.UV)
     if (hour.visibilityMeters != null) add(HourMetricKind.VISIBILITY)
+    if (hour.freezingLevelHeightMeters != null) add(HourMetricKind.FREEZING_LEVEL)
+    if (hour.boundaryLayerHeightMeters != null) add(HourMetricKind.BOUNDARY_LAYER)
+    if (hour.integratedWaterVapour != null) add(HourMetricKind.INTEGRATED_WATER)
+    if (hour.liftedIndex != null) add(HourMetricKind.LIFTED_INDEX)
+    if (hour.convectiveInhibition != null) add(HourMetricKind.CONVECTIVE_INHIBITION)
+    if (hour.cape != null) add(HourMetricKind.CAPE)
+    if (hour.vapourPressureDeficit != null) add(HourMetricKind.VAPOUR_PRESSURE_DEFICIT)
+    if (hour.surfaceTemperature != null) add(HourMetricKind.SURFACE_TEMPERATURE)
+    if (hour.et0 != null) add(HourMetricKind.ET0)
+    if (hour.soilTemperature0Cm != null) add(HourMetricKind.SOIL_TEMPERATURE)
+    if (hour.soilMoisture0To1Cm != null) add(HourMetricKind.SOIL_MOISTURE)
+}
+
+internal fun hourlyApparentTemperature(hour: HourlyWeather): Double =
+    hour.apparentTemperature ?: hour.temperature
+
+internal enum class HourlyRainLevel {
+    NONE,
+    UNLIKELY,
+    POSSIBLE,
+    LIKELY,
+    HEAVY,
+}
+
+internal fun hourlyRainLevel(hour: HourlyWeather): HourlyRainLevel = when {
+    hour.precipitation >= 5.0 -> HourlyRainLevel.HEAVY
+    hour.precipitationProbability >= 70 || hour.precipitation >= 2.0 -> HourlyRainLevel.LIKELY
+    hour.precipitationProbability >= 40 || hour.precipitation >= 0.2 -> HourlyRainLevel.POSSIBLE
+    hour.precipitationProbability > 15 || hour.precipitation > 0.0 -> HourlyRainLevel.UNLIKELY
+    else -> HourlyRainLevel.NONE
 }
 
 @Composable
@@ -60,17 +119,51 @@ internal fun ExpandedHourDetails(
 ) {
     val metrics = availableHourMetricKinds(hour).map { kind ->
         when (kind) {
+            HourMetricKind.TEMPERATURE -> HourMetric(
+                stringResource(R.string.temperature),
+                units.temperature(hour.temperature),
+            )
             HourMetricKind.FEELS_LIKE -> HourMetric(
                 stringResource(R.string.feels_like),
-                units.temperature(requireNotNull(hour.apparentTemperature)),
+                units.temperature(hourlyApparentTemperature(hour)),
+            )
+            HourMetricKind.DEW_POINT -> HourMetric(
+                stringResource(R.string.dew_point),
+                units.temperature(requireNotNull(hour.dewPoint)),
+            )
+            HourMetricKind.WET_BULB -> HourMetric(
+                stringResource(R.string.wet_bulb_temperature),
+                units.temperature(requireNotNull(hour.wetBulbTemperature)),
             )
             HourMetricKind.PRECIPITATION -> HourMetric(
                 stringResource(R.string.precipitation),
                 units.precipitation(hour.precipitation),
             )
+            HourMetricKind.RAIN -> HourMetric(
+                stringResource(R.string.rain),
+                units.precipitation(requireNotNull(hour.rain)),
+            )
+            HourMetricKind.SHOWERS -> HourMetric(
+                stringResource(R.string.showers),
+                units.precipitation(requireNotNull(hour.showers)),
+            )
+            HourMetricKind.SNOWFALL -> HourMetric(
+                stringResource(R.string.snowfall),
+                units.snowfall(requireNotNull(hour.snowfall)),
+            )
+            HourMetricKind.SNOW_WATER -> HourMetric(
+                stringResource(R.string.snow_water_equivalent),
+                units.precipitation(requireNotNull(hour.snowDepthWaterEquivalent)),
+            )
             HourMetricKind.HUMIDITY -> HourMetric(
                 stringResource(R.string.humidity),
                 "${hour.humidity} %",
+            )
+            HourMetricKind.WIND -> HourMetric(
+                stringResource(R.string.wind),
+                "${units.windSpeed(hour.windSpeed)} · " +
+                    stringResource(windDirectionResource(hour.windDirection)) +
+                    " · ${hour.windDirection}°",
             )
             HourMetricKind.WIND_GUSTS -> HourMetric(
                 stringResource(R.string.wind_gusts),
@@ -79,6 +172,10 @@ internal fun ExpandedHourDetails(
             HourMetricKind.PRESSURE -> HourMetric(
                 stringResource(R.string.pressure),
                 units.pressure(hour.pressure),
+            )
+            HourMetricKind.SURFACE_PRESSURE -> HourMetric(
+                stringResource(R.string.surface_pressure),
+                units.pressure(requireNotNull(hour.surfacePressure)),
             )
             HourMetricKind.LOW_CLOUDS -> HourMetric(
                 stringResource(R.string.low_clouds),
@@ -100,9 +197,59 @@ internal fun ExpandedHourDetails(
                 stringResource(R.string.visibility),
                 units.visibility(requireNotNull(hour.visibilityMeters)),
             )
+            HourMetricKind.FREEZING_LEVEL -> HourMetric(
+                stringResource(R.string.freezing_level),
+                units.distance(requireNotNull(hour.freezingLevelHeightMeters) / 1_000.0),
+            )
+            HourMetricKind.BOUNDARY_LAYER -> HourMetric(
+                stringResource(R.string.boundary_layer_height),
+                units.distance(requireNotNull(hour.boundaryLayerHeightMeters) / 1_000.0),
+            )
+            HourMetricKind.INTEGRATED_WATER -> HourMetric(
+                stringResource(R.string.integrated_water_vapour),
+                String.format(locale, "%.1f kg/m²", requireNotNull(hour.integratedWaterVapour)),
+            )
+            HourMetricKind.LIFTED_INDEX -> HourMetric(
+                stringResource(R.string.lifted_index),
+                String.format(locale, "%.1f", requireNotNull(hour.liftedIndex)),
+            )
+            HourMetricKind.CONVECTIVE_INHIBITION -> HourMetric(
+                stringResource(R.string.convective_inhibition),
+                String.format(locale, "%.0f J/kg", requireNotNull(hour.convectiveInhibition)),
+            )
+            HourMetricKind.CAPE -> HourMetric(
+                stringResource(R.string.cape),
+                String.format(locale, "%.0f J/kg", requireNotNull(hour.cape)),
+            )
+            HourMetricKind.VAPOUR_PRESSURE_DEFICIT -> HourMetric(
+                stringResource(R.string.vapour_pressure_deficit),
+                String.format(locale, "%.1f kPa", requireNotNull(hour.vapourPressureDeficit)),
+            )
+            HourMetricKind.SURFACE_TEMPERATURE -> HourMetric(
+                stringResource(R.string.surface_temperature),
+                units.temperature(requireNotNull(hour.surfaceTemperature)),
+            )
+            HourMetricKind.ET0 -> HourMetric(
+                stringResource(R.string.et0_evapotranspiration),
+                units.precipitation(requireNotNull(hour.et0)),
+            )
+            HourMetricKind.SOIL_TEMPERATURE -> HourMetric(
+                stringResource(R.string.soil_temperature),
+                units.temperature(requireNotNull(hour.soilTemperature0Cm)),
+            )
+            HourMetricKind.SOIL_MOISTURE -> HourMetric(
+                stringResource(R.string.soil_moisture),
+                String.format(locale, "%.3f m³/m³", requireNotNull(hour.soilMoisture0To1Cm)),
+            )
         }
     }
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = hourlyRainSummary(hour, units),
+            color = Color(0xFF8EDCF0),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+        )
         metrics.chunked(2).forEach { metricRow ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -114,6 +261,37 @@ internal fun ExpandedHourDetails(
                 if (metricRow.size == 1) Spacer(Modifier.weight(1f))
             }
         }
+    }
+}
+
+@Composable
+private fun hourlyRainSummary(hour: HourlyWeather, units: WeatherUnitFormatter): String {
+    val amount = units.precipitation(hour.precipitation)
+    return when (hourlyRainLevel(hour)) {
+        HourlyRainLevel.NONE -> stringResource(
+            R.string.hourly_rain_none,
+            hour.precipitationProbability,
+        )
+        HourlyRainLevel.UNLIKELY -> stringResource(
+            R.string.hourly_rain_unlikely,
+            amount,
+            hour.precipitationProbability,
+        )
+        HourlyRainLevel.POSSIBLE -> stringResource(
+            R.string.hourly_rain_possible,
+            amount,
+            hour.precipitationProbability,
+        )
+        HourlyRainLevel.LIKELY -> stringResource(
+            R.string.hourly_rain_likely,
+            amount,
+            hour.precipitationProbability,
+        )
+        HourlyRainLevel.HEAVY -> stringResource(
+            R.string.hourly_rain_heavy,
+            amount,
+            hour.precipitationProbability,
+        )
     }
 }
 

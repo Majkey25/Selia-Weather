@@ -39,6 +39,57 @@ class HourlyDetailsTest {
         assertTrue(HourMetricKind.PRESSURE in kinds)
         assertFalse(HourMetricKind.UV in kinds)
         assertFalse(HourMetricKind.VISIBILITY in kinds)
+
+        assertTrue(HourMetricKind.FEELS_LIKE in availableHourMetricKinds(
+            hour(apparentTemperature = null, uvIndex = null),
+        ))
+    }
+
+    @Test
+    fun apparentTemperatureFallsBackToMeasuredTemperature() {
+        assertEquals(18.0, hourlyApparentTemperature(hour(18.0, null)), 0.0)
+        assertEquals(20.0, hourlyApparentTemperature(hour(null, null)), 0.0)
+    }
+
+    @Test
+    fun explainsHourlyRainInHumanTerms() {
+        val dry = hour(null, null).copy(precipitation = 0.0)
+
+        assertEquals(HourlyRainLevel.NONE, hourlyRainLevel(dry.copy(precipitationProbability = 0)))
+        assertEquals(HourlyRainLevel.UNLIKELY, hourlyRainLevel(dry.copy(precipitationProbability = 20)))
+        assertEquals(HourlyRainLevel.POSSIBLE, hourlyRainLevel(dry.copy(precipitationProbability = 50)))
+        assertEquals(HourlyRainLevel.LIKELY, hourlyRainLevel(dry.copy(precipitationProbability = 80)))
+        assertEquals(HourlyRainLevel.HEAVY, hourlyRainLevel(dry.copy(precipitation = 6.0)))
+    }
+
+    @Test
+    fun exposesEveryAvailableDetailedMetric() {
+        val kinds = availableHourMetricKinds(
+            hour(18.0, 5.0).copy(
+                dewPoint = 12.0,
+                wetBulbTemperature = 15.0,
+                rain = 0.2,
+                snowfall = 0.3,
+                surfacePressure = 990.0,
+                cape = 400.0,
+                freezingLevelHeightMeters = 2_100.0,
+                soilTemperature0Cm = 14.0,
+                soilMoisture0To1Cm = 0.2,
+            ),
+        )
+
+        listOf(
+            HourMetricKind.TEMPERATURE,
+            HourMetricKind.DEW_POINT,
+            HourMetricKind.WET_BULB,
+            HourMetricKind.RAIN,
+            HourMetricKind.SNOWFALL,
+            HourMetricKind.SURFACE_PRESSURE,
+            HourMetricKind.CAPE,
+            HourMetricKind.FREEZING_LEVEL,
+            HourMetricKind.SOIL_TEMPERATURE,
+            HourMetricKind.SOIL_MOISTURE,
+        ).forEach { assertTrue(it in kinds) }
     }
 
     @Test
@@ -49,6 +100,7 @@ class HourlyDetailsTest {
         ).readText()
 
         assertTrue(source.contains("ExpandedHourDetails("))
+        assertTrue(source.contains("hourlyApparentTemperature(hour)"))
         assertTrue(source.contains("stateDescription"))
         assertTrue(source.contains(".heightIn(min = 78.dp)"))
         assertFalse(source.contains(".height(78.dp)"))

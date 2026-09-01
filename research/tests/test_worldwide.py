@@ -92,6 +92,25 @@ def test_worldwide_truth_download_requires_every_selected_station(tmp_path: Path
     )
 
     assert {item.station_id for item in observations} == {"72505394728", "47671099999"}
+    assert all(item.valid_time.minute == 0 for item in observations)
+    assert {
+        item.valid_time.hour for item in observations if item.variable != "precipitation"
+    } == {12}
+    tokyo_rain = [
+        item
+        for item in observations
+        if item.station_id == "47671099999" and item.variable == "precipitation"
+    ]
+    assert len(tokyo_rain) == 1
+    assert tokyo_rain[0].valid_time.hour == 6
+    assert tokyo_rain[0].valid_time.minute == 0
+    assert tokyo_rain[0].interval is not None
+    assert tokyo_rain[0].interval.total_seconds() == 3_600
+    tokyo_variables = {
+        item.variable for item in observations if item.station_id == "47671099999"
+    }
+    assert "wind_speed_10m" not in tokyo_variables
+    assert "wind_direction_10m" not in tokyo_variables
     assert tuple(hashes) == ("noaa-isd:2025-08-24:2025-08-24",)
 
     partial_csv = "\n".join(WORLD_ISD_CSV.splitlines()[:2]) + "\n"
@@ -111,5 +130,11 @@ WORLD_ISD_CSV = (
     '"72505394728","2025-08-24T12:00:00","40.7","-74.0","10.0","+0234,1",'
     '"+0123,1","10123,1","090,1,N,0034,1","010000,1,9,9","01,0012,9,1"\n'
     '"47671099999","2025-08-24T12:00:00","35.6","139.7","6.0","+0240,1",'
-    '"+0130,1","10110,1","100,1,N,0020,1","010000,1,9,9","01,0000,9,1"\n'
+    '"+0130,1","10110,1","100,1,N,9999,9","010000,1,9,9","06,0010,9,1"\n'
+    '"47671099999","2025-08-24T12:30:00","35.6","139.7","6.0","+0241,1",'
+    '"+0131,1","10111,1","100,1,N,0021,1","010000,1,9,9","01,0000,9,1"\n'
+    '"47671099999","2025-08-24T06:00:00","35.6","139.7","6.0","+0230,1",'
+    '"+0120,1","10120,1","090,1,N,9999,9","010000,1,9,9",""\n'
+    '"47671099999","2025-08-24T05:53:00","35.6","139.7","6.0","+0220,1",'
+    '"+0110,1","10130,1","080,1,N,0010,1","010000,1,9,9","01,0000,9,1"\n'
 )

@@ -157,19 +157,7 @@ class WeatherRepository(context: Context) {
         val updatedAt = System.currentTimeMillis()
         val modelSnapshot = WeatherParser.parseForecast(forecastJson, updatedAt)
         val now = Instant.ofEpochMilli(updatedAt)
-        val observations = try {
-            if (location.isInCzechia()) {
-                currentConditions.fetch(location, now)
-            } else {
-                metarCurrentConditions.fetch(location)
-            }
-        } catch (_: IOException) {
-            emptyList()
-        } catch (_: JSONException) {
-            emptyList()
-        } catch (_: IllegalArgumentException) {
-            emptyList()
-        }
+        val observations = currentObservations(location, now)
         val observedCurrent = fuseCurrentConditions(
             model = modelSnapshot.current,
             location = location,
@@ -181,6 +169,29 @@ class WeatherRepository(context: Context) {
         persist(location, correctedJson, snapshot)
         WeatherWidgetProvider.updateAll(appContext)
         return snapshot
+    }
+
+    private fun currentObservations(
+        location: CzechLocation,
+        now: Instant,
+    ): List<CurrentStationObservation> =
+        stationObservations { metarCurrentConditions.fetch(location) } +
+            if (location.isInCzechia()) {
+                stationObservations { currentConditions.fetch(location, now) }
+            } else {
+                emptyList()
+            }
+
+    private inline fun stationObservations(
+        fetch: () -> List<CurrentStationObservation>,
+    ): List<CurrentStationObservation> = try {
+        fetch()
+    } catch (_: IOException) {
+        emptyList()
+    } catch (_: JSONException) {
+        emptyList()
+    } catch (_: IllegalArgumentException) {
+        emptyList()
     }
 
     suspend fun searchLocations(query: String): List<CzechLocation> = withContext(Dispatchers.IO) {

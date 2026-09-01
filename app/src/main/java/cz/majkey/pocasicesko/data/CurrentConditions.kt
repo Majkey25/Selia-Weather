@@ -71,14 +71,12 @@ internal fun fuseCurrentConditions(
             distance <= MAX_STATION_DISTANCE_KM && ageSeconds in -MAX_CLOCK_SKEW_SECONDS..MAX_OBSERVATION_AGE_SECONDS
         }
         .sortedBy { (_, distance) -> distance }
-        .take(MAX_STATION_COUNT)
     if (nearby.isEmpty()) return model
 
-    val weights = nearby.map { (_, distance) -> 1.0 / max(distance, 1.0).let { it * it } }
     fun weighted(value: (CurrentStationObservation) -> Double?): Double? {
-        val pairs = nearby.mapIndexedNotNull { index, (observation, _) ->
-            value(observation)?.let { observed -> observed to weights[index] }
-        }
+        val pairs = nearby.mapNotNull { (observation, distance) ->
+            value(observation)?.let { observed -> observed to stationWeight(distance) }
+        }.take(MAX_STATION_COUNT)
         if (pairs.isEmpty()) return null
         return pairs.sumOf { (observed, weight) -> observed * weight } / pairs.sumOf { it.second }
     }
@@ -92,17 +90,12 @@ internal fun fuseCurrentConditions(
     val reportedCloudCover = weighted { it.cloudCoverPercent?.toDouble() }
         ?.roundToInt()
         ?.coerceIn(0, 100)
-    val sunshine = nearby.mapIndexedNotNull { index, (observation, _) ->
-        observation.sunshineSeconds?.let { value -> value to weights[index] }
-    }
-    val sunshineFraction = sunshine.takeIf { it.isNotEmpty() }?.let { values ->
-        values.sumOf { (value, weight) -> value * weight } / values.sumOf { it.second } / 600.0
-    }
-    val wind = nearby.mapIndexedNotNull { index, (observation, _) ->
-        val speed = observation.windSpeed ?: return@mapIndexedNotNull null
-        val direction = observation.windDirection ?: return@mapIndexedNotNull null
-        Triple(speed, Math.toRadians(direction), weights[index])
-    }
+    val sunshineFraction = weighted(CurrentStationObservation::sunshineSeconds)?.div(600.0)
+    val wind = nearby.mapNotNull { (observation, distance) ->
+        val speed = observation.windSpeed ?: return@mapNotNull null
+        val direction = observation.windDirection ?: return@mapNotNull null
+        Triple(speed, Math.toRadians(direction), stationWeight(distance))
+    }.take(MAX_STATION_COUNT)
     val windVector = wind.takeIf { it.isNotEmpty() }?.let { values ->
         val totalWeight = values.sumOf { it.third }
         val east = values.sumOf { (speed, angle, weight) -> speed * sin(angle) * weight } / totalWeight
@@ -182,6 +175,9 @@ private fun cloudWeatherCode(cloudCover: Int): Int = when {
     cloudCover <= 80 -> 2
     else -> 3
 }
+
+private fun stationWeight(distanceKm: Double): Double =
+    1.0 / max(distanceKm, 1.0).let { it * it }
 
 private fun distanceKm(location: CzechLocation, observation: CurrentStationObservation): Double {
     val latitudeDelta = Math.toRadians(observation.latitude - location.latitude)

@@ -80,6 +80,25 @@ class CurrentConditionsTest {
     }
 
     @Test
+    fun usesNearestStationThatActuallyReportsEachField() {
+        val now = Instant.parse("2026-08-29T10:00:00Z")
+        val fused = fuseCurrentConditions(
+            model = current(weatherCode = 3, precipitation = 0.0, cloudCover = 100),
+            location = CzechLocation("Praha", REGION_PRAGUE, 50.0, 14.0),
+            observations = listOf(
+                observation(50.01, 14.0, now.minusSeconds(300)),
+                observation(50.02, 14.0, now.minusSeconds(300)),
+                observation(50.03, 14.0, now.minusSeconds(300)),
+                observation(50.04, 14.0, now.minusSeconds(300), sunshineSeconds = 600.0),
+            ),
+            now = now,
+        )
+
+        assertEquals(0, fused.weatherCode)
+        assertEquals(5, fused.cloudCover)
+    }
+
+    @Test
     fun partialWorldwideObservationDoesNotInventPrecipitation() {
         val now = Instant.parse("2026-08-31T20:40:00Z")
         val fused = fuseCurrentConditions(

@@ -39,7 +39,7 @@
 
 The base forecast uses Open-Meteo Best Match worldwide. The app also requests verified provider-family series and calculates a robust median on the device when at least three values are available. Provider seamless series use local high-resolution grids inside their domains and global output elsewhere. Czech locations additionally request CHMI ALADIN. Suspended providers are excluded.
 
-The runtime accepts checksum-verified regional weights only after their exact provider-family inputs beat the training-selected fallback on a locked holdout. No worldwide segment currently passes that contract, so beta.11 uses the diagnostic median or Best Match. Weather details show the region, mode, contributors, fallback, and any accepted artifact evidence after cache reload.
+The runtime accepts checksum-verified regional weights only after their exact provider-family inputs beat the training-selected fallback on a locked holdout. No worldwide segment currently passes that contract, so beta.12 uses the diagnostic median or Best Match. Weather details show the region, mode, contributors, fallback, and any accepted artifact evidence after cache reload.
 
 The evidence and limits are recorded in [Global model routing](docs/research/global-model-routing.md) and [Worldwide ensemble validation](docs/research/worldwide-ensemble-validation.md).
 

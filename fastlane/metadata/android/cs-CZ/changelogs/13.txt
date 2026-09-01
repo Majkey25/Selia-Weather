@@ -1,0 +1,1 @@
+Odstraněny vizuální terče srážek. Pocitová teplota je nyní vidět v každém hodinovém řádku a rozbalená hodina lidsky vysvětluje déšť a vypisuje všechny dostupné údaje. Přidán volitelný ranní přehled v 7:00 s doporučením oblečení, deštníku a ochrany proti slunci. Opravena radarová mapa na starších verzích Android WebView. Bez reklam, Premium, Billing, UMP a AD_ID.

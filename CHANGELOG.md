@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## [0.2.0-beta.12] - 2026-09-01
+
+- Removed precipitation target and bullseye visuals from daily and hourly weather UI.
+- Kept feels-like temperature visible in every hourly row and daily summary.
+- Expanded each opened hour with a plain-language rain explanation and every available temperature, precipitation, wind, cloud, atmosphere, visibility, and ground metric.
+- Added an opt-in 07:00 local morning briefing with clothing, umbrella, and sun-protection advice.
+- Fixed a zero-height Leaflet map on older Android WebView versions while retaining live OSM and RainViewer tiles.
+- Kept release Ads, UMP, Billing, Premium, and `AD_ID` payloads disabled and absent.
+
 ## [0.2.0-beta.11] - 2026-09-01
 
 - Fixed current-condition fusion so each metric uses the nearest stations that actually report it.

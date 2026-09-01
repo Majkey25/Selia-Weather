@@ -70,13 +70,38 @@ class SegmentEvaluation:
     metric: str
     fallback_model: str
     sample_count: int
-    blend_score: float
-    best_model_score: float
-    improvement: ConfidenceInterval
+    blend_score: float | None
+    best_model_score: float | None
+    improvement: ConfidenceInterval | None
     maximum_region_degradation: float | None
     fold_improvements: tuple[float, ...]
     accepted: bool
     rejection_reasons: tuple[EvaluationFailure, ...]
+
+
+def unavailable_segment_evaluation(
+    selector: SegmentSelector,
+    *,
+    metric: str,
+    fallback_model: str,
+    fold_improvements: tuple[float, ...],
+    rejection_reasons: tuple[EvaluationFailure, ...],
+) -> SegmentEvaluation:
+    if not rejection_reasons or EvaluationFailure.INSUFFICIENT_HOLDOUT not in rejection_reasons:
+        raise ValueError("unavailable evaluation requires insufficient_holdout")
+    return SegmentEvaluation(
+        selector,
+        metric,
+        fallback_model,
+        0,
+        None,
+        None,
+        None,
+        None,
+        fold_improvements,
+        False,
+        rejection_reasons,
+    )
 
 
 def evaluate_segment(

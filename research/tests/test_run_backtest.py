@@ -13,14 +13,18 @@ import pytest
 from aladin_ensemble.align import DateRange
 from aladin_ensemble.backtest import BacktestConfig, BacktestDataset, SegmentDataset, SegmentKey
 from aladin_ensemble.baselines import ScalarForecastCase
-from aladin_ensemble.evaluate import HoldoutLock
+from aladin_ensemble.evaluate import EvaluationFailure, HoldoutLock
 from aladin_ensemble.export import ModelContract, export_artifact
 from aladin_ensemble.run_backtest import (
+    ScalarTraining,
+    WindTraining,
     build_backtest_artifact,
     build_backtest_preflight,
     build_previous_requests,
     download_previous_forecasts,
     evaluate_precipitation_training,
+    evaluate_scalar_training,
+    evaluate_wind_vector_training,
     fit_precipitation_training,
     fit_scalar_segment,
     fit_scalar_training,
@@ -30,6 +34,7 @@ from aladin_ensemble.run_backtest import (
     lock_backtest_dataset,
     monthly_truth_requests,
     preflight_payload,
+    resume_locked_backtest,
     run_locked_backtest,
     sample_forecast_hours,
     select_training_fallback,
@@ -43,6 +48,7 @@ from aladin_ensemble.sources.open_meteo_runs import (
     HttpResponse,
     PreviousRunsRequest,
 )
+from aladin_ensemble.train import WeightFit
 from aladin_ensemble.types import ForecastValue, Observation
 
 TRAIN = DateRange(date(2026, 4, 2), date(2026, 6, 30))
@@ -312,6 +318,31 @@ def test_locked_run_fits_before_lock_and_writes_diagnostic_report(tmp_path: Path
     assert b'"method":"zero_inflated"' in export_artifact(artifact)
 
 
+def test_resume_keeps_existing_holdout_lock_and_writes_report(tmp_path: Path) -> None:
+    dataset = _complete_dataset()
+    output = tmp_path / "locked-run"
+    lock_backtest_dataset(
+        dataset,
+        registry_hash="a" * 64,
+        source_hashes={"forecast": "b" * 64, "truth": "c" * 64},
+        output_dir=output,
+        locked_at=datetime(2026, 8, 1, tzinfo=UTC),
+    )
+    lock_bytes = (output / "holdout-lock.json").read_bytes()
+
+    result = resume_locked_backtest(
+        dataset,
+        registry_hash="a" * 64,
+        source_hashes={"forecast": "b" * 64, "truth": "c" * 64},
+        output_dir=output,
+        bootstrap_repetitions=20,
+    )
+
+    assert result.lock.locked_at == datetime(2026, 8, 1, tzinfo=UTC)
+    assert (output / "holdout-lock.json").read_bytes() == lock_bytes
+    assert (output / "report.json").is_file()
+
+
 def _wind_segment(variable: str, model_a: float, model_b: float, truth: float) -> SegmentDataset:
     def wind_case(day: date) -> ScalarForecastCase:
         return ScalarForecastCase(
@@ -458,6 +489,54 @@ def test_scalar_training_does_not_read_holdout() -> None:
     )
 
 
+def test_scalar_evaluation_matches_runtime_missing_model_renormalization() -> None:
+    model_ids = ("model_a", "model_b", "model_c", "model_d")
+
+    def case(day: date, *, missing_d: bool) -> ScalarForecastCase:
+        return ScalarForecastCase(
+            day,
+            "temperature",
+            24,
+            "REGION_PRAGUE",
+            "low",
+            "summer",
+            10.0,
+            {
+                "model_a": 9.0,
+                "model_b": 10.0,
+                "model_c": 11.0,
+                "model_d": None if missing_d else 10.0,
+            },
+            12.0,
+        )
+
+    segment = SegmentDataset(
+        SegmentKey("temperature", 24),
+        tuple(case(TRAIN.start + timedelta(days=offset), missing_d=False) for offset in range(90)),
+        tuple(case(HOLDOUT.start + timedelta(days=offset), missing_d=True) for offset in range(30)),
+        model_ids,
+        dict.fromkeys(model_ids, 1.0),
+    )
+    training = ScalarTraining(
+        model_ids,
+        "model_a",
+        WeightFit(dict.fromkeys(model_ids, 0.25), 90, 0.1),
+        frozenset(),
+        (0.1, 0.1),
+    )
+
+    fitted = evaluate_scalar_training(
+        segment,
+        training,
+        _lock(),
+        trained_at=datetime(2026, 7, 31, tzinfo=UTC),
+        bootstrap_repetitions=50,
+    )
+
+    assert fitted.evaluation.accepted
+    assert fitted.evaluation.sample_count == 30
+
+
 def test_scalar_training_falls_back_only_in_harmful_regions() -> None:
     def regional_cases(start: date, days: int) -> tuple[ScalarForecastCase, ...]:
         return tuple(
@@ -510,6 +589,8 @@ def test_precipitation_training_is_holdout_blind_and_evaluates_both_parts() -> N
     )
     assert fitted.occurrence_evaluation.accepted
     assert fitted.amount_evaluation.accepted
+    assert fitted.brier is not None
+    assert fitted.occurrence_evaluation.best_model_score is not None
     assert fitted.brier.score < fitted.occurrence_evaluation.best_model_score
     assert fitted.thresholds[0][0] == 0.1
     assert fitted.thresholds[0][1].misses == 0
@@ -524,6 +605,97 @@ def test_precipitation_training_rejects_negative_amounts() -> None:
         fit_precipitation_training(
             replace(segment, training=(invalid_case, *segment.training[1:]))
         )
+
+
+def test_precipitation_evaluation_rejects_blend_when_only_fallback_is_available() -> None:
+    segment = _precipitation_segment()
+    sparse_holdout = tuple(
+        replace(case, model_values={"model_a": case.model_values["model_a"], "model_b": None})
+        for case in segment.holdout
+    )
+    sparse = replace(segment, holdout=sparse_holdout)
+    training = fit_precipitation_training(segment)
+
+    fitted = evaluate_precipitation_training(
+        sparse,
+        training,
+        _lock(),
+        trained_at=datetime(2026, 7, 31, tzinfo=UTC),
+        bootstrap_repetitions=50,
+    )
+
+    assert not fitted.accepted
+    assert fitted.occurrence_evaluation.sample_count == 30
+    assert fitted.occurrence_evaluation.blend_score == (
+        fitted.occurrence_evaluation.best_model_score
+    )
+    assert EvaluationFailure.INSUFFICIENT_SOURCES in (
+        fitted.occurrence_evaluation.rejection_reasons
+    )
+
+
+def test_precipitation_model_gaps_do_not_fake_missing_fallback() -> None:
+    segment = _precipitation_segment()
+    mixed = replace(
+        segment,
+        holdout=tuple(
+            replace(
+                case,
+                model_values={
+                    "model_a": case.model_values["model_a"],
+                    "model_b": None if index % 2 else case.model_values["model_b"],
+                },
+            )
+            for index, case in enumerate(segment.holdout)
+        ),
+    )
+    training = fit_precipitation_training(segment)
+
+    fitted = evaluate_precipitation_training(
+        mixed,
+        training,
+        _lock(),
+        trained_at=datetime(2026, 7, 31, tzinfo=UTC),
+        bootstrap_repetitions=50,
+    )
+
+    assert EvaluationFailure.MISSING_FALLBACK not in (
+        fitted.occurrence_evaluation.rejection_reasons
+    )
+
+
+def test_precipitation_evaluation_reports_unavailable_without_fake_scores() -> None:
+    segment = _precipitation_segment()
+    unavailable = replace(
+        segment,
+        holdout=tuple(
+            replace(
+                case,
+                model_values={"model_a": None, "model_b": None},
+                best_match=None,
+            )
+            for case in segment.holdout
+        ),
+    )
+    training = fit_precipitation_training(segment)
+
+    fitted = evaluate_precipitation_training(
+        unavailable,
+        training,
+        _lock(),
+        trained_at=datetime(2026, 7, 31, tzinfo=UTC),
+        bootstrap_repetitions=50,
+    )
+
+    assert fitted.occurrence_evaluation.sample_count == 0
+    assert fitted.occurrence_evaluation.blend_score is None
+    assert fitted.occurrence_evaluation.best_model_score is None
+    assert fitted.brier is None
+    assert set(fitted.occurrence_evaluation.rejection_reasons) == {
+        EvaluationFailure.INSUFFICIENT_HOLDOUT,
+        EvaluationFailure.MISSING_FALLBACK,
+        EvaluationFailure.INSUFFICIENT_SOURCES,
+    }
 
 
 def test_precipitation_training_protects_harmful_regions() -> None:
@@ -600,6 +772,64 @@ def test_wind_vector_segment_rejects_unpaired_speed_and_direction_cases() -> Non
             trained_at=datetime(2026, 7, 31, tzinfo=UTC),
             bootstrap_repetitions=50,
         )
+
+
+def test_wind_evaluation_matches_runtime_missing_model_renormalization() -> None:
+    model_ids = ("model_a", "model_b", "model_c", "model_d")
+
+    def segment(variable: str) -> SegmentDataset:
+        def case(day: date, *, missing_d: bool) -> ScalarForecastCase:
+            direction = variable == "wind_direction"
+            return ScalarForecastCase(
+                day,
+                variable,
+                24,
+                "REGION_PRAGUE",
+                "low",
+                "summer",
+                0.0 if direction else 10.0,
+                {
+                    "model_a": 350.0 if direction else 10.0,
+                    "model_b": 0.0 if direction else 10.0,
+                    "model_c": 10.0 if direction else 10.0,
+                    "model_d": None if missing_d else (0.0 if direction else 10.0),
+                },
+                None,
+            )
+
+        return SegmentDataset(
+            SegmentKey(variable, 24),
+            tuple(
+                case(TRAIN.start + timedelta(days=offset), missing_d=False)
+                for offset in range(90)
+            ),
+            tuple(
+                case(HOLDOUT.start + timedelta(days=offset), missing_d=True)
+                for offset in range(30)
+            ),
+            model_ids,
+            dict.fromkeys(model_ids, 1.0),
+        )
+
+    training = WindTraining(
+        model_ids,
+        "model_a",
+        WeightFit(dict.fromkeys(model_ids, 0.25), 90, 0.1),
+        frozenset(),
+        (0.1, 0.1),
+    )
+
+    fitted = evaluate_wind_vector_training(
+        segment("wind_speed"),
+        segment("wind_direction"),
+        training,
+        _lock(),
+        trained_at=datetime(2026, 7, 31, tzinfo=UTC),
+        bootstrap_repetitions=50,
+    )
+
+    assert fitted.evaluation.accepted
+    assert fitted.evaluation.sample_count == 30
 
 
 def test_wind_training_does_not_read_holdout() -> None:

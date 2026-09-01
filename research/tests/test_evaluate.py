@@ -81,6 +81,7 @@ def test_segment_is_accepted_only_when_every_ship_rule_passes() -> None:
 
     assert result.accepted
     assert result.rejection_reasons == ()
+    assert result.improvement is not None
     assert result.improvement.estimate == 1.0
     assert result.improvement.lower == 1.0
     assert result.maximum_region_degradation == -0.5

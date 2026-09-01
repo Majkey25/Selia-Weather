@@ -334,9 +334,15 @@ def _precipitation_segment_payload(
 def _holdout_payload(evaluation: SegmentEvaluation) -> dict[str, JsonValue]:
     return {
         "accepted": evaluation.accepted,
-        "best_model_score": _number(evaluation.best_model_score),
-        "blend_score": _number(evaluation.blend_score),
-        "improvement": {
+        "best_model_score": None
+        if evaluation.best_model_score is None
+        else _number(evaluation.best_model_score),
+        "blend_score": None
+        if evaluation.blend_score is None
+        else _number(evaluation.blend_score),
+        "improvement": None
+        if evaluation.improvement is None
+        else {
             "estimate": _number(evaluation.improvement.estimate),
             "lower": _number(evaluation.improvement.lower),
             "upper": _number(evaluation.improvement.upper),

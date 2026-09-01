@@ -9,6 +9,7 @@ from datetime import UTC, date, datetime, timedelta
 from math import cos, hypot, isfinite, radians, sin
 from pathlib import Path
 from statistics import fmean
+from tempfile import TemporaryDirectory
 from time import sleep
 from typing import Literal, cast
 
@@ -23,10 +24,13 @@ from aladin_ensemble.backtest import (
 )
 from aladin_ensemble.baselines import ScalarForecastCase
 from aladin_ensemble.evaluate import (
+    EvaluationFailure,
     EvaluationSample,
     HoldoutLock,
     SegmentEvaluation,
     evaluate_segment,
+    read_holdout_lock,
+    unavailable_segment_evaluation,
     write_holdout_lock,
 )
 from aladin_ensemble.export import (
@@ -72,7 +76,9 @@ from aladin_ensemble.train import (
     WeightFit,
     blend_positive_amount,
     blend_scalar,
+    blend_scalar_available,
     blend_wind,
+    blend_wind_available,
     fit_occurrence_calibration,
     fit_positive_amount_weights,
     fit_scalar_weights,
@@ -151,7 +157,7 @@ class FittedPrecipitation:
     amount_fallback_regions: frozenset[str]
     occurrence_evaluation: SegmentEvaluation
     amount_evaluation: SegmentEvaluation
-    brier: BrierDecomposition
+    brier: BrierDecomposition | None
     thresholds: tuple[tuple[float, ContingencyScores], ...]
 
     def __post_init__(self) -> None:
@@ -315,6 +321,44 @@ def run_locked_backtest(
         bootstrap_repetitions=bootstrap_repetitions,
     )
     write_backtest_report(output_dir / "report.json", result)
+    return result
+
+
+def resume_locked_backtest(
+    dataset: BacktestDataset,
+    *,
+    registry_hash: str,
+    source_hashes: Mapping[str, str],
+    output_dir: Path,
+    bootstrap_repetitions: int = 1_000,
+) -> BacktestRun:
+    manifest_path = output_dir / "dataset-manifest.json"
+    lock_path = output_dir / "holdout-lock.json"
+    report_path = output_dir / "report.json"
+    if not manifest_path.is_file() or not lock_path.is_file() or report_path.exists():
+        raise ValueError("resume requires a locked run without a report")
+    lock = read_holdout_lock(lock_path)
+    with TemporaryDirectory() as temporary:
+        expected_path = Path(temporary) / "dataset-manifest.json"
+        expected_hash = write_dataset_manifest(
+            expected_path,
+            dataset,
+            registry_hash,
+            source_hashes,
+        )
+        if (
+            expected_hash != lock.dataset_manifest_hash
+            or expected_path.read_bytes() != manifest_path.read_bytes()
+        ):
+            raise ValueError("resume dataset does not match the holdout lock")
+    training = fit_backtest_training(dataset, clock=lambda: lock.locked_at)
+    result = evaluate_backtest_training(
+        dataset,
+        training,
+        lock,
+        bootstrap_repetitions=bootstrap_repetitions,
+    )
+    write_backtest_report(report_path, result)
     return result
 
 
@@ -518,12 +562,7 @@ def write_backtest_report(path: Path, result: BacktestRun) -> None:
                     sorted(fitted.amount_fallback_regions),
                 ),
                 "amount_weights": _weight_payload(fitted.amount),
-                "brier": {
-                    "reliability": fitted.brier.reliability,
-                    "resolution": fitted.brier.resolution,
-                    "score": fitted.brier.score,
-                    "uncertainty": fitted.brier.uncertainty,
-                },
+                "brier": _brier_payload(fitted.brier),
                 "kind": "precipitation",
                 "lead_hours": lead_hours,
                 "occurrence": _occurrence_payload(fitted),
@@ -954,27 +993,21 @@ def evaluate_scalar_training(
 ) -> FittedSegment:
     if training.eligible_models != segment.eligible_models:
         raise ValueError("scalar training models do not match evaluation segment")
-    holdout = _complete_cases(segment.holdout, segment.eligible_models)
-    if training.fallback_model == "best_match":
-        holdout = tuple(case for case in holdout if case.best_match is not None)
+    holdout = tuple(
+        (case, prediction)
+        for case in segment.holdout
+        if (prediction := _scalar_evaluation_prediction(case, training)) is not None
+    )
     if not holdout:
         raise ValueError("segment requires complete holdout cases")
     samples = tuple(
         EvaluationSample(
             case.forecast_date,
             case.region,
-            abs(
-                _scalar_prediction(
-                    case,
-                    training.fit,
-                    training.fallback_model,
-                    training.fallback_regions,
-                )
-                - case.observation
-            ),
+            abs(prediction - case.observation),
             abs(_model_value(case, training.fallback_model) - case.observation),
         )
-        for case in holdout
+        for case, prediction in holdout
     )
     selector = SegmentSelector(
         segment.key.variable,
@@ -989,7 +1022,10 @@ def evaluate_scalar_training(
         metric="mae",
         fallback_model=training.fallback_model,
         fold_improvements=training.fold_improvements,
-        missing_fallback_ok=True,
+        missing_fallback_ok=all(
+            _optional_model_value(case, training.fallback_model) is not None
+            for case in segment.holdout
+        ),
         minimum_sources_ok=_weight_sources_ok(training.fit, training.eligible_models),
         trained_at=trained_at,
         lock=lock,
@@ -1072,14 +1108,74 @@ def evaluate_precipitation_training(
     _require_precipitation_segment(segment)
     if training.eligible_models != segment.eligible_models:
         raise ValueError("precipitation training models do not match evaluation segment")
+    missing_fallback_ok = all(
+        _optional_model_value(case, training.fallback_model) is not None
+        for case in segment.holdout
+    )
     holdout = _complete_cases(segment.holdout, segment.eligible_models)
-    if training.fallback_model == "best_match":
+    blend_available = bool(holdout)
+    if not blend_available:
+        holdout = tuple(
+            case
+            for case in segment.holdout
+            if _optional_model_value(case, training.fallback_model) is not None
+        )
+    elif training.fallback_model == "best_match":
         holdout = tuple(case for case in holdout if case.best_match is not None)
-    _require_non_negative_precipitation(holdout, segment.eligible_models)
+    if not holdout:
+        reasons = (
+            EvaluationFailure.INSUFFICIENT_HOLDOUT,
+            EvaluationFailure.MISSING_FALLBACK,
+            EvaluationFailure.INSUFFICIENT_SOURCES,
+        )
+        occurrence_evaluation = unavailable_segment_evaluation(
+            SegmentSelector(
+                "precipitation_occurrence",
+                f"{segment.key.lead_hours}h",
+                None,
+                None,
+                None,
+            ),
+            metric="brier",
+            fallback_model=training.fallback_model,
+            fold_improvements=training.occurrence_fold_improvements,
+            rejection_reasons=reasons,
+        )
+        amount_evaluation = unavailable_segment_evaluation(
+            SegmentSelector(
+                "precipitation_amount",
+                f"{segment.key.lead_hours}h",
+                None,
+                None,
+                None,
+            ),
+            metric="mae",
+            fallback_model=training.fallback_model,
+            fold_improvements=training.amount_fold_improvements,
+            rejection_reasons=reasons,
+        )
+        return FittedPrecipitation(
+            training.fallback_model,
+            training.occurrence,
+            training.occurrence_fallback_regions,
+            training.occurrence_threshold,
+            training.amount,
+            training.amount_fallback_regions,
+            occurrence_evaluation,
+            amount_evaluation,
+            None,
+            (),
+        )
+    _require_non_negative_precipitation(
+        holdout,
+        segment.eligible_models if blend_available else (training.fallback_model,),
+    )
+    occurrence = training.occurrence if blend_available else None
+    amount_fit = training.amount if blend_available else None
     probabilities = tuple(
         _precipitation_probability(
             case,
-            training.occurrence,
+            occurrence,
             training.fallback_model,
             training.occurrence_fallback_regions,
         )
@@ -1088,10 +1184,10 @@ def evaluate_precipitation_training(
     amounts = tuple(
         _precipitation_amount(
             case,
-            training.occurrence,
+            occurrence,
             training.occurrence_fallback_regions,
             training.occurrence_threshold,
-            training.amount,
+            amount_fit,
             training.amount_fallback_regions,
             training.fallback_model,
         )
@@ -1125,11 +1221,9 @@ def evaluate_precipitation_training(
         metric="brier",
         fallback_model=training.fallback_model,
         fold_improvements=training.occurrence_fold_improvements,
-        missing_fallback_ok=True,
-        minimum_sources_ok=_occurrence_sources_ok(
-            training.occurrence,
-            training.eligible_models,
-        ),
+        missing_fallback_ok=missing_fallback_ok,
+        minimum_sources_ok=blend_available
+        and _occurrence_sources_ok(training.occurrence, training.eligible_models),
         trained_at=trained_at,
         lock=lock,
         bootstrap_repetitions=bootstrap_repetitions,
@@ -1154,11 +1248,9 @@ def evaluate_precipitation_training(
         metric="mae",
         fallback_model=training.fallback_model,
         fold_improvements=training.amount_fold_improvements,
-        missing_fallback_ok=True,
-        minimum_sources_ok=_weight_sources_ok(
-            training.amount,
-            training.eligible_models,
-        ),
+        missing_fallback_ok=missing_fallback_ok,
+        minimum_sources_ok=blend_available
+        and _weight_sources_ok(training.amount, training.eligible_models),
         trained_at=trained_at,
         lock=lock,
         bootstrap_repetitions=bootstrap_repetitions,
@@ -1242,33 +1334,35 @@ def evaluate_wind_vector_training(
 ) -> FittedSegment:
     if training.eligible_models != _wind_eligible_models(speed_segment, direction_segment):
         raise ValueError("wind training models do not match evaluation segments")
-    holdout = _paired_wind_cases(
+    pairs = _paired_wind_cases(
         speed_segment.holdout,
         direction_segment.holdout,
         training.eligible_models,
+        require_complete=False,
     )
-    if training.fallback_model == "best_match":
-        holdout = tuple(
-            pair
-            for pair in holdout
-            if pair[0].best_match is not None and pair[1].best_match is not None
+    holdout = tuple(
+        (speed, direction, prediction)
+        for speed, direction in pairs
+        if (
+            prediction := _wind_evaluation_prediction(speed, direction, training)
         )
+        is not None
+    )
     if not holdout:
         raise ValueError("paired wind segments require complete holdout cases")
     samples = tuple(
         EvaluationSample(
             speed.forecast_date,
             speed.region,
-            _wind_prediction_loss(
-                speed,
-                direction,
-                training.fit,
-                training.fallback_model,
-                training.fallback_regions,
+            _wind_vector_loss(
+                prediction[0],
+                prediction[1],
+                speed.observation,
+                direction.observation,
             ),
             _wind_pair_loss(speed, direction, None, training.fallback_model),
         )
-        for speed, direction in holdout
+        for speed, direction, prediction in holdout
     )
     evaluation = evaluate_segment(
         SegmentSelector(
@@ -1282,7 +1376,11 @@ def evaluate_wind_vector_training(
         metric="vector_mae",
         fallback_model=training.fallback_model,
         fold_improvements=training.fold_improvements,
-        missing_fallback_ok=True,
+        missing_fallback_ok=all(
+            _optional_model_value(speed, training.fallback_model) is not None
+            and _optional_model_value(direction, training.fallback_model) is not None
+            for speed, direction in pairs
+        ),
         minimum_sources_ok=_weight_sources_ok(training.fit, training.eligible_models),
         trained_at=trained_at,
         lock=lock,
@@ -1315,6 +1413,8 @@ def _paired_wind_cases(
     speeds: Sequence[ScalarForecastCase],
     directions: Sequence[ScalarForecastCase],
     model_ids: Sequence[str],
+    *,
+    require_complete: bool = True,
 ) -> tuple[tuple[ScalarForecastCase, ScalarForecastCase], ...]:
     def index(
         cases: Sequence[ScalarForecastCase],
@@ -1334,7 +1434,8 @@ def _paired_wind_cases(
     return tuple(
         (speed_by_key[key], direction_by_key[key])
         for key in sorted(speed_by_key)
-        if all(
+        if not require_complete
+        or all(
             speed_by_key[key].model_values.get(model_id) is not None
             and direction_by_key[key].model_values.get(model_id) is not None
             for model_id in model_ids
@@ -1381,11 +1482,25 @@ def _wind_pair_loss(
                 for model_id in fit.weights
             },
         )
+    return _wind_vector_loss(
+        predicted_speed,
+        predicted_direction,
+        speed.observation,
+        direction.observation,
+    )
+
+
+def _wind_vector_loss(
+    predicted_speed: float,
+    predicted_direction: float,
+    observed_speed: float,
+    observed_direction: float,
+) -> float:
     predicted_angle = radians(predicted_direction)
-    observed_angle = radians(direction.observation)
+    observed_angle = radians(observed_direction)
     return hypot(
-        predicted_speed * sin(predicted_angle) - speed.observation * sin(observed_angle),
-        predicted_speed * cos(predicted_angle) - speed.observation * cos(observed_angle),
+        predicted_speed * sin(predicted_angle) - observed_speed * sin(observed_angle),
+        predicted_speed * cos(predicted_angle) - observed_speed * cos(observed_angle),
     )
 
 
@@ -1401,6 +1516,30 @@ def _wind_prediction_loss(
         direction,
         None if speed.region in fallback_regions else fit,
         fallback_model,
+    )
+
+
+def _wind_evaluation_prediction(
+    speed: ScalarForecastCase,
+    direction: ScalarForecastCase,
+    training: WindTraining,
+) -> tuple[float, float] | None:
+    fallback_speed = _optional_model_value(speed, training.fallback_model)
+    fallback_direction = _optional_model_value(direction, training.fallback_model)
+    if fallback_speed is None or fallback_direction is None:
+        return None
+    if training.fit is None or speed.region in training.fallback_regions:
+        return fallback_speed, fallback_direction
+    return blend_wind_available(
+        training.fit,
+        {
+            model_id: (
+                speed.model_values.get(model_id),
+                direction.model_values.get(model_id),
+            )
+            for model_id in training.fit.weights
+        },
+        _minimum_source_count(training.eligible_models),
     )
 
 
@@ -1705,10 +1844,15 @@ def _model_row(case: ScalarForecastCase, model_ids: Sequence[str]) -> tuple[floa
 
 
 def _model_value(case: ScalarForecastCase, model_id: str) -> float:
-    value = case.best_match if model_id == "best_match" else case.model_values.get(model_id)
+    value = _optional_model_value(case, model_id)
     if value is None or not isfinite(value):
         raise ValueError(f"case has no finite value for {model_id}")
     return value
+
+
+def _optional_model_value(case: ScalarForecastCase, model_id: str) -> float | None:
+    value = case.best_match if model_id == "best_match" else case.model_values.get(model_id)
+    return value if value is not None and isfinite(value) else None
 
 
 def _weight_sources_ok(fit: WeightFit | None, eligible_models: Sequence[str]) -> bool:
@@ -1750,6 +1894,22 @@ def _scalar_prediction(
     if case.region in fallback_regions:
         return _model_value(case, fallback_model)
     return _blend_or_fallback(case, fit, fallback_model)
+
+
+def _scalar_evaluation_prediction(
+    case: ScalarForecastCase,
+    training: ScalarTraining,
+) -> float | None:
+    fallback = _optional_model_value(case, training.fallback_model)
+    if fallback is None:
+        return None
+    if training.fit is None or case.region in training.fallback_regions:
+        return fallback
+    return blend_scalar_available(
+        training.fit,
+        {model_id: case.model_values.get(model_id) for model_id in training.fit.weights},
+        _minimum_source_count(training.eligible_models),
+    )
 
 
 def _scalar_fallback_regions(
@@ -1804,7 +1964,9 @@ def _evaluation_payload(evaluation: SegmentEvaluation) -> dict[str, JsonValue]:
         "blend_score": evaluation.blend_score,
         "fallback_model": evaluation.fallback_model,
         "fold_improvements": list(evaluation.fold_improvements),
-        "improvement": {
+        "improvement": None
+        if evaluation.improvement is None
+        else {
             "estimate": evaluation.improvement.estimate,
             "lower": evaluation.improvement.lower,
             "upper": evaluation.improvement.upper,
@@ -1813,6 +1975,17 @@ def _evaluation_payload(evaluation: SegmentEvaluation) -> dict[str, JsonValue]:
         "metric": evaluation.metric,
         "rejection_reasons": [reason.value for reason in evaluation.rejection_reasons],
         "sample_count": evaluation.sample_count,
+    }
+
+
+def _brier_payload(value: BrierDecomposition | None) -> JsonValue:
+    if value is None:
+        return None
+    return {
+        "reliability": value.reliability,
+        "resolution": value.resolution,
+        "score": value.score,
+        "uncertainty": value.uncertainty,
     }
 
 

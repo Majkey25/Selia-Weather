@@ -30,7 +30,7 @@ CZECH_BOUNDS = (11.2, 48.0, 19.7, 51.5)
 
 
 @dataclass(frozen=True, slots=True)
-class CzechTarget:
+class ResearchTarget:
     target_id: str
     region: str
     latitude: float
@@ -39,6 +39,16 @@ class CzechTarget:
     def __post_init__(self) -> None:
         if not self.target_id or not self.region:
             raise ValueError("target identity is required")
+        if not all(isfinite(value) for value in (self.latitude, self.longitude)):
+            raise ValueError("target coordinates must be finite")
+        if not -90 <= self.latitude <= 90 or not -180 <= self.longitude <= 180:
+            raise ValueError("target coordinates are outside WGS84 range")
+
+
+@dataclass(frozen=True, slots=True)
+class CzechTarget(ResearchTarget):
+    def __post_init__(self) -> None:
+        ResearchTarget.__post_init__(self)
         west, south, east, north = CZECH_BOUNDS
         if not west <= self.longitude <= east or not south <= self.latitude <= north:
             raise ValueError("target is outside the Czech research bounds")
@@ -64,7 +74,7 @@ CZECH_TARGETS = (
 
 @dataclass(frozen=True, slots=True)
 class SelectedStation:
-    target: CzechTarget
+    target: ResearchTarget
     station: Station
 
     @property

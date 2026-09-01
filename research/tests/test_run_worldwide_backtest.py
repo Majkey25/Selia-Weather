@@ -46,7 +46,7 @@ def test_worldwide_preflight_is_network_free_and_bounded(
         "station_count": len(WORLD_TARGETS),
         "status": "ready",
         "training": {"end": "2025-03-31", "start": "2025-01-01"},
-        "truth_requests": 1,
+        "truth_requests": 3,
     }
     assert {path.name for path in tmp_path.iterdir()} == {"isd-history.csv"}
 
@@ -60,10 +60,21 @@ def test_worldwide_execute_writes_locked_diagnostic_report(
     history.write_text(_history_fixture(), encoding="utf-8")
     forecasts, observations = _backtest_rows()
     sampled_hours: list[tuple[int, ...]] = []
+    downloader_options: list[dict[str, object]] = []
 
     def fake_forecasts(*_args: object, **kwargs: object) -> tuple[object, object]:
         sampled_hours.append(cast(tuple[int, ...], kwargs["sample_hours"]))
         return forecasts, {"forecast": "a" * 64}
+
+    def fake_downloader(_root: object, **kwargs: object) -> object:
+        downloader_options.append(kwargs)
+        return object()
+
+    def fake_truth(
+        *_args: object,
+        **_kwargs: object,
+    ) -> tuple[tuple[Observation, ...], dict[str, str]]:
+        return observations, {"truth": "b" * 64}
 
     monkeypatch.setattr(
         runner,
@@ -72,8 +83,13 @@ def test_worldwide_execute_writes_locked_diagnostic_report(
     )
     monkeypatch.setattr(
         runner,
+        "CachedDownloader",
+        fake_downloader,
+    )
+    monkeypatch.setattr(
+        runner,
         "download_worldwide_truth",
-        lambda *_args, **_kwargs: (observations, {"truth": "b" * 64}),
+        fake_truth,
     )
     output = tmp_path / "output"
 
@@ -96,6 +112,8 @@ def test_worldwide_execute_writes_locked_diagnostic_report(
             str(tmp_path / "truth-cache"),
             "--output-dir",
             str(output),
+            "--region",
+            "EUROPE",
             "--pause-seconds",
             "0",
             "--bootstrap-repetitions",
@@ -112,7 +130,15 @@ def test_worldwide_execute_writes_locked_diagnostic_report(
     assert (output / "holdout-lock.json").is_file()
     assert (output / "report.json").is_file()
     assert (output / "worldwide-input-registry.json").is_file()
+    manifest = cast(
+        dict[str, JsonValue],
+        json.loads((output / "dataset-manifest.json").read_text(encoding="utf-8")),
+    )
+    assert len(cast(list[JsonValue], manifest["stations"])) == 3
     assert sampled_hours == [tuple(range(24))]
+    assert downloader_options == [
+        {"retry_attempts": 5, "retry_delay_seconds": 30.0}
+    ]
 
 
 def _history_fixture() -> str:

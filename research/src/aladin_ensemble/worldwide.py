@@ -43,15 +43,32 @@ WORLD_SYNOPTIC_HOURS = (0, 6, 12, 18)
 WORLD_SAMPLE_HOURS = tuple(range(24))
 WORLD_TARGETS = (
     ResearchTarget("frankfurt", "EUROPE", 50.0379, 8.5622),
+    ResearchTarget("london", "EUROPE", 51.47, -0.4543),
+    ResearchTarget("warsaw", "EUROPE", 52.1657, 20.9671),
     ResearchTarget("new-york", "NORTH_AMERICA", 40.6413, -73.7781),
+    ResearchTarget("chicago", "NORTH_AMERICA", 41.9742, -87.9073),
+    ResearchTarget("los-angeles", "NORTH_AMERICA", 33.9416, -118.4085),
     ResearchTarget("sao-paulo", "SOUTH_AMERICA", -23.4356, -46.4731),
+    ResearchTarget("buenos-aires", "SOUTH_AMERICA", -34.8222, -58.5358),
+    ResearchTarget("santiago", "SOUTH_AMERICA", -33.3929, -70.7858),
     ResearchTarget("nairobi", "AFRICA", -1.3192, 36.9278),
+    ResearchTarget("johannesburg", "AFRICA", -26.1337, 28.242),
+    ResearchTarget("cairo", "AFRICA", 30.1219, 31.4056),
     ResearchTarget("delhi", "SOUTH_CENTRAL_ASIA", 28.5562, 77.1),
+    ResearchTarget("karachi", "SOUTH_CENTRAL_ASIA", 24.9065, 67.1608),
+    ResearchTarget("almaty", "SOUTH_CENTRAL_ASIA", 43.3521, 77.0405),
     ResearchTarget("tokyo", "EAST_ASIA", 35.5494, 139.7798),
+    ResearchTarget("seoul", "EAST_ASIA", 37.4602, 126.4407),
+    ResearchTarget("shanghai", "EAST_ASIA", 31.1443, 121.8083),
     ResearchTarget("moscow", "NORTHERN_ASIA", 55.9726, 37.4146),
+    ResearchTarget("novosibirsk", "NORTHERN_ASIA", 55.0126, 82.6507),
+    ResearchTarget("vladivostok", "NORTHERN_ASIA", 43.399, 132.148),
     ResearchTarget("sydney", "OCEANIA", -33.9399, 151.1753),
+    ResearchTarget("melbourne", "OCEANIA", -37.669, 144.841),
+    ResearchTarget("auckland", "OCEANIA", -37.0082, 174.785),
 )
 _LEAD_DAYS = tuple(range(1, 8))
+_TRUTH_BATCH_SIZE = 8
 
 
 def build_worldwide_previous_requests(
@@ -90,15 +107,18 @@ def download_worldwide_truth(
     *,
     http_get: HttpGet | None = None,
 ) -> tuple[tuple[Observation, ...], Mapping[str, str]]:
+    requests = build_worldwide_truth_requests(stations, start_date, end_date)
+    parsed: list[Observation] = []
+    hashes: dict[str, str] = {}
+    for index, request in enumerate(requests, start=1):
+        cached = download_isd_csv(request, cache_root, http_get=http_get)
+        with cached.path.open(encoding="utf-8-sig") as source:
+            parsed.extend(parse_isd_observations(source, cached.checksum_sha256))
+        key = f"noaa-isd:{start_date.isoformat()}:{end_date.isoformat()}:{index:02d}"
+        hashes[key] = cached.checksum_sha256
     station_ids = tuple(sorted(item.station.wigos_id for item in stations))
-    if not station_ids or len(set(station_ids)) != len(station_ids):
-        raise ValueError("worldwide truth stations must be non-empty and unique")
-    request = IsdDataRequest(station_ids, start_date, end_date)
-    cached = download_isd_csv(request, cache_root, http_get=http_get)
-    with cached.path.open(encoding="utf-8-sig") as source:
-        parsed = tuple(parse_isd_observations(source, cached.checksum_sha256))
-        exact_hours = tuple(
-            item
+    exact_hours = tuple(
+        item
             for item in parsed
             if item.variable != "precipitation"
             if not any(
@@ -122,8 +142,25 @@ def download_worldwide_truth(
         raise ValueError(f"NOAA ISD truth is missing selected stations: {sorted(missing)}")
     if unexpected:
         raise ValueError(f"NOAA ISD truth contains unexpected stations: {sorted(unexpected)}")
-    key = f"noaa-isd:{start_date.isoformat()}:{end_date.isoformat()}"
-    return observations, {key: cached.checksum_sha256}
+    return observations, hashes
+
+
+def build_worldwide_truth_requests(
+    stations: Sequence[SelectedStation],
+    start_date: date,
+    end_date: date,
+    *,
+    batch_size: int = _TRUTH_BATCH_SIZE,
+) -> tuple[IsdDataRequest, ...]:
+    station_ids = tuple(sorted(item.station.wigos_id for item in stations))
+    if not station_ids or len(set(station_ids)) != len(station_ids):
+        raise ValueError("worldwide truth stations must be non-empty and unique")
+    if batch_size <= 0:
+        raise ValueError("worldwide truth batch_size must be positive")
+    return tuple(
+        IsdDataRequest(station_ids[offset : offset + batch_size], start_date, end_date)
+        for offset in range(0, len(station_ids), batch_size)
+    )
 
 
 def _select_daily_synoptic_observations(

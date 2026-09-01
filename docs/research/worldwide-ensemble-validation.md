@@ -47,6 +47,22 @@ The locked artifacts have these SHA-256 hashes:
 - diagnostic report: `e03dd790f2a666c84170e01567155a5e802288d61278fe250c4f951f9527858d`;
 - input registry: `83d3b3373971bc2ef134b546a7619053ae037e2ea80bedaa8f868c9b2b67a93f`.
 
+## Expanded regional cohort
+
+The next cohort contains three targets in each populated runtime region, 24 stations total. The
+selector resolved NOAA ISD stations covering the locked 2025 window for Frankfurt, London,
+Warsaw, New York, Chicago, Los Angeles, São Paulo, Buenos Aires, Santiago, Nairobi, Johannesburg,
+Cairo, Delhi, Karachi,
+Almaty, Tokyo, Seoul, Shanghai, Moscow, Novosibirsk, Vladivostok, Sydney, Melbourne, and Auckland.
+NOAA truth requests are split into three bounded eight-station batches.
+
+The same cached 24-station forecast corpus can now be evaluated with `--region` so each runtime
+region gets its own locked dataset and report. The first download attempt cached 12 of the 77
+required Previous Runs payloads, then the public endpoint returned HTTP 429 through six retries
+spaced 60 seconds apart. No 24-station holdout was locked and no regional weight was published.
+The checksum cache makes a later retry continue from the missing payload instead of downloading
+the verified payloads again.
+
 ## Implemented gates
 
 - Android accepts only calibration schema 2.
@@ -76,7 +92,8 @@ The research package now parses two additional independent observation products:
 The research package now:
 
 - uses the exact seamless provider-family IDs that Android requests;
-- selects one unique NOAA ISD station for each populated calibration region;
+- selects three unique NOAA ISD stations for each populated calibration region;
+- can lock one region at a time from the same worldwide source corpus;
 - bounds Open-Meteo and NOAA response sizes;
 - stores immutable source payloads and request manifests by checksum;
 - supports a network-free preflight and an exact-lock resume after an evaluation failure;
@@ -85,9 +102,9 @@ The research package now:
 
 ## Work required before accepted weights
 
-1. Fit and lock each runtime region separately. Do not copy the aggregate diagnostic weights into
-   regional selectors.
-2. Add more representative stations per region, then repeat the coverage and degradation gates.
+1. Complete the rate-limited 24-station source corpus, then fit and lock each runtime region
+   separately. Do not copy aggregate diagnostic weights into regional selectors.
+2. Repeat the coverage and degradation gates on all three stations in each region.
 3. Obtain authorized NASA Earthdata or PPS access before downloading IMERG files. Do not store
    credentials in the repository or GitHub Pages.
 4. Use IMERG, MRMS, or regional radar-gauge truth for precipitation. NOAA ISD alone did not
@@ -106,9 +123,9 @@ accepted segments.
 
 ## Verification
 
-The implementation check on 31 August 2026 produced:
+The implementation check on 1 September 2026 produced:
 
-- 236 passing research tests;
+- 253 passing research tests;
 - Ruff with no findings;
 - Pyright with zero errors and zero warnings.
 

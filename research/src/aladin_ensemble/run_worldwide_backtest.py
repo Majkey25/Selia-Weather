@@ -27,6 +27,7 @@ from aladin_ensemble.worldwide import (
     WORLD_SAMPLE_HOURS,
     WORLD_TARGETS,
     build_worldwide_previous_requests,
+    build_worldwide_truth_requests,
     download_worldwide_truth,
 )
 
@@ -40,12 +41,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--holdout-end", type=date.fromisoformat, required=True)
     parser.add_argument("--provider-limit", type=int, default=10_000)
     parser.add_argument("--max-station-distance-km", type=float, default=250.0)
+    parser.add_argument(
+        "--region",
+        choices=sorted({target.region for target in WORLD_TARGETS}),
+    )
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--forecast-cache", type=Path)
     parser.add_argument("--truth-cache", type=Path)
     parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--pause-seconds", type=float, default=0.5)
+    parser.add_argument("--retry-attempts", type=int, default=5)
+    parser.add_argument("--retry-delay-seconds", type=float, default=30.0)
     parser.add_argument("--bootstrap-repetitions", type=int, default=1_000)
     arguments = parser.parse_args(argv)
     config = BacktestConfig(
@@ -65,6 +72,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         stations,
         max_distance_km=cast(float, arguments.max_station_distance_km),
     )
+    region = cast(str | None, arguments.region)
+    evaluation_stations = tuple(
+        item for item in selected if region is None or item.target.region == region
+    )
     requests, budget = build_worldwide_previous_requests(
         selected,
         config.train.start,
@@ -72,6 +83,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         provider_limit=cast(int, arguments.provider_limit),
     )
     budget.require_within_limit()
+    truth_requests = build_worldwide_truth_requests(
+        selected,
+        config.train.start,
+        config.holdout.end,
+    )
     payload: dict[str, JsonValue] = {
         "forecast_requests": len(requests),
         "holdout": {
@@ -85,7 +101,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "end": config.train.end.isoformat(),
             "start": config.train.start.isoformat(),
         },
-        "truth_requests": 1,
+        "truth_requests": len(truth_requests),
     }
     print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
     if not cast(bool, arguments.execute):
@@ -104,7 +120,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     forecasts, forecast_hashes = download_previous_forecasts(
         requests,
         CachedDownloader(
-            forecast_cache or station_history.parent / "data/raw/open-meteo-worldwide"
+            forecast_cache or station_history.parent / "data/raw/open-meteo-worldwide",
+            retry_attempts=cast(int, arguments.retry_attempts),
+            retry_delay_seconds=cast(float, arguments.retry_delay_seconds),
         ),
         sample_hours=WORLD_SAMPLE_HOURS,
         pause_seconds=cast(float, arguments.pause_seconds),
@@ -122,8 +140,22 @@ def main(argv: Sequence[str] | None = None) -> int:
     }
     if len(source_hashes) != 1 + len(forecast_hashes) + len(truth_hashes):
         raise ValueError("worldwide source hash keys are duplicated")
-    registry = _registry_bytes(selected)
-    dataset = build_backtest_dataset(config, forecasts, observations, selected)
+    evaluation_station_ids = {
+        item.station.wigos_id for item in evaluation_stations
+    }
+    evaluation_forecasts = tuple(
+        item for item in forecasts if item.requested_point_id in evaluation_station_ids
+    )
+    evaluation_observations = tuple(
+        item for item in observations if item.station_id in evaluation_station_ids
+    )
+    registry = _registry_bytes(evaluation_stations)
+    dataset = build_backtest_dataset(
+        config,
+        evaluation_forecasts,
+        evaluation_observations,
+        evaluation_stations,
+    )
     run = resume_locked_backtest if resume else run_locked_backtest
     result = run(
         dataset,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter
 from datetime import date
 from pathlib import Path
 
@@ -11,6 +12,7 @@ from aladin_ensemble.worldwide import (
     WORLD_MODEL_IDS,
     WORLD_TARGETS,
     build_worldwide_previous_requests,
+    build_worldwide_truth_requests,
     download_worldwide_truth,
 )
 
@@ -20,7 +22,7 @@ def test_worldwide_plan_uses_exact_runtime_models_and_bounded_requests() -> None
         SelectedStation(
             target,
             Station(
-                f"station-{index}",
+                f"{index + 10_000_000_000:011d}",
                 target.target_id,
                 target.latitude,
                 target.longitude,
@@ -54,20 +56,29 @@ def test_worldwide_plan_uses_exact_runtime_models_and_bounded_requests() -> None
     assert all(len(request.points) == len(WORLD_TARGETS) for request in requests)
     assert budget.expected_http_requests == 77
     assert budget.provider_limit == 10_000
+    truth_requests = build_worldwide_truth_requests(
+        stations,
+        date(2026, 1, 1),
+        date(2026, 4, 30),
+    )
+    assert len(truth_requests) == 3
+    assert all(len(request.station_ids) == 8 for request in truth_requests)
 
 
-def test_world_targets_cover_each_runtime_calibration_region_once() -> None:
+def test_world_targets_cover_each_runtime_calibration_region_three_times() -> None:
     assert len(WORLD_TARGETS) == len({target.target_id for target in WORLD_TARGETS})
-    assert {target.region for target in WORLD_TARGETS} == {
-        "EUROPE",
-        "NORTH_AMERICA",
-        "SOUTH_AMERICA",
-        "AFRICA",
-        "SOUTH_CENTRAL_ASIA",
-        "EAST_ASIA",
-        "NORTHERN_ASIA",
-        "OCEANIA",
-    }
+    assert Counter(target.region for target in WORLD_TARGETS) == Counter(
+        {
+            "EUROPE": 3,
+            "NORTH_AMERICA": 3,
+            "SOUTH_AMERICA": 3,
+            "AFRICA": 3,
+            "SOUTH_CENTRAL_ASIA": 3,
+            "EAST_ASIA": 3,
+            "NORTHERN_ASIA": 3,
+            "OCEANIA": 3,
+        }
+    )
     ResearchTarget("ocean", "GLOBAL", 0.0, -140.0)
 
 
@@ -111,7 +122,7 @@ def test_worldwide_truth_download_requires_every_selected_station(tmp_path: Path
     }
     assert "wind_speed_10m" not in tokyo_variables
     assert "wind_direction_10m" not in tokyo_variables
-    assert tuple(hashes) == ("noaa-isd:2025-08-24:2025-08-24",)
+    assert tuple(hashes) == ("noaa-isd:2025-08-24:2025-08-24:01",)
 
     partial_csv = "\n".join(WORLD_ISD_CSV.splitlines()[:2]) + "\n"
     with pytest.raises(ValueError, match="missing selected stations"):

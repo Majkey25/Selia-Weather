@@ -31,9 +31,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -64,7 +62,6 @@ import cz.majkey.pocasicesko.data.ForecastRegion
 import cz.majkey.pocasicesko.data.HistoricalDay
 import cz.majkey.pocasicesko.data.HistoryArchive
 import cz.majkey.pocasicesko.data.HourlyWeather
-import cz.majkey.pocasicesko.data.PrecipitationField
 import cz.majkey.pocasicesko.data.WeatherSnapshot
 import cz.majkey.pocasicesko.data.currentDay
 import cz.majkey.pocasicesko.data.summary
@@ -87,7 +84,6 @@ internal fun WeatherDetailSheet(
     location: CzechLocation,
     units: WeatherUnitFormatter,
     loadHistory: suspend (CzechLocation) -> HistoryArchive,
-    loadPrecipitationField: suspend (CzechLocation) -> PrecipitationField,
     onDismiss: () -> Unit,
 ) {
     val locale = LocalConfiguration.current.locales[0]
@@ -108,24 +104,9 @@ internal fun WeatherDetailSheet(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val shareChooserTitle = stringResource(R.string.history_share_chooser)
-    var fieldRetryKey by remember(location) { mutableIntStateOf(0) }
     var historyState by remember(location) { mutableStateOf<HistoryUiState>(HistoryUiState.Idle) }
     var showHistoryDays by remember(location) { mutableStateOf(false) }
     var historyShareError by remember(location) { mutableStateOf(false) }
-    val fieldState by produceState<PrecipitationFieldUiState>(
-        initialValue = PrecipitationFieldUiState.Loading,
-        location.latitude,
-        location.longitude,
-        fieldRetryKey,
-    ) {
-        value = try {
-            PrecipitationFieldUiState.Content(loadPrecipitationField(location))
-        } catch (_: IOException) {
-            PrecipitationFieldUiState.Error
-        } catch (_: JSONException) {
-            PrecipitationFieldUiState.Error
-        }
-    }
     fun loadArchive() {
         historyState = HistoryUiState.Loading
         showHistoryDays = false
@@ -212,14 +193,6 @@ internal fun WeatherDetailSheet(
                 items(history.days.asReversed(), key = { it.date.toString() }) { day ->
                     HistoricalDayRow(day, units, locale)
                 }
-            }
-            item {
-                LocalRainFieldSection(
-                    state = fieldState,
-                    timezone = snapshot.timezone,
-                    units = units,
-                    onRetry = { fieldRetryKey++ },
-                )
             }
             item {
                 DetailSection(stringResource(R.string.current_details)) {
@@ -531,12 +504,6 @@ private fun ForecastCalculationSection(calculation: ForecastCalculation) {
     }
 }
 
-private sealed interface PrecipitationFieldUiState {
-    data object Loading : PrecipitationFieldUiState
-    data class Content(val field: PrecipitationField) : PrecipitationFieldUiState
-    data object Error : PrecipitationFieldUiState
-}
-
 private sealed interface HistoryUiState {
     data object Idle : HistoryUiState
     data object Loading : HistoryUiState
@@ -776,41 +743,6 @@ private fun GlanceValue(label: String, value: String, modifier: Modifier = Modif
             fontSize = 16.sp,
             modifier = Modifier.padding(top = 3.dp),
         )
-    }
-}
-
-@Composable
-private fun LocalRainFieldSection(
-    state: PrecipitationFieldUiState,
-    timezone: String,
-    units: WeatherUnitFormatter,
-    onRetry: () -> Unit,
-) {
-    DetailSection(stringResource(R.string.local_rain_field)) {
-        when (state) {
-            PrecipitationFieldUiState.Loading -> Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(180.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                CircularProgressIndicator(color = Color(0xFF83D6E8), modifier = Modifier.size(32.dp))
-            }
-            is PrecipitationFieldUiState.Content -> LocalRainField(state.field, timezone, units)
-            PrecipitationFieldUiState.Error -> Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    stringResource(R.string.spatial_precipitation_unavailable),
-                    color = Color.White.copy(alpha = 0.58f),
-                    modifier = Modifier.weight(1f),
-                )
-                TextButton(onClick = onRetry) { Text(stringResource(R.string.retry_spatial_precipitation)) }
-            }
-        }
     }
 }
 

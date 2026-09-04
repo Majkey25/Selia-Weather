@@ -1,0 +1,1 @@
+L’application s’appelle désormais Selia Weather. Les grilles ont été remplacées par un radar mondial observé et fonctionnel. Les heures ouvertes affichent un résumé clair mis en évidence, et la navigation est plus accessible. Sans publicité ni Premium.

@@ -4,7 +4,7 @@
 model in `research/model-registry.json`. The audit expires after 90 days. The export loader rejects
 a stale audit, an unknown model, a missing model, a duplicate model, or an unsupported schema.
 
-The source pages publish update cadence, but they do not publish a Selia Vetra run-age limit. The
+The source pages publish update cadence, but they do not publish a Selia Weather run-age limit. The
 project therefore applies one explicit operational policy:
 
 ```text

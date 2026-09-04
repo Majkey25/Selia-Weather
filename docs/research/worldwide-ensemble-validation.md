@@ -2,7 +2,7 @@
 
 ## Current result
 
-No regional worldwide calibration selector is approved for production. Selia Vetra keeps
+No regional worldwide calibration selector is approved for production. Selia Weather keeps
 Open-Meteo Best Match and the diagnostic median outside an accepted artifact selector.
 
 The Android runtime requests provider-family identifiers such as `gfs_seamless`, `icon_seamless`,

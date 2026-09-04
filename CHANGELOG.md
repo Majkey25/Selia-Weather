@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## [0.2.0-beta.13] - 2026-09-04
+
+- Renamed the product to Selia Weather with the short Weather launcher label while preserving the existing package and app data.
+- Replaced the spatial target views with one worldwide observed RainViewer radar with zoom, pan, animation, timeline, and coverage controls.
+- Added a full-width highlighted plain-language summary to every expanded hour while retaining all available detailed metrics.
+- Added accessible labels to both floating navigation buttons.
+- Kept release Ads, UMP, Billing, Premium, and `AD_ID` payloads disabled and absent.
+
 ## [0.2.0-beta.12] - 2026-09-01
 
 - Removed precipitation target and bullseye visuals from daily and hourly weather UI.

@@ -1,10 +1,10 @@
-Selia Vetra je přehledné počasí pro celý svět bez účtu, s pozorovaným radarem, regionálním výběrem modelů a vlastním widgetem. Tato verze neobsahuje reklamy ani Premium.
+Selia Weather je přehledné počasí pro celý svět bez účtu, s pozorovaným radarem, regionálním výběrem modelů a vlastním widgetem. Tato verze neobsahuje reklamy ani Premium.
 
 Předpověď používá Open-Meteo Best Match a diagnostický výpočet z více modelů až na 14 dní. V Česku opravují aktuální stav čerstvá měření ČHMÚ. Jinde mohou blízké čerstvé METAR zprávy opravit dostupnou teplotu, vlhkost, rosný bod, tlak, dohlednost, oblačnost a vítr. Budoucí hodiny zůstávají modelovou předpovědí.
 
 Vyhledávejte místa po celém světě, ukládejte oblíbené lokality, vyberte přesný bod na světové mapě nebo zadejte souřadnice. Volitelně lze použít aktuální polohu. Poslední úspěšná předpověď zůstane k dispozici offline.
 
-Pozorovaná mapa používá světový radar RainViewer s časovou osou a maskou pokrytí. Oddělený místní terč ukazuje modelové srážky na dalších 24 hodin a je vždy označený jako předpověď.
+Radar používá celosvětová pozorování RainViewer, přiblížení, posun, animaci, časovou osu a masku pokrytí. Hodinový detail srozumitelně popisuje pravděpodobnost i množství budoucích srážek.
 
 Vlastní widget se přizpůsobí malé, široké i vysoké velikosti. Každý widget může mít vlastní barvy, průhlednost, gradient nebo obrázek, velikost textu, zarovnání, vlastní popisek a vybraná data. Pokud vybraný obrázek přestane být dostupný, widget dál funguje s nastaveným barevným pozadím.
 

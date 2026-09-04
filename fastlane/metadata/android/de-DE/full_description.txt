@@ -1,13 +1,13 @@
-Selia Vetra zeigt weltweites Wetter ohne Konto, mit beobachtetem Radar, regionaler Modellauswahl und anpassbarem Widget. Diese Version enthält keine Werbung und kein Premium.
+Selia Weather zeigt weltweites Wetter ohne Konto, mit beobachtetem Radar, regionaler Modellauswahl und anpassbarem Widget. Diese Version enthält keine Werbung und kein Premium.
 
 Die Vorhersage verwendet Open-Meteo Best Match und eine diagnostische Mehrmodellberechnung für bis zu 14 Tage. In Tschechien korrigieren aktuelle ČHMÚ-Messungen den Istzustand. Andernorts können nahe frische METAR-Berichte verfügbare Temperatur-, Feuchte-, Taupunkt-, Druck-, Sicht-, Wolken- und Windwerte korrigieren. Zukünftige Stunden bleiben Modellvorhersagen.
 
 Suchen Sie Orte weltweit, speichern Sie Favoriten, wählen Sie einen exakten Punkt auf der Weltkarte oder geben Sie Koordinaten ein. Optional können Sie Ihren aktuellen Standort verwenden. Die letzte erfolgreiche Vorhersage bleibt offline verfügbar.
 
-Die Beobachtungskarte verwendet die weltweite RainViewer-Radarzeitleiste und eine Abdeckungsmaske. Ein getrenntes lokales Feld zeigt die Modellniederschläge der nächsten 24 Stunden und bleibt als Prognose gekennzeichnet.
+Der Radar verwendet weltweite RainViewer-Beobachtungen mit Zoom, Verschieben, Animation, Zeitleiste und Abdeckungsmaske. Stündliche Details erklären Wahrscheinlichkeit und Menge künftiger Niederschläge verständlich.
 
 Gestalten Sie Ihr eigenes Startbildschirm-Widget. Jedes Widget kann eigene Farben, Transparenz, Verlauf oder Hintergrundbild, Textgröße, Ausrichtung, Beschriftung und sichtbare Wetterdaten verwenden. Wenn Android ein Bild nicht mehr lesen kann, nutzt das Widget seinen Farbhintergrund und funktioniert weiter.
 
-Selia Vetra unterstützt Android 10 und neuer. Standardmäßig folgt die App der Systemsprache. In der App können Sie Englisch, Tschechisch, Deutsch, Spanisch oder Französisch wählen.
+Selia Weather unterstützt Android 10 und neuer. Standardmäßig folgt die App der Systemsprache. In der App können Sie Englisch, Tschechisch, Deutsch, Spanisch oder Französisch wählen.
 
 Der optionale Buy-Me-a-Coffee-Link öffnet eine externe Seite. Er schaltet keine Funktionen frei und gibt keine Priorität.

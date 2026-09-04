@@ -21,9 +21,21 @@ class LauncherIconTest {
                 .single { it.attributes.getNamedItem("name").nodeValue == "app_name" }
                 .textContent
 
-            assertEquals("Vetra", label)
+            assertEquals("Weather", label)
             assertTrue(label.length <= 10)
         }
+    }
+
+    @Test
+    fun productNameUsesSeliaWeatherIdentity() {
+        val strings = File(System.getProperty("user.dir"), "src/main/res/values/strings.xml")
+        val document = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(strings)
+        val entries = document.getElementsByTagName("string")
+        val productName = (0 until entries.length)
+            .map { entries.item(it) }
+            .single { it.attributes.getNamedItem("name").nodeValue == "product_name" }
+
+        assertEquals("Selia Weather", productName.textContent)
     }
 
     @Test

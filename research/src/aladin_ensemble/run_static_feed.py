@@ -91,7 +91,7 @@ def build_pages_site(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Build the static Selia Vetra Pages site.")
+    parser = argparse.ArgumentParser(description="Build the static Selia Weather Pages site.")
     parser.add_argument("--docs-root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--source-registry", type=Path, required=True)

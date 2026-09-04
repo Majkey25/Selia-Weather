@@ -108,4 +108,4 @@ private const val CONNECT_TIMEOUT_MILLIS = 10_000
 private const val READ_TIMEOUT_MILLIS = 30_000
 private const val MAX_RESPONSE_BYTES = 2_000_000
 private val USER_AGENT =
-    "Selia-Vetra/${BuildConfig.VERSION_NAME} (Android; https://github.com/Majkey25/Selia-Weather)"
+    "Selia-Weather/${BuildConfig.VERSION_NAME} (Android; https://github.com/Majkey25/Selia-Weather)"

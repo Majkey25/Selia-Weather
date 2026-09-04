@@ -1,0 +1,1 @@
+Aplikace se nově jmenuje Selia Weather. Terčové mřížky nahradil jeden funkční celosvětový radar pozorovaných srážek. Rozbalené hodiny mají zvýrazněné srozumitelné shrnutí a navigace je lépe přístupná. Bez reklam a Premium.

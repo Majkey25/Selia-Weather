@@ -28,7 +28,6 @@ class WeatherRepository(context: Context) {
     private val preferences = appContext.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
     private val currentConditions = ChmiCurrentConditionsRepository(appContext)
     private val metarCurrentConditions = MetarCurrentConditionsRepository()
-    private val precipitationFieldRepository = PrecipitationFieldRepository()
     private val historyRepository = HistoryRepository(File(appContext.cacheDir, "history"))
     private val staticForecastRepository = StaticForecastRepository()
     @Volatile private var calibrationArtifact: CalibrationArtifact? = null
@@ -100,9 +99,6 @@ class WeatherRepository(context: Context) {
     suspend fun fetchForecast(location: CzechLocation): WeatherSnapshot = withContext(Dispatchers.IO) {
         fetchForecastBlocking(location)
     }
-
-    internal suspend fun fetchPrecipitationField(location: CzechLocation): PrecipitationField =
-        precipitationFieldRepository.fetch(location, calibrationArtifact)
 
     internal suspend fun fetchHistory(location: CzechLocation): HistoryArchive =
         historyRepository.fetch(location)

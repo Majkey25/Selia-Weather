@@ -1,0 +1,1 @@
+Renamed the app to Selia Weather. Replaced target grids with one functional worldwide observed radar, and added highlighted plain-language summaries to expanded hours. Navigation accessibility is improved. This release contains no ads or Premium.

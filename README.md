@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="fastlane/metadata/android/en-US/images/icon.png" width="96" alt="Selia Vetra icon">
+  <img src="fastlane/metadata/android/en-US/images/icon.png" width="96" alt="Selia Weather icon">
 </p>
 
-<h1 align="center">Selia Vetra</h1>
+<h1 align="center">Selia Weather</h1>
 
 <p align="center">A focused worldwide Android weather app with regional model routing, observed radar, and an adaptive widget.</p>
 
@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/01-weather.png" width="240" alt="Selia Vetra forecast">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/01-weather.png" width="240" alt="Selia Weather forecast">
   &nbsp;&nbsp;
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/03-radar.png" width="240" alt="Observed precipitation radar">
   &nbsp;&nbsp;
@@ -25,7 +25,7 @@
 
 - Shows current and apparent temperature, dew point, wet-bulb temperature, precipitation, cloud layers, visibility, pressure, wind, sun, and Moon details.
 - Adds UV, freezing-level, boundary-layer, atmospheric-water, instability, showers, and ground details.
-- Shows worldwide observed precipitation through RainViewer for the available past two hours, including a radar-coverage mask. The separate 24-hour forecast samples a 5 by 5 field around the selected location and never labels model output as observed radar.
+- Shows worldwide observed precipitation through RainViewer for the available past two hours, with zoom, pan, animation, a timeline, and a radar-coverage mask. Future precipitation remains in the hourly point forecast.
 - Shows a horizontal 24-hour outlook, a 14-day forecast, and an hourly detail for each day. A complete day normally has 24 hours.
 - Loads a bounded five-year NASA POWER archive on demand, calculates rainfall and climate summaries locally, shows every daily row, and exports one provenance-labelled CSV through Android's share sheet for analysis in ChatGPT or another app.
 - Searches places worldwide, stores favourites, can use your optional current location, and can save an exact named point on an interactive world map or by coordinate.
@@ -53,11 +53,11 @@ The evidence and limits are recorded in [Global model routing](docs/research/glo
 - [ČHMÚ current station data](https://opendata.chmi.cz/meteorology/climate/now/)
 - [ČHMÚ open weather data](https://opendata.chmi.cz/meteorology/weather/)
 
-The historical data was obtained from the NASA Langley Research Center POWER project funded through the NASA Earth Science Division. CSV exports include the POWER Daily API version and access time. Selia Vetra is not an official NASA, ČHMÚ, or Open-Meteo app.
+The historical data was obtained from the NASA Langley Research Center POWER project funded through the NASA Earth Science Division. CSV exports include the POWER Daily API version and access time. Selia Weather is not an official NASA, ČHMÚ, or Open-Meteo app.
 
 ## Language and requirements
 
-Selia Vetra supports Android 10 and later. It follows the Android system language by default. English is the fallback for unsupported system languages. You can select English, Czech, German, Spanish, or French in the app.
+Selia Weather supports Android 10 and later. It follows the Android system language by default. English is the fallback for unsupported system languages. You can select English, Czech, German, Spanish, or French in the app.
 
 The public application ID is `com.majkeylab.weatheraladin`. A network connection is required for fresh forecasts, search, and radar. Build locally with JDK 17 and Android SDK 36.
 
@@ -89,7 +89,7 @@ The app has no developer account or separate analytics SDK. It keeps the selecte
 
 ## Status
 
-The app uses the product identity Selia Vetra and the short launcher label Vetra. It keeps the public package `com.majkeylab.weatheraladin`, so existing Play installations update normally. GitHub prereleases are for testing. Worldwide calibration remains diagnostic until the seamless-model holdout passes. Google Play uses a separate private upload key and Play App Signing.
+The app uses the product identity Selia Weather and the short launcher label Weather. It keeps the public package `com.majkeylab.weatheraladin`, so existing Play installations update normally. GitHub prereleases are for testing. Worldwide calibration remains diagnostic until the seamless-model holdout passes. Google Play uses a separate private upload key and Play App Signing.
 
 ## License
 

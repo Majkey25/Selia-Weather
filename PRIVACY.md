@@ -2,7 +2,7 @@
 
 Effective date: 31 August 2026
 
-Selia Vetra, package `com.majkeylab.weatheraladin`, does not require a developer account. The developer does not sell personal data or run a separate analytics service. Release builds do not contain or initialise Ads, UMP, Play Billing, Premium, or `AD_ID`. Debug-only QA builds can use Google test integrations outside the release dependency graph.
+Selia Weather, package `com.majkeylab.weatheraladin`, does not require a developer account. The developer does not sell personal data or run a separate analytics service. Release builds do not contain or initialise Ads, UMP, Play Billing, Premium, or `AD_ID`. Debug-only QA builds can use Google test integrations outside the release dependency graph.
 
 ## Data on your device
 

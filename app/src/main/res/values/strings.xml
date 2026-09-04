@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Vetra</string>
-    <string name="product_name" translatable="false">Selia Vetra</string>
+    <string name="app_name">Weather</string>
+    <string name="product_name" translatable="false">Selia Weather</string>
     <string name="widget_description">Time and weather for the selected location</string>
     <string name="weather_icon">Weather icon</string>
     <string name="widget_placeholder_city">Open the app</string>
@@ -100,22 +100,6 @@
     <string name="relative">Relative</string>
     <string name="sea_level">Sea level</string>
     <string name="precipitation_value">%1$s mm</string>
-    <string name="local_rain_field">Local rain field</string>
-    <string name="rain_field_centre">Selected location</string>
-    <string name="rain_field_unavailable">Unavailable</string>
-    <string name="rain_field_dry">Dry</string>
-    <string name="rain_field_rain">Rain</string>
-    <string name="rain_field_snow">Snow</string>
-    <string name="rain_field_mixed">Mixed</string>
-    <string name="rain_field_probability">Probability</string>
-    <string name="rain_field_agreement">Agreement</string>
-    <string name="rain_field_models">models</string>
-    <string name="rain_field_range">Range</string>
-    <string name="rain_field_north">N</string>
-    <string name="rain_field_east">E</string>
-    <string name="rain_field_south">S</string>
-    <string name="rain_field_west">W</string>
-    <string name="rain_field_radius">%1$s radius</string>
     <string name="at_a_glance">At a glance</string>
     <string name="next_rain">Next rain</string>
     <string name="no_rain_next_24h">No rain in the next 24 h</string>
@@ -132,8 +116,6 @@
     <string name="soil_temperature">Soil temperature</string>
     <string name="soil_moisture">Soil moisture</string>
     <string name="showers">Showers</string>
-    <string name="spatial_precipitation_unavailable">Spatial precipitation unavailable</string>
-    <string name="retry_spatial_precipitation">Retry</string>
     <string name="wind_value">%1$s km/h</string>
     <string name="locations">Locations</string>
     <string name="use_my_location">Use my location</string>
@@ -230,16 +212,10 @@
     <string name="condition_storm">Thunderstorm</string>
     <string name="condition_unknown">Unknown</string>
     <string name="radar_title">Radar</string>
-    <string name="radar_subtitle">Worldwide observed precipitation and local 24-hour forecast</string>
+    <string name="radar_subtitle">Worldwide observed precipitation radar with animation and timeline</string>
     <string name="radar_footer">Observed radar: RainViewer · map: OpenStreetMap</string>
     <string name="radar_retry">Retry radar</string>
     <string name="radar_unavailable">Radar unavailable</string>
-    <string name="radar_observed_past_2h">Observed · past 2 h</string>
-    <string name="radar_now">Now</string>
-    <string name="radar_forecast_next_24h">Forecast · next 24 h</string>
-    <string name="radar_forecast_subtitle">24-hour model forecast around %1$s</string>
-    <string name="radar_forecast_note">Model consensus around the selected location. This is a forecast, not observed radar.</string>
-    <string name="radar_forecast_unavailable">24-hour precipitation forecast unavailable</string>
     <string name="widget_title">Weather widget</string>
     <string name="widget_add">Add widget to Home screen</string>
     <string name="widget_add_unavailable">This launcher cannot add the widget automatically.</string>
@@ -362,9 +338,9 @@
     <string name="daily_briefing_umbrella">Take an umbrella.</string>
     <string name="daily_briefing_no_umbrella">No umbrella should be needed.</string>
     <string name="daily_briefing_sun_protection">Use sun protection.</string>
-    <string name="hourly_rain_none">No measurable rain is expected this hour (%1$d%% chance).</string>
     <string name="hourly_rain_unlikely">Rain is unlikely: %1$s expected this hour (%2$d%% chance).</string>
     <string name="hourly_rain_possible">Rain is possible: %1$s expected this hour (%2$d%% chance).</string>
     <string name="hourly_rain_likely">Rain is likely: %1$s expected this hour (%2$d%% chance).</string>
     <string name="hourly_rain_heavy">Heavy rain is possible: %1$s expected this hour (%2$d%% chance).</string>
+    <string name="hourly_dry_summary">%1$s. No measurable rain is expected (%2$d%% chance). Feels like %3$s with %4$s wind from %5$s.</string>
 </resources>

@@ -70,21 +70,18 @@ class RadarScreenTest {
     }
 
     @Test
-    fun mapHubSeparatesObservedRadarFrom24HourModelForecast() {
+    fun mapHubUsesOneClassicObservedRadarWithoutTargetGrid() {
         val source = File(
             System.getProperty("user.dir"),
             "src/main/java/cz/majkey/pocasicesko/ui/MapHubScreen.kt",
         ).readText()
 
-        assertTrue(source.contains("MapMode.OBSERVED"))
-        assertTrue(source.contains("MapMode.FORECAST"))
-        assertTrue(source.contains("MapTimelineBand("))
-        assertTrue(source.contains("loadPrecipitationField(location)"))
-        assertTrue(source.contains("LocalRainField("))
-        assertTrue(source.contains("R.string.radar_observed_past_2h"))
-        assertTrue(source.contains("R.string.radar_forecast_next_24h"))
-        assertTrue(source.contains("R.string.radar_now"))
-        assertTrue(source.contains("current?.latitude == location.latitude"))
-        assertTrue(source.contains("current.longitude == location.longitude"))
+        assertTrue(source.contains("ChmiWebScreen("))
+        assertTrue(source.contains("localizedRadarUrl("))
+        assertTrue(source.contains("R.string.radar_footer"))
+        assertFalse(source.contains("MapMode"))
+        assertFalse(source.contains("ForecastMap"))
+        assertFalse(source.contains("LocalRainField("))
+        assertFalse(source.contains("loadPrecipitationField"))
     }
 }

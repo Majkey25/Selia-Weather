@@ -1,0 +1,1 @@
+La aplicación ahora se llama Selia Weather. Las cuadrículas se sustituyeron por un radar mundial observado y funcional. Las horas abiertas muestran un resumen claro destacado y la navegación es más accesible. Sin anuncios ni Premium.

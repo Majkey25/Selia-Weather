@@ -87,7 +87,6 @@ import cz.majkey.pocasicesko.data.CzechLocation
 import cz.majkey.pocasicesko.data.DeviceLocationRepository
 import cz.majkey.pocasicesko.data.HistoryArchive
 import cz.majkey.pocasicesko.data.LocationPermissionException
-import cz.majkey.pocasicesko.data.PrecipitationField
 import cz.majkey.pocasicesko.data.SystemLocationDisabledException
 import cz.majkey.pocasicesko.data.WeatherKind
 import cz.majkey.pocasicesko.data.WeatherRepository
@@ -232,7 +231,6 @@ fun WeatherApp(
                         location = location,
                         measurementSystem = measurementSystem,
                         loadHistory = repository::fetchHistory,
-                        loadPrecipitationField = repository::fetchPrecipitationField,
                         padding = padding,
                         onSearch = { showLocationSearch = true },
                         onRetry = { reloadKey++ },
@@ -241,9 +239,6 @@ fun WeatherApp(
 
                     Destination.MAPS -> MapHubScreen(
                         location = location,
-                        timezone = snapshot?.timezone ?: "UTC",
-                        measurementSystem = measurementSystem,
-                        loadPrecipitationField = repository::fetchPrecipitationField,
                         padding = padding,
                     )
                 }
@@ -334,7 +329,6 @@ private fun WeatherDestination(
     location: CzechLocation,
     measurementSystem: MeasurementSystem,
     loadHistory: suspend (CzechLocation) -> HistoryArchive,
-    loadPrecipitationField: suspend (CzechLocation) -> PrecipitationField,
     padding: PaddingValues,
     onSearch: () -> Unit,
     onRetry: () -> Unit,
@@ -366,7 +360,6 @@ private fun WeatherDestination(
             refreshError = state.refreshError,
             measurementSystem = measurementSystem,
             loadHistory = loadHistory,
-            loadPrecipitationField = loadPrecipitationField,
             onSearch = onSearch,
             onRefresh = onRetry,
             onSettings = onSettings,
@@ -423,7 +416,8 @@ private fun NavigationItem(
     Surface(
         onClick = onClick,
         modifier = modifier
-            .fillMaxSize(),
+            .fillMaxSize()
+            .semantics { contentDescription = label },
         color = if (selected) Color(0xFF2E6474) else Color(0xFF142731),
         contentColor = Color.White,
         shape = RoundedCornerShape(28.dp),

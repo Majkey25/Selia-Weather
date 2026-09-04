@@ -1,7 +1,7 @@
 # Google Play submission reference
 
-- Store name: `Selia Vetra: Weather Radar`
-- Launcher name: `Vetra`
+- Store name: `Selia Weather: Weather Radar`
+- Launcher name: `Weather`
 - Package: `com.majkeylab.weatheraladin`
 - Default language: English (`en-US`)
 - Category: Weather

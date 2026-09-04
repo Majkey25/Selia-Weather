@@ -64,7 +64,7 @@ internal class StaticForecastRepository(
                 connection.setRequestProperty("Accept", "application/json")
                 connection.setRequestProperty(
                     "User-Agent",
-                    "Selia-Vetra/${BuildConfig.VERSION_NAME} (Android; Majkey25/Selia-Weather)",
+                    "Selia-Weather/${BuildConfig.VERSION_NAME} (Android; Majkey25/Selia-Weather)",
                 )
                 if (connection.responseCode !in 200..299) {
                     throw IOException("Static forecast returned HTTP ${connection.responseCode}.")

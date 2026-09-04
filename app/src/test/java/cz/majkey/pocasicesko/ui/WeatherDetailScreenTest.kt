@@ -3,6 +3,7 @@ package cz.majkey.pocasicesko.ui
 import cz.majkey.pocasicesko.data.HourlyWeather
 import java.io.File
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -30,7 +31,6 @@ class WeatherDetailScreenTest {
         ).readText()
         val markers = listOf(
             "AtAGlanceSection(",
-            "LocalRainFieldSection(",
             "DetailSection(stringResource(R.string.current_details))",
             "DetailSection(stringResource(R.string.precipitation_and_clouds))",
             "DetailSection(stringResource(R.string.wind))",
@@ -41,6 +41,8 @@ class WeatherDetailScreenTest {
         )
 
         assertTrue(markers.zipWithNext().all { (first, second) -> source.indexOf(first) < source.indexOf(second) })
+        assertFalse(source.contains("LocalRainFieldSection("))
+        assertFalse(source.contains("PrecipitationFieldUiState"))
     }
 
     @Test

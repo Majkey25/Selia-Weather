@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Vetra</string>
+    <string name="app_name">Weather</string>
     <string name="widget_description">Heure et météo pour le lieu sélectionné</string>
     <string name="weather_icon">Icône météo</string>
     <string name="widget_placeholder_city">Ouvrir l’application</string>
@@ -99,22 +99,6 @@
     <string name="relative">Relative</string>
     <string name="sea_level">Niveau de la mer</string>
     <string name="precipitation_value">%1$s mm</string>
-    <string name="local_rain_field">Champ local de précipitations</string>
-    <string name="rain_field_centre">Lieu sélectionné</string>
-    <string name="rain_field_unavailable">Indisponible</string>
-    <string name="rain_field_dry">Sec</string>
-    <string name="rain_field_rain">Pluie</string>
-    <string name="rain_field_snow">Neige</string>
-    <string name="rain_field_mixed">Mixte</string>
-    <string name="rain_field_probability">Probabilité</string>
-    <string name="rain_field_agreement">Accord</string>
-    <string name="rain_field_models">modèles</string>
-    <string name="rain_field_range">Plage</string>
-    <string name="rain_field_north">N</string>
-    <string name="rain_field_east">E</string>
-    <string name="rain_field_south">S</string>
-    <string name="rain_field_west">O</string>
-    <string name="rain_field_radius">Rayon %1$s</string>
     <string name="at_a_glance">En bref</string>
     <string name="next_rain">Prochaines précipitations</string>
     <string name="no_rain_next_24h">Aucune précipitation dans les prochaines 24 h</string>
@@ -131,8 +115,6 @@
     <string name="soil_temperature">Température du sol</string>
     <string name="soil_moisture">Humidité du sol</string>
     <string name="showers">Averses</string>
-    <string name="spatial_precipitation_unavailable">Prévision spatiale des précipitations indisponible</string>
-    <string name="retry_spatial_precipitation">Réessayer</string>
     <string name="wind_value">%1$s km/h</string>
     <string name="locations">Lieux</string>
     <string name="use_my_location">Utiliser ma position</string>
@@ -229,16 +211,10 @@
     <string name="condition_storm">Orage</string>
     <string name="condition_unknown">Inconnu</string>
     <string name="radar_title">Radar</string>
-    <string name="radar_subtitle">Radar mondial observé et prévision locale sur 24 heures</string>
+    <string name="radar_subtitle">Radar mondial des précipitations observées avec animation et chronologie</string>
     <string name="radar_footer">Radar observé : RainViewer · carte : OpenStreetMap</string>
     <string name="radar_retry">Réessayer le radar</string>
     <string name="radar_unavailable">Radar indisponible</string>
-    <string name="radar_observed_past_2h">Observé · 2 dernières h</string>
-    <string name="radar_now">Maintenant</string>
-    <string name="radar_forecast_next_24h">Prévision · prochaines 24 h</string>
-    <string name="radar_forecast_subtitle">Prévision de modèle sur 24 heures autour de %1$s</string>
-    <string name="radar_forecast_note">Consensus de modèles autour du lieu sélectionné. Il s’agit d’une prévision, pas d’un radar observé.</string>
-    <string name="radar_forecast_unavailable">Prévision des précipitations sur 24 heures indisponible</string>
     <string name="widget_title">Widget météo</string>
     <string name="widget_add">Ajouter le widget à l’écran d’accueil</string>
     <string name="widget_add_unavailable">Ce lanceur ne peut pas ajouter le widget automatiquement.</string>
@@ -361,9 +337,9 @@
     <string name="daily_briefing_umbrella">Prenez un parapluie.</string>
     <string name="daily_briefing_no_umbrella">Un parapluie ne devrait pas être nécessaire.</string>
     <string name="daily_briefing_sun_protection">Utilisez une protection solaire.</string>
-    <string name="hourly_rain_none">Aucune pluie mesurable n’est attendue cette heure (%1$d%% de probabilité).</string>
     <string name="hourly_rain_unlikely">La pluie est peu probable : %1$s attendu (%2$d%% de probabilité).</string>
     <string name="hourly_rain_possible">La pluie est possible : %1$s attendu (%2$d%% de probabilité).</string>
     <string name="hourly_rain_likely">La pluie est probable : %1$s attendu (%2$d%% de probabilité).</string>
     <string name="hourly_rain_heavy">De fortes pluies sont possibles : %1$s attendu (%2$d%% de probabilité).</string>
+    <string name="hourly_dry_summary">%1$s. Aucune pluie mesurable n’est attendue (%2$d%% de probabilité). Ressenti %3$s, avec un vent de %4$s venant de %5$s.</string>
 </resources>

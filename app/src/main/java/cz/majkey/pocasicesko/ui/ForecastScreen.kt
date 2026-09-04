@@ -70,7 +70,6 @@ import cz.majkey.pocasicesko.data.CzechLocation
 import cz.majkey.pocasicesko.data.DailyWeather
 import cz.majkey.pocasicesko.data.HistoryArchive
 import cz.majkey.pocasicesko.data.HourlyWeather
-import cz.majkey.pocasicesko.data.PrecipitationField
 import cz.majkey.pocasicesko.data.WeatherKind
 import cz.majkey.pocasicesko.data.WeatherSnapshot
 import cz.majkey.pocasicesko.data.conditionFor
@@ -96,7 +95,6 @@ internal fun ForecastScreen(
     refreshError: String?,
     measurementSystem: MeasurementSystem,
     loadHistory: suspend (CzechLocation) -> HistoryArchive,
-    loadPrecipitationField: suspend (CzechLocation) -> PrecipitationField,
     onSearch: () -> Unit,
     onRefresh: () -> Unit,
     onSettings: () -> Unit,
@@ -163,7 +161,6 @@ internal fun ForecastScreen(
             location = location,
             units = units,
             loadHistory = loadHistory,
-            loadPrecipitationField = loadPrecipitationField,
             onDismiss = { showDetails = false },
         )
     }
@@ -823,7 +820,7 @@ private fun DayDetailSheet(
                                 hour = hour,
                                 units = units,
                                 locale = locale,
-                                modifier = Modifier.padding(start = 81.dp, top = 12.dp, bottom = 8.dp),
+                                modifier = Modifier.padding(top = 12.dp, bottom = 8.dp),
                             )
                         }
                     }

@@ -104,6 +104,21 @@ class HourlyDetailsTest {
         assertTrue(source.contains("stateDescription"))
         assertTrue(source.contains(".heightIn(min = 78.dp)"))
         assertFalse(source.contains(".height(78.dp)"))
+        assertTrue(source.contains("modifier = Modifier.padding(top = 12.dp, bottom = 8.dp)"))
+        assertFalse(source.contains("Modifier.padding(start = 81.dp, top = 12.dp"))
+    }
+
+    @Test
+    fun expandedHourHighlightsAReadableWeatherSummary() {
+        val source = File(
+            System.getProperty("user.dir"),
+            "src/main/java/cz/majkey/pocasicesko/ui/HourlyDetails.kt",
+        ).readText()
+
+        assertTrue(source.contains("hourlyWeatherSummary(hour, units)"))
+        assertTrue(source.contains("R.string.hourly_dry_summary"))
+        assertTrue(source.contains("conditionFor(hour.weatherCode, hour.isDay)"))
+        assertTrue(source.contains("shape = RoundedCornerShape(16.dp)"))
     }
 
     private fun hour(

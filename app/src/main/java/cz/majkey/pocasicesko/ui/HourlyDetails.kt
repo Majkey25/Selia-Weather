@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -17,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.data.HourlyWeather
+import cz.majkey.pocasicesko.data.conditionFor
 import cz.majkey.pocasicesko.units.WeatherUnitFormatter
 import java.util.Locale
 
@@ -244,12 +247,18 @@ internal fun ExpandedHourDetails(
         }
     }
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = hourlyRainSummary(hour, units),
-            color = Color(0xFF8EDCF0),
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium,
-        )
+        Surface(
+            color = Color(0x1A6DD3EA),
+            shape = RoundedCornerShape(16.dp),
+        ) {
+            Text(
+                text = hourlyWeatherSummary(hour, units),
+                color = Color(0xFFB9ECF5),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            )
+        }
         metrics.chunked(2).forEach { metricRow ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -265,12 +274,16 @@ internal fun ExpandedHourDetails(
 }
 
 @Composable
-private fun hourlyRainSummary(hour: HourlyWeather, units: WeatherUnitFormatter): String {
+private fun hourlyWeatherSummary(hour: HourlyWeather, units: WeatherUnitFormatter): String {
     val amount = units.precipitation(hour.precipitation)
     return when (hourlyRainLevel(hour)) {
         HourlyRainLevel.NONE -> stringResource(
-            R.string.hourly_rain_none,
+            R.string.hourly_dry_summary,
+            stringResource(conditionFor(hour.weatherCode, hour.isDay).labelResource()),
             hour.precipitationProbability,
+            units.temperature(hourlyApparentTemperature(hour)),
+            units.windSpeed(hour.windSpeed),
+            stringResource(windDirectionResource(hour.windDirection)),
         )
         HourlyRainLevel.UNLIKELY -> stringResource(
             R.string.hourly_rain_unlikely,

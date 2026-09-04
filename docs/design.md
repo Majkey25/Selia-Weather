@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Selia Vetra answers a practical question worldwide: what will the weather do at this exact place today and over the next days? The app keeps the first screen focused on current conditions, the 24-hour outlook, and the 14-day forecast. Search, favourites, current location, exact coordinates, maps, and the widget remain one action away.
+Selia Weather answers a practical question worldwide: what will the weather do at this exact place today and over the next days? The app keeps the first screen focused on current conditions, the 24-hour outlook, and the 14-day forecast. Search, favourites, current location, exact coordinates, maps, and the widget remain one action away.
 
 ## Data
 

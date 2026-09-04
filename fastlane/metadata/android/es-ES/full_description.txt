@@ -1,13 +1,13 @@
-Selia Vetra muestra el tiempo mundial sin cuenta, con radar observado, selección regional de modelos y un widget personalizable. Esta versión no contiene anuncios ni Premium.
+Selia Weather muestra el tiempo mundial sin cuenta, con radar observado, selección regional de modelos y un widget personalizable. Esta versión no contiene anuncios ni Premium.
 
 La previsión usa Open-Meteo Best Match y un cálculo diagnóstico de varios modelos hasta 14 días. En Chequia, las observaciones recientes de ČHMÚ corrigen el estado actual. En otros lugares, los informes METAR cercanos pueden corregir temperatura, humedad, punto de rocío, presión, visibilidad, nubosidad y viento disponibles. Las horas futuras siguen siendo previsiones de modelos.
 
 Busca lugares de todo el mundo, guarda favoritos, elige un punto exacto en el mapa mundial o introduce coordenadas. También puedes usar tu ubicación actual. La última previsión correcta queda disponible sin conexión.
 
-El mapa observado usa la línea temporal mundial de radar RainViewer y una máscara de cobertura. Un campo local separado muestra la precipitación de modelos de las próximas 24 horas y siempre se identifica como pronóstico.
+El radar usa observaciones mundiales de RainViewer con zoom, desplazamiento, animación, línea temporal y máscara de cobertura. El detalle horario explica claramente la probabilidad y la cantidad de precipitación futura.
 
 Crea tu propio widget de inicio. Cada widget puede tener colores, transparencia, degradado o imagen de fondo, tamaño de texto, alineación, etiqueta y campos meteorológicos propios. Si Android no puede leer una imagen elegida, el widget usa el fondo de color configurado y sigue funcionando.
 
-Selia Vetra es compatible con Android 10 y versiones posteriores. Por defecto sigue el idioma del sistema. En la app puedes elegir inglés, checo, alemán, español o francés.
+Selia Weather es compatible con Android 10 y versiones posteriores. Por defecto sigue el idioma del sistema. En la app puedes elegir inglés, checo, alemán, español o francés.
 
 El enlace opcional a Buy Me a Coffee abre una página externa. No desbloquea funciones ni da prioridad.

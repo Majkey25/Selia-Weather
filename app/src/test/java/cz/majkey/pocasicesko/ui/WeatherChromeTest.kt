@@ -40,6 +40,15 @@ class WeatherChromeTest {
     }
 
     @Test
+    fun everyNavigationButtonExposesItsLabelToAccessibility() {
+        val source = source("WeatherApp.kt")
+        val item = source.substringAfter("private fun NavigationItem")
+            .substringBefore("private fun WeatherBackdrop")
+
+        assertTrue(item.contains(".semantics { contentDescription = label }"))
+    }
+
+    @Test
     fun forecastDoesNotClaimUnshippedProviders() {
         val source = source("ForecastScreen.kt")
 

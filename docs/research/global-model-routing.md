@@ -2,7 +2,7 @@
 
 ## Current result
 
-Selia Vetra classifies coordinates as Czechia, Europe, North America, East Asia, Oceania, or
+Selia Weather classifies coordinates as Czechia, Europe, North America, East Asia, Oceania, or
 global. The region is a calibration and observation selector. It does not discard independent
 global model families.
 

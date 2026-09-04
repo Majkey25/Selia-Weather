@@ -51,6 +51,6 @@ internal class ChmiCurrentConditionsRepository(context: Context) {
         private const val READ_TIMEOUT_MILLIS = 6_000
         private val DATE_FORMAT = DateTimeFormatter.BASIC_ISO_DATE
         private val USER_AGENT =
-            "Selia-Vetra/${BuildConfig.VERSION_NAME} (Android; https://github.com/Majkey25/Selia-Weather)"
+            "Selia-Weather/${BuildConfig.VERSION_NAME} (Android; https://github.com/Majkey25/Selia-Weather)"
     }
 }

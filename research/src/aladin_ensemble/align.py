@@ -69,7 +69,7 @@ def align_station_forecasts(
         observation = min(
             matches,
             key=lambda candidate: (
-                _distance_km(
+                station_distance_km(
                     forecast.latitude, forecast.longitude, candidate.latitude, candidate.longitude
                 ),
                 candidate.station_id,
@@ -87,7 +87,7 @@ def align_station_forecasts(
                 truth_value,
                 forecast.unit,
                 observation.station_id,
-                _distance_km(
+                station_distance_km(
                     forecast.latitude,
                     forecast.longitude,
                     observation.latitude,
@@ -197,7 +197,7 @@ def _station_variables(variable: str) -> tuple[str, ...]:
     return (station_variable,) if station_variable == variable else (station_variable, variable)
 
 
-def _distance_km(
+def station_distance_km(
     latitude_a: float, longitude_a: float, latitude_b: float, longitude_b: float
 ) -> float:
     latitude_delta = radians(latitude_b - latitude_a)

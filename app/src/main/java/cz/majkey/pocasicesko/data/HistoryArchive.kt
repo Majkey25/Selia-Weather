@@ -44,6 +44,12 @@ data class HistorySummary(
     val averageWindSpeedMetersPerSecond: Double?,
 )
 
+internal fun HistoryArchive.inDateRange(start: LocalDate, endInclusive: LocalDate): HistoryArchive? {
+    require(start <= endInclusive) { "History range starts after its end." }
+    val selected = days.filter { it.date in start..endInclusive }
+    return selected.takeIf(List<HistoricalDay>::isNotEmpty)?.let { copy(days = it) }
+}
+
 fun HistoryArchive.summary(): HistorySummary {
     require(days.isNotEmpty()) { "History archive must contain at least one day." }
     return HistorySummary(

@@ -30,8 +30,8 @@ jobs:
       - name: Test, lint, and build
         run: ./gradlew :app:testDebugUnitTest :app:lintDebug :app:lintRelease :app:assembleDebug :app:assembleRelease :app:bundleRelease --console=plain
 
-      - name: Test radar loading and recovery
-        run: node --test app/src/test/js/radar.test.cjs
+      - name: Test map loading, location updates, and recovery
+        run: node --test app/src/test/js/radar.test.cjs app/src/test/js/location-picker.test.cjs
 
       - uses: actions/upload-artifact@v7
         with:

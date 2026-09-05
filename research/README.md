@@ -2,6 +2,59 @@
 
 Locked research package for the verified Czech weather-model registry.
 
+## Prospective forecast capture
+
+The manual collector freezes raw provider forecasts before their valid time. Each manifest records
+the actual UTC response-receipt time, requested station coordinates, source URL, payload SHA-256,
+provider units, and missing values. Model initialization time stays `null` because this endpoint
+does not provide it. Forecast lead is explicitly relative to capture completion.
+
+```powershell
+uv run --project research python -m aladin_ensemble.sources.live_capture --station-id 0-203-0-11775 --latitude 49.236667 --longitude 17.643333 --models chmi_aladin_seamless icon_seamless ecmwf_ifs025 gfs_seamless --output research/data/raw/captured-live
+```
+
+This command makes one public Open-Meteo request, with a 20-second timeout and a 2 MB response
+limit. It requests three days for one station and between two and twelve model IDs. It does not
+schedule future requests. Raw responses and capture manifests are content-addressed and never
+overwritten. A changed or corrupt existing file causes an error.
+
+Only timestamps after capture are eligible records. For hourly precipitation, the entire
+accumulation interval must start after capture. The collector never copies current or fused app
+conditions into an observation. Captures contain `truth: null` and `calibration_eligible: false`.
+
+`evaluate_capture(manifest_path, observations, truth_payloads)` pairs a saved capture with typed
+observations from the existing ČHMÚ or NOAA ISD station parsers. `truth_payloads` maps SHA-256
+hashes to original observation bytes. The evaluator verifies capture and raw hashes, reconstructs
+forecast records from the raw response, and requires matching observation source hashes. It matches
+the exact station ID and UTC valid time, requires station coordinates within 1 km to tolerate
+catalog rounding, and converts supported units with the existing source adapter.
+Temperature and dew-point sensors must satisfy the existing 2 m height policy; wind sensors
+must satisfy the 10 m policy. Both allow the existing 10% measurement-height tolerance.
+It does not substitute nearby stations or model grid coordinates for the named station,
+and accepts only one-hour precipitation intervals for hourly rainfall. Wind direction errors use
+circular distance. Model or fused observation source IDs, duplicate truth, and invalid units fail.
+
+Each result retains model, variable, valid time, actual capture-relative lead in seconds, and paired
+error. Missing observations or missing forecasts produce an explicit status and `None` error,
+never zero. The hashes establish integrity and linkage, not publisher authenticity. Observations
+must come from the independent source parsers, not caller-fabricated measurements carrying a
+station label. Learning, radar-truth pairing, and production weight export remain unimplemented.
+Existing issue-time calibration cannot consume capture-relative records without a separately
+validated contract and untouched holdout.
+
+On 5 September 2026, one live Zlín capture saved 1,316 future records from the four models above.
+Capture completion was `2026-09-05T16:18:15.638147+00:00`. The raw response SHA-256 was
+`6a4177d0428dc9df2f0a7312437dcf7b254edf942097b513dd8b096ae5ac836d`.
+This is prospective input evidence, not an accuracy result.
+
+A single independent ČHMÚ check at `2026-09-05T17:18:46.060215+00:00` returned observations
+only through `15:00 UTC`. The first captured forecast at `17:00 UTC` therefore still had missing
+truth and no error score. That response is preserved by SHA-256
+`6b674a7e671611d6863a986ebee7f8ff4bfaaba8ab290272c76f5c6e16513e81` under the local capture
+archive's `truth` directory. No retry or scheduled check was created.
+
+## Research environment
+
 ```powershell
 & 'C:\Users\mates\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -m uv sync --project research --frozen
 & 'C:\Users\mates\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -m uv run --project research pytest

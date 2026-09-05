@@ -4,17 +4,25 @@ import android.content.ContentResolver
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.BitmapShader
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.LinearGradient
+import android.graphics.Matrix
 import android.graphics.Paint
+import android.graphics.RadialGradient
+import android.graphics.RectF
 import android.graphics.Shader
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.util.Log
 import android.view.View
 import android.widget.RemoteViews
+import androidx.compose.ui.graphics.toArgb
 import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.data.WeatherKind
+import cz.majkey.pocasicesko.ui.weatherPalette
+import kotlin.math.roundToInt
 
 internal object WidgetBackground {
     fun previewBitmap(
@@ -22,16 +30,21 @@ internal object WidgetBackground {
         settings: WidgetSettings,
         kind: WeatherKind,
         isDay: Boolean,
-    ): Bitmap = bitmapFor(context, settings.normalized(), kind, isDay)
+        widthDp: Int = MAX_BACKGROUND_WIDTH,
+        heightDp: Int = MAX_BACKGROUND_HEIGHT,
+    ): Bitmap = bitmapFor(context, settings.normalized(), kind, isDay, widthDp, heightDp)
 
     private fun bitmapFor(
         context: Context,
         settings: WidgetSettings,
         kind: WeatherKind,
         isDay: Boolean,
+        widthDp: Int,
+        heightDp: Int,
     ): Bitmap {
         val normalized = settings.normalized()
-        return when (normalized.backgroundMode) {
+        val source = when (normalized.backgroundMode) {
+            WidgetBackgroundMode.APP_STYLE -> appStyleBitmap(context, kind, isDay, widthDp, heightDp)
             WidgetBackgroundMode.AUTOMATIC -> resourceBitmap(context, automaticResource(kind, isDay))
             WidgetBackgroundMode.LIGHT -> resourceBitmap(context, R.drawable.widget_light)
             WidgetBackgroundMode.DARK -> resourceBitmap(context, R.drawable.widget_dark)
@@ -39,6 +52,27 @@ internal object WidgetBackground {
             WidgetBackgroundMode.SOLID -> solidBitmap(normalized.backgroundStart)
             WidgetBackgroundMode.GRADIENT -> gradientBitmap(normalized)
             WidgetBackgroundMode.CUSTOM_IMAGE -> customImage(context, normalized) ?: gradientBitmap(normalized)
+        }
+        return try {
+            val density = context.resources.displayMetrics.density
+            val hostSize = widgetHostSize(widthDp, heightDp)
+            val size = backgroundBitmapSize((hostSize.width * density).roundToInt(), (hostSize.height * density).roundToInt())
+            val radius = widgetCornerRadiusPixels(normalized.corners, hostSize, size)
+            Bitmap.createBitmap(size.width, size.height, Bitmap.Config.ARGB_8888).apply {
+                val scale = maxOf(width.toFloat() / source.width, height.toFloat() / source.height)
+                val shader = BitmapShader(source, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply {
+                    setLocalMatrix(Matrix().apply {
+                        setScale(scale, scale)
+                        postTranslate((width - source.width * scale) / 2f, (height - source.height * scale) / 2f)
+                    })
+                }
+                Canvas(this).drawRoundRect(
+                    RectF(0f, 0f, width.toFloat(), height.toFloat()), radius, radius,
+                    Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply { this.shader = shader },
+                )
+            }
+        } finally {
+            source.recycle()
         }
     }
 
@@ -48,13 +82,16 @@ internal object WidgetBackground {
         settings: WidgetSettings,
         kind: WeatherKind,
         isDay: Boolean,
+        widthDp: Int = MAX_BACKGROUND_WIDTH,
+        heightDp: Int = MAX_BACKGROUND_HEIGHT,
     ) {
         val normalized = settings.normalized()
-        applyImage(views, normalized, bitmapFor(context, normalized, kind, isDay))
+        applyImage(views, normalized, bitmapFor(context, normalized, kind, isDay, widthDp, heightDp))
     }
 
     private fun applyImage(views: RemoteViews, settings: WidgetSettings, bitmap: Bitmap) {
         views.setInt(R.id.widget_root, "setBackgroundResource", android.R.color.transparent)
+        views.setInt(R.id.widget_background_image, "setBackgroundResource", android.R.color.transparent)
         views.setImageViewBitmap(R.id.widget_background_image, bitmap)
         views.setInt(R.id.widget_background_image, "setImageAlpha", widgetBackgroundAlpha(settings, 255))
         views.setViewVisibility(R.id.widget_background_image, View.VISIBLE)
@@ -65,7 +102,8 @@ internal object WidgetBackground {
         MAX_BACKGROUND_HEIGHT,
         Bitmap.Config.ARGB_8888,
     ).apply {
-        val drawable = requireNotNull(context.getDrawable(resource))
+        val drawable = requireNotNull(context.getDrawable(resource)).mutate()
+        if (drawable is GradientDrawable) drawable.cornerRadius = 0f
         drawable.setBounds(0, 0, width, height)
         drawable.draw(Canvas(this))
     }
@@ -92,6 +130,28 @@ internal object WidgetBackground {
                 )
             },
         )
+    }
+
+    private fun appStyleBitmap(context: Context, kind: WeatherKind, isDay: Boolean, widthDp: Int, heightDp: Int): Bitmap {
+        val density = context.resources.displayMetrics.density
+        val size = backgroundBitmapSize((widthDp * density).roundToInt(), (heightDp * density).roundToInt())
+        val palette = weatherPalette(kind, isDay)
+        return Bitmap.createBitmap(size.width, size.height, Bitmap.Config.ARGB_8888).apply {
+            val canvas = Canvas(this)
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+            paint.shader = LinearGradient(
+                0f, 0f, 0f, height.toFloat(), palette.background.map { it.toArgb() }.toIntArray(), null, Shader.TileMode.CLAMP,
+            )
+            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
+            paint.shader = RadialGradient(
+                width * 0.14f, height * 0.18f, width * 0.78f, palette.primaryGlow.toArgb(), Color.TRANSPARENT, Shader.TileMode.CLAMP,
+            )
+            canvas.drawCircle(width * 0.14f, height * 0.18f, width * 0.78f, paint)
+            paint.shader = RadialGradient(
+                width * 0.9f, height * 0.38f, width * 0.7f, palette.secondaryGlow.toArgb(), Color.TRANSPARENT, Shader.TileMode.CLAMP,
+            )
+            canvas.drawCircle(width * 0.9f, height * 0.38f, width * 0.7f, paint)
+        }
     }
 
     private fun solidBitmap(color: String): Bitmap = Bitmap.createBitmap(

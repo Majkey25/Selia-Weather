@@ -18,6 +18,7 @@ import java.time.format.FormatStyle
 import java.util.Locale
 
 enum class WidgetBackgroundMode {
+    APP_STYLE,
     AUTOMATIC,
     LIGHT,
     DARK,
@@ -41,10 +42,15 @@ enum class WidgetFontStyle {
 }
 
 enum class WidgetPreset {
+    APP_STYLE,
     MINIMAL,
     MATERIAL,
     PIXEL,
     CUPERTINO,
+}
+
+enum class WidgetCorners(val radiusDp: Int) {
+    SQUARE(0), SOFT(16), ROUND(28),
 }
 
 data class WidgetSettings(
@@ -56,6 +62,8 @@ data class WidgetSettings(
     val accentColor: String = "#FF66C9DF",
     val opacity: Int = 100,
     val textScale: Int = 100,
+    val corners: WidgetCorners = WidgetCorners.ROUND,
+    val contentPaddingDp: Int = DEFAULT_WIDGET_PADDING_DP,
     val fontStyle: WidgetFontStyle = WidgetFontStyle.SYSTEM,
     val alignment: WidgetAlignment = WidgetAlignment.LEFT,
     val customLabel: String = "",
@@ -143,6 +151,7 @@ internal data class WidgetPreviewBackgroundKey(
     val isDay: Boolean,
     val width: Int = MAX_BACKGROUND_WIDTH,
     val height: Int = MAX_BACKGROUND_HEIGHT,
+    val corners: WidgetCorners = WidgetCorners.ROUND,
 )
 internal data class WidgetAdvancedData(
     val dewPoint: String?,
@@ -166,6 +175,7 @@ internal data class WidgetContentVisibility(
     val showHumidity: Boolean,
     val showDate: Boolean,
     val showUpdatedAt: Boolean,
+    val showAdvanced: Boolean = false,
 )
 
 internal fun widgetSize(minWidth: Int, minHeight: Int): WidgetSize = when {
@@ -183,11 +193,18 @@ internal fun WidgetSettings.normalized(): WidgetSettings = copy(
     accentColor = normalizedWidgetColor(accentColor, DEFAULT_ACCENT_COLOR),
     opacity = opacity.coerceIn(0, 100),
     textScale = textScale.coerceIn(80, 140),
+    contentPaddingDp = contentPaddingDp.coerceIn(0, 24),
     customLabel = customLabel.trim().take(40),
     imageUri = imageUri.trim(),
 )
 
 internal fun isWidgetColor(value: String): Boolean = WIDGET_COLOR.matches(value)
+
+internal fun WidgetSettings.editableBackgroundColors(): List<String> = when (backgroundMode) {
+    WidgetBackgroundMode.SOLID -> listOf(backgroundStart)
+    WidgetBackgroundMode.GRADIENT, WidgetBackgroundMode.CUSTOM_IMAGE -> listOf(backgroundStart, backgroundEnd)
+    else -> emptyList()
+}
 
 internal fun widgetColorInput(value: String): String = value.take(MAX_WIDGET_COLOR_INPUT_LENGTH)
 
@@ -209,7 +226,66 @@ internal fun widgetFontStyle(value: String?): WidgetFontStyle = runCatching {
     WidgetFontStyle.valueOf(value.orEmpty())
 }.getOrDefault(WidgetFontStyle.SYSTEM)
 
+internal fun widgetCorners(value: String?): WidgetCorners = runCatching {
+    WidgetCorners.valueOf(value.orEmpty())
+}.getOrDefault(WidgetCorners.ROUND)
+
+internal fun widgetCornerRadiusPixels(corners: WidgetCorners, host: WidgetHostSize, bitmap: WidgetBitmapSize): Float {
+    val radiusDp = minOf(corners.radiusDp.toFloat(), host.width / 2f, host.height / 2f)
+    return radiusDp * minOf(bitmap.width.toFloat() / host.width, bitmap.height.toFloat() / host.height)
+}
+
+internal fun fitWidgetTemperatureSp(requestedSp: Float, fits: (Float) -> Boolean): Float {
+    val maximum = requestedSp.coerceAtLeast(12f)
+    if (fits(maximum)) return maximum
+    var low = 12f
+    var high = maximum
+    repeat(12) {
+        val candidate = (low + high) / 2
+        if (fits(candidate)) low = candidate else high = candidate
+    }
+    return low
+}
+
+internal data class WidgetTemperatureFit(
+    val textSizeSp: Float,
+    val visibility: WidgetContentVisibility,
+    val contentPaddingDp: Int,
+)
+
+internal fun fitWidgetHeader(
+    requestedSp: Float,
+    visibility: WidgetContentVisibility,
+    contentPaddingDp: Int,
+    availableWidth: (WidgetContentVisibility, Int) -> Float,
+    measure: (Float) -> Float,
+    availableHeight: (WidgetContentVisibility, Int) -> Float = { _, _ -> Float.POSITIVE_INFINITY },
+    measureHeight: (Float) -> Float = { 0f },
+): WidgetTemperatureFit {
+    var visible = visibility
+    var padding = contentPaddingDp.coerceIn(0, 24)
+    if (!visible.showTemperature) return WidgetTemperatureFit(requestedSp, visible, padding)
+    val minimumWidth = measure(12f)
+    val minimumHeight = measureHeight(12f)
+    fun fitsMinimum() = availableWidth(visible, padding) >= minimumWidth && availableHeight(visible, padding) >= minimumHeight
+    if (!fitsMinimum()) visible = visible.copy(showIcon = false)
+    if (!fitsMinimum()) visible = visible.copy(showClock = false, showDate = false)
+    while (padding > 0 && !fitsMinimum()) padding--
+    if (!fitsMinimum()) visible = visible.copy(showAdvanced = false, showUpdatedAt = false)
+    if (!fitsMinimum()) visible = visible.copy(showHourly = false)
+    if (!fitsMinimum()) visible = visible.copy(showMetrics = false, showPrecipitation = false, showWind = false, showHumidity = false)
+    if (!fitsMinimum()) visible = visible.copy(showLabel = false, showLocation = false, showCondition = false, showRange = false)
+    val width = availableWidth(visible, padding)
+    val height = availableHeight(visible, padding)
+    return WidgetTemperatureFit(fitWidgetTemperatureSp(requestedSp) { measure(it) <= width && measureHeight(it) <= height }, visible, padding)
+}
+
 internal fun widgetPresetSettings(preset: WidgetPreset, current: WidgetSettings): WidgetSettings = when (preset) {
+    WidgetPreset.APP_STYLE -> widgetPresetSettings(WidgetPreset.MATERIAL, current).copy(
+        backgroundMode = WidgetBackgroundMode.APP_STYLE,
+        corners = WidgetCorners.ROUND,
+        contentPaddingDp = DEFAULT_WIDGET_PADDING_DP,
+    )
     WidgetPreset.MINIMAL -> current.copy(
         backgroundMode = WidgetBackgroundMode.TRANSPARENT,
         primaryColor = "#FFFFFFFF",
@@ -369,6 +445,8 @@ internal fun widgetPreviewBackgroundKey(
     settings: WidgetSettings,
     kind: WeatherKind,
     isDay: Boolean,
+    widthDp: Int = MAX_BACKGROUND_WIDTH,
+    heightDp: Int = MAX_BACKGROUND_HEIGHT,
 ): WidgetPreviewBackgroundKey = settings.normalized().let {
     WidgetPreviewBackgroundKey(
         mode = it.backgroundMode,
@@ -378,6 +456,9 @@ internal fun widgetPreviewBackgroundKey(
         imageUri = it.imageUri,
         kind = kind,
         isDay = isDay,
+        width = widthDp,
+        height = heightDp,
+        corners = it.corners,
     )
 }
 
@@ -429,15 +510,17 @@ internal fun widgetContentVisibility(
     size: WidgetSize,
     availability: WidgetDataAvailability,
     heightDp: Int = 120,
+    advancedText: String = "",
 ): WidgetContentVisibility {
+    val contentHeightDp = heightDp - 2 * (settings.contentPaddingDp.coerceIn(0, 24) - DEFAULT_WIDGET_PADDING_DP)
     val showDetails = size != WidgetSize.COMPACT && (settings.showCondition || settings.showRange)
-    val metricsFit = size == WidgetSize.TALL || (size == WidgetSize.WIDE && heightDp >= 120)
+    val metricsFit = (size == WidgetSize.TALL || size == WidgetSize.WIDE) && contentHeightDp >= 120
     val showPrecipitation = metricsFit && settings.showPrecipitation && availability.precipitationAvailable
     val showWind = metricsFit && settings.showWind && availability.windAvailable
     val showHumidity = metricsFit && settings.showHumidity && availability.humidityAvailable
     val showMetrics = showPrecipitation || showWind || showHumidity
     val showHourly = size == WidgetSize.WIDE && settings.showHourly && availability.hourlyAvailable &&
-        (!showMetrics || heightDp >= 180)
+        (!showMetrics || contentHeightDp >= 180)
     return WidgetContentVisibility(
         showLabel = size != WidgetSize.COMPACT && settings.customLabel.isNotBlank(),
         showLocation = size != WidgetSize.COMPACT && settings.showLocation,
@@ -453,6 +536,7 @@ internal fun widgetContentVisibility(
         showHumidity = showHumidity,
         showDate = size != WidgetSize.COMPACT && settings.showDate,
         showUpdatedAt = settings.showUpdatedAt && size != WidgetSize.COMPACT && availability.hasUpdatedAt,
+        showAdvanced = widgetAdvancedVisible(size, advancedText),
     )
 }
 
@@ -544,6 +628,17 @@ internal fun widgetHostSize(minWidth: Int, minHeight: Int): WidgetHostSize = Wid
     minHeight.coerceAtLeast(1),
 )
 
+internal fun widgetHostSize(
+    minWidth: Int,
+    minHeight: Int,
+    maxWidth: Int,
+    maxHeight: Int,
+    landscape: Boolean,
+): WidgetHostSize = widgetHostSize(
+    if (landscape) maxWidth.takeIf { it > 0 } ?: minWidth else minWidth,
+    if (landscape) minHeight else maxHeight.takeIf { it > 0 } ?: minHeight,
+)
+
 internal fun widgetFontLayout(fontStyle: WidgetFontStyle, alignment: WidgetAlignment): Int = when (fontStyle) {
     WidgetFontStyle.SYSTEM -> when (alignment) {
         WidgetAlignment.LEFT -> R.layout.widget_font_system
@@ -581,6 +676,7 @@ private fun legacyBackgroundMode(value: String): WidgetBackgroundMode? = when (v
 
 private val WIDGET_COLOR = Regex("^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$")
 internal const val MAX_BACKGROUND_WIDTH = 512
+internal const val DEFAULT_WIDGET_PADDING_DP = 12
 internal const val MAX_BACKGROUND_HEIGHT = 256
 internal const val DEFAULT_BACKGROUND_START = "#0C1922"
 internal const val DEFAULT_BACKGROUND_END = "#28758D"

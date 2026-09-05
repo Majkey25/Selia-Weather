@@ -32,7 +32,7 @@ class WeatherRepository(context: Context) {
     private val metarCurrentConditions = MetarCurrentConditionsRepository()
     private val historyRepository = HistoryRepository(File(appContext.cacheDir, "history"))
 
-    fun lastLocation(): CzechLocation {
+    fun lastLocation(): CzechLocation = synchronized(PERSISTENCE_LOCK) {
         val location = CzechLocation(
             name = preferences.getString(KEY_LOCATION_NAME, null) ?: DEFAULT_LOCATION.name,
             region = preferences.getString(KEY_LOCATION_REGION, null) ?: DEFAULT_LOCATION.region,
@@ -40,7 +40,7 @@ class WeatherRepository(context: Context) {
             longitude = preferences.getString(KEY_LOCATION_LONGITUDE, null)?.toDoubleOrNull() ?: DEFAULT_LOCATION.longitude,
             countryCode = preferences.getString(KEY_LOCATION_COUNTRY_CODE, null),
         )
-        return normalizeLocationRegion(location).also { normalized ->
+        normalizeLocationRegion(location).also { normalized ->
             if (normalized != location) selectLocation(normalized)
         }
     }
@@ -84,18 +84,18 @@ class WeatherRepository(context: Context) {
         return added
     }
 
-    fun cachedForecast(location: CzechLocation): WeatherSnapshot? {
-        val latitude = preferences.getString(KEY_CACHE_LATITUDE, null)?.toDoubleOrNull() ?: return null
-        val longitude = preferences.getString(KEY_CACHE_LONGITUDE, null)?.toDoubleOrNull() ?: return null
+    fun cachedForecast(location: CzechLocation): WeatherSnapshot? = synchronized(PERSISTENCE_LOCK) {
+        val latitude = preferences.getString(KEY_CACHE_LATITUDE, null)?.toDoubleOrNull() ?: return@synchronized null
+        val longitude = preferences.getString(KEY_CACHE_LONGITUDE, null)?.toDoubleOrNull() ?: return@synchronized null
         if (kotlin.math.abs(latitude - location.latitude) > COORDINATE_EPSILON ||
             kotlin.math.abs(longitude - location.longitude) > COORDINATE_EPSILON
         ) {
-            return null
+            return@synchronized null
         }
 
-        val json = preferences.getString(KEY_CACHE_JSON, null) ?: return null
+        val json = preferences.getString(KEY_CACHE_JSON, null) ?: return@synchronized null
         val updatedAt = preferences.getLong(KEY_CACHE_UPDATED_AT, 0L)
-        return runCatching { WeatherParser.parseForecast(json, updatedAt) }.getOrNull()
+        runCatching { WeatherParser.parseForecast(json, updatedAt) }.getOrNull()
     }
 
     suspend fun fetchForecast(location: CzechLocation): WeatherSnapshot = withContext(Dispatchers.IO) {

@@ -17,7 +17,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -37,9 +37,9 @@ internal fun PinnedLocationPicker(
     onBack: () -> Unit,
     onSave: (CzechLocation) -> Unit,
 ) {
-    var name by remember { mutableStateOf("") }
-    var latitude by remember { mutableStateOf(formatCoordinate(initialLocation.latitude)) }
-    var longitude by remember { mutableStateOf(formatCoordinate(initialLocation.longitude)) }
+    var name by rememberSaveable { mutableStateOf("") }
+    var latitude by rememberSaveable { mutableStateOf(formatCoordinate(initialLocation.latitude)) }
+    var longitude by rememberSaveable { mutableStateOf(formatCoordinate(initialLocation.longitude)) }
     val location = pinnedLocationOrNull(name, latitude, longitude)
     val mapDescription = stringResource(R.string.pinned_location_map_description)
 
@@ -60,6 +60,7 @@ internal fun PinnedLocationPicker(
         )
         PinnedLocationMap(
             initialLocation = initialLocation,
+            coordinates = mapCoordinatesOrNull(latitude, longitude),
             onCoordinates = { point ->
                 latitude = formatCoordinate(point.latitude)
                 longitude = formatCoordinate(point.longitude)

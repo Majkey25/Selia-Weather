@@ -12,6 +12,7 @@ import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Bundle
 import android.os.Looper
+import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.locale.AppLocale
@@ -40,6 +41,16 @@ internal fun locationProviderOrder(
     if (fineGranted && gpsEnabled) add(DeviceLocationProvider.GPS)
 }
 
+internal fun isUsableDeviceLocation(
+    latitude: Double,
+    longitude: Double,
+    fixElapsedNanos: Long,
+    nowElapsedNanos: Long,
+): Boolean = latitude.isFinite() && longitude.isFinite() &&
+    latitude in -90.0..90.0 && longitude in -180.0..180.0 &&
+    fixElapsedNanos > 0 && nowElapsedNanos >= fixElapsedNanos &&
+    nowElapsedNanos - fixElapsedNanos <= MAX_LAST_KNOWN_AGE_NANOS
+
 class DeviceLocationRepository(context: Context) {
     private val appContext = context.applicationContext
     private val locationManager = appContext.getSystemService(LocationManager::class.java)
@@ -67,8 +78,8 @@ class DeviceLocationRepository(context: Context) {
         .mapNotNull { provider ->
             runCatching { locationManager.getLastKnownLocation(provider.systemName) }.getOrNull()
         }
-        .filter { System.currentTimeMillis() - it.time <= MAX_LAST_KNOWN_AGE_MILLIS }
-        .maxByOrNull { it.time }
+        .filter { it.isUsable() }
+        .maxByOrNull { it.elapsedRealtimeNanos }
 
     private suspend fun requestSingleLocation(): Location = withTimeout(LOCATION_TIMEOUT_MILLIS) {
         suspendCancellableCoroutine { continuation ->
@@ -79,6 +90,7 @@ class DeviceLocationRepository(context: Context) {
             }
             val listener = object : LocationListener {
                 override fun onLocationChanged(location: Location) {
+                    if (!location.isUsable()) return
                     runCatching { locationManager.removeUpdates(this) }
                     if (continuation.isActive) continuation.resume(location)
                 }
@@ -171,10 +183,15 @@ class DeviceLocationRepository(context: Context) {
     }
 
     companion object {
-        private const val MAX_LAST_KNOWN_AGE_MILLIS = 30 * 60 * 1000L
         private const val LOCATION_TIMEOUT_MILLIS = 15_000L
     }
 }
+
+private fun Location.isUsable(): Boolean = isUsableDeviceLocation(
+    latitude, longitude, elapsedRealtimeNanos, SystemClock.elapsedRealtimeNanos(),
+)
+
+private const val MAX_LAST_KNOWN_AGE_NANOS = 30 * 60 * 1_000_000_000L
 
 private val DeviceLocationProvider.systemName: String
     get() = when (this) {

@@ -5,20 +5,28 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Navigation
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DateRangePicker
+import androidx.compose.material3.SelectableDates
+import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -30,10 +38,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,14 +71,19 @@ import cz.majkey.pocasicesko.data.ForecastFallbackReason
 import cz.majkey.pocasicesko.data.ForecastRegion
 import cz.majkey.pocasicesko.data.HistoricalDay
 import cz.majkey.pocasicesko.data.HistoryArchive
+import cz.majkey.pocasicesko.data.HistorySummary
 import cz.majkey.pocasicesko.data.HourlyWeather
 import cz.majkey.pocasicesko.data.WeatherSnapshot
 import cz.majkey.pocasicesko.data.currentDay
 import cz.majkey.pocasicesko.data.summary
+import cz.majkey.pocasicesko.data.inDateRange
 import cz.majkey.pocasicesko.units.WeatherUnitFormatter
 import java.time.LocalDateTime
+import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 import java.time.Instant
 import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -84,6 +99,7 @@ internal fun WeatherDetailSheet(
     location: CzechLocation,
     units: WeatherUnitFormatter,
     loadHistory: suspend (CzechLocation) -> HistoryArchive,
+    initialHistory: Boolean = false,
     onDismiss: () -> Unit,
 ) {
     val locale = LocalConfiguration.current.locales[0]
@@ -107,6 +123,15 @@ internal fun WeatherDetailSheet(
     var historyState by remember(location) { mutableStateOf<HistoryUiState>(HistoryUiState.Idle) }
     var showHistoryDays by remember(location) { mutableStateOf(false) }
     var historyShareError by remember(location) { mutableStateOf(false) }
+    var historyPeriod by rememberSaveable(location.latitude, location.longitude) { mutableStateOf(HistoryPeriod.ALL) }
+    var customStart by rememberSaveable(location.latitude, location.longitude) { mutableStateOf<Long?>(null) }
+    var customEnd by rememberSaveable(location.latitude, location.longitude) { mutableStateOf<Long?>(null) }
+    var showRangePicker by rememberSaveable(location.latitude, location.longitude) { mutableStateOf(false) }
+    val customRange = customStart?.let { start -> customEnd?.let { end ->
+        historyDateFromUtcMillis(start)..historyDateFromUtcMillis(end)
+    } }
+    val historyIndex = if (snapshot.calculation == null) 2 else 3
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = if (initialHistory) historyIndex else 0)
     fun loadArchive() {
         historyState = HistoryUiState.Loading
         showHistoryDays = false
@@ -135,14 +160,20 @@ internal fun WeatherDetailSheet(
             }
         }
     }
+    LaunchedEffect(initialHistory, location) {
+        if (initialHistory) loadArchive()
+    }
+    LaunchedEffect(initialHistory, historyIndex) {
+        if (initialHistory) listState.scrollToItem(historyIndex)
+    }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = Color(0xFF101820),
         contentColor = Color.White,
         sheetState = sheetState,
-        sheetGesturesEnabled = false,
     ) {
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight()
@@ -179,6 +210,11 @@ internal fun WeatherDetailSheet(
                     onLoad = ::loadArchive,
                     onShare = ::shareArchive,
                     onToggleDays = { showHistoryDays = !showHistoryDays },
+                    period = historyPeriod,
+                    customRange = customRange,
+                    onPeriod = {
+                        if (it == HistoryPeriod.CUSTOM) showRangePicker = true else historyPeriod = it
+                    },
                 )
             }
             val history = (historyState as? HistoryUiState.Content)?.archive
@@ -190,7 +226,7 @@ internal fun WeatherDetailSheet(
                         fontWeight = FontWeight.SemiBold,
                     )
                 }
-                items(history.days.asReversed(), key = { it.date.toString() }) { day ->
+                items(history.periodDays(historyPeriod, customRange).asReversed(), key = { it.date.toString() }) { day ->
                     HistoricalDayRow(day, units, locale)
                 }
             }
@@ -427,6 +463,67 @@ internal fun WeatherDetailSheet(
             }
         }
     }
+    val history = (historyState as? HistoryUiState.Content)?.archive
+    if (showRangePicker && history != null) {
+        HistoryDateRangeDialog(
+            bounds = history.periodRange(HistoryPeriod.ALL),
+            initialRange = history.periodRange(historyPeriod, customRange),
+            onDismiss = { showRangePicker = false },
+            onConfirm = { range ->
+                customStart = range.start.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+                customEnd = range.endInclusive.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+                historyPeriod = HistoryPeriod.CUSTOM
+                showRangePicker = false
+            },
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun HistoryDateRangeDialog(
+    bounds: ClosedRange<LocalDate>,
+    initialRange: ClosedRange<LocalDate>,
+    onDismiss: () -> Unit,
+    onConfirm: (ClosedRange<LocalDate>) -> Unit,
+) {
+    val start = initialRange.start.coerceIn(bounds.start, bounds.endInclusive)
+    val end = initialRange.endInclusive.coerceIn(start, bounds.endInclusive)
+    val picker = rememberDateRangePickerState(
+        initialSelectedStartDateMillis = start.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+        initialSelectedEndDateMillis = end.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+        initialDisplayedMonthMillis = end.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+        yearRange = bounds.start.year..bounds.endInclusive.year,
+        selectableDates = remember(bounds) {
+            object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean = historyDateFromUtcMillis(utcTimeMillis) in bounds
+            }
+        },
+    )
+    val selected = historyPickerRange(picker.selectedStartDateMillis, picker.selectedEndDateMillis, bounds)
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = { selected?.let(onConfirm) }, enabled = selected != null) {
+                Text(stringResource(android.R.string.ok))
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) } },
+    ) {
+        DateRangePicker(
+            state = picker,
+            modifier = Modifier.heightIn(max = LocalConfiguration.current.screenHeightDp.dp * 0.72f),
+            title = { Text(stringResource(R.string.history_custom_period), Modifier.padding(24.dp)) },
+        )
+    }
+}
+
+internal fun historyDateFromUtcMillis(millis: Long): LocalDate = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
+
+internal fun historyPickerRange(startMillis: Long?, endMillis: Long?, bounds: ClosedRange<LocalDate>): ClosedRange<LocalDate>? {
+    val start = startMillis?.let(::historyDateFromUtcMillis) ?: return null
+    val end = endMillis?.let(::historyDateFromUtcMillis) ?: return null
+    return (start..end).takeIf { start <= end && start in bounds && end in bounds }
 }
 
 @Composable
@@ -521,6 +618,9 @@ private fun HistoryArchiveSection(
     onLoad: () -> Unit,
     onShare: (HistoryArchive) -> Unit,
     onToggleDays: () -> Unit,
+    period: HistoryPeriod,
+    customRange: ClosedRange<LocalDate>?,
+    onPeriod: (HistoryPeriod) -> Unit,
 ) {
     DetailSection(stringResource(R.string.history_title)) {
         when (state) {
@@ -564,15 +664,25 @@ private fun HistoryArchiveSection(
             }
             is HistoryUiState.Content -> {
                 val archive = state.archive
-                val summary = remember(archive) { archive.summary() }
+                val range = remember(archive, period, customRange) { archive.periodRange(period, customRange) }
+                val summary = remember(archive, range) { archive.rangeSummary(range) }
                 val dateFormatter = remember(locale) {
                     DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale)
+                }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    HistoryPeriod.entries.forEach { option ->
+                        FilterChip(
+                            selected = period == option,
+                            onClick = { onPeriod(option) },
+                            label = { Text(stringResource(option.labelResource())) },
+                        )
+                    }
                 }
                 Text(
                     stringResource(
                         R.string.history_period,
-                        archive.days.first().date.format(dateFormatter),
-                        archive.days.last().date.format(dateFormatter),
+                        range.start.format(dateFormatter),
+                        range.endInclusive.format(dateFormatter),
                     ),
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.padding(top = 4.dp),
@@ -584,53 +694,57 @@ private fun HistoryArchiveSection(
                     modifier = Modifier.padding(top = 5.dp, bottom = 8.dp),
                 )
                 Text(
-                    stringResource(R.string.history_coverage, summary.dayCount, summary.calendarDayCount),
+                    stringResource(R.string.history_coverage, summary?.dayCount ?: 0, ChronoUnit.DAYS.between(range.start, range.endInclusive) + 1),
                     color = Color.White.copy(alpha = 0.62f),
                     fontSize = 12.sp,
                 )
-                Row(Modifier.fillMaxWidth()) {
-                    GlanceValue(
-                        stringResource(R.string.history_total_precipitation),
-                        units.precipitation(summary.totalPrecipitationMm),
-                        Modifier.weight(1f),
+                if (summary == null) {
+                    Text(stringResource(R.string.history_no_period_data), modifier = Modifier.padding(vertical = 12.dp))
+                } else {
+                    Row(Modifier.fillMaxWidth()) {
+                        GlanceValue(
+                            stringResource(R.string.history_total_precipitation),
+                            units.precipitation(summary.totalPrecipitationMm),
+                            Modifier.weight(1f),
+                        )
+                        GlanceValue(
+                            stringResource(R.string.history_wet_days),
+                            stringResource(R.string.history_wet_days_value, summary.wetDayCount),
+                            Modifier.weight(1f),
+                        )
+                    }
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.07f))
+                    Row(Modifier.fillMaxWidth()) {
+                        GlanceValue(
+                            stringResource(R.string.history_average_temperature),
+                            units.temperature(summary.averageTemperatureC),
+                            Modifier.weight(1f),
+                        )
+                        GlanceValue(
+                            stringResource(R.string.history_temperature_range),
+                            "${units.temperature(summary.minimumTemperatureC)} – " +
+                                units.temperature(summary.maximumTemperatureC),
+                            Modifier.weight(1f),
+                        )
+                    }
+                    OptionalDetailRow(
+                        stringResource(R.string.history_solar_energy) + " · " +
+                            stringResource(R.string.history_coverage, summary.solarEnergyDayCount, summary.calendarDayCount),
+                        summary.totalSolarEnergyMegajoulesPerSquareMeter?.let {
+                            String.format(locale, "%.0f MJ/m²", it)
+                        },
                     )
-                    GlanceValue(
-                        stringResource(R.string.history_wet_days),
-                        stringResource(R.string.history_wet_days_value, summary.wetDayCount),
-                        Modifier.weight(1f),
+                    OptionalDetailRow(
+                        stringResource(R.string.humidity) + " · " +
+                            stringResource(R.string.history_coverage, summary.humidityDayCount, summary.calendarDayCount),
+                        summary.averageRelativeHumidityPercent?.let { String.format(locale, "%.0f %%", it) },
+                    )
+                    OptionalDetailRow(
+                        stringResource(R.string.wind) + " · " +
+                            stringResource(R.string.history_coverage, summary.windDayCount, summary.calendarDayCount),
+                        summary.averageWindSpeedMetersPerSecond?.let { units.windSpeed(it * 3.6) },
                     )
                 }
-                HorizontalDivider(color = Color.White.copy(alpha = 0.07f))
-                Row(Modifier.fillMaxWidth()) {
-                    GlanceValue(
-                        stringResource(R.string.history_average_temperature),
-                        units.temperature(summary.averageTemperatureC),
-                        Modifier.weight(1f),
-                    )
-                    GlanceValue(
-                        stringResource(R.string.history_temperature_range),
-                        "${units.temperature(summary.minimumTemperatureC)} – " +
-                            units.temperature(summary.maximumTemperatureC),
-                        Modifier.weight(1f),
-                    )
-                }
-                OptionalDetailRow(
-                    stringResource(R.string.history_solar_energy) + " · " +
-                        stringResource(R.string.history_coverage, summary.solarEnergyDayCount, summary.calendarDayCount),
-                    summary.totalSolarEnergyMegajoulesPerSquareMeter?.let {
-                        String.format(locale, "%.0f MJ/m²", it)
-                    },
-                )
-                OptionalDetailRow(
-                    stringResource(R.string.humidity) + " · " +
-                        stringResource(R.string.history_coverage, summary.humidityDayCount, summary.calendarDayCount),
-                    summary.averageRelativeHumidityPercent?.let { String.format(locale, "%.0f %%", it) },
-                )
-                OptionalDetailRow(
-                    stringResource(R.string.wind) + " · " +
-                        stringResource(R.string.history_coverage, summary.windDayCount, summary.calendarDayCount),
-                    summary.averageWindSpeedMetersPerSecond?.let { units.windSpeed(it * 3.6) },
-                )
                 Button(
                     onClick = { onShare(archive) },
                     modifier = Modifier
@@ -641,6 +755,12 @@ private fun HistoryArchiveSection(
                         contentColor = Color(0xFF0D151C),
                     ),
                 ) { Text(stringResource(R.string.history_ask_chatgpt)) }
+                Text(
+                    stringResource(R.string.history_ai_share_note, archive.days.size),
+                    color = Color.White.copy(alpha = 0.62f),
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
                 OutlinedButton(
                     onClick = onToggleDays,
                     modifier = Modifier
@@ -663,6 +783,39 @@ private fun HistoryArchiveSection(
             }
         }
     }
+}
+
+internal enum class HistoryPeriod(val dayCount: Long?) {
+    LAST_30(30), LAST_365(365), ALL(null), CUSTOM(null),
+}
+
+internal fun HistoryArchive.periodRange(
+    period: HistoryPeriod,
+    customRange: ClosedRange<LocalDate>? = null,
+): ClosedRange<LocalDate> {
+    if (period == HistoryPeriod.CUSTOM && customRange != null) {
+        require(customRange.start <= customRange.endInclusive) { "History range starts after its end." }
+        return customRange
+    }
+    val end = days.maxOf(HistoricalDay::date)
+    val start = period.dayCount?.let { end.minusDays(it - 1) } ?: days.minOf(HistoricalDay::date)
+    return start..end
+}
+
+internal fun HistoryArchive.periodDays(period: HistoryPeriod, customRange: ClosedRange<LocalDate>? = null): List<HistoricalDay> {
+    val range = periodRange(period, customRange)
+    return days.filter { it.date in range }
+}
+
+internal fun HistoryArchive.rangeSummary(range: ClosedRange<LocalDate>): HistorySummary? =
+    inDateRange(range.start, range.endInclusive)?.summary()
+        ?.copy(calendarDayCount = ChronoUnit.DAYS.between(range.start, range.endInclusive) + 1)
+
+private fun HistoryPeriod.labelResource(): Int = when (this) {
+    HistoryPeriod.LAST_30 -> R.string.history_last_30
+    HistoryPeriod.LAST_365 -> R.string.history_last_365
+    HistoryPeriod.ALL -> R.string.history_all_available
+    HistoryPeriod.CUSTOM -> R.string.history_custom_period
 }
 
 @Composable

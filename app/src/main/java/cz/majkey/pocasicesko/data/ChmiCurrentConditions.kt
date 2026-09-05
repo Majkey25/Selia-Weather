@@ -89,6 +89,7 @@ internal fun parseCurrentStationObservation(
     val latest = complete.firstOrNull() ?: return null
     val values = latest.value
     val sunshine = complete.asSequence()
+        .takeWhile { it.key.isAfter(latest.key.minusSeconds(SUNSHINE_SAMPLE_COUNT * 600L)) }
         .mapNotNull { it.value["SSV10M"] }
         .take(SUNSHINE_SAMPLE_COUNT)
         .toList()

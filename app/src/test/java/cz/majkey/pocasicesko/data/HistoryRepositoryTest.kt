@@ -7,6 +7,9 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.time.Instant
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.withContext
 import org.json.JSONException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
@@ -16,6 +19,49 @@ import org.junit.Test
 class HistoryRepositoryTest {
     private val location = CzechLocation("Praha", REGION_PRAGUE, 50.0755, 14.4378, "CZ")
     private val now = Instant.parse("2026-08-30T12:00:00Z")
+
+    @Test
+    fun cancelledRefreshPreservesTheLastUsableArchive() = runBlocking {
+        val directory = Files.createTempDirectory("history-cancel").toFile()
+        try {
+            HistoryRepository(directory, fetchText = { SAMPLE_JSON }, now = { now }).fetch(location)
+            val cache = directory.listFiles().orEmpty().single()
+            cache.setLastModified(now.minusSeconds(172_800).toEpochMilli())
+            val refreshJob = Job()
+            val repository = HistoryRepository(directory, fetchText = {
+                refreshJob.cancel()
+                SAMPLE_JSON.replace("-0.77", "19.0")
+            }, now = { now })
+
+            assertThrows(CancellationException::class.java) {
+                runBlocking { withContext(refreshJob) { repository.fetch(location) } }
+            }
+
+            assertEquals(SAMPLE_JSON, cache.readText())
+            assertEquals(listOf(cache), directory.listFiles().orEmpty().toList())
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun oversizedRefreshKeepsOfflineCacheAndRemovesTemporaryFiles() = runBlocking {
+        val directory = Files.createTempDirectory("history-atomic").toFile()
+        try {
+            HistoryRepository(directory, fetchText = { SAMPLE_JSON }, now = { now }).fetch(location)
+            val cache = directory.listFiles().orEmpty().single()
+            cache.setLastModified(now.minusSeconds(172_800).toEpochMilli())
+            val repository = HistoryRepository(directory, fetchText = {
+                SAMPLE_JSON.replace("-0.77", "19.0").padEnd(2_000_001, ' ')
+            }, now = { now })
+
+            assertEquals(-0.77, repository.fetch(location).days.first().temperatureMeanC, 0.0)
+            assertEquals(SAMPLE_JSON, cache.readText())
+            assertEquals(listOf(cache), directory.listFiles().orEmpty().toList())
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
 
     @Test
     fun requestsFiveYearsOnceThenUsesBoundedCache() = runBlocking {

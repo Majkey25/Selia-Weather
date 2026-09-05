@@ -11,6 +11,7 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneOffset
 import java.util.Locale
+import androidx.compose.runtime.saveable.SaverScope
 
 class WidgetSettingsTest {
     @Test
@@ -44,6 +45,8 @@ class WidgetSettingsTest {
         assertEquals(100, settings.textScale)
         assertEquals(WidgetFontStyle.SYSTEM, settings.fontStyle)
         assertEquals(WidgetAlignment.LEFT, settings.alignment)
+        assertEquals(WidgetCorners.ROUND, settings.corners)
+        assertEquals(12, settings.contentPaddingDp)
         assertTrue(settings.showClock)
         assertTrue(settings.showDate)
         assertTrue(settings.showLocation)
@@ -152,6 +155,16 @@ class WidgetSettingsTest {
     @Test
     fun resizedHostUsesCurrentBounds() {
         assertEquals(WidgetHostSize(467, 104), widgetHostSize(467, 104))
+    }
+
+    @Test
+    fun hostDimensionsUseTheMatchingOrientationPairAndFallbackWhenMaxIsAbsent() {
+        assertEquals(WidgetHostSize(144, 84), widgetHostSize(144, 58, 196, 84, landscape = false))
+        assertEquals(WidgetHostSize(196, 58), widgetHostSize(144, 58, 196, 84, landscape = true))
+        assertEquals(WidgetHostSize(144, 58), widgetHostSize(144, 58, 0, 0, landscape = false))
+        assertEquals(WidgetHostSize(144, 58), widgetHostSize(144, 58, 0, 0, landscape = true))
+        assertEquals(WidgetHostSize(144, 58), widgetHostSize(144, 58, -1, -1, landscape = false))
+        assertEquals(WidgetHostSize(1, 1), widgetHostSize(0, 0, 0, 0, landscape = true))
     }
 
     @Test
@@ -290,6 +303,155 @@ class WidgetSettingsTest {
         assertTrue(widgetAdvancedVisible(WidgetSize.WIDE, text))
         assertFalse(widgetAdvancedVisible(WidgetSize.COMPACT, text))
         assertFalse(widgetAdvancedVisible(WidgetSize.TALL, ""))
+    }
+
+    @Test
+    fun temperatureFitKeepsRequestedSizeWhenItFitsAndShrinksOnlyToAvailableWidth() {
+        assertEquals(34f, fitWidgetTemperatureSp(34f) { it * 5f <= 200f }, 0f)
+        val compact = fitWidgetTemperatureSp(34f) { it * 5.8f <= 157f }
+        assertTrue(compact * 5.8f <= 157f)
+        assertEquals(157f / 5.8f, compact, 0.02f)
+        val largeText = fitWidgetTemperatureSp(47.6f) { it * 5.8f <= 157f }
+        assertEquals(compact, largeText, 0.02f)
+        val nonlinear = fitWidgetTemperatureSp(47.6f) { it * it / 10f <= 100f }
+        assertTrue(nonlinear * nonlinear / 10f <= 100f)
+        assertEquals(31.622f, nonlinear, 0.02f)
+        val narrow = fitWidgetTemperatureSp(34f) { it * 5f <= 40f }
+        assertEquals(12f, narrow, 0f)
+        assertEquals(12f, fitWidgetTemperatureSp(47.6f) { it * 5f <= 0f }, 0f)
+        assertEquals(12f, fitWidgetTemperatureSp(47.6f) { it * 5f <= -40f }, 0f)
+    }
+
+    @Test
+    fun compactHeaderHidesOptionalContentThenReducesPaddingWithoutChangingSettings() {
+        val settings = WidgetSettings(contentPaddingDp = 24, textScale = 140)
+        val visibility = widgetContentVisibility(settings, WidgetSize.COMPACT, WidgetDataAvailability(false, false, false, false, false))
+        fun fit(width: Float) = fitWidgetHeader(
+            47.6f, visibility, settings.contentPaddingDp,
+            { visible, padding -> width - padding * 2 - (if (visible.showIcon) 50 else 0) - (if (visible.showClock || visible.showDate) 60 else 0) },
+            { it * 5f },
+        )
+        val tiny = fit(90f)
+        assertFalse(tiny.visibility.showIcon)
+        assertFalse(tiny.visibility.showClock)
+        assertFalse(tiny.visibility.showDate)
+        assertEquals(15, tiny.contentPaddingDp)
+        assertEquals(12f, tiny.textSizeSp, 0.02f)
+        val compact = fit(180f)
+        assertFalse(compact.visibility.showIcon)
+        assertTrue(compact.visibility.showClock)
+        assertEquals(24, compact.contentPaddingDp)
+        assertTrue(compact.textSizeSp >= 12f)
+        val expanded = fit(400f)
+        assertTrue(expanded.visibility.showIcon)
+        assertTrue(expanded.visibility.showClock)
+        assertEquals(24, expanded.contentPaddingDp)
+        assertEquals(47.6f, expanded.textSizeSp, 0f)
+        assertEquals(24, settings.contentPaddingDp)
+        val zero = fit(0f)
+        assertEquals(0, zero.contentPaddingDp)
+        assertEquals(12f, zero.textSizeSp, 0f)
+    }
+
+    @Test
+    fun accessibilityFontFitsHeaderHeightAndRestoresRequestedScaleWhenExpanded() {
+        val settings = WidgetSettings(contentPaddingDp = 24, textScale = 140)
+        val visible = widgetContentVisibility(settings, WidgetSize.COMPACT, WidgetDataAvailability(false, false, false, false, false))
+        fun fit(heightDp: Int) = fitWidgetHeader(
+            47.6f, visible, 24, { _, _ -> 300f }, { it * 5f },
+            availableHeight = { _, padding -> (heightDp - padding * 2) * 3f },
+            measureHeight = { it * 7f },
+        )
+        val compact = fit(84)
+        assertEquals(24, compact.contentPaddingDp)
+        assertTrue(compact.textSizeSp >= 12f)
+        assertTrue(compact.textSizeSp * 7f <= 108f)
+        val short = fit(40)
+        assertEquals(6, short.contentPaddingDp)
+        assertEquals(12f, short.textSizeSp, 0.02f)
+        assertFalse(short.visibility.showClock)
+        val expanded = fit(200)
+        assertEquals(47.6f, expanded.textSizeSp, 0f)
+        assertEquals(24, expanded.contentPaddingDp)
+        assertTrue(expanded.visibility.showClock)
+    }
+
+    @Test
+    fun crowdedWideHeaderDropsLowerPriorityRowsAndRestoresThemWhenTall() {
+        val settings = WidgetSettings(contentPaddingDp = 24, customLabel = "My field", showHourly = true,
+            showPrecipitation = true, showWind = true, showHumidity = true, showUpdatedAt = true)
+        val visible = widgetContentVisibility(settings, WidgetSize.WIDE,
+            WidgetDataAvailability(true, true, true, true, true), 400, "Pressure 1015 hPa")
+        fun fit(height: Float) = fitWidgetHeader(
+            47.6f, visible, 24, { _, _ -> 1000f }, { it * 5f },
+            availableHeight = { content, padding ->
+                height - padding * 2 - (if (content.showAdvanced) 50 else 0) -
+                    (if (content.showUpdatedAt) 8 else 0) - (if (content.showHourly) 45 else 0) -
+                    (if (content.showMetrics) 35 else 0) - (if (content.showLabel) 12 else 0) -
+                    (if (content.showLocation) 16 else 0)
+            },
+            measureHeight = { it * 1.5f },
+        )
+        val short = fit(40f)
+        assertEquals(0, short.contentPaddingDp)
+        assertFalse(short.visibility.showAdvanced)
+        assertFalse(short.visibility.showHourly)
+        assertFalse(short.visibility.showMetrics)
+        assertFalse(short.visibility.showLabel)
+        assertFalse(short.visibility.showLocation)
+        assertTrue(short.textSizeSp >= 12f)
+        assertTrue(short.textSizeSp * 1.5f <= 40f)
+        val tall = fit(400f)
+        assertEquals(visible, tall.visibility)
+        assertEquals(24, tall.contentPaddingDp)
+        assertEquals(47.6f, tall.textSizeSp, 0f)
+        assertTrue(settings.showHourly)
+    }
+
+    @Test
+    fun appStyleIsExplicitAndLegacyGeometryDefaultsRemainStable() {
+        val current = WidgetSettings(customLabel = "My field", imageUri = "content://example/photo")
+        val preset = widgetPresetSettings(WidgetPreset.APP_STYLE, current)
+        assertEquals(WidgetBackgroundMode.APP_STYLE, preset.backgroundMode)
+        assertEquals(WidgetFontStyle.MATERIAL, preset.fontStyle)
+        assertEquals("My field", preset.customLabel)
+        assertEquals(current.imageUri, preset.imageUri)
+        assertEquals(WidgetBackgroundMode.AUTOMATIC, widgetBackgroundMode(null, null))
+        assertEquals(WidgetCorners.ROUND, widgetCorners(null))
+        assertEquals(WidgetCorners.ROUND, widgetCorners("future-shape"))
+        assertEquals(0, current.copy(contentPaddingDp = -5).normalized().contentPaddingDp)
+        assertEquals(24, current.copy(contentPaddingDp = 99).normalized().contentPaddingDp)
+        assertEquals(0, widgetBackgroundAlpha(preset.copy(opacity = 0), 255))
+    }
+
+    @Test
+    fun savedEditorStateRestoresGeometryAndMigratesOlderLists() {
+        val scope = object : SaverScope { override fun canBeSaved(value: Any): Boolean = true }
+        val settings = WidgetSettings(corners = WidgetCorners.SOFT, contentPaddingDp = 21, textScale = 130)
+        val saved = requireNotNull(with(WidgetSettingsSaver) { scope.save(settings) })
+        assertEquals(settings, WidgetSettingsSaver.restore(saved))
+        val legacy = (saved as List<*>).take(29)
+        val restored = requireNotNull(WidgetSettingsSaver.restore(legacy))
+        assertEquals(WidgetCorners.ROUND, restored.corners)
+        assertEquals(DEFAULT_WIDGET_PADDING_DP, restored.contentPaddingDp)
+        assertEquals(130, restored.textScale)
+    }
+
+    @Test
+    fun backgroundControlsOnlyValidateColorsThatAffectTheChosenMode() {
+        val settings = WidgetSettings(backgroundStart = "invalid", backgroundEnd = "invalid")
+        assertTrue(settings.copy(backgroundMode = WidgetBackgroundMode.APP_STYLE).editableBackgroundColors().isEmpty())
+        assertEquals(1, settings.copy(backgroundMode = WidgetBackgroundMode.SOLID).editableBackgroundColors().size)
+        assertEquals(2, settings.copy(backgroundMode = WidgetBackgroundMode.GRADIENT).editableBackgroundColors().size)
+        assertEquals(2, settings.copy(backgroundMode = WidgetBackgroundMode.CUSTOM_IMAGE).editableBackgroundColors().size)
+        assertNotEquals(
+            widgetPreviewBackgroundKey(settings, WeatherKind.CLEAR, true, 320, 180),
+            widgetPreviewBackgroundKey(settings, WeatherKind.CLEAR, true, 180, 320),
+        )
+        assertNotEquals(
+            widgetPreviewBackgroundKey(settings.copy(corners = WidgetCorners.ROUND), WeatherKind.CLEAR, true),
+            widgetPreviewBackgroundKey(settings.copy(corners = WidgetCorners.SQUARE), WeatherKind.CLEAR, true),
+        )
     }
 
     @Test

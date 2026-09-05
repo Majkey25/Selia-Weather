@@ -311,7 +311,7 @@
     <string name="history_description">Charger cinq ans d’estimations quotidiennes pour ce lieu.</string>
     <string name="history_load">Charger l’archive</string>
     <string name="history_unavailable">Impossible de charger l’archive.</string>
-    <string name="history_source_note">Estimations maillées NASA POWER issues d’observations satellitaires et de modèles d’assimilation. Ce ne sont pas des mesures d’une station locale. Les derniers jours peuvent être retardés.</string>
+    <string name="history_source_note">Estimations maillées NASA POWER issues d’observations satellitaires et de modèles d’assimilation. Ce ne sont pas des mesures d’une station locale. Les derniers jours peuvent être retardés. Les périodes quotidiennes utilisent UTC.</string>
     <string name="history_period">%1$s – %2$s</string>
     <string name="history_coverage">Données pour %1$d sur %2$d jours</string>
     <string name="history_total_precipitation">Précipitations totales</string>
@@ -320,11 +320,11 @@
     <string name="history_average_temperature">Température moyenne</string>
     <string name="history_temperature_range">Plage de température</string>
     <string name="history_solar_energy">Énergie solaire en surface</string>
-    <string name="history_ask_chatgpt">Demander à ChatGPT avec le CSV</string>
+    <string name="history_ask_chatgpt">Demander à l’IA avec CSV</string>
     <string name="history_show_days">Afficher les données quotidiennes</string>
     <string name="history_hide_days">Masquer les données quotidiennes</string>
     <string name="history_daily_title">Archive quotidienne</string>
-    <string name="history_share_chooser">Demander à ChatGPT ou partager</string>
+    <string name="history_share_chooser">Choisir une app IA ou partager</string>
     <string name="history_share_failed">Impossible de partager l’archive.</string>
     <string name="daily_briefing">Résumé du matin</string>
     <string name="daily_briefing_summary">Chaque matin à 7:00 · conseils vêtements et parapluie</string>
@@ -354,4 +354,16 @@
     <string name="hourly_feels_like_summary">Le ressenti sera de %1$s, pour une température de l’air de %2$s. Habillez-vous selon la température ressentie.</string>
     <string name="hourly_uv_summary">Indice UV %1$.1f. Utilisez une protection solaire dehors, même par temps frais.</string>
     <string name="widget_edit">Personnaliser le widget %1$d</string>
+    <string name="history_last_30">30 derniers jours</string>
+    <string name="history_last_365">365 derniers jours</string>
+    <string name="history_all_available">Toutes les données</string>
+    <string name="history_ai_share_note">Partage toutes les archives (%1$d relevés quotidiens), même avec une période plus courte. Choisissez une app IA installée compatible ou une autre app acceptant les fichiers CSV.</string>
+    <string name="history_custom_period">Période personnalisée</string>
+    <string name="history_no_period_data">Aucun relevé quotidien disponible pour cette période. Les valeurs manquantes ne signifient pas une absence de pluie.</string>
+    <string name="widget_app_style">Style de l’app</string>
+    <string name="widget_corners">Coins</string>
+    <string name="widget_corners_square">Carrés</string>
+    <string name="widget_corners_soft">Adoucis</string>
+    <string name="widget_corners_round">Arrondis</string>
+    <string name="widget_content_padding">Espacement intérieur</string>
 </resources>

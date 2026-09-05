@@ -65,6 +65,46 @@ class ChmiCurrentConditionsTest {
     }
 
     @Test
+    fun parserDoesNotAttachOldSunshineToFreshTemperature() {
+        val station = CurrentStation("0-203-0-11775", "Station", 49.2, 17.7, 250.0, true)
+        val gapped = SUNSHINE_HISTORY_JSON
+            .replace("08:40:00", "06:40:00")
+            .replace("08:50:00", "06:50:00")
+
+        val observation = requireNotNull(parseCurrentStationObservation(gapped, station))
+
+        assertEquals(Instant.parse("2026-08-29T09:00:00Z"), observation.time)
+        assertEquals(300.0, requireNotNull(observation.sunshineSeconds), 0.0)
+    }
+
+    @Test
+    fun parserLeavesSunshineUnknownWhenOnlyOldSensorReportsExist() {
+        val station = CurrentStation("0-203-0-11775", "Station", 49.2, 17.7, 250.0, true)
+        val gapped = SUNSHINE_HISTORY_JSON
+            .replace("08:40:00", "06:40:00")
+            .replace("08:50:00", "06:50:00")
+            .replace("\"SSV10M\",\"2026-08-29T09:00:00Z\"", "\"unsupported\",\"2026-08-29T09:00:00Z\"")
+
+        val observation = requireNotNull(parseCurrentStationObservation(gapped, station))
+
+        assertEquals(Instant.parse("2026-08-29T09:00:00Z"), observation.time)
+        assertEquals(null, observation.sunshineSeconds)
+        assertEquals(20.4, requireNotNull(observation.temperature), 0.0)
+    }
+
+    @Test
+    fun parserExcludesIntervalEndingAtTheStartOfTheSunshineWindow() {
+        val station = CurrentStation("0-203-0-11775", "Station", 49.2, 17.7, 250.0, true)
+        val boundary = SUNSHINE_HISTORY_JSON
+            .replace("08:40:00", "08:00:00")
+            .replace("08:50:00", "08:10:00")
+
+        val observation = requireNotNull(parseCurrentStationObservation(boundary, station))
+
+        assertEquals(420.0, requireNotNull(observation.sunshineSeconds), 0.0)
+    }
+
+    @Test
     fun stationSelectionKeepsOneSunshineSource() {
         val location = CzechLocation("Point", REGION_PRAGUE, 50.0, 14.0)
         val stations = listOf(

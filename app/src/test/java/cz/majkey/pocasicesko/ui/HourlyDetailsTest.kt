@@ -129,6 +129,11 @@ class HourlyDetailsTest {
         assertFalse(source.contains(".height(78.dp)"))
         assertTrue(source.contains("modifier = Modifier.padding(top = 12.dp, bottom = 8.dp)"))
         assertFalse(source.contains("Modifier.padding(start = 81.dp, top = 12.dp"))
+        val summary = source.substringAfter("itemsIndexed(hours")
+            .substringAfter("\"${'$'}{stringResource(R.string.feels_like)} \" +", "")
+            .substringBefore("if (expanded)")
+        assertFalse(summary.contains("Modifier.padding(start = 81.dp"))
+        assertTrue(summary.contains("Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp)"))
     }
 
     @Test

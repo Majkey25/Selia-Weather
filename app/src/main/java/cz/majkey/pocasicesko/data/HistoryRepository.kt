@@ -5,12 +5,16 @@ import java.io.File
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import org.json.JSONException
 
@@ -28,7 +32,9 @@ internal class HistoryRepository(
         val start = end.minusYears(HISTORY_YEAR_COUNT).plusDays(1)
         try {
             val json = fetchText(url(location, start, end))
+            currentCoroutineContext().ensureActive()
             val archive = parsePowerHistory(json, location, requestedAt.toEpochMilli())
+            currentCoroutineContext().ensureActive()
             writeCache(cache, json, requestedAt.toEpochMilli())
             archive
         } catch (error: IOException) {
@@ -46,9 +52,9 @@ internal class HistoryRepository(
     private fun File.isFresh(at: Instant): Boolean = isFile &&
         (at.toEpochMilli() - lastModified()) in 0..CACHE_TTL_MILLIS
 
-    private fun readCacheOrNull(file: File, location: CzechLocation): HistoryArchive? {
-        if (!file.isFile || file.length() > MAX_RESPONSE_BYTES) return null
-        return try {
+    private fun readCacheOrNull(file: File, location: CzechLocation): HistoryArchive? = synchronized(CACHE_LOCK) {
+        if (!file.isFile || file.length() > MAX_RESPONSE_BYTES) return@synchronized null
+        try {
             parsePowerHistory(file.readText(Charsets.UTF_8), location, file.lastModified())
         } catch (_: IOException) {
             null
@@ -57,17 +63,36 @@ internal class HistoryRepository(
         }
     }
 
-    private fun writeCache(file: File, json: String, modifiedAtEpochMillis: Long) {
+    private fun writeCache(file: File, json: String, modifiedAtEpochMillis: Long) = synchronized(CACHE_LOCK) {
         if (!cacheDirectory.isDirectory && !cacheDirectory.mkdirs()) {
             throw IOException("History cache directory could not be created.")
         }
-        file.writeText(json, Charsets.UTF_8)
-        file.setLastModified(modifiedAtEpochMillis)
-        cacheDirectory.listFiles { candidate -> candidate.isFile && candidate.extension == "json" }
+        cacheDirectory.listFiles { candidate ->
+            candidate.isFile && candidate.name.startsWith(".power_") && candidate.extension == "tmp"
+        }
+            .orEmpty().forEach { Files.deleteIfExists(it.toPath()) }
+        val temporary = Files.createTempFile(cacheDirectory.toPath(), ".power_", ".tmp")
+        try {
+            val bytes = json.toByteArray(Charsets.UTF_8)
+            if (bytes.size > MAX_RESPONSE_BYTES) throw IOException("History response exceeds cache limit.")
+            temporary.toFile().outputStream().use { output ->
+                output.write(bytes)
+                output.fd.sync()
+            }
+            if (!temporary.toFile().setLastModified(modifiedAtEpochMillis)) {
+                throw IOException("History cache timestamp could not be set.")
+            }
+            Files.move(temporary, file.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+        } finally {
+            Files.deleteIfExists(temporary)
+        }
+        cacheDirectory.listFiles { candidate ->
+            candidate.isFile && candidate.name.startsWith("power_") && candidate.extension == "json"
+        }
             .orEmpty()
             .sortedByDescending(File::lastModified)
             .drop(MAX_CACHE_FILES)
-            .forEach(File::delete)
+            .forEach { Files.deleteIfExists(it.toPath()) }
     }
 
     companion object {
@@ -85,6 +110,7 @@ internal class HistoryRepository(
         private const val SOURCE_LAG_DAYS = 2L
         private const val CACHE_TTL_MILLIS = 24L * 60L * 60L * 1_000L
         private const val MAX_CACHE_FILES = 12
+        private val CACHE_LOCK = Any()
     }
 }
 

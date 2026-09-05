@@ -92,7 +92,6 @@ import cz.majkey.pocasicesko.data.DeviceLocationRepository
 import cz.majkey.pocasicesko.data.HistoryArchive
 import cz.majkey.pocasicesko.data.LocationPermissionException
 import cz.majkey.pocasicesko.data.SystemLocationDisabledException
-import cz.majkey.pocasicesko.data.WeatherKind
 import cz.majkey.pocasicesko.data.WeatherRepository
 import cz.majkey.pocasicesko.data.WeatherSnapshot
 import cz.majkey.pocasicesko.data.conditionFor
@@ -488,7 +487,10 @@ private fun NavigationItem(
 
 @Composable
 private fun WeatherBackdrop(snapshot: WeatherSnapshot?) {
-    val palette = weatherPalette(snapshot)
+    val palette = weatherPalette(
+        snapshot?.current?.let { conditionFor(it.weatherCode, it.isDay).kind },
+        snapshot?.current?.isDay ?: true,
+    )
     Canvas(Modifier.fillMaxSize()) {
         drawRect(brush = Brush.verticalGradient(palette.background))
         drawCircle(
@@ -518,45 +520,6 @@ private fun WeatherBackdrop(snapshot: WeatherSnapshot?) {
                 )
             }
         }
-    }
-}
-
-private data class WeatherPalette(
-    val background: List<Color>,
-    val primaryGlow: Color,
-    val secondaryGlow: Color,
-)
-
-private fun weatherPalette(snapshot: WeatherSnapshot?): WeatherPalette {
-    if (snapshot == null) {
-        return WeatherPalette(
-            background = listOf(Color(0xFF17384A), Color(0xFF09131C), Color(0xFF050A0F)),
-            primaryGlow = Color(0x333E9FBD),
-            secondaryGlow = Color(0x22205A76),
-        )
-    }
-    val kind = conditionFor(snapshot.current.weatherCode, snapshot.current.isDay).kind
-    return when {
-        !snapshot.current.isDay -> WeatherPalette(
-            background = listOf(Color(0xFF111A33), Color(0xFF080D1A), Color(0xFF04070D)),
-            primaryGlow = Color(0x2D536BAA),
-            secondaryGlow = Color(0x1F6D4F8A),
-        )
-        kind == WeatherKind.STORM || kind == WeatherKind.RAIN -> WeatherPalette(
-            background = listOf(Color(0xFF263A49), Color(0xFF101D28), Color(0xFF070C11)),
-            primaryGlow = Color(0x2D537F92),
-            secondaryGlow = Color(0x1F758494),
-        )
-        kind == WeatherKind.FOG || kind == WeatherKind.CLOUDY -> WeatherPalette(
-            background = listOf(Color(0xFF35444E), Color(0xFF17232B), Color(0xFF080D11)),
-            primaryGlow = Color(0x2A9AA6A8),
-            secondaryGlow = Color(0x1F617984),
-        )
-        else -> WeatherPalette(
-            background = listOf(Color(0xFF1D5D7A), Color(0xFF102A3C), Color(0xFF060E16)),
-            primaryGlow = Color(0x35E0A85D),
-            secondaryGlow = Color(0x2D3FA0BF),
-        )
     }
 }
 
@@ -604,7 +567,7 @@ private fun LocationSearchSheet(
     var locating by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var locationPermissionPermanentlyDenied by remember { mutableStateOf(false) }
-    var pickingPoint by remember { mutableStateOf(false) }
+    var pickingPoint by rememberSaveable { mutableStateOf(false) }
     var pinnedSaveError by remember { mutableStateOf<String?>(null) }
     val focusManager = LocalFocusManager.current
     val context = LocalContext.current

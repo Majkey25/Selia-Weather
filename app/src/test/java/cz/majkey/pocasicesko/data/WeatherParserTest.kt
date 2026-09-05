@@ -201,6 +201,34 @@ class WeatherParserTest {
     }
 
     @Test
+    fun rejectsNonFiniteCoreAndOptionalNumbersAcrossAllForecastSections() {
+        val fields = listOf(
+            "current" to "temperature_2m",
+            "current" to "dew_point_2m",
+            "hourly" to "temperature_2m",
+            "hourly" to "dew_point_2m",
+            "daily" to "temperature_2m_max",
+            "daily" to "wind_gusts_10m_max",
+        )
+        fields.forEach { (section, field) ->
+            listOf("NaN", "Infinity", "-Infinity").forEach { value ->
+                val root = JSONObject(VALID_FORECAST)
+                val target = root.getJSONObject(section)
+                if (section == "current") {
+                    target.put(field, value)
+                } else {
+                    val values = org.json.JSONArray(List(target.getJSONArray("time").length()) { 20.0 })
+                    target.put(field, values.put(0, value))
+                }
+
+                assertThrows("$section.$field=$value", JSONException::class.java) {
+                    WeatherParser.parseForecast(root.toString(), updatedAtEpochMillis = 123L)
+                }
+            }
+        }
+    }
+
+    @Test
     fun keepsMissingDetailNullAndRejectsPresentNonFiniteDetail() {
         assertEquals(null, WeatherParser.parseForecast(VALID_FORECAST, 123L).current.uvIndex)
         val nonFinite = VALID_FORECAST.replace("\"is_day\":1", "\"is_day\":1,\"uv_index\":\"NaN\"")

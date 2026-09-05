@@ -59,14 +59,14 @@ class RadarScreenTest {
     }
 
     @Test
-    fun radarCardUsesImageAwareAspectRatioInsteadOfTallScreenWeight() {
+    fun interactiveRadarUsesAvailableHeightAboveNavigation() {
         val source = File(
             System.getProperty("user.dir"),
             "src/main/java/cz/majkey/pocasicesko/ui/MapHubScreen.kt",
         ).readText()
 
-        assertTrue(source.contains(".aspectRatio(RADAR_CARD_ASPECT_RATIO)"))
-        assertTrue(source.contains("private const val RADAR_CARD_ASPECT_RATIO = 0.9f"))
+        assertTrue(source.contains(".weight(1f)"))
+        assertFalse(source.contains(".aspectRatio("))
     }
 
     @Test

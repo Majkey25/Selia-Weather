@@ -28,7 +28,10 @@ jobs:
       - uses: gradle/actions/setup-gradle@v5
 
       - name: Test, lint, and build
-        run: ./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --console=plain
+        run: ./gradlew :app:testDebugUnitTest :app:lintDebug :app:lintRelease :app:assembleDebug :app:assembleRelease :app:bundleRelease --console=plain
+
+      - name: Test radar loading and recovery
+        run: node --test app/src/test/js/radar.test.cjs
 
       - uses: actions/upload-artifact@v7
         with:

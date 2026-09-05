@@ -163,6 +163,8 @@ internal fun applyCurrentConditionsToForecastJson(json: String, current: Current
     val index = (0 until times.length()).firstOrNull { times.optString(it).take(13) == currentHour }
         ?: return root.toString()
     values.forEach { (name, value) ->
+        // Station totals cover ten minutes, not the forecast hour.
+        if (name == "precipitation" || name == "rain") return@forEach
         val array = hourly.optJSONArray(name)
         if (value != null && array != null && index < array.length()) array.put(index, value)
     }

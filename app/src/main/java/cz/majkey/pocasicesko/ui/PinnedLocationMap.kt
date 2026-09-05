@@ -1,6 +1,7 @@
 package cz.majkey.pocasicesko.ui
 
 import android.annotation.SuppressLint
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.graphics.Bitmap
 import android.webkit.CookieManager
@@ -10,6 +11,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,7 +19,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -30,6 +31,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.currentStateAsState
 import cz.majkey.pocasicesko.BuildConfig
 import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.data.CzechLocation
@@ -42,11 +46,11 @@ internal fun PinnedLocationMap(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
     val unavailable = stringResource(R.string.pinned_location_map_unavailable)
     val url = remember(initialLocation.latitude, initialLocation.longitude) {
         "$LOCATION_PICKER_URL?lat=${initialLocation.latitude}&lon=${initialLocation.longitude}"
     }
-    var webView by remember { mutableStateOf<WebView?>(null) }
     var loading by remember(url) { mutableStateOf(true) }
     var error by remember(url) { mutableStateOf<String?>(null) }
 
@@ -55,7 +59,6 @@ internal fun PinnedLocationMap(
             AndroidView(
                 factory = { viewContext ->
                     WebView(viewContext).apply web@{
-                        webView = this
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = false
                         settings.allowFileAccess = true
@@ -99,9 +102,14 @@ internal fun PinnedLocationMap(
                                 view: WebView?,
                                 request: WebResourceRequest?,
                             ): Boolean {
-                                val uri = request?.url ?: return true
+                                if (request?.isForMainFrame != true) return true
+                                val uri = request.url
                                 if (uri.host == "www.openstreetmap.org" && uri.scheme == "https") {
-                                    context.startActivity(Intent(Intent.ACTION_VIEW, uri))
+                                    try {
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, uri))
+                                    } catch (_: ActivityNotFoundException) {
+                                        Toast.makeText(context, R.string.support_unavailable, Toast.LENGTH_LONG).show()
+                                    }
                                 }
                                 return true
                             }
@@ -110,6 +118,18 @@ internal fun PinnedLocationMap(
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
+                onRelease = { view ->
+                    view.removeJavascriptInterface(LOCATION_BRIDGE)
+                    view.stopLoading()
+                    view.destroy()
+                },
+                update = { view ->
+                    if (lifecycleState.isAtLeast(Lifecycle.State.RESUMED)) {
+                        view.onResume()
+                    } else {
+                        view.onPause()
+                    }
+                },
             )
         }
         if (loading) CircularProgressIndicator(color = Color(0xFF83D6E8))
@@ -119,15 +139,6 @@ internal fun PinnedLocationMap(
                 modifier = Modifier.padding(20.dp),
                 color = Color.White.copy(alpha = 0.72f),
             )
-        }
-    }
-
-    DisposableEffect(Unit) {
-        onDispose {
-            webView?.removeJavascriptInterface(LOCATION_BRIDGE)
-            webView?.stopLoading()
-            webView?.destroy()
-            webView = null
         }
     }
 }

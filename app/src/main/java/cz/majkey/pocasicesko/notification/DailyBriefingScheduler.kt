@@ -84,30 +84,37 @@ internal object DailyBriefingScheduler {
 class DailyBriefingReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (!DailyBriefingScheduler.isEnabled(context)) return
-        if (intent.action == DailyBriefingScheduler.ACTION_SHOW) showBriefing(context)
+        if (intent.action == DailyBriefingScheduler.ACTION_SHOW) {
+            showBriefing(context)
+            WeatherRefreshScheduler.request(context, briefing = true)
+        }
         DailyBriefingScheduler.schedule(context)
     }
 
-    private fun showBriefing(context: Context) {
+    internal fun showBriefing(context: Context): Boolean {
+        if (!DailyBriefingScheduler.isEnabled(context) ||
+            !NotificationManagerCompat.from(context).areNotificationsEnabled()
+        ) return false
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
         ) {
-            return
+            return false
         }
         val repository = WeatherRepository(context)
         val location = repository.lastLocation()
-        val snapshot = repository.cachedForecast(location) ?: return
+        val snapshot = repository.cachedForecast(location) ?: return false
         val age = Instant.now().toEpochMilli() - snapshot.updatedAtEpochMillis
-        if (age !in 0..MAX_FORECAST_AGE_MILLIS) return
+        if (age !in 0..MAX_FORECAST_AGE_MILLIS) return false
         val today = LocalDate.now(ZoneId.of(snapshot.timezone)).toString()
-        val day = snapshot.daily.firstOrNull { it.date == today } ?: return
+        val day = snapshot.daily.firstOrNull { it.date == today } ?: return false
         val localized = AppLocale.localized(context)
         createChannel(localized)
         NotificationManagerCompat.from(context).notify(
             DailyBriefingScheduler.NOTIFICATION_ID,
             notification(localized, location.name, day).build(),
         )
+        return true
     }
 
     private fun notification(
@@ -146,6 +153,7 @@ class DailyBriefingReceiver : BroadcastReceiver() {
             .setStyle(NotificationCompat.BigTextStyle().bigText(content))
             .setContentIntent(openApp)
             .setAutoCancel(true)
+            .setOnlyAlertOnce(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
     }
 

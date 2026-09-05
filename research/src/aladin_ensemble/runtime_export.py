@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from math import isfinite
@@ -52,6 +53,21 @@ class RuntimeCalibrationSegment:
             raise ValueError("runtime selector does not match its evaluation")
         if not self.evaluation.accepted:
             raise ValueError("runtime segment failed its holdout")
+        evaluated = self.evaluation.selector
+        if evaluated.elevation_band is not None:
+            raise ValueError("runtime schema cannot represent evaluated elevation scope")
+        if evaluated.region != self.selector.region:
+            raise ValueError("runtime region exceeds evaluated scope")
+        if not set(self.selector.months).issubset(
+            _SEASON_MONTHS.get(evaluated.season or "", ())
+        ):
+            raise ValueError("runtime months exceed evaluated season scope")
+        lead = re.fullmatch(r"([0-9]+)(?:-([0-9]+))?h", evaluated.lead_bucket or "")
+        if lead is None or not (
+            int(lead[1]) <= self.selector.minimum_lead_hours
+            <= self.selector.maximum_lead_hours <= int(lead[2] or lead[1])
+        ):
+            raise ValueError("runtime lead range exceeds evaluated scope")
         if self.truth_class not in _TRUTH_CLASSES:
             raise ValueError("runtime truth class is invalid")
         positive_sources = sum(weight > 0 for weight in self.fit.weights.values())
@@ -199,6 +215,12 @@ def _number(value: float) -> int | float:
 
 
 MAX_ARTIFACT_VALIDITY = timedelta(days=90)
+_SEASON_MONTHS = {
+    "winter": (12, 1, 2),
+    "spring": (3, 4, 5),
+    "summer": (6, 7, 8),
+    "autumn": (9, 10, 11),
+}
 _REGIONS = frozenset(
     {
         "CZECHIA",

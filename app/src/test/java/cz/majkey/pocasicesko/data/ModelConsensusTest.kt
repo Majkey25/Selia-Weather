@@ -1,5 +1,6 @@
 package cz.majkey.pocasicesko.data
 
+import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -41,7 +42,7 @@ class ModelConsensusTest {
         assertEquals(0, current.getInt("weather_code"))
         assertEquals(10, current.getInt("cloud_cover"))
         assertEquals(0, current.getInt("wind_direction_10m"))
-        assertEquals(67, hourly.getJSONArray("precipitation_probability").getInt(1))
+        assertEquals(0, hourly.getJSONArray("precipitation_probability").getInt(1))
         assertEquals(61, hourly.getJSONArray("weather_code").getInt(1))
         assertEquals(22.0, daily.getJSONArray("temperature_2m_max").getDouble(0), 0.0)
         assertEquals(20.0, daily.getJSONArray("temperature_2m_min").getDouble(0), 0.0)
@@ -50,6 +51,99 @@ class ModelConsensusTest {
         assertEquals(ForecastCalculationMode.DIAGNOSTIC_MEDIAN, result.mode)
         assertEquals(listOf("a", "b", "c"), result.contributorIds)
         assertEquals(null, result.fallbackReason)
+    }
+
+    @Test
+    fun preservesCurrentIntervalAggregatesWhileBlendingHourlyTotals() {
+        val base = JSONObject(BASE).also { root ->
+            root.getJSONObject("current")
+                .put("interval", 900).put("precipitation", 0.1).put("rain", 0.05)
+                .put("snowfall", 0.02).put("wind_gusts_10m", 8.0)
+            root.getJSONObject("hourly")
+                .put("rain", JSONArray(listOf(0.0, 0.0)))
+                .put("snowfall", JSONArray(listOf(0.0, 0.0)))
+        }
+        val models = JSONObject(MODELS).also { root ->
+            listOf("a", "b", "c").forEach { suffix ->
+                val hourly = root.getJSONObject("hourly")
+                listOf("precipitation", "rain", "snowfall").forEach { field ->
+                    hourly.put("${field}_$suffix", JSONArray(listOf(1.2, 1.2)))
+                }
+            }
+        }
+
+        val result = JSONObject(blendModelForecast(base.toString(), models.toString()).json)
+        val current = result.getJSONObject("current")
+
+        assertEquals(900, current.getInt("interval"))
+        assertEquals(0.1, current.getDouble("precipitation"), 0.0)
+        assertEquals(0.05, current.getDouble("rain"), 0.0)
+        assertEquals(0.02, current.getDouble("snowfall"), 0.0)
+        assertEquals(8.0, current.getDouble("wind_gusts_10m"), 0.0)
+        assertEquals(1.2, result.getJSONObject("hourly").getJSONArray("precipitation").getDouble(0), 0.0)
+        assertEquals(16.0, result.getJSONObject("hourly").getJSONArray("wind_gusts_10m").getDouble(0), 0.0)
+    }
+
+    @Test
+    fun preservesProviderDailyTotalWhenHourlyAmountsAreIncomplete() {
+        val models = JSONObject(MODELS).also { root ->
+            listOf("a", "b", "c").forEach { suffix ->
+                root.getJSONObject("hourly").remove("precipitation_$suffix")
+            }
+        }.toString()
+        listOf(
+            "[null,null]" to 4.2,
+            "[0.2,null]" to 4.2,
+            "[0.2,0.3]" to 0.5,
+        ).forEach { (amounts, expected) ->
+            val base = JSONObject(BASE).also { root ->
+                root.getJSONObject("hourly").put("precipitation", JSONArray(amounts))
+                root.getJSONObject("daily").getJSONArray("precipitation_sum").put(0, 4.2)
+            }
+
+            val result = JSONObject(blendModelForecast(base.toString(), models).json)
+
+            assertEquals(
+                expected,
+                result.getJSONObject("daily").getJSONArray("precipitation_sum").getDouble(0),
+                0.0001,
+            )
+        }
+    }
+
+    @Test
+    fun preservesProviderProbabilityRegardlessOfDeterministicModelAgreement() {
+        val base = JSONObject(BASE).also { root ->
+            root.getJSONObject("hourly").getJSONArray("precipitation_probability")
+                .put(0, 35).put(1, 45)
+        }.toString()
+        listOf(0.0, 0.2, JSONObject.NULL).forEach { precipitation ->
+            val models = JSONObject(MODELS).also { root ->
+                listOf("a", "b", "c").forEach { suffix ->
+                    root.getJSONObject("hourly").getJSONArray("precipitation_$suffix")
+                        .put(0, precipitation).put(1, precipitation)
+                }
+            }
+
+            val result = JSONObject(blendModelForecast(base, models.toString()).json)
+            val probabilities = result.getJSONObject("hourly").getJSONArray("precipitation_probability")
+
+            assertEquals(35, probabilities.getInt(0))
+            assertEquals(45, probabilities.getInt(1))
+            assertEquals(45, result.getJSONObject("daily").getJSONArray("precipitation_probability_max").getInt(0))
+        }
+    }
+
+    @Test
+    fun regionalBlendWithoutVerifiedCalibrationKeepsDiagnosticProvenance() {
+        val result = blendModelForecast(BASE, MODELS, PRAGUE, calibration = null)
+
+        assertEquals(ForecastCalculationMode.DIAGNOSTIC_MEDIAN, result.mode)
+        assertEquals(listOf("a", "b", "c"), result.contributorIds)
+        assertTrue(result.appliedWeights.isEmpty())
+        assertEquals(null, result.truthClass)
+        assertEquals(null, result.artifactVersion)
+        assertEquals(null, result.artifactGeneratedAtEpochSeconds)
     }
 
     @Test

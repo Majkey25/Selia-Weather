@@ -1,7 +1,7 @@
 package cz.majkey.pocasicesko.widget
 
-import android.view.Gravity
 import cz.majkey.pocasicesko.data.WeatherKind
+import cz.majkey.pocasicesko.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -99,10 +99,12 @@ class WidgetSettingsTest {
     }
 
     @Test
-    fun everyWidgetFontUsesADistinctLauncherSafeTextAppearance() {
-        val appearances = WidgetFontStyle.entries.map(::widgetTextAppearance)
+    fun everyWidgetFontAndAlignmentUsesADistinctXmlLayout() {
+        val layouts = WidgetFontStyle.entries.flatMap { font ->
+            WidgetAlignment.entries.map { alignment -> widgetFontLayout(font, alignment) }
+        }
 
-        assertEquals(WidgetFontStyle.entries.size, appearances.distinct().size)
+        assertEquals(WidgetFontStyle.entries.size * WidgetAlignment.entries.size, layouts.distinct().size)
     }
 
     @Test
@@ -148,11 +150,8 @@ class WidgetSettingsTest {
     }
 
     @Test
-    fun resizedHostUsesCurrentBoundsAndTextGravity() {
+    fun resizedHostUsesCurrentBounds() {
         assertEquals(WidgetHostSize(467, 104), widgetHostSize(467, 104))
-        assertEquals(Gravity.START, widgetTextGravity(WidgetAlignment.LEFT))
-        assertEquals(Gravity.CENTER_HORIZONTAL, widgetTextGravity(WidgetAlignment.CENTER))
-        assertEquals(Gravity.END, widgetTextGravity(WidgetAlignment.RIGHT))
     }
 
     @Test
@@ -291,6 +290,36 @@ class WidgetSettingsTest {
         assertTrue(widgetAdvancedVisible(WidgetSize.WIDE, text))
         assertFalse(widgetAdvancedVisible(WidgetSize.COMPACT, text))
         assertFalse(widgetAdvancedVisible(WidgetSize.TALL, ""))
+    }
+
+    @Test
+    fun wideningTallWidgetsPreservesEnabledMetricsAndUsesExtraHeightForHours() {
+        val settings = WidgetSettings(showPrecipitation = true, showWind = true, showHumidity = true)
+        val available = WidgetDataAvailability(true, true, true, true, true)
+        val tall = widgetContentVisibility(settings, widgetSize(240, 180), available, 180)
+        val wide = widgetContentVisibility(settings, widgetSize(360, 180), available, 180)
+        listOf(tall, wide).forEach {
+            assertTrue(it.showPrecipitation)
+            assertTrue(it.showWind)
+            assertTrue(it.showHumidity)
+        }
+        assertTrue(wide.showHourly)
+        val shorter = widgetContentVisibility(settings, widgetSize(360, 120), available, 120)
+        assertTrue(shorter.showMetrics)
+        assertFalse(shorter.showHourly)
+        val short = widgetContentVisibility(settings, widgetSize(360, 90), available, 90)
+        assertFalse(short.showMetrics)
+        val missing = widgetContentVisibility(settings, WidgetSize.WIDE, WidgetDataAvailability(false, false, false, false, false), 180)
+        assertFalse(missing.showMetrics)
+        assertFalse(missing.showHourly)
+    }
+
+    @Test
+    fun widgetIconsDistinguishClearCloudyAndNight() {
+        assertEquals(R.drawable.ic_weather_moon, widgetIconFor(WeatherKind.CLEAR, false))
+        assertEquals(R.drawable.ic_weather_partly_cloudy, widgetIconFor(WeatherKind.PARTLY_CLOUDY, true))
+        assertEquals(R.drawable.ic_weather_partly_cloudy_night, widgetIconFor(WeatherKind.MAINLY_CLEAR, false))
+        assertEquals(R.drawable.ic_weather_cloud, widgetIconFor(WeatherKind.CLOUDY, true))
     }
 
     @Test

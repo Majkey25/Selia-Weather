@@ -342,4 +342,15 @@
     <string name="hourly_rain_likely">Regen ist wahrscheinlich: %1$s erwartet (%2$d%% Wahrscheinlichkeit).</string>
     <string name="hourly_rain_heavy">Starker Regen ist möglich: %1$s erwartet (%2$d%% Wahrscheinlichkeit).</string>
     <string name="hourly_dry_summary">%1$s. Es wird kein messbarer Regen erwartet (%2$d%% Wahrscheinlichkeit). Gefühlt %3$s bei %4$s Wind aus %5$s.</string>
+    <string name="hourly_snow_summary">In dieser Stunde ist Schnee möglich: %1$s Wasseräquivalent (%2$d%% Niederschlagswahrscheinlichkeit).</string>
+    <string name="hourly_mixed_summary">In dieser Stunde sind Regen und Schnee möglich: insgesamt %1$s Wasseräquivalent (%2$d%% Niederschlagswahrscheinlichkeit).</string>
+    <string name="hourly_freezing_summary">Gefrierender Niederschlag ist möglich. Oberflächen können glatt werden: %1$s in dieser Stunde (%2$d%% Wahrscheinlichkeit).</string>
+    <string name="hourly_precipitation_summary">Niederschlag ist möglich: %1$s in dieser Stunde (%2$d%% Wahrscheinlichkeit).</string>
+    <string name="hourly_snowfall_summary">Erwarteter Neuschnee: %1$s in dieser Stunde.</string>
+    <string name="hourly_wind_summary">Achten Sie besonders auf den Wind: %1$s.</string>
+    <string name="hourly_gusts_summary">Böen können %1$s erreichen.</string>
+    <string name="hourly_visibility_summary">Die Sichtweite kann auf %1$s sinken. Planen Sie mehr Zeit für die Fahrt ein.</string>
+    <string name="hourly_feels_like_summary">Es fühlt sich wie %1$s an, bei einer Lufttemperatur von %2$s. Kleiden Sie sich nach der gefühlten Temperatur.</string>
+    <string name="hourly_uv_summary">UV-Index %1$.1f. Verwenden Sie draußen Sonnenschutz, auch wenn es kühl ist.</string>
+    <string name="widget_edit">Widget %1$d anpassen</string>
 </resources>

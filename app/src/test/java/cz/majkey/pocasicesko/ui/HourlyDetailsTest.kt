@@ -93,6 +93,29 @@ class HourlyDetailsTest {
     }
 
     @Test
+    fun distinguishesSnowMixedAndFreezingPrecipitationFromRain() {
+        val wet = hour(null, null).copy(precipitationProbability = 80, precipitation = 1.0)
+        assertEquals(HourlyHighlight.SNOW, hourlyHighlight(wet.copy(weatherCode = 73, snowfall = 0.7, rain = 0.0)))
+        assertEquals(HourlyHighlight.MIXED, hourlyHighlight(wet.copy(snowfall = 0.4, rain = 0.5)))
+        assertEquals(HourlyHighlight.FREEZING, hourlyHighlight(wet.copy(weatherCode = 66, rain = 1.0)))
+        assertEquals(HourlyHighlight.RAIN, hourlyHighlight(wet.copy(weatherCode = 61)))
+        assertEquals(HourlyHighlight.PRECIPITATION, hourlyHighlight(wet.copy(weatherCode = 1)))
+        assertEquals(HourlyHighlight.SNOW, hourlyHighlight(wet.copy(precipitation = 0.0, precipitationProbability = 0, snowfall = 0.1)))
+    }
+
+    @Test
+    fun prioritizesUsefulDryHighlightsAndKeepsRainFirst() {
+        val dry = hour(null, null).copy(precipitationProbability = 0, precipitation = 0.0)
+        assertEquals(HourlyHighlight.WIND, hourlyHighlight(dry.copy(windGusts = 45.0, uvIndex = 7.0)))
+        assertEquals(HourlyHighlight.VISIBILITY, hourlyHighlight(dry.copy(visibilityMeters = 500.0)))
+        assertEquals(HourlyHighlight.FEELS_LIKE, hourlyHighlight(dry.copy(apparentTemperature = 32.0, uvIndex = 7.0)))
+        assertEquals(HourlyHighlight.UV, hourlyHighlight(dry.copy(uvIndex = 5.0)))
+        assertEquals(HourlyHighlight.CONDITIONS, hourlyHighlight(dry.copy(isDay = false, uvIndex = 5.0)))
+        assertEquals(HourlyHighlight.CONDITIONS, hourlyHighlight(dry))
+        assertEquals(HourlyHighlight.RAIN, hourlyHighlight(dry.copy(rain = 2.0, precipitation = 2.0, windGusts = 45.0)))
+    }
+
+    @Test
     fun forecastScreenUsesExpandableHourlyRows() {
         val source = File(
             System.getProperty("user.dir"),

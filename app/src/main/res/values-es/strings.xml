@@ -342,4 +342,15 @@
     <string name="hourly_rain_likely">Es probable que llueva: se esperan %1$s (%2$d%% de probabilidad).</string>
     <string name="hourly_rain_heavy">Puede llover con fuerza: se esperan %1$s (%2$d%% de probabilidad).</string>
     <string name="hourly_dry_summary">%1$s. No se espera lluvia medible (%2$d%% de probabilidad). Sensación de %3$s, con viento de %4$s desde %5$s.</string>
+    <string name="hourly_snow_summary">Puede nevar esta hora: %1$s de equivalente en agua (%2$d%% de probabilidad de precipitación).</string>
+    <string name="hourly_mixed_summary">Puede llover y nevar esta hora: %1$s de equivalente en agua en total (%2$d%% de probabilidad de precipitación).</string>
+    <string name="hourly_freezing_summary">Puede haber precipitación engelante y superficies resbaladizas: %1$s esta hora (%2$d%% de probabilidad).</string>
+    <string name="hourly_precipitation_summary">Puede haber precipitación: %1$s esta hora (%2$d%% de probabilidad).</string>
+    <string name="hourly_snowfall_summary">Nieve nueva prevista: %1$s esta hora.</string>
+    <string name="hourly_wind_summary">Presta especial atención al viento: %1$s.</string>
+    <string name="hourly_gusts_summary">Las rachas pueden alcanzar %1$s.</string>
+    <string name="hourly_visibility_summary">La visibilidad puede bajar a %1$s. Reserva más tiempo para viajar.</string>
+    <string name="hourly_feels_like_summary">La sensación térmica será de %1$s, con una temperatura del aire de %2$s. Vístete según la sensación térmica.</string>
+    <string name="hourly_uv_summary">Índice UV %1$.1f. Usa protección solar al aire libre, incluso si hace fresco.</string>
+    <string name="widget_edit">Personalizar widget %1$d</string>
 </resources>

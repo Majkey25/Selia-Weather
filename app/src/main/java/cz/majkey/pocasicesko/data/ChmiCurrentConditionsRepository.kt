@@ -18,6 +18,7 @@ internal class ChmiCurrentConditionsRepository(context: Context) {
         val date = now.atZone(ZoneOffset.UTC).toLocalDate().format(DATE_FORMAT)
         return buildList {
             for (station in nearestCurrentStations(location, stations, REQUIRED_STATION_COUNT)) {
+                ensureForecastThreadActive()
                 val observation = runCatching {
                     parseCurrentStationObservation(request(station, date), station)
                 }.getOrNull()
@@ -37,7 +38,7 @@ internal class ChmiCurrentConditionsRepository(context: Context) {
             if (connection.responseCode !in 200..299) {
                 throw IOException("ČHMÚ returned HTTP ${connection.responseCode}.")
             }
-            connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            connection.inputStream.use { readLimited(it, MAX_RESPONSE_BYTES).toString(Charsets.UTF_8) }
         } finally {
             connection.disconnect()
         }
@@ -49,6 +50,7 @@ internal class ChmiCurrentConditionsRepository(context: Context) {
         private const val REQUIRED_STATION_COUNT = 3
         private const val CONNECT_TIMEOUT_MILLIS = 4_000
         private const val READ_TIMEOUT_MILLIS = 6_000
+        private const val MAX_RESPONSE_BYTES = 2_000_000
         private val DATE_FORMAT = DateTimeFormatter.BASIC_ISO_DATE
         private val USER_AGENT =
             "Selia-Weather/${BuildConfig.VERSION_NAME} (Android; https://github.com/Majkey25/Selia-Weather)"

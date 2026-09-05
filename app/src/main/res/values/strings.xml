@@ -343,4 +343,15 @@
     <string name="hourly_rain_likely">Rain is likely: %1$s expected this hour (%2$d%% chance).</string>
     <string name="hourly_rain_heavy">Heavy rain is possible: %1$s expected this hour (%2$d%% chance).</string>
     <string name="hourly_dry_summary">%1$s. No measurable rain is expected (%2$d%% chance). Feels like %3$s with %4$s wind from %5$s.</string>
+    <string name="hourly_snow_summary">Snow is possible this hour: %1$s water equivalent (%2$d%% chance of precipitation).</string>
+    <string name="hourly_mixed_summary">Rain and snow are possible this hour: %1$s total water equivalent (%2$d%% chance of precipitation).</string>
+    <string name="hourly_freezing_summary">Freezing precipitation is possible. Surfaces may become slippery: %1$s expected this hour (%2$d%% chance).</string>
+    <string name="hourly_precipitation_summary">Precipitation is possible: %1$s expected this hour (%2$d%% chance).</string>
+    <string name="hourly_snowfall_summary">Expected snowfall: %1$s this hour.</string>
+    <string name="hourly_wind_summary">Wind is the main concern: %1$s.</string>
+    <string name="hourly_gusts_summary">Gusts may reach %1$s.</string>
+    <string name="hourly_visibility_summary">Visibility may fall to %1$s. Allow extra time when travelling.</string>
+    <string name="hourly_feels_like_summary">It will feel like %1$s, compared with an air temperature of %2$s. Dress for the feels-like temperature.</string>
+    <string name="hourly_uv_summary">UV index %1$.1f. Use sun protection outdoors, even when it feels cool.</string>
+    <string name="widget_edit">Customize widget %1$d</string>
 </resources>

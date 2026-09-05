@@ -1,0 +1,1 @@
+Spolehlivější pravděpodobnosti a úhrny srážek. Radar má opakování načítání, obnovu připojení a přehlednější ovládání. Hodinová shrnutí vysvětlují sníh, vítr, dohlednost i UV. Widget zachová údaje při změně velikosti a stahování na pozadí neblokuje jeho aktualizaci. Po návratu se obnoví počasí, otočení zachová navigaci. Bez reklam a Premium.

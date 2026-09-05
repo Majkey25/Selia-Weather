@@ -16,7 +16,11 @@
     .topline { display: flex; align-items: center; min-height: 28px; gap: 8px; }
     .time { flex: 1; font-size: 13px; font-weight: 650; }
     .source { color: #a9bbc3; font-size: 10px; text-align: right; }
-    button { min-width: 38px; height: 34px; border: 1px solid #ffffff24; border-radius: 12px; background: #172731; color: #f4fafc; font: inherit; }
+    button { min-width: 44px; min-height: 44px; border: 1px solid #ffffff24; border-radius: 12px; background: #172731; color: #f4fafc; font: inherit; }
+    button:disabled { opacity: 0.45; }
+    .topline { flex-wrap: wrap; }
+    .source { width: 100%; }
+    @media (min-width: 480px) { .source { width: auto; } }
     button.active { background: #2b6878; }
     button:focus-visible { outline: 2px solid #6dd3ea; outline-offset: 2px; }
     input[type=range] { width: 100%; margin: 8px 0 0; accent-color: #66c9df; }
@@ -28,15 +32,16 @@
 </head>
 <body>
   <div id="map" aria-label="Observed precipitation radar"></div>
-  <div id="status" class="status">Loading observed radar…</div>
+  <div id="status" class="status" role="status">Loading observed radar…</div>
   <div class="panel">
     <div class="topline">
-      <button id="play" type="button" aria-label="Play" onclick="togglePlay()">▶</button>
+      <button id="play" type="button" aria-label="Play" onclick="togglePlay()" disabled>▶</button>
       <button id="coverage" class="active" type="button" aria-pressed="true" onclick="toggleCoverage()">Coverage</button>
+      <button id="retry" type="button" onclick="loadRadar()">↻</button>
       <div id="time" class="time">—</div>
       <div class="source">RainViewer · UTC</div>
     </div>
-    <input id="slider" type="range" min="0" max="0" value="0" aria-label="Observed radar timeline" oninput="showFrame(Number(this.value))">
+    <input id="slider" type="range" min="0" max="0" value="0" aria-label="Observed radar timeline" oninput="stopPlay(); showFrame(Number(this.value))" disabled>
   </div>
   <script src="leaflet-1.9.4.js"></script>
   <script>
@@ -61,12 +66,26 @@
     var timer = null;
     var requestToken = 0;
     var tileHost = '';
+    var activeRequest = null;
+    var lastLoadedAt = 0;
+    var REQUEST_TIMEOUT_MS = 15000;
+    var REFRESH_INTERVAL_MS = 600000;
+    var MAX_FRAME_AGE_SECONDS = 3600;
+    var CONTROL_TEXTS = {
+      en: ['Refresh radar', 'Observed radar timeline'],
+      cs: ['Obnovit radar', 'Časová osa pozorovaného radaru'],
+      de: ['Radar aktualisieren', 'Zeitleiste des Beobachtungsradars'],
+      es: ['Actualizar radar', 'Línea temporal del radar observado'],
+      fr: ['Actualiser le radar', 'Chronologie du radar observé']
+    };
 
     document.documentElement.lang = language;
     document.getElementById('status').textContent = TEXT.loading;
     document.getElementById('play').setAttribute('aria-label', TEXT.play);
     document.getElementById('coverage').textContent = TEXT.coverage;
     document.getElementById('map').setAttribute('aria-label', TEXT.map);
+    document.getElementById('retry').setAttribute('aria-label', CONTROL_TEXTS[language][0]);
+    document.getElementById('slider').setAttribute('aria-label', CONTROL_TEXTS[language][1]);
 
     function sizeMap() {
       document.getElementById('map').style.height = Math.max(window.innerHeight, 1) + 'px';
@@ -86,6 +105,7 @@
     }).addTo(map);
 
     function coordinate(raw, minimum, maximum, fallback) {
+      if (raw === null || String(raw).trim() === '') return fallback;
       var value = Number(raw);
       return Number.isFinite(value) && value >= minimum && value <= maximum ? value : fallback;
     }
@@ -137,7 +157,8 @@
         setStatus(TEXT.unavailable);
         return;
       }
-      frameIndex = Math.max(0, Math.min(index, frames.length - 1));
+      if (!Number.isFinite(index)) return;
+      frameIndex = Math.max(0, Math.min(Math.round(index), frames.length - 1));
       document.getElementById('slider').value = frameIndex;
       clearRadarLayer();
       radarLayer = L.tileLayer(radarTileUrl(frames[frameIndex]), {
@@ -147,11 +168,22 @@
         opacity: 0.78,
         attribution: '<a href="https://www.rainviewer.com/">RainViewer</a>'
       });
-      radarLayer.on('loading', function() { setStatus(TEXT.loading); });
-      radarLayer.on('load', function() { setStatus(''); });
-      radarLayer.on('tileerror', function() { setStatus(TEXT.unavailable); });
+      var layer = radarLayer;
+      var failed = false;
+      layer.on('loading', function() {
+        failed = false;
+        if (radarLayer === layer) setStatus(TEXT.loading);
+      });
+      layer.on('load', function() {
+        if (radarLayer === layer) setStatus(failed ? TEXT.unavailable : '');
+      });
+      layer.on('tileerror', function() {
+        failed = true;
+        if (radarLayer === layer) { stopPlay(); setStatus(TEXT.unavailable); }
+      });
       radarLayer.addTo(map);
       document.getElementById('time').textContent = formatUtc(frames[frameIndex].time);
+      document.getElementById('slider').setAttribute('aria-valuetext', formatUtc(frames[frameIndex].time));
     }
 
     function formatUtc(epochSeconds) {
@@ -160,13 +192,18 @@
         String(date.getUTCMinutes()).padStart(2, '0') + ' UTC';
     }
 
+    function stopPlay() {
+      clearInterval(timer);
+      timer = null;
+      var button = document.getElementById('play');
+      button.textContent = '▶';
+      button.setAttribute('aria-label', TEXT.play);
+    }
+
     function togglePlay() {
       var button = document.getElementById('play');
       if (timer) {
-        clearInterval(timer);
-        timer = null;
-        button.textContent = '▶';
-        button.setAttribute('aria-label', TEXT.play);
+        stopPlay();
         return;
       }
       if (!frames.length) return;
@@ -177,33 +214,65 @@
 
     function loadRadar() {
       var token = ++requestToken;
+      stopPlay();
+      if (activeRequest) activeRequest.abort();
+      var controller = new AbortController();
+      activeRequest = controller;
+      var timeout = setTimeout(function() { controller.abort(); }, REQUEST_TIMEOUT_MS);
+      frames = [];
+      clearRadarLayer();
+      document.getElementById('play').disabled = true;
+      document.getElementById('slider').disabled = true;
+      document.getElementById('time').textContent = '—';
       setStatus(TEXT.loading);
-      fetch('https://api.rainviewer.com/public/weather-maps.json', { cache: 'no-store' })
+      fetch('https://api.rainviewer.com/public/weather-maps.json', { cache: 'no-store', signal: controller.signal })
         .then(function(response) {
           if (!response.ok) throw new Error('HTTP ' + response.status);
           return response.json();
         })
         .then(function(manifest) {
           if (token !== requestToken) return;
-          if (!manifest || !manifest.host || !manifest.radar || !Array.isArray(manifest.radar.past)) {
+          if (!manifest || manifest.host !== 'https://tilecache.rainviewer.com' ||
+              !manifest.radar || !Array.isArray(manifest.radar.past)) {
             throw new Error('Invalid RainViewer manifest');
           }
           tileHost = manifest.host;
           frames = manifest.radar.past.slice(-MAX_FRAMES);
-          if (!frames.length) throw new Error('No radar frames');
+          var now = Date.now() / 1000;
+          if (!frames.length || !frames.every(function(frame, index) {
+            return frame && Number.isInteger(frame.time) && frame.time <= now + 300 &&
+              typeof frame.path === 'string' && /^\/v2\/radar\/[A-Za-z0-9_-]{1,128}$/.test(frame.path) &&
+              (index === 0 || frame.time > frames[index - 1].time);
+          }) || now - frames[frames.length - 1].time > MAX_FRAME_AGE_SECONDS) {
+            throw new Error('Invalid or stale radar frames');
+          }
+          lastLoadedAt = Date.now();
           installCoverageLayer();
           var slider = document.getElementById('slider');
           slider.max = frames.length - 1;
           frameIndex = frames.length - 1;
           slider.value = frameIndex;
+          slider.disabled = false;
+          document.getElementById('play').disabled = false;
           showFrame(frameIndex);
         })
         .catch(function() {
           if (token !== requestToken) return;
           clearRadarLayer();
+          frames = [];
           setStatus(TEXT.unavailable);
+        })
+        .finally(function() {
+          clearTimeout(timeout);
+          if (token === requestToken) activeRequest = null;
         });
     }
+
+    document.addEventListener('visibilitychange', function() {
+      if (document.hidden) stopPlay();
+      else if (Date.now() - lastLoadedAt >= REFRESH_INTERVAL_MS) loadRadar();
+    });
+    window.addEventListener('online', loadRadar);
 
     function selfTest() {
       if (coordinate('91', -90, 90, 1) !== 1 || coordinate('-33.8', -90, 90, 1) !== -33.8) {

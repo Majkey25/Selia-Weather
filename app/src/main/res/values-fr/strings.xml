@@ -342,4 +342,15 @@
     <string name="hourly_rain_likely">La pluie est probable : %1$s attendu (%2$d%% de probabilité).</string>
     <string name="hourly_rain_heavy">De fortes pluies sont possibles : %1$s attendu (%2$d%% de probabilité).</string>
     <string name="hourly_dry_summary">%1$s. Aucune pluie mesurable n’est attendue (%2$d%% de probabilité). Ressenti %3$s, avec un vent de %4$s venant de %5$s.</string>
+    <string name="hourly_snow_summary">De la neige est possible cette heure : %1$s en équivalent eau (%2$d%% de probabilité de précipitations).</string>
+    <string name="hourly_mixed_summary">Pluie et neige sont possibles cette heure : %1$s en équivalent eau au total (%2$d%% de probabilité de précipitations).</string>
+    <string name="hourly_freezing_summary">Des précipitations verglaçantes sont possibles. Les surfaces peuvent devenir glissantes : %1$s cette heure (%2$d%% de probabilité).</string>
+    <string name="hourly_precipitation_summary">Des précipitations sont possibles : %1$s cette heure (%2$d%% de probabilité).</string>
+    <string name="hourly_snowfall_summary">Neige fraîche prévue : %1$s cette heure.</string>
+    <string name="hourly_wind_summary">Attention surtout au vent : %1$s.</string>
+    <string name="hourly_gusts_summary">Les rafales peuvent atteindre %1$s.</string>
+    <string name="hourly_visibility_summary">La visibilité peut descendre à %1$s. Prévoyez plus de temps pour vos déplacements.</string>
+    <string name="hourly_feels_like_summary">Le ressenti sera de %1$s, pour une température de l’air de %2$s. Habillez-vous selon la température ressentie.</string>
+    <string name="hourly_uv_summary">Indice UV %1$.1f. Utilisez une protection solaire dehors, même par temps frais.</string>
+    <string name="widget_edit">Personnaliser le widget %1$d</string>
 </resources>

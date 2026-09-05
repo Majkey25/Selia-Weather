@@ -43,6 +43,8 @@
 
                 <TextView
                     android:id="@+id/widget_label"
+                    android:gravity="?android:attr/gravity"
+                    android:fontFamily="?android:attr/fontFamily"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
@@ -54,6 +56,8 @@
 
                 <TextView
                     android:id="@+id/widget_city"
+                    android:gravity="?android:attr/gravity"
+                    android:fontFamily="?android:attr/fontFamily"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
@@ -66,6 +70,8 @@
 
                 <TextView
                     android:id="@+id/widget_temperature"
+                    android:gravity="?android:attr/gravity"
+                    android:fontFamily="?android:attr/fontFamily"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:includeFontPadding="false"
@@ -94,6 +100,8 @@
 
                 <TextView
                     android:id="@+id/widget_condition"
+                    android:gravity="?android:attr/gravity"
+                    android:fontFamily="?android:attr/fontFamily"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
@@ -106,6 +114,8 @@
 
                 <TextView
                     android:id="@+id/widget_high_low"
+                    android:gravity="?android:attr/gravity"
+                    android:fontFamily="?android:attr/fontFamily"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
@@ -125,6 +135,8 @@
 
                 <TextClock
                     android:id="@+id/widget_clock"
+                    android:gravity="?android:attr/gravity"
+                    android:fontFamily="?android:attr/fontFamily"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:format12Hour="h:mm"
@@ -136,6 +148,8 @@
 
                 <TextView
                     android:id="@+id/widget_date"
+                    android:gravity="?android:attr/gravity"
+                    android:fontFamily="?android:attr/fontFamily"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:includeFontPadding="false"
@@ -155,6 +169,7 @@
 
             <TextView
                 android:id="@+id/widget_precipitation"
+                android:fontFamily="?android:attr/fontFamily"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
@@ -164,6 +179,7 @@
 
             <TextView
                 android:id="@+id/widget_wind"
+                android:fontFamily="?android:attr/fontFamily"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
@@ -174,6 +190,7 @@
 
             <TextView
                 android:id="@+id/widget_humidity"
+                android:fontFamily="?android:attr/fontFamily"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
@@ -185,6 +202,8 @@
 
         <TextView
             android:id="@+id/widget_advanced"
+            android:gravity="?android:attr/gravity"
+            android:fontFamily="?android:attr/fontFamily"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:ellipsize="end"
@@ -196,6 +215,7 @@
 
         <TextView
             android:id="@+id/widget_hourly_divider"
+            android:fontFamily="?android:attr/fontFamily"
             android:layout_width="match_parent"
             android:layout_height="1dp"
             android:layout_marginVertical="5dp"
@@ -221,6 +241,7 @@
 
                 <TextView
                     android:id="@+id/widget_hour_1_time"
+                    android:fontFamily="?android:attr/fontFamily"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:includeFontPadding="false"
@@ -230,6 +251,7 @@
 
                 <TextView
                     android:id="@+id/widget_hour_1_temp"
+                    android:fontFamily="?android:attr/fontFamily"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="3dp"
@@ -249,6 +271,7 @@
 
                 <TextView
                     android:id="@+id/widget_hour_2_time"
+                    android:fontFamily="?android:attr/fontFamily"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:includeFontPadding="false"
@@ -258,6 +281,7 @@
 
                 <TextView
                     android:id="@+id/widget_hour_2_temp"
+                    android:fontFamily="?android:attr/fontFamily"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="3dp"
@@ -277,6 +301,7 @@
 
                 <TextView
                     android:id="@+id/widget_hour_3_time"
+                    android:fontFamily="?android:attr/fontFamily"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:includeFontPadding="false"
@@ -286,6 +311,7 @@
 
                 <TextView
                     android:id="@+id/widget_hour_3_temp"
+                    android:fontFamily="?android:attr/fontFamily"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="3dp"
@@ -299,9 +325,10 @@
 
         <TextView
             android:id="@+id/widget_update_time"
+            android:fontFamily="?android:attr/fontFamily"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="end"
+            android:gravity="?android:attr/gravity"
             android:includeFontPadding="false"
             android:textColor="#8FFFFFFF"
             android:textSize="9sp"

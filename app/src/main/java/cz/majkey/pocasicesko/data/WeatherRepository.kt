@@ -17,8 +17,10 @@ import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.util.Locale
+import java.util.concurrent.CancellationException
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import org.json.JSONException
 import org.json.JSONObject
@@ -29,8 +31,6 @@ class WeatherRepository(context: Context) {
     private val currentConditions = ChmiCurrentConditionsRepository(appContext)
     private val metarCurrentConditions = MetarCurrentConditionsRepository()
     private val historyRepository = HistoryRepository(File(appContext.cacheDir, "history"))
-    private val staticForecastRepository = StaticForecastRepository()
-    @Volatile private var calibrationArtifact: CalibrationArtifact? = null
 
     fun lastLocation(): CzechLocation {
         val location = CzechLocation(
@@ -46,14 +46,16 @@ class WeatherRepository(context: Context) {
     }
 
     fun selectLocation(location: CzechLocation) {
-        preferences.edit {
-            val normalized = normalizeLocationRegion(location)
-            putString(KEY_LOCATION_NAME, normalized.name)
-            putString(KEY_LOCATION_REGION, normalized.region)
-            putString(KEY_LOCATION_LATITUDE, normalized.latitude.toString())
-            putString(KEY_LOCATION_LONGITUDE, normalized.longitude.toString())
-            normalized.countryCode?.let { putString(KEY_LOCATION_COUNTRY_CODE, it) }
-                ?: remove(KEY_LOCATION_COUNTRY_CODE)
+        synchronized(PERSISTENCE_LOCK) {
+            preferences.edit {
+                val normalized = normalizeLocationRegion(location)
+                putString(KEY_LOCATION_NAME, normalized.name)
+                putString(KEY_LOCATION_REGION, normalized.region)
+                putString(KEY_LOCATION_LATITUDE, normalized.latitude.toString())
+                putString(KEY_LOCATION_LONGITUDE, normalized.longitude.toString())
+                normalized.countryCode?.let { putString(KEY_LOCATION_COUNTRY_CODE, it) }
+                    ?: remove(KEY_LOCATION_COUNTRY_CODE)
+            }
         }
     }
 
@@ -97,31 +99,33 @@ class WeatherRepository(context: Context) {
     }
 
     suspend fun fetchForecast(location: CzechLocation): WeatherSnapshot = withContext(Dispatchers.IO) {
-        fetchForecastBlocking(location)
+        fetchForecastAndPersist(location) {
+            ensureActive()
+            ensureForecastThreadActive()
+        }
     }
 
     internal suspend fun fetchHistory(location: CzechLocation): HistoryArchive =
         historyRepository.fetch(location)
 
-    fun fetchForecastBlocking(location: CzechLocation): WeatherSnapshot {
+    fun fetchForecastBlocking(location: CzechLocation): WeatherSnapshot =
+        fetchForecastAndPersist(location, ::ensureForecastThreadActive)
+
+    private fun fetchForecastAndPersist(
+        location: CzechLocation,
+        checkActive: () -> Unit,
+    ): WeatherSnapshot {
+        checkActive()
         val bestMatchJson = request(forecastUri(location).toString())
+        checkActive()
         val requestedModels = forecastApiModelsFor(location)
-        val calibration = try {
-            staticForecastRepository.fetchCalibrationArtifact(Instant.now())
-        } catch (_: IOException) {
-            null
-        } catch (_: IllegalArgumentException) {
-            null
-        } catch (_: JSONException) {
-            null
-        }
-        calibrationArtifact = calibration
         val blend = try {
             blendModelForecast(
                 bestMatchJson,
                 request(modelForecastUrl(location)),
                 location,
-                calibration,
+                // Live responses omit model issue times, so calibrated lead/age cannot be verified.
+                calibration = null,
             )
         } catch (_: IOException) {
             ModelBlendResult(
@@ -138,6 +142,7 @@ class WeatherRepository(context: Context) {
                 ForecastFallbackReason.PROVIDER_UNAVAILABLE,
             )
         }
+        checkActive()
         val calculation = ForecastCalculation(
             region = forecastRegionFor(location),
             mode = blend.mode,
@@ -153,7 +158,8 @@ class WeatherRepository(context: Context) {
         val updatedAt = System.currentTimeMillis()
         val modelSnapshot = WeatherParser.parseForecast(forecastJson, updatedAt)
         val now = Instant.ofEpochMilli(updatedAt)
-        val observations = currentObservations(location, now)
+        val observations = currentObservations(location, now, checkActive)
+        checkActive()
         val observedCurrent = fuseCurrentConditions(
             model = modelSnapshot.current,
             location = location,
@@ -162,21 +168,30 @@ class WeatherRepository(context: Context) {
         )
         val correctedJson = applyCurrentConditionsToForecastJson(forecastJson, observedCurrent)
         val snapshot = WeatherParser.parseForecast(correctedJson, updatedAt)
-        persist(location, correctedJson, snapshot)
-        WeatherWidgetProvider.updateAll(appContext)
+        synchronized(PERSISTENCE_LOCK) {
+            checkActive()
+            if (location.matches(lastLocation())) {
+                persist(location, correctedJson, snapshot)
+                WeatherWidgetProvider.updateAll(appContext)
+            }
+        }
         return snapshot
     }
 
     private fun currentObservations(
         location: CzechLocation,
         now: Instant,
-    ): List<CurrentStationObservation> =
-        stationObservations { metarCurrentConditions.fetch(location) } +
-            if (location.isInCzechia()) {
-                stationObservations { currentConditions.fetch(location, now) }
-            } else {
-                emptyList()
-            }
+        checkActive: () -> Unit,
+    ): List<CurrentStationObservation> {
+        checkActive()
+        val metar = stationObservations { metarCurrentConditions.fetch(location) }
+        checkActive()
+        return metar + if (location.isInCzechia()) {
+            stationObservations { currentConditions.fetch(location, now) }
+        } else {
+            emptyList()
+        }
+    }
 
     private inline fun stationObservations(
         fetch: () -> List<CurrentStationObservation>,
@@ -249,6 +264,7 @@ class WeatherRepository(context: Context) {
             kotlin.math.abs(longitude - other.longitude) <= COORDINATE_EPSILON
 
     private fun request(url: String): String {
+        ensureForecastThreadActive()
         val connection = URL(url).openConnection() as HttpURLConnection
         return try {
             connection.connectTimeout = CONNECT_TIMEOUT_MILLIS
@@ -266,6 +282,8 @@ class WeatherRepository(context: Context) {
     }
 
     companion object {
+        private val PERSISTENCE_LOCK = Any()
+
         internal fun forecastUri(location: CzechLocation): Uri = Uri.parse(forecastUrl(location))
 
         internal fun modelForecastUrl(location: CzechLocation): String =
@@ -356,6 +374,10 @@ class WeatherRepository(context: Context) {
             countryCode = "CZ",
         )
     }
+}
+
+internal fun ensureForecastThreadActive() {
+    if (Thread.currentThread().isInterrupted) throw CancellationException("Weather refresh interrupted.")
 }
 
 private fun String.urlEncoded(): String = URLEncoder.encode(this, StandardCharsets.UTF_8.toString())

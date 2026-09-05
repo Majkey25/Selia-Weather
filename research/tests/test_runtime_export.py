@@ -44,7 +44,7 @@ def test_runtime_artifact_matches_android_schema_two() -> None:
     selector = cast(dict[str, JsonValue], segments[0]["selector"])
     assert selector == {
         "maximum_lead_hours": 24,
-        "minimum_lead_hours": 0,
+        "minimum_lead_hours": 7,
         "months": [6, 7, 8],
         "region": "AFRICA",
         "variable": "temperature_2m",
@@ -72,8 +72,48 @@ def test_runtime_artifact_rejects_unaccepted_or_mismatched_training() -> None:
         )
 
 
+@pytest.mark.parametrize(
+    "selector",
+    [
+        SegmentSelector("temperature", "12-24h", "summer", "AFRICA", None),
+        SegmentSelector("temperature", "7-12h", "summer", "AFRICA", None),
+        SegmentSelector("temperature", "24h", "summer", "AFRICA", None),
+        SegmentSelector("temperature", "invalid", "summer", "AFRICA", None),
+        SegmentSelector("temperature", "7-24h", "winter", "AFRICA", None),
+        SegmentSelector("temperature", "7-24h", "invalid", "AFRICA", None),
+        SegmentSelector("temperature", "7-24h", "summer", "EUROPE", None),
+        SegmentSelector("temperature", "7-24h", "summer", "AFRICA", "low"),
+        SegmentSelector("temperature", "7-24h", "summer", None, None),
+        SegmentSelector("temperature", "7-24h", None, "AFRICA", None),
+        SegmentSelector("temperature", None, "summer", "AFRICA", None),
+    ],
+)
+def test_runtime_artifact_rejects_wider_or_incompatible_evidence_scope(
+    selector: SegmentSelector,
+) -> None:
+    with pytest.raises(ValueError, match="scope"):
+        replace(SEGMENT, evaluation=replace(EVALUATION, selector=selector))
+
+
+def test_runtime_artifact_accepts_a_subset_of_the_evaluated_scope() -> None:
+    narrower = replace(
+        SEGMENT.selector,
+        minimum_lead_hours=12,
+        maximum_lead_hours=18,
+        months=(7,),
+    )
+    segment = replace(SEGMENT, selector=narrower)
+    assert segment.selector == narrower
+
+    exact = replace(SEGMENT.selector, minimum_lead_hours=24, maximum_lead_hours=24)
+    evaluation = replace(
+        EVALUATION, selector=SegmentSelector("temperature", "24h", "summer", "AFRICA", None)
+    )
+    assert replace(SEGMENT, selector=exact, evaluation=evaluation).selector == exact
+
+
 EVALUATION = SegmentEvaluation(
-    selector=SegmentSelector("temperature", "7-24h", "summer", None, "low"),
+    selector=SegmentSelector("temperature", "7-24h", "summer", "AFRICA", None),
     metric="mae",
     fallback_model="gfs_seamless",
     sample_count=30,
@@ -93,7 +133,7 @@ SEGMENT = RuntimeCalibrationSegment(
     selector=RuntimeSelector(
         region="AFRICA",
         variable="temperature_2m",
-        minimum_lead_hours=0,
+        minimum_lead_hours=7,
         maximum_lead_hours=24,
         months=(6, 7, 8),
     ),

@@ -14,11 +14,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.data.HourlyWeather
+import cz.majkey.pocasicesko.data.WeatherKind
 import cz.majkey.pocasicesko.data.conditionFor
 import cz.majkey.pocasicesko.units.WeatherUnitFormatter
 import java.util.Locale
@@ -111,6 +111,30 @@ internal fun hourlyRainLevel(hour: HourlyWeather): HourlyRainLevel = when {
     hour.precipitationProbability >= 40 || hour.precipitation >= 0.2 -> HourlyRainLevel.POSSIBLE
     hour.precipitationProbability > 15 || hour.precipitation > 0.0 -> HourlyRainLevel.UNLIKELY
     else -> HourlyRainLevel.NONE
+}
+
+internal enum class HourlyHighlight {
+    RAIN, SNOW, MIXED, FREEZING, PRECIPITATION, WIND, VISIBILITY, FEELS_LIKE, UV, CONDITIONS,
+}
+
+internal fun hourlyHighlight(hour: HourlyWeather): HourlyHighlight = when {
+    hourlyRainLevel(hour) != HourlyRainLevel.NONE || (hour.snowfall ?: 0.0) > 0.0 -> when {
+        hour.weatherCode in listOf(56, 57, 66, 67) -> HourlyHighlight.FREEZING
+        (hour.snowfall ?: 0.0) > 0.0 && (hour.rain ?: 0.0) + (hour.showers ?: 0.0) > 0.0 ->
+            HourlyHighlight.MIXED
+        (hour.snowfall ?: 0.0) > 0.0 || conditionFor(hour.weatherCode, hour.isDay).kind == WeatherKind.SNOW ->
+            HourlyHighlight.SNOW
+        (hour.rain ?: 0.0) + (hour.showers ?: 0.0) > 0.0 ||
+            conditionFor(hour.weatherCode, hour.isDay).kind in listOf(WeatherKind.RAIN, WeatherKind.STORM) ->
+            HourlyHighlight.RAIN
+        else -> HourlyHighlight.PRECIPITATION
+    }
+    (hour.windGusts ?: hour.windSpeed) >= 40.0 || hour.windSpeed >= 30.0 -> HourlyHighlight.WIND
+    hour.visibilityMeters?.let { it < 1_000.0 } == true -> HourlyHighlight.VISIBILITY
+    hour.apparentTemperature?.let { it <= 0.0 || it >= 30.0 || kotlin.math.abs(it - hour.temperature) >= 5.0 } == true ->
+        HourlyHighlight.FEELS_LIKE
+    hour.isDay && (hour.uvIndex ?: 0.0) >= 3.0 -> HourlyHighlight.UV
+    else -> HourlyHighlight.CONDITIONS
 }
 
 @Composable
@@ -276,6 +300,38 @@ internal fun ExpandedHourDetails(
 @Composable
 private fun hourlyWeatherSummary(hour: HourlyWeather, units: WeatherUnitFormatter): String {
     val amount = units.precipitation(hour.precipitation)
+    val highlight = hourlyHighlight(hour)
+    when (highlight) {
+        HourlyHighlight.SNOW, HourlyHighlight.MIXED, HourlyHighlight.FREEZING, HourlyHighlight.PRECIPITATION -> {
+            val resource = when (highlight) {
+                HourlyHighlight.SNOW -> R.string.hourly_snow_summary
+                HourlyHighlight.MIXED -> R.string.hourly_mixed_summary
+                HourlyHighlight.FREEZING -> R.string.hourly_freezing_summary
+                else -> R.string.hourly_precipitation_summary
+            }
+            val summary = stringResource(resource, amount, hour.precipitationProbability)
+            return if ((hour.snowfall ?: 0.0) > 0.0) {
+                summary + " " + stringResource(R.string.hourly_snowfall_summary, units.snowfall(requireNotNull(hour.snowfall)))
+            } else summary
+        }
+        HourlyHighlight.WIND -> {
+            val wind = stringResource(R.string.hourly_wind_summary, units.windSpeed(hour.windSpeed))
+            return hour.windGusts?.let {
+                wind + " " + stringResource(R.string.hourly_gusts_summary, units.windSpeed(it))
+            } ?: wind
+        }
+        HourlyHighlight.VISIBILITY -> return stringResource(
+            R.string.hourly_visibility_summary,
+            units.visibility(requireNotNull(hour.visibilityMeters)),
+        )
+        HourlyHighlight.FEELS_LIKE -> return stringResource(
+            R.string.hourly_feels_like_summary,
+            units.temperature(requireNotNull(hour.apparentTemperature)),
+            units.temperature(hour.temperature),
+        )
+        HourlyHighlight.UV -> return stringResource(R.string.hourly_uv_summary, requireNotNull(hour.uvIndex))
+        HourlyHighlight.RAIN, HourlyHighlight.CONDITIONS -> Unit
+    }
     return when (hourlyRainLevel(hour)) {
         HourlyRainLevel.NONE -> stringResource(
             R.string.hourly_dry_summary,
@@ -315,16 +371,12 @@ private fun HourMetricValue(metric: HourMetric, modifier: Modifier) {
             text = metric.label,
             color = Color.White.copy(alpha = 0.48f),
             fontSize = 10.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
         )
         Text(
             text = metric.value,
             color = Color.White.copy(alpha = 0.88f),
             fontSize = 13.sp,
             fontWeight = FontWeight.Medium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
         )
     }
 }

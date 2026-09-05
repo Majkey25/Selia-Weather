@@ -20,6 +20,7 @@ import cz.majkey.pocasicesko.data.WeatherConditionKey
 import cz.majkey.pocasicesko.data.WeatherKind
 import cz.majkey.pocasicesko.data.WeatherRepository
 import cz.majkey.pocasicesko.locale.AppLocale
+import cz.majkey.pocasicesko.notification.WeatherRefreshScheduler
 import cz.majkey.pocasicesko.ui.labelResource
 import cz.majkey.pocasicesko.units.MeasurementUnits
 import cz.majkey.pocasicesko.units.WeatherUnitFormatter
@@ -40,13 +41,8 @@ class WeatherWidgetProvider : AppWidgetProvider() {
         runBroadcastWork {
             reconcilePersistedImageGrants(context)
             appWidgetIds.forEach { renderWidget(context, manager, it) }
-            if (appWidgetIds.isNotEmpty()) {
-                runCatching {
-                    val repository = WeatherRepository(context)
-                    repository.fetchForecastBlocking(repository.lastLocation())
-                }.onFailure { updateAllNow(context) }
-            }
         }
+        if (appWidgetIds.isNotEmpty()) WeatherRefreshScheduler.request(context)
     }
 
     override fun onAppWidgetOptionsChanged(
@@ -94,17 +90,6 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             R.id.widget_hour_1_temp,
             R.id.widget_hour_2_temp,
             R.id.widget_hour_3_temp,
-        )
-        private val ALIGNED_TEXT_IDS = intArrayOf(
-            R.id.widget_label,
-            R.id.widget_city,
-            R.id.widget_temperature,
-            R.id.widget_condition,
-            R.id.widget_high_low,
-            R.id.widget_clock,
-            R.id.widget_date,
-            R.id.widget_advanced,
-            R.id.widget_update_time,
         )
         private val primaryTextSizes = arrayOf(
             R.id.widget_temperature to 34f,
@@ -213,7 +198,7 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, COMPACT_HEIGHT_DP)
             val hostSize = widgetHostSize(minWidth, minHeight)
             val size = widgetSize(hostSize.width, hostSize.height)
-            val views = RemoteViews(localizedContext.packageName, R.layout.widget_adaptive)
+            val views = RemoteViews(localizedContext.packageName, widgetFontLayout(settings.fontStyle, settings.alignment))
 
             val city = weather.getString(WeatherRepository.KEY_WIDGET_CITY, null)
                 ?: localizedContext.getString(R.string.widget_placeholder_city)
@@ -268,6 +253,7 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                 settings = settings,
                 size = size,
                 availability = availability,
+                heightDp = hostSize.height,
             )
             views.setViewVisibility(
                 R.id.widget_label,
@@ -298,7 +284,7 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             views.setViewVisibility(R.id.widget_clock, if (visibility.showClock) View.VISIBLE else View.GONE)
             views.setTextColor(R.id.widget_clock, primaryColor)
             views.setViewVisibility(R.id.widget_icon, if (visibility.showIcon) View.VISIBLE else View.GONE)
-            views.setImageViewResource(R.id.widget_icon, iconFor(kind, isDay))
+            views.setImageViewResource(R.id.widget_icon, widgetIconFor(kind, isDay))
             views.setInt(R.id.widget_icon, "setColorFilter", primaryColor)
             views.setContentDescription(R.id.widget_icon, condition)
 
@@ -385,8 +371,6 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             applyTextStyle(
                 views,
                 settings.textScale,
-                settings.fontStyle,
-                settings.alignment,
                 primaryColor,
                 secondaryColor,
             )
@@ -404,7 +388,7 @@ class WeatherWidgetProvider : AppWidgetProvider() {
 
         private fun fallbackViews(context: Context): RemoteViews = RemoteViews(
             context.packageName,
-            R.layout.widget_adaptive,
+            R.layout.widget_font_system,
         ).apply {
             WidgetBackground.apply(context, this, WidgetSettings(backgroundMode = WidgetBackgroundMode.DARK), WeatherKind.UNKNOWN, true)
             setTextViewText(R.id.widget_temperature, context.getString(R.string.widget_placeholder_temperature))
@@ -558,15 +542,9 @@ class WeatherWidgetProvider : AppWidgetProvider() {
         private fun applyTextStyle(
             views: RemoteViews,
             textScale: Int,
-            fontStyle: WidgetFontStyle,
-            alignment: WidgetAlignment,
             primaryColor: Int,
             secondaryColor: Int,
         ) {
-            val appearance = widgetTextAppearance(fontStyle = fontStyle)
-            (primaryTextSizes + secondaryTextSizes).forEach { (id, _) ->
-                views.setInt(id, "setTextAppearance", appearance)
-            }
             primaryTextSizes.forEach { (id, size) ->
                 views.setTextViewTextSize(id, TypedValue.COMPLEX_UNIT_SP, size * textScale / 100f)
                 views.setTextColor(id, primaryColor)
@@ -575,18 +553,6 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                 views.setTextViewTextSize(id, TypedValue.COMPLEX_UNIT_SP, size * textScale / 100f)
                 views.setTextColor(id, secondaryColor)
             }
-            val gravity = widgetTextGravity(alignment)
-            ALIGNED_TEXT_IDS.forEach { id -> views.setInt(id, "setGravity", gravity) }
-        }
-
-        private fun iconFor(kind: WeatherKind, isDay: Boolean): Int = when (kind) {
-            WeatherKind.CLEAR -> if (isDay) R.drawable.ic_weather_clear else R.drawable.ic_weather_cloud
-            WeatherKind.MAINLY_CLEAR -> if (isDay) R.drawable.ic_weather_clear else R.drawable.ic_weather_cloud
-            WeatherKind.PARTLY_CLOUDY, WeatherKind.CLOUDY, WeatherKind.UNKNOWN -> R.drawable.ic_weather_cloud
-            WeatherKind.FOG -> R.drawable.ic_weather_fog
-            WeatherKind.RAIN -> R.drawable.ic_weather_rain
-            WeatherKind.STORM -> R.drawable.ic_weather_storm
-            WeatherKind.SNOW -> R.drawable.ic_weather_snow
         }
 
         private fun submitWidgetWork(
@@ -752,6 +718,17 @@ internal fun widgetConditionKey(value: String?): WeatherConditionKey = runCatchi
 
 internal fun isWidgetLocaleChange(action: String?): Boolean = action == Intent.ACTION_APPLICATION_LOCALE_CHANGED ||
     action == Intent.ACTION_LOCALE_CHANGED
+
+internal fun widgetIconFor(kind: WeatherKind, isDay: Boolean): Int = when (kind) {
+    WeatherKind.CLEAR -> if (isDay) R.drawable.ic_weather_clear else R.drawable.ic_weather_moon
+    WeatherKind.MAINLY_CLEAR, WeatherKind.PARTLY_CLOUDY ->
+        if (isDay) R.drawable.ic_weather_partly_cloudy else R.drawable.ic_weather_partly_cloudy_night
+    WeatherKind.CLOUDY, WeatherKind.UNKNOWN -> R.drawable.ic_weather_cloud
+    WeatherKind.FOG -> R.drawable.ic_weather_fog
+    WeatherKind.RAIN -> R.drawable.ic_weather_rain
+    WeatherKind.STORM -> R.drawable.ic_weather_storm
+    WeatherKind.SNOW -> R.drawable.ic_weather_snow
+}
 
 internal fun Context.widgetConditionLabel(conditionKey: String?, kind: WeatherKind): String = conditionKey
     ?.let { getString(WeatherCondition(widgetConditionKey(it), kind).labelResource()) }

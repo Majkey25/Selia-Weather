@@ -48,6 +48,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -105,8 +106,8 @@ internal fun ForecastScreen(
     val units = remember(measurementSystem, locale) { WeatherUnitFormatter(measurementSystem, locale) }
     val currentDay = snapshot.currentDay()
     val currentDayIndex = snapshot.daily.indexOf(currentDay)
-    var selectedDayIndex by remember { mutableStateOf<Int?>(null) }
-    var showDetails by remember { mutableStateOf(false) }
+    var selectedDayIndex by rememberSaveable(location.latitude, location.longitude) { mutableStateOf<Int?>(null) }
+    var showDetails by rememberSaveable(location.latitude, location.longitude) { mutableStateOf(false) }
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -700,7 +701,7 @@ private fun DayDetailSheet(
         ) { page ->
             val day = dayForPage(days, page) ?: return@HorizontalPager
             val hours = hourlyForDay(hourly, day.date)
-            var expandedHourTime by remember(day.date) { mutableStateOf<String?>(null) }
+            var expandedHourTime by rememberSaveable(day.date) { mutableStateOf<String?>(null) }
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()

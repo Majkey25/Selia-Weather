@@ -2,7 +2,6 @@ package cz.majkey.pocasicesko.widget
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.view.Gravity
 import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.astro.MoonPhaseKey
 import cz.majkey.pocasicesko.data.WeatherKind
@@ -429,13 +428,16 @@ internal fun widgetContentVisibility(
     settings: WidgetSettings,
     size: WidgetSize,
     availability: WidgetDataAvailability,
+    heightDp: Int = 120,
 ): WidgetContentVisibility {
     val showDetails = size != WidgetSize.COMPACT && (settings.showCondition || settings.showRange)
-    val showHourly = size == WidgetSize.WIDE && settings.showHourly && availability.hourlyAvailable
-    val showPrecipitation = size == WidgetSize.TALL && settings.showPrecipitation && availability.precipitationAvailable
-    val showWind = size == WidgetSize.TALL && settings.showWind && availability.windAvailable
-    val showHumidity = size == WidgetSize.TALL && settings.showHumidity && availability.humidityAvailable
+    val metricsFit = size == WidgetSize.TALL || (size == WidgetSize.WIDE && heightDp >= 120)
+    val showPrecipitation = metricsFit && settings.showPrecipitation && availability.precipitationAvailable
+    val showWind = metricsFit && settings.showWind && availability.windAvailable
+    val showHumidity = metricsFit && settings.showHumidity && availability.humidityAvailable
     val showMetrics = showPrecipitation || showWind || showHumidity
+    val showHourly = size == WidgetSize.WIDE && settings.showHourly && availability.hourlyAvailable &&
+        (!showMetrics || heightDp >= 180)
     return WidgetContentVisibility(
         showLabel = size != WidgetSize.COMPACT && settings.customLabel.isNotBlank(),
         showLocation = size != WidgetSize.COMPACT && settings.showLocation,
@@ -542,17 +544,27 @@ internal fun widgetHostSize(minWidth: Int, minHeight: Int): WidgetHostSize = Wid
     minHeight.coerceAtLeast(1),
 )
 
-internal fun widgetTextGravity(alignment: WidgetAlignment): Int = when (alignment) {
-    WidgetAlignment.LEFT -> Gravity.START
-    WidgetAlignment.CENTER -> Gravity.CENTER_HORIZONTAL
-    WidgetAlignment.RIGHT -> Gravity.END
-}
-
-internal fun widgetTextAppearance(fontStyle: WidgetFontStyle): Int = when (fontStyle) {
-    WidgetFontStyle.SYSTEM -> R.style.WidgetText_System
-    WidgetFontStyle.MATERIAL -> R.style.WidgetText_Material
-    WidgetFontStyle.ROUNDED -> R.style.WidgetText_Rounded
-    WidgetFontStyle.LIGHT -> R.style.WidgetText_Light
+internal fun widgetFontLayout(fontStyle: WidgetFontStyle, alignment: WidgetAlignment): Int = when (fontStyle) {
+    WidgetFontStyle.SYSTEM -> when (alignment) {
+        WidgetAlignment.LEFT -> R.layout.widget_font_system
+        WidgetAlignment.CENTER -> R.layout.widget_font_system_center
+        WidgetAlignment.RIGHT -> R.layout.widget_font_system_right
+    }
+    WidgetFontStyle.MATERIAL -> when (alignment) {
+        WidgetAlignment.LEFT -> R.layout.widget_font_material
+        WidgetAlignment.CENTER -> R.layout.widget_font_material_center
+        WidgetAlignment.RIGHT -> R.layout.widget_font_material_right
+    }
+    WidgetFontStyle.ROUNDED -> when (alignment) {
+        WidgetAlignment.LEFT -> R.layout.widget_font_rounded
+        WidgetAlignment.CENTER -> R.layout.widget_font_rounded_center
+        WidgetAlignment.RIGHT -> R.layout.widget_font_rounded_right
+    }
+    WidgetFontStyle.LIGHT -> when (alignment) {
+        WidgetAlignment.LEFT -> R.layout.widget_font_light
+        WidgetAlignment.CENTER -> R.layout.widget_font_light_center
+        WidgetAlignment.RIGHT -> R.layout.widget_font_light_right
+    }
 }
 
 private fun backgroundModeOrNull(value: String): WidgetBackgroundMode? = runCatching {

@@ -110,6 +110,7 @@ internal fun readLimited(input: InputStream, maxBytes: Int): ByteArray {
     val output = ByteArrayOutputStream(minOf(maxBytes, DEFAULT_BUFFER_SIZE))
     val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
     while (true) {
+        ensureForecastThreadActive()
         val count = input.read(buffer)
         if (count < 0) return output.toByteArray()
         if (output.size() > maxBytes - count) throw IOException("Static forecast payload is too large.")

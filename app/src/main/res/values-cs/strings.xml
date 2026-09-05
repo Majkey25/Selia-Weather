@@ -342,4 +342,15 @@
     <string name="hourly_rain_likely">Déšť je pravděpodobný: očekává se %1$s (pravděpodobnost %2$d%%).</string>
     <string name="hourly_rain_heavy">Může silně pršet: očekává se %1$s (pravděpodobnost %2$d%%).</string>
     <string name="hourly_dry_summary">%1$s. Měřitelný déšť se neočekává (pravděpodobnost %2$d%%). Pocitově %3$s, vítr %4$s ze směru %5$s.</string>
+    <string name="hourly_snow_summary">V této hodině může sněžit: %1$s vodního ekvivalentu (%2$d%% pravděpodobnost srážek).</string>
+    <string name="hourly_mixed_summary">V této hodině může pršet i sněžit: celkem %1$s vodního ekvivalentu (%2$d%% pravděpodobnost srážek).</string>
+    <string name="hourly_freezing_summary">Mohou se objevit mrznoucí srážky a kluzké povrchy: očekává se %1$s za hodinu (%2$d%% pravděpodobnost).</string>
+    <string name="hourly_precipitation_summary">Mohou se objevit srážky: očekává se %1$s za hodinu (%2$d%% pravděpodobnost).</string>
+    <string name="hourly_snowfall_summary">Očekávané sněžení: %1$s za tuto hodinu.</string>
+    <string name="hourly_wind_summary">Pozor hlavně na vítr: %1$s.</string>
+    <string name="hourly_gusts_summary">Nárazy mohou dosáhnout %1$s.</string>
+    <string name="hourly_visibility_summary">Dohlednost může klesnout na %1$s. Na cestu si nechte více času.</string>
+    <string name="hourly_feels_like_summary">Pocitově bude %1$s, teplota vzduchu %2$s. Oblečení volte podle pocitové teploty.</string>
+    <string name="hourly_uv_summary">UV index %1$.1f. Venku použijte ochranu před sluncem, i když je chladno.</string>
+    <string name="widget_edit">Upravit widget %1$d</string>
 </resources>

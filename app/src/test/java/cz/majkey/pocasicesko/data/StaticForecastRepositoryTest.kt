@@ -4,12 +4,28 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.security.MessageDigest
 import java.time.Instant
+import java.util.concurrent.CancellationException
 import java.util.zip.GZIPOutputStream
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class StaticForecastRepositoryTest {
+    @Test
+    fun interruptedRefreshStopsBeforeConsumingResponseBytes() {
+        val source = ByteArrayInputStream(byteArrayOf(1, 2, 3))
+        Thread.currentThread().interrupt()
+        try {
+            val error = runCatching { readLimited(source, maxBytes = 3) }.exceptionOrNull()
+            assertTrue(error is CancellationException)
+            assertTrue(Thread.currentThread().isInterrupted)
+            assertEquals(3, source.available())
+        } finally {
+            Thread.interrupted()
+        }
+        assertEquals(3, readLimited(source, maxBytes = 3).size)
+    }
+
     @Test
     fun requestsPublicManifestAndRejectsDiagnosticFeed() {
         var requestedUrl = ""

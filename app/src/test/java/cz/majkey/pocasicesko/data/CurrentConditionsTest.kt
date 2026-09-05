@@ -162,7 +162,7 @@ class CurrentConditionsTest {
     }
 
     @Test
-    fun correctedJsonUpdatesCurrentAndMatchingHourlyValue() {
+    fun correctedJsonUpdatesConditionsButPreservesHourlyAccumulations() {
         val corrected = JSONObject(
             applyCurrentConditionsToForecastJson(
                 """{"current":{"time":"2026-08-29T11:15"},"hourly":{"time":["2026-08-29T10:00","2026-08-29T11:00"],"temperature_2m":[18,19],"relative_humidity_2m":[70,65],"precipitation":[0.2,0.3],"rain":[0.2,0.3],"weather_code":[61,61],"wind_speed_10m":[5,6],"wind_direction_10m":[180,190]}}""",
@@ -171,11 +171,13 @@ class CurrentConditionsTest {
         )
 
         assertEquals(0, corrected.getJSONObject("current").getInt("weather_code"))
+        assertEquals(0.0, corrected.getJSONObject("current").getDouble("precipitation"), 0.0)
         val hourly = corrected.getJSONObject("hourly")
         assertEquals(61, hourly.getJSONArray("weather_code").getInt(0))
         assertEquals(0, hourly.getJSONArray("weather_code").getInt(1))
         assertEquals(22.0, hourly.getJSONArray("temperature_2m").getDouble(1), 0.0)
-        assertEquals(0.0, hourly.getJSONArray("precipitation").getDouble(1), 0.0)
+        assertEquals(0.3, hourly.getJSONArray("precipitation").getDouble(1), 0.0)
+        assertEquals(0.3, hourly.getJSONArray("rain").getDouble(1), 0.0)
     }
 
     private fun current(

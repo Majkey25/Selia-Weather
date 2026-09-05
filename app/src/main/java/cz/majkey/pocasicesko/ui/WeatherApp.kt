@@ -59,13 +59,17 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -101,9 +105,16 @@ import cz.majkey.pocasicesko.notification.DailyBriefingScheduler
 import cz.majkey.pocasicesko.units.MeasurementSystem
 import cz.majkey.pocasicesko.units.MeasurementUnits
 import cz.majkey.pocasicesko.widget.WeatherWidgetProvider
+import cz.majkey.pocasicesko.widget.WidgetConfigActivity
 import cz.majkey.pocasicesko.R
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -152,16 +163,19 @@ fun WeatherApp(
 ) {
     val context = LocalContext.current
     val deviceLocationRepository = remember { DeviceLocationRepository(context) }
-    var destination by remember { mutableStateOf(Destination.WEATHER) }
+    var destination by rememberSaveable { mutableStateOf(Destination.WEATHER) }
     var location by remember { mutableStateOf(repository.lastLocation()) }
     var reloadKey by remember { mutableIntStateOf(0) }
-    var showLocationSearch by remember { mutableStateOf(false) }
-    var showSettings by remember { mutableStateOf(false) }
+    var showLocationSearch by rememberSaveable { mutableStateOf(false) }
+    var showSettings by rememberSaveable { mutableStateOf(false) }
+    var widgetIds by remember { mutableStateOf(emptyList<Int>()) }
     var measurementSystem by remember { mutableStateOf(MeasurementUnits.current(context)) }
     var dailyBriefingEnabled by remember {
         mutableStateOf(DailyBriefingScheduler.isEnabled(context))
     }
     var state by remember { mutableStateOf<WeatherUiState>(WeatherUiState.Loading) }
+    val latestState by rememberUpdatedState(state)
+    var lastRefreshAttemptMillis by remember { mutableLongStateOf(0L) }
     val forecastLoadFailed = stringResource(R.string.forecast_load_failed)
     val serverError = stringResource(R.string.server_error)
     val supportUnavailable = stringResource(R.string.support_unavailable)
@@ -202,7 +216,29 @@ fun WeatherApp(
         DailyBriefingScheduler.schedule(context)
     }
 
+    DisposableEffect(context) {
+        val lifecycle = (context.findActivity() as? LifecycleOwner)?.lifecycle
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                widgetIds = AppWidgetManager.getInstance(context).getAppWidgetIds(
+                    ComponentName(context, WeatherWidgetProvider::class.java),
+                ).sorted()
+            }
+            val content = latestState as? WeatherUiState.Content
+            if (event == Lifecycle.Event.ON_RESUME && content != null && shouldRefreshWeatherOnResume(
+                    content.snapshot.updatedAtEpochMillis,
+                    lastRefreshAttemptMillis,
+                    content.refreshing,
+                    System.currentTimeMillis(),
+                )
+            ) reloadKey++
+        }
+        lifecycle?.addObserver(observer)
+        onDispose { lifecycle?.removeObserver(observer) }
+    }
+
     LaunchedEffect(location, reloadKey) {
+        lastRefreshAttemptMillis = System.currentTimeMillis()
         val cached = withContext(Dispatchers.IO) { repository.cachedForecast(location) }
         state = cached?.let { WeatherUiState.Content(it, fromCache = true, refreshing = true) }
             ?: WeatherUiState.Loading
@@ -210,6 +246,7 @@ fun WeatherApp(
             val fresh = repository.fetchForecast(location)
             state = WeatherUiState.Content(fresh, fromCache = false, refreshing = false)
         } catch (error: Exception) {
+            if (error is CancellationException) throw error
             val message = if (error is java.io.IOException) serverError else forecastLoadFailed
             state = cached?.let {
                 WeatherUiState.Content(it, fromCache = true, refreshing = false, refreshError = message)
@@ -279,6 +316,7 @@ fun WeatherApp(
                     billingMessage = billingMessage,
                     paymentsEnabled = paymentsEnabled,
                     privacyOptionsRequired = privacyOptionsRequired,
+                    widgetIds = widgetIds,
                     onLanguage = onLanguage,
                     onMeasurementSystem = { selected ->
                         MeasurementUnits.save(context, selected)
@@ -294,6 +332,17 @@ fun WeatherApp(
                             null,
                         )
                         supportError = if (requested) null else widgetAddUnavailable
+                    },
+                    onEditWidget = { widgetId ->
+                        widgetIds = AppWidgetManager.getInstance(context).getAppWidgetIds(
+                            ComponentName(context, WeatherWidgetProvider::class.java),
+                        ).sorted()
+                        if (widgetId in widgetIds) {
+                            context.startActivity(
+                                Intent(context, WidgetConfigActivity::class.java)
+                                    .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId),
+                            )
+                        }
                     },
                     onWeatherDataAttribution = {
                         try {
@@ -575,12 +624,14 @@ private fun LocationSearchSheet(
     }
 
     fun loadDeviceLocation() {
+        if (locating) return
         scope.launch {
             locating = true
             error = null
             try {
                 onSelect(deviceLocationRepository.currentLocation())
             } catch (failure: Exception) {
+                if (failure is CancellationException) throw failure
                 error = locationError(failure)
             } finally {
                 locating = false
@@ -663,10 +714,11 @@ private fun LocationSearchSheet(
         try {
             results = repository.searchLocations(cleaned)
         } catch (failure: Exception) {
+            if (failure is CancellationException) throw failure
             results = emptyList()
             error = searchFailed
         } finally {
-            searching = false
+            if (currentCoroutineContext().isActive) searching = false
         }
     }
 
@@ -904,6 +956,17 @@ private val LOCATION_PERMISSIONS = arrayOf(
     Manifest.permission.ACCESS_COARSE_LOCATION,
     Manifest.permission.ACCESS_FINE_LOCATION,
 )
+
+internal fun shouldRefreshWeatherOnResume(
+    updatedAtMillis: Long,
+    lastAttemptMillis: Long,
+    refreshing: Boolean,
+    nowMillis: Long,
+): Boolean = !refreshing &&
+    (nowMillis - updatedAtMillis !in 0 until FOREGROUND_REFRESH_AGE_MILLIS) &&
+    (nowMillis - lastAttemptMillis !in 0 until FOREGROUND_REFRESH_AGE_MILLIS)
+
+private const val FOREGROUND_REFRESH_AGE_MILLIS = 15 * 60 * 1_000L
 
 private val NIGHT_STARS = listOf(
     Triple(0.12f, 0.11f, 0.34f),

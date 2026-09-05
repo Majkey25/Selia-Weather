@@ -2,6 +2,7 @@ package cz.majkey.pocasicesko.notification
 
 import cz.majkey.pocasicesko.data.DailyWeather
 import java.time.ZoneId
+import java.time.LocalDate
 import java.time.ZonedDateTime
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -47,6 +48,16 @@ class DailyBriefingTest {
             nextDailyBriefingTime(ZonedDateTime.of(2026, 9, 1, 6, 0, 0, 0, zone)),
         )
         assertFalse(DEFAULT_DAILY_BRIEFING_ENABLED)
+    }
+
+    @Test
+    fun retriesTodaysBriefingWithoutDeliveringYesterdaysAdvice() {
+        val today = LocalDate.of(2026, 9, 5)
+        assertTrue(isPendingBriefingForToday("2026-09-05", today))
+        assertFalse(isPendingBriefingForToday("2026-09-04", today))
+        assertFalse(isPendingBriefingForToday("2026-09-06", today))
+        assertFalse(isPendingBriefingForToday(null, today))
+        assertFalse(isPendingBriefingForToday("invalid", today))
     }
 
     private fun day(

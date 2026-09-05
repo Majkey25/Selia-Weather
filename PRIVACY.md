@@ -1,6 +1,6 @@
 # Privacy policy
 
-Effective date: 31 August 2026
+Effective date: 5 September 2026
 
 Selia Weather, package `com.majkeylab.weatheraladin`, does not require a developer account. The developer does not sell personal data or run a separate analytics service. Release builds do not contain or initialise Ads, UMP, Play Billing, Premium, or `AD_ID`. Debug-only QA builds can use Google test integrations outside the release dependency graph.
 
@@ -19,10 +19,10 @@ Approximate and precise location permissions are optional. After you select **Us
 ## Network communication
 
 - Open-Meteo receives place search terms and forecast coordinates for every forecast request. This includes default Prague, a searched place, a favourite, and current location. Current location remains optional and starts only after you select **Use my location**. Open-Meteo provides geocoding and forecasts. The developer does not retain this data off-device. [Open-Meteo states](https://open-meteo.com/en/terms) that free API server logs may contain coordinates and are deleted after 90 days.
-- When you open **Weather details** or select **Next 24h** in Map, the Local rain field sends 25 forecast coordinates inside a 20 km radius around the selected location to Open-Meteo. The app keeps the returned spatial field only while that view is active. The field is a model forecast, not measured radar.
+- Widgets and an enabled morning briefing can refresh forecasts in an Android background job using the last selected coordinates. They do not request a new device location. Android may delay a refresh while offline or conserving battery.
 - After you select **Load archive**, NASA POWER receives the selected coordinates and requested five-year date range. It returns daily model and satellite grid estimates. The app stores the response only in its bounded on-device cache. NASA POWER data are not local-station measurements. See the [NASA POWER Daily API](https://power.larc.nasa.gov/docs/services/api/temporal/daily/) and [referencing guide](https://power.larc.nasa.gov/docs/referencing/).
 - In Czechia, ČHMÚ provides public automatic-station observations. The app selects nearby station IDs on the device. It does not send the selected coordinates to ČHMÚ. ČHMÚ servers process normal HTTPS technical data such as your IP address and requested public file names.
-- Outside Czechia, AviationWeather receives a bounded coordinate box around the selected location to find recent worldwide METAR observations. A request can reveal the approximate selected area and normal HTTPS technical data such as your IP address. The app does not send a name, account, or device identifier. See the [AviationWeather Data API](https://aviationweather.gov/data/api/).
+- AviationWeather receives a bounded coordinate box around the selected location to find recent worldwide METAR observations, including in Czechia. A request can reveal the approximate selected area and normal HTTPS technical data such as your IP address. The app does not send a name, account, or device identifier. See the [AviationWeather Data API](https://aviationweather.gov/data/api/).
 - OpenStreetMap receives requests for visible tiles while the point picker or observed radar map is open. RainViewer receives requests for the radar manifest, visible radar tiles, and coverage-mask tiles while the observed radar map is open. Tile requests reveal the approximate visible map area and normal HTTPS technical data such as your IP address. See the [RainViewer Weather Maps API](https://www.rainviewer.com/api/weather-maps-api.html).
 - Release builds do not contact Google Mobile Ads, UMP, or Play Billing and do not expose Premium purchases.
 - Buy Me a Coffee receives data only if you choose the optional support action. The app opens the external HTTPS page `https://www.buymeacoffee.com/majkey` through Android.

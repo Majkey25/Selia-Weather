@@ -55,10 +55,12 @@ fun SettingsSheet(
     billingMessage: BillingMessage,
     paymentsEnabled: Boolean,
     privacyOptionsRequired: Boolean,
+    widgetIds: List<Int>,
     onLanguage: (String) -> Unit,
     onMeasurementSystem: (MeasurementSystem) -> Unit,
     onDailyBriefingChange: (Boolean) -> Unit,
     onAddWidget: () -> Unit,
+    onEditWidget: (Int) -> Unit,
     onWeatherDataAttribution: () -> Unit,
     onSupport: () -> Unit,
     supportError: String?,
@@ -156,6 +158,17 @@ fun SettingsSheet(
                     .heightIn(min = 48.dp),
             ) {
                 Text(stringResource(R.string.widget_add))
+            }
+            widgetIds.forEachIndexed { index, widgetId ->
+                OutlinedButton(
+                    onClick = { onEditWidget(widgetId) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 4.dp)
+                        .heightIn(min = 48.dp),
+                ) {
+                    Text(stringResource(R.string.widget_edit, index + 1))
+                }
             }
             if (paymentsEnabled) {
                 Text(

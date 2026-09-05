@@ -91,7 +91,7 @@ internal fun blendModelForecast(
             targetIndex,
             windSegment,
         ) || blendedAny
-        blendedAny = derivePrecipitationAndCondition(
+        blendedAny = deriveCondition(
             source,
             target,
             suffixes,
@@ -175,7 +175,7 @@ private fun blendWind(
     return true
 }
 
-private fun derivePrecipitationAndCondition(
+private fun deriveCondition(
     source: JSONObject,
     target: JSONObject,
     suffixes: List<String>,
@@ -185,28 +185,27 @@ private fun derivePrecipitationAndCondition(
     val precipitation = modelValues(source, suffixes, "precipitation", sourceIndex)
     val clouds = modelValues(source, suffixes, "cloud_cover", sourceIndex)
     if (precipitation.size < MINIMUM_MODELS || clouds.size < MINIMUM_MODELS) return false
-    val probability = (precipitation.count { it >= WET_THRESHOLD_MM } * 100.0 / precipitation.size)
+    val wetModelPercent = (precipitation.count { it >= WET_THRESHOLD_MM } * 100.0 / precipitation.size)
         .roundToInt()
     val cloudCover = clouds.median().roundToInt().coerceIn(0, 100)
-    target.optJSONArray("precipitation_probability")?.put(targetIndex, probability)
     target.optJSONArray("weather_code")?.put(
         targetIndex,
         deriveWeatherCode(
             modelValues(source, suffixes, "weather_code", sourceIndex).map(Double::roundToInt),
-            probability,
+            wetModelPercent,
             cloudCover,
         ),
     )
     return true
 }
 
-private fun deriveWeatherCode(codes: List<Int>, rainProbability: Int, cloudCover: Int): Int {
+private fun deriveWeatherCode(codes: List<Int>, wetModelPercent: Int, cloudCover: Int): Int {
     val required = (codes.size + 1) / 2
     return when {
         codes.isNotEmpty() && codes.count { it in 95..99 } >= required -> 95
         codes.isNotEmpty() && codes.count { it in 71..77 || it == 85 || it == 86 } >= required -> 71
         codes.isNotEmpty() && codes.count { it in 45..48 } >= required -> 45
-        rainProbability >= 50 -> 61
+        wetModelPercent >= 50 -> 61
         cloudCover <= 20 -> 0
         cloudCover <= 50 -> 1
         cloudCover <= 80 -> 2
@@ -235,7 +234,11 @@ private fun updateDaily(root: JSONObject, hourly: JSONObject, times: JSONArray) 
         daily.putAt("temperature_2m_min", dayIndex, hourly.values("temperature_2m", indices).minOrNull())
         daily.putAt("apparent_temperature_max", dayIndex, hourly.values("apparent_temperature", indices).maxOrNull())
         daily.putAt("apparent_temperature_min", dayIndex, hourly.values("apparent_temperature", indices).minOrNull())
-        daily.putAt("precipitation_sum", dayIndex, hourly.values("precipitation", indices).sum())
+        daily.putAt(
+            "precipitation_sum",
+            dayIndex,
+            hourly.values("precipitation", indices).takeIf { it.size == indices.size }?.sum(),
+        )
         daily.putAt(
             "precipitation_probability_max",
             dayIndex,
@@ -356,7 +359,10 @@ private val CONTINUOUS_FIELDS = listOf(
     "dew_point_2m",
     "visibility",
 )
-private val CURRENT_FIELDS = CONTINUOUS_FIELDS + listOf(
+// Current aggregates cover the provider's current interval, not the preceding forecast hour.
+private val CURRENT_FIELDS = CONTINUOUS_FIELDS - setOf(
+    "precipitation", "rain", "snowfall", "wind_gusts_10m",
+) + listOf(
     "weather_code",
     "wind_speed_10m",
     "wind_direction_10m",

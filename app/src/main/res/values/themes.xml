@@ -8,7 +8,9 @@
         <item name="android:windowActionModeOverlay">true</item>
     </style>
 
-    <style name="WidgetText" />
+    <style name="WidgetText">
+        <item name="android:gravity">start</item>
+    </style>
 
     <style name="WidgetText.System">
         <item name="android:fontFamily">sans-serif</item>
@@ -24,5 +26,29 @@
 
     <style name="WidgetText.Light">
         <item name="android:fontFamily">sans-serif-light</item>
+    </style>
+    <style name="WidgetText.System.Center">
+        <item name="android:gravity">center_horizontal</item>
+    </style>
+    <style name="WidgetText.System.Right">
+        <item name="android:gravity">end</item>
+    </style>
+    <style name="WidgetText.Material.Center">
+        <item name="android:gravity">center_horizontal</item>
+    </style>
+    <style name="WidgetText.Material.Right">
+        <item name="android:gravity">end</item>
+    </style>
+    <style name="WidgetText.Rounded.Center">
+        <item name="android:gravity">center_horizontal</item>
+    </style>
+    <style name="WidgetText.Rounded.Right">
+        <item name="android:gravity">end</item>
+    </style>
+    <style name="WidgetText.Light.Center">
+        <item name="android:gravity">center_horizontal</item>
+    </style>
+    <style name="WidgetText.Light.Right">
+        <item name="android:gravity">end</item>
     </style>
 </resources>

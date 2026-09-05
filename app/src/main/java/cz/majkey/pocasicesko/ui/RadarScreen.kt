@@ -1,6 +1,7 @@
 package cz.majkey.pocasicesko.ui
 
 import android.annotation.SuppressLint
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.graphics.Bitmap
 import android.webkit.CookieManager
@@ -9,6 +10,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,7 +21,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -32,6 +33,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.currentStateAsState
 import cz.majkey.pocasicesko.BuildConfig
 import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.locale.normalizeLanguageTag
@@ -55,10 +59,11 @@ internal fun localizedRadarUrl(
 @SuppressLint("SetJavaScriptEnabled")
 fun ChmiWebScreen(url: String, modifier: Modifier = Modifier) {
     val context = LocalContext.current
+    val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
     val radarUnavailable = stringResource(R.string.radar_unavailable)
     var webView by remember { mutableStateOf<WebView?>(null) }
-    var loading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var loading by remember(url) { mutableStateOf(true) }
+    var error by remember(url) { mutableStateOf<String?>(null) }
 
     Box(
         modifier = modifier
@@ -112,14 +117,15 @@ fun ChmiWebScreen(url: String, modifier: Modifier = Modifier) {
                                 view: WebView?,
                                 request: WebResourceRequest?,
                             ): Boolean {
-                                val uri = request?.url ?: return false
-                                val host = uri.host.orEmpty()
-                                if (uri.toString().startsWith(ANDROID_ASSET_PREFIX) ||
-                                    uri.scheme == "https" && (host == "chmi.cz" || host.endsWith(".chmi.cz"))
-                                ) {
-                                    return false
+                                if (request?.isForMainFrame != true) return true
+                                val uri = request.url
+                                if (uri.scheme == "https") {
+                                    try {
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, uri))
+                                    } catch (_: ActivityNotFoundException) {
+                                        Toast.makeText(context, R.string.support_unavailable, Toast.LENGTH_LONG).show()
+                                    }
                                 }
-                                context.startActivity(Intent(Intent.ACTION_VIEW, uri))
                                 return true
                             }
                         }
@@ -127,6 +133,18 @@ fun ChmiWebScreen(url: String, modifier: Modifier = Modifier) {
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
+                onRelease = { view ->
+                    if (webView === view) webView = null
+                    view.stopLoading()
+                    view.destroy()
+                },
+                update = { view ->
+                    if (lifecycleState.isAtLeast(Lifecycle.State.RESUMED)) {
+                        view.onResume()
+                    } else {
+                        view.onPause()
+                    }
+                },
             )
         }
 
@@ -153,14 +171,6 @@ fun ChmiWebScreen(url: String, modifier: Modifier = Modifier) {
                     Text(stringResource(R.string.radar_retry))
                 }
             }
-        }
-    }
-
-    DisposableEffect(Unit) {
-        onDispose {
-            webView?.stopLoading()
-            webView?.destroy()
-            webView = null
         }
     }
 }

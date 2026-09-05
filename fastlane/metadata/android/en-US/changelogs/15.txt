@@ -1,0 +1,1 @@
+More reliable rain probabilities and precipitation totals. Radar gains retry, offline recovery and clearer controls. Hourly highlights explain snow, wind, visibility and UV. Widget statistics survive resizing, and background refresh no longer blocks widget updates. Forecasts refresh after returning to the app; navigation survives rotation. No ads or Premium.

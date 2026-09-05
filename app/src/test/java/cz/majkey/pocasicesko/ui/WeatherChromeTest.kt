@@ -56,6 +56,17 @@ class WeatherChromeTest {
         assertFalse(source.contains("ECMWF · ČHMÚ · Open-Meteo"))
     }
 
+    @Test
+    fun resumesStaleWeatherWithoutDuplicateOrRepeatedFailedRequests() {
+        val now = 2_000_000L
+        val stale = now - 15 * 60 * 1_000L
+        assertTrue(shouldRefreshWeatherOnResume(stale, stale, false, now))
+        assertFalse(shouldRefreshWeatherOnResume(now - 1_000L, stale, false, now))
+        assertFalse(shouldRefreshWeatherOnResume(stale, stale, true, now))
+        assertFalse(shouldRefreshWeatherOnResume(stale, now - 1_000L, false, now))
+        assertTrue(shouldRefreshWeatherOnResume(now + 1_000L, now + 1_000L, false, now))
+    }
+
     private fun source(name: String): String = File(
         System.getProperty("user.dir"),
         "src/main/java/cz/majkey/pocasicesko/ui/$name",

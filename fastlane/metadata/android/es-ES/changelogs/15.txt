@@ -1,0 +1,1 @@
+Probabilidades y cantidades de lluvia más fiables. Radar con reintento, recuperación de conexión y controles más claros. Resúmenes horarios de nieve, viento, visibilidad y UV. El widget conserva datos al ampliar y las descargas no bloquean las actualizaciones. El tiempo se actualiza al volver y la navegación se conserva al girar. Sin anuncios ni Premium.

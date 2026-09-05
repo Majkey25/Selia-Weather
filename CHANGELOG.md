@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## [0.2.0-beta.14] - 2026-09-05
+
+- Preserve provider rain probabilities and current precipitation intervals; incomplete hourly data no longer becomes a zero daily total.
+- Prevent cancelled or superseded location requests from overwriting the forecast cache.
+- Refresh stale forecasts when returning to the app and retain navigation and hourly detail across recreation.
+- Add radar retry, request timeout, stale-frame validation, localized controls, and background playback pause. Keep tile failures visible.
+- Release replaced WebViews and handle missing browsers safely.
+- Explain snow, mixed precipitation, freezing rain, wind, visibility, feels-like temperature, and UV in hourly highlights. Allow long statistics to wrap.
+- Preserve configured widget statistics when widening a tall widget and use correct night and partly-cloudy icons.
+- Fix Android 10 widget loading by applying font and alignment in XML instead of unsupported RemoteViews methods. Make content toggle labels clickable and accessible.
+- Let users customize existing widgets from Settings, including on launchers without a reconfiguration action.
+- Run widget and morning-briefing network refresh through a bounded Android job with offline retry.
+- Reject calibration exports outside explicitly evaluated regions, seasons, and lead times. Keep live calibration disabled until source run timestamps are available.
+- Extend CI to release lint, R8, APK, AAB, and radar recovery checks. Release builds remain free of ads and Premium.
+
 ## [0.2.0-beta.13] - 2026-09-04
 
 - Renamed the product to Selia Weather with the short Weather launcher label while preserving the existing package and app data.

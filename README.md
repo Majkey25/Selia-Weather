@@ -27,7 +27,7 @@
 - Adds UV, freezing-level, boundary-layer, atmospheric-water, instability, showers, and ground details.
 - Shows worldwide observed precipitation through RainViewer for the available past two hours, with zoom, pan, animation, a timeline, and a radar-coverage mask. Future precipitation remains in the hourly point forecast.
 - Shows a horizontal 24-hour outlook, a 14-day forecast, and an hourly detail for each day. A complete day normally has 24 hours.
-- Loads a bounded five-year NASA POWER archive on demand, calculates rainfall and climate summaries locally, shows every daily row, and exports one provenance-labelled CSV through Android's share sheet for analysis in ChatGPT or another app.
+- Opens a five-year NASA POWER archive from the forecast screen. Select 30 days, 365 days, all data, or custom dates to calculate rainfall totals and data coverage locally. Ask AI shares the full provenance-labelled CSV with a compatible installed app.
 - Searches places worldwide, stores favourites, can use your optional current location, and can save an exact named point on an interactive world map or by coordinate.
 - In Czechia, corrects current temperature, humidity, wind, precipitation, and sky condition from up to three nearby ČHMÚ automatic stations when their observations are fresh.
 - Outside Czechia, uses nearby fresh worldwide METAR reports to correct available temperature, humidity, dew point, pressure, visibility, cloud-cover, and wind fields. A METAR report never invents a precipitation amount.
@@ -41,7 +41,9 @@ The base forecast uses Open-Meteo Best Match worldwide. The app also requests ve
 
 The production forecast uses the diagnostic median or Best Match. Provider precipitation probability is preserved: agreement among deterministic models is not a calibrated probability. Runtime weight application stays disabled until individual model run timestamps and a matching regional holdout are available. The research exporter rejects weights outside their evaluated region, season, or forecast lead. Weather details show the actual mode and contributors; no superior-accuracy claim is made.
 
-The evidence and limits are recorded in [Global model routing](docs/research/global-model-routing.md) and [Worldwide ensemble validation](docs/research/worldwide-ensemble-validation.md).
+The evidence and limits are recorded in [Global model routing](docs/research/global-model-routing.md), [Worldwide ensemble validation](docs/research/worldwide-ensemble-validation.md), and the [313-case temperature replay](docs/research/2026-09-05-temperature-replay.md). That replay improves pooled error over Best Match but contains station-level failures and is not a new holdout.
+
+The [research workflow](research/README.md) can freeze future forecasts and later compare them with independent station observations. Missing truth stays unscored. [WeatherNext 3](docs/research/weathernext-3-review.md) is under review, not integrated; access and production-use permission remain prerequisites.
 
 - [Open-Meteo Forecast API](https://open-meteo.com/en/docs)
 - [NASA POWER Daily API](https://power.larc.nasa.gov/docs/services/api/temporal/daily/)
@@ -65,6 +67,8 @@ The public application ID is `com.majkeylab.weatheraladin`. A network connection
 
 One stable widget layout adapts to compact, standard, wide, and tall sizes. Resize it horizontally or vertically. Each widget stores its own configuration, so two widgets can use different colours, fields, labels, and backgrounds.
 
+Choose App style to use the forecast's weather-aware gradient, or start from Minimal, Material, Pixel, or Cupertino. Adjust fonts, text scale, alignment, corner shape, content spacing, colours, and background opacity independently.
+
 For a custom background, the editor asks Android to grant access to the selected image. The widget keeps only the image URI. It decodes a bounded copy when it renders. If the URI becomes unavailable, the widget uses its configured colour background instead of failing.
 
 ## Support
@@ -85,7 +89,7 @@ The debug APK is at `app/build/outputs/apk/debug/app-debug.apk`.
 
 ## Privacy
 
-The app has no developer account or separate analytics SDK. It keeps the selected place, favourites, widget settings, forecast cache, and a bounded history cache in internal app storage. Current location is optional. Forecast coordinates are sent to Open-Meteo. Outside Czechia, a bounded coordinate box is sent to AviationWeather to find nearby METAR reports. The observed map loads visible OpenStreetMap and RainViewer tiles. After you select **Load archive**, the selected coordinates are sent to NASA POWER. A history CSV leaves the app only after you select **Ask ChatGPT** and choose a recipient in Android's share sheet. In Czechia, the app selects nearby ČHMÚ station IDs locally and requests their public observation files without sending the selected coordinates to ČHMÚ. Read the [privacy policy](https://majkey25.github.io/Selia-Weather/).
+The app has no developer account or separate analytics SDK. It keeps the selected place, favourites, widget settings, forecast cache, and a bounded history cache in internal app storage. Current location is optional. Forecast coordinates are sent to Open-Meteo. A bounded coordinate box is sent to AviationWeather to find nearby METAR reports, including in Czechia. The observed map loads visible OpenStreetMap and RainViewer tiles. After you select **Weather history** or **Load archive**, the selected coordinates are sent to NASA POWER when the archive needs a refresh. A history CSV leaves the app only after you select **Ask AI with CSV** and choose a recipient in Android's share sheet. In Czechia, the app selects nearby ČHMÚ station IDs locally and requests their public observation files without sending the selected coordinates to ČHMÚ. Read the [privacy policy](https://majkey25.github.io/Selia-Weather/).
 
 ## Status
 

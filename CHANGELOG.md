@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## [0.2.0-beta.16] - 2026-09-05
+
+- Open the five-year archive directly from the forecast screen. Select the last 30 days, 365 days, all data, or a custom inclusive date range to calculate rainfall totals and coverage.
+- Share the full archive through the new Ask AI action with any installed app that accepts CSV attachments. Daily archive periods explicitly use UTC.
+- Keep typed coordinates, map pins, and saved location drafts synchronized across rotation.
+- Reject stale sunshine samples and invalid numeric forecast values. Validate device-location age with a monotonic clock.
+- Read forecast/cache metadata consistently during concurrent updates. Replace archive caches atomically and preserve the previous archive when refresh is cancelled or cannot be saved.
+- Match widget previews to selected fonts, alignment, and size. Improve selected-option accessibility and hourly data wrapping.
+- Add an App style widget preset with the forecast's weather-aware gradient, adjustable corners, and content spacing.
+- Publish a reproducible 313-case temperature comparison with regional limitations. No new calibration weights or worldwide accuracy guarantee.
+- Capture future model forecasts for research and compare them with independently sourced station observations. Missing observations remain unscored. WeatherNext 3 access and usage constraints are documented; it is not an active provider.
+
 ## [0.2.0-beta.15] - 2026-09-05
 
 - Restore native downward dismissal of day details while preserving list scrolling and sideways day navigation.

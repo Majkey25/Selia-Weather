@@ -233,6 +233,33 @@ def test_normalizes_chmi_total_precipitation_metadata() -> None:
         )
 
 
+def test_rejects_real_chmi_nonmonotonic_total_without_hiding_bad_rain() -> None:
+    # Official 2026-09-05 06Z SURFPREC_TOTAL sampled at the requested point.
+    # SHA-256: 825bc70a600642eb81f62637486b2bb861c9dcff12d194d7f7632858d1411df7
+    run_time = datetime(2026, 9, 5, 6, tzinfo=UTC)
+    point = GeoPoint(48.6, 18.0)
+    messages = tuple(
+        SampledMessage(
+            run_time=run_time,
+            valid_time=run_time + timedelta(hours=lead),
+            unit="unknown", step_type="instant", start_step_hours=lead, end_step_hours=lead,
+            values=(SampledPoint(48.6, 18.0, 48.6, 18.0, 0.0, amount),),
+        )
+        for lead, amount in ((18, 0.4671454429626465), (24, 0.44909238815307617))
+    )
+    normalized = operational_feed.normalize_chmi_precipitation_messages(messages)
+    with pytest.raises(ValueError, match="cumulative precipitation decreased") as error:
+        operational_feed.to_forecast_values(
+            normalized, model_id="chmi_aladin_cz_1km", variable="precipitation",
+            canonical_unit="mm", elevation_by_point={point: 250.0},
+        )
+    assert "(48.6, 18.0)" in str(error.value)
+    assert "run=2026-09-05T06:00:00+00:00" in str(error.value)
+    assert "lead=18->24h" in str(error.value)
+    assert "delta=-0.018053054809570312 mm" in str(error.value)
+    assert "tolerance=0.01 mm" in str(error.value)
+
+
 def test_aladin_uses_only_its_official_domain_without_shrinking_other_models() -> None:
     points = (
         GeoPoint(48.45, 11.9),

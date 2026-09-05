@@ -199,7 +199,9 @@ object WeatherParser {
 
     private fun JSONObject.requiredDouble(name: String): Double {
         if (isNull(name)) throw JSONException("Hodnota $name chybí.")
-        return getDouble(name)
+        return getDouble(name).also { value ->
+            if (!value.isFinite()) throw JSONException("Hodnota $name není konečná.")
+        }
     }
 
     private fun JSONObject.requiredInt(name: String): Int {
@@ -209,7 +211,9 @@ object WeatherParser {
 
     private fun JSONArray.requiredDouble(index: Int, name: String): Double {
         if (isNull(index)) throw JSONException("Hodnota $name[$index] chybí.")
-        return getDouble(index)
+        return getDouble(index).also { value ->
+            if (!value.isFinite()) throw JSONException("Hodnota $name[$index] není konečná.")
+        }
     }
 
     private fun JSONArray.requiredInt(index: Int, name: String): Int {
@@ -223,7 +227,7 @@ object WeatherParser {
     }
 
     private fun JSONObject.optionalDouble(name: String): Double? =
-        if (!has(name) || isNull(name)) null else getDouble(name)
+        if (!has(name) || isNull(name)) null else requiredDouble(name)
 
     private fun JSONObject.optionalFiniteDouble(name: String): Double? =
         optionalDouble(name)?.also { value ->
@@ -235,7 +239,7 @@ object WeatherParser {
 
     private fun JSONObject.optionalDoubleAt(name: String, index: Int): Double? {
         val values = optJSONArray(name) ?: return null
-        return if (index >= values.length() || values.isNull(index)) null else values.getDouble(index)
+        return if (index >= values.length() || values.isNull(index)) null else values.requiredDouble(index, name)
     }
 
     private fun JSONObject.optionalFiniteDoubleAt(name: String, index: Int): Double? =

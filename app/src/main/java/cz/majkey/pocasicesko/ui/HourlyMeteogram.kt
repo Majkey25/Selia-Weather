@@ -20,7 +20,6 @@ internal data class MeteogramHourGeometry(
     val temperatureY: Float,
     val precipitationHeight: Float,
     val precipitationAlpha: Float,
-    val isDay: Boolean,
 )
 
 internal data class HourlyMeteogramGeometry(
@@ -43,13 +42,6 @@ internal fun HourlyMeteogram(
             columnWidth = columnWidth.toPx(),
         )
         val columnWidthPx = columnWidth.toPx()
-        geometry.hours.forEachIndexed { index, hour ->
-            drawRect(
-                color = if (hour.isDay) DAYLIGHT_TINT else NIGHT_TINT,
-                topLeft = Offset(index * columnWidthPx, 0f),
-                size = Size(columnWidthPx, size.height),
-            )
-        }
         val precipitationBaseline = size.height * 0.96f
         drawLine(
             color = Color.White.copy(alpha = 0.08f),
@@ -126,7 +118,6 @@ internal fun calculateHourlyMeteogram(
                 precipitationAlpha = (
                     0.30f + hour.precipitationProbability / 100f * 0.70f
                     ).coerceIn(0.30f, 1f),
-                isDay = hour.isDay,
             )
         },
     )
@@ -143,6 +134,4 @@ internal fun hourlyAccessibilityDescription(
 internal fun windArrowRotation(degrees: Int): Float =
     ((Math.floorMod(degrees, 360) + 180) % 360).toFloat()
 
-private val DAYLIGHT_TINT = Color(0xFFFFC96B).copy(alpha = 0.035f)
-private val NIGHT_TINT = Color(0xFF7284D8).copy(alpha = 0.045f)
 private val PRECIPITATION_COLOR = Color(0xFF66D7EE)

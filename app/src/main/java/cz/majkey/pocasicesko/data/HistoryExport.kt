@@ -31,14 +31,21 @@ internal fun historyCsv(archive: HistoryArchive): String = buildList {
     }
 }.joinToString("\n")
 
-internal fun historyChatPrompt(archive: HistoryArchive): String =
-    "Analyze the attached daily weather archive for ${archive.location.name} " +
+internal fun historyChatPrompt(archive: HistoryArchive): String {
+    val summary = archive.summary()
+    return "Analyze the attached daily weather archive for ${archive.location.name} " +
         "(${archive.location.latitude}, ${archive.location.longitude}) from " +
         "${archive.days.first().date} to ${archive.days.last().date}. " +
         "Calculate answers from the rows and state the covered dates. " +
+        "The archive covers ${summary.dayCount} of ${summary.calendarDayCount} calendar days in that UTC period. " +
+        "Solar energy: ${summary.solarEnergyDayCount} days; humidity: ${summary.humidityDayCount} days; " +
+        "wind: ${summary.windDayCount} days. " +
+        "Missing days and blank values are not zero. Report coverage for each requested metric and range; " +
+        "do not present partial sums as complete-period totals. " +
         "Be ready to calculate precipitation for any requested date range. " +
         "NASA POWER values are model and satellite grid estimates, not local station observations. " +
         "Solar energy is not sunshine duration."
+}
 
 private fun Double.fixed(decimals: Int): String = String.format(Locale.US, "%.${decimals}f", this)
 

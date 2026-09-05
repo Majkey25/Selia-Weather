@@ -314,6 +314,7 @@
     <string name="history_unavailable">Could not load the archive.</string>
     <string name="history_source_note">NASA POWER grid estimates based on satellite observations and assimilation models. Not local station measurements. Latest days may be delayed.</string>
     <string name="history_period">%1$s – %2$s</string>
+    <string name="history_coverage">Data for %1$d of %2$d days</string>
     <string name="history_total_precipitation">Total precipitation</string>
     <string name="history_wet_days">Wet days</string>
     <string name="history_wet_days_value">%1$d days</string>

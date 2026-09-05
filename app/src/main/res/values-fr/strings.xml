@@ -313,6 +313,7 @@
     <string name="history_unavailable">Impossible de charger l’archive.</string>
     <string name="history_source_note">Estimations maillées NASA POWER issues d’observations satellitaires et de modèles d’assimilation. Ce ne sont pas des mesures d’une station locale. Les derniers jours peuvent être retardés.</string>
     <string name="history_period">%1$s – %2$s</string>
+    <string name="history_coverage">Données pour %1$d sur %2$d jours</string>
     <string name="history_total_precipitation">Précipitations totales</string>
     <string name="history_wet_days">Jours humides</string>
     <string name="history_wet_days_value">%1$d jours</string>

@@ -583,6 +583,11 @@ private fun HistoryArchiveSection(
                     fontSize = 12.sp,
                     modifier = Modifier.padding(top = 5.dp, bottom = 8.dp),
                 )
+                Text(
+                    stringResource(R.string.history_coverage, summary.dayCount, summary.calendarDayCount),
+                    color = Color.White.copy(alpha = 0.62f),
+                    fontSize = 12.sp,
+                )
                 Row(Modifier.fillMaxWidth()) {
                     GlanceValue(
                         stringResource(R.string.history_total_precipitation),
@@ -610,17 +615,20 @@ private fun HistoryArchiveSection(
                     )
                 }
                 OptionalDetailRow(
-                    stringResource(R.string.history_solar_energy),
+                    stringResource(R.string.history_solar_energy) + " · " +
+                        stringResource(R.string.history_coverage, summary.solarEnergyDayCount, summary.calendarDayCount),
                     summary.totalSolarEnergyMegajoulesPerSquareMeter?.let {
                         String.format(locale, "%.0f MJ/m²", it)
                     },
                 )
                 OptionalDetailRow(
-                    stringResource(R.string.humidity),
+                    stringResource(R.string.humidity) + " · " +
+                        stringResource(R.string.history_coverage, summary.humidityDayCount, summary.calendarDayCount),
                     summary.averageRelativeHumidityPercent?.let { String.format(locale, "%.0f %%", it) },
                 )
                 OptionalDetailRow(
-                    stringResource(R.string.wind),
+                    stringResource(R.string.wind) + " · " +
+                        stringResource(R.string.history_coverage, summary.windDayCount, summary.calendarDayCount),
                     summary.averageWindSpeedMetersPerSecond?.let { units.windSpeed(it * 3.6) },
                 )
                 Button(

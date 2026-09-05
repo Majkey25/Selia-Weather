@@ -1,0 +1,1 @@
+Desliza hacia abajo para cerrar el detalle diario. Se mantienen el desplazamiento por horas y el cambio lateral de día. El gráfico y las próximas 24 horas comparten un fondo continuo. El archivo muestra los días disponibles. Los CSV no sobrescriben exportaciones anteriores y las instrucciones para ChatGPT explican los datos ausentes. Sin anuncios ni Premium.

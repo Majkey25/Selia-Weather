@@ -1,0 +1,1 @@
+Glissez vers le bas pour fermer le détail du jour. Le défilement horaire et le changement latéral de jour restent disponibles. La courbe et les prochaines 24 heures partagent un fond continu. Les archives indiquent les jours disponibles. Les CSV ne remplacent plus les exports précédents et les consignes ChatGPT expliquent les données manquantes. Sans publicité ni Premium.

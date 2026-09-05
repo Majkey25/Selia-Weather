@@ -30,6 +30,10 @@ data class HistoryArchive(
 
 data class HistorySummary(
     val dayCount: Int,
+    val calendarDayCount: Long,
+    val solarEnergyDayCount: Int,
+    val humidityDayCount: Int,
+    val windDayCount: Int,
     val totalPrecipitationMm: Double,
     val wetDayCount: Int,
     val averageTemperatureC: Double,
@@ -44,6 +48,10 @@ fun HistoryArchive.summary(): HistorySummary {
     require(days.isNotEmpty()) { "History archive must contain at least one day." }
     return HistorySummary(
         dayCount = days.size,
+        calendarDayCount = days.maxOf { it.date.toEpochDay() } - days.minOf { it.date.toEpochDay() } + 1,
+        solarEnergyDayCount = days.count { it.solarEnergyMegajoulesPerSquareMeter != null },
+        humidityDayCount = days.count { it.relativeHumidityPercent != null },
+        windDayCount = days.count { it.windSpeedMetersPerSecond != null },
         totalPrecipitationMm = days.sumOf(HistoricalDay::precipitationMm),
         wetDayCount = days.count { it.precipitationMm >= WET_DAY_THRESHOLD_MM },
         averageTemperatureC = days.map(HistoricalDay::temperatureMeanC).average(),

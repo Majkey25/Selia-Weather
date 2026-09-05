@@ -313,6 +313,7 @@
     <string name="history_unavailable">Archiv se nepodařilo načíst.</string>
     <string name="history_source_note">Mřížkové odhady NASA POWER založené na družicových pozorováních a asimilačních modelech. Nejde o měření místní stanice. Poslední dny mohou mít zpoždění.</string>
     <string name="history_period">%1$s – %2$s</string>
+    <string name="history_coverage">Data pro %1$d z %2$d dnů</string>
     <string name="history_total_precipitation">Celkové srážky</string>
     <string name="history_wet_days">Deštivé dny</string>
     <string name="history_wet_days_value">%1$d dní</string>

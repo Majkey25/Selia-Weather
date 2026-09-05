@@ -28,6 +28,10 @@ class HistoryArchiveTest {
         val summary = parsePowerHistory(SAMPLE_JSON, location, 123L).summary()
 
         assertEquals(2, summary.dayCount)
+        assertEquals(2L, summary.calendarDayCount)
+        assertEquals(2, summary.solarEnergyDayCount)
+        assertEquals(1, summary.humidityDayCount)
+        assertEquals(2, summary.windDayCount)
         assertEquals(0.66, summary.totalPrecipitationMm, 0.001)
         assertEquals(1, summary.wetDayCount)
         assertEquals(-0.865, summary.averageTemperatureC, 0.001)
@@ -39,6 +43,29 @@ class HistoryArchiveTest {
     @Test(expected = JSONException::class)
     fun rejectsResponseWithoutUsableDays() {
         parsePowerHistory("""{"properties":{"parameter":{}}}""", location, 123L)
+    }
+
+    @Test
+    fun missingSolarDaysKeepPartialSumAndExplicitCoverage() {
+        val archive = parsePowerHistory(SAMPLE_JSON, location, 123L)
+        val partial = archive.copy(days = listOf(
+            archive.days[0],
+            archive.days[1].copy(
+                date = LocalDate.of(2026, 1, 3),
+                solarEnergyMegajoulesPerSquareMeter = null,
+            ),
+        )).summary()
+
+        assertEquals(3L, partial.calendarDayCount)
+        assertEquals(2, partial.dayCount)
+        assertEquals(1, partial.solarEnergyDayCount)
+        assertEquals(1.0, partial.totalSolarEnergyMegajoulesPerSquareMeter!!, 0.0)
+
+        val missing = archive.copy(days = archive.days.map {
+            it.copy(solarEnergyMegajoulesPerSquareMeter = null)
+        }).summary()
+        assertEquals(0, missing.solarEnergyDayCount)
+        assertNull(missing.totalSolarEnergyMegajoulesPerSquareMeter)
     }
 
     @Test

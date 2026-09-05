@@ -37,7 +37,7 @@ class HourlyMeteogramTest {
     }
 
     @Test
-    fun mapsRainProbabilityAndDaylightWithoutLeavingBounds() {
+    fun mapsRainProbabilityWithoutLeavingBounds() {
         val geometry = calculateHourlyMeteogram(
             hours = listOf(
                 hour(0, precipitation = 0.5, probability = 20, isDay = true),
@@ -52,8 +52,6 @@ class HourlyMeteogramTest {
         assertEquals(33.6f, geometry.hours.last().precipitationHeight, 0.001f)
         assertEquals(0.44f, geometry.hours.first().precipitationAlpha, 0.001f)
         assertEquals(1f, geometry.hours.last().precipitationAlpha, 0.001f)
-        assertTrue(geometry.hours.first().isDay)
-        assertTrue(!geometry.hours.last().isDay)
     }
 
     @Test

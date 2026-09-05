@@ -8,7 +8,7 @@ Selia Weather, package `com.majkeylab.weatheraladin`, does not require a develop
 
 The app stores the last selected place, favourite places, the last successful forecast, language preference, and widget settings in internal app storage. A history archive is cached for up to 12 selected coordinates. The cache is refreshed at most once per 24 hours. Android backup and device transfer are disabled for this data. Clearing app data or uninstalling the app deletes it.
 
-After you select **Ask ChatGPT**, the app creates one CSV file in its private cache. The file contains the selected location name and coordinates, daily weather estimates, data-source version, and access time. Android shares the file only with the app you choose in the system share sheet. A later export replaces the previous file.
+After you select **Ask ChatGPT**, the app creates a separate CSV file in its private cache. The file contains the selected location name and coordinates, daily weather estimates, data-source version, and access time. Android shares the file only with the app you choose in the system share sheet. Later exports do not overwrite previously shared files. When creating a new export, the app retains at most 12 recent exports and removes exports older than seven days. Android may clear cached files sooner.
 
 Each widget stores its settings under its Android widget ID. If you select a custom image, the app stores only the selected Android content URI and retains Android read permission for that URI. The widget reads a bounded image copy only when it renders. Removing the widget removes its settings and releases its retained image permission when no other widget uses the URI.
 

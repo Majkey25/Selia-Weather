@@ -313,6 +313,7 @@
     <string name="history_unavailable">No se pudo cargar el archivo.</string>
     <string name="history_source_note">Estimaciones de cuadrícula NASA POWER basadas en observaciones satelitales y modelos de asimilación. No son mediciones de una estación local. Los últimos días pueden llegar con retraso.</string>
     <string name="history_period">%1$s – %2$s</string>
+    <string name="history_coverage">Datos de %1$d de %2$d días</string>
     <string name="history_total_precipitation">Precipitación total</string>
     <string name="history_wet_days">Días húmedos</string>
     <string name="history_wet_days_value">%1$d días</string>

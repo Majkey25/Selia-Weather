@@ -313,6 +313,7 @@
     <string name="history_unavailable">Das Archiv konnte nicht geladen werden.</string>
     <string name="history_source_note">NASA-POWER-Rasterschätzungen aus Satellitenbeobachtungen und Assimilationsmodellen. Keine Messungen einer lokalen Station. Die neuesten Tage können verzögert sein.</string>
     <string name="history_period">%1$s – %2$s</string>
+    <string name="history_coverage">Daten für %1$d von %2$d Tagen</string>
     <string name="history_total_precipitation">Gesamtniederschlag</string>
     <string name="history_wet_days">Niederschlagstage</string>
     <string name="history_wet_days_value">%1$d Tage</string>

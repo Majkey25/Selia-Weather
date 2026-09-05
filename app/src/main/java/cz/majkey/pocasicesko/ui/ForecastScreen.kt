@@ -690,7 +690,6 @@ private fun DayDetailSheet(
         containerColor = Color(0xFF101820),
         contentColor = Color.White,
         sheetState = sheetState,
-        sheetGesturesEnabled = false,
     ) {
         HorizontalPager(
             state = pagerState,

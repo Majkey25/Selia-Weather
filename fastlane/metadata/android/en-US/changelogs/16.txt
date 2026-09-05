@@ -1,0 +1,1 @@
+Swipe down to close day details; scrolling and sideways day navigation remain available. The temperature graph and 24-hour forecast now share one seamless background. Archive statistics show available-day coverage. CSV shares no longer overwrite earlier exports, and ChatGPT prompts explain missing data. No ads or Premium.

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## [0.2.0-beta.15] - 2026-09-05
+
+- Restore native downward dismissal of day details while preserving list scrolling and sideways day navigation.
+- Use one continuous background for the 24-hour forecast and temperature graph.
+- Show archive data coverage for daily totals, solar energy, humidity, and wind. Include missing-data guidance with ChatGPT exports.
+- Keep shared CSV files independent so exporting another location never overwrites an earlier share. Retain up to 12 exports, pruning files older than seven days when a new export is created.
+
 ## [0.2.0-beta.14] - 2026-09-05
 
 - Preserve provider rain probabilities and current precipitation intervals; incomplete hourly data no longer becomes a zero daily total.

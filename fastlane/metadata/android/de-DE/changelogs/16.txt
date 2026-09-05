@@ -1,0 +1,1 @@
+Tagesdetails durch Wischen nach unten schließen. Stundenlisten und seitlicher Tageswechsel bleiben verfügbar. Temperaturkurve und 24-Stunden-Vorhersage haben einen gemeinsamen Hintergrund. Das Archiv zeigt die Zahl verfügbarer Tage. CSV-Exporte überschreiben keine früheren Freigaben; ChatGPT-Hinweise erklären fehlende Daten. Ohne Werbung oder Premium.

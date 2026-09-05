@@ -7,8 +7,6 @@ import androidx.core.content.FileProvider
 import cz.majkey.pocasicesko.data.HistoryArchive
 import cz.majkey.pocasicesko.data.historyChatPrompt
 import cz.majkey.pocasicesko.data.historyCsv
-import java.io.File
-import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -17,12 +15,7 @@ internal suspend fun createHistoryShareIntent(
     archive: HistoryArchive,
     chooserTitle: String,
 ): Intent = withContext(Dispatchers.IO) {
-    val directory = File(context.cacheDir, "history_exports")
-    if (!directory.isDirectory && !directory.mkdirs()) {
-        throw IOException("History export directory could not be created.")
-    }
-    val file = File(directory, "selia_vetra_history.csv")
-    file.writeText(historyCsv(archive), Charsets.UTF_8)
+    val file = createHistoryShareFile(context.cacheDir, historyCsv(archive))
     val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)
     val send = Intent(Intent.ACTION_SEND).apply {
         type = "text/csv"

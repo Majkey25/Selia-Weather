@@ -1,0 +1,1 @@
+Detail dne zavřete tahem dolů; posouvání hodin a přepínání dnů zůstává funkční. Graf teplot a 24hodinový přehled mají společné plynulé pozadí. Archiv ukazuje počet dostupných dnů. Sdílení CSV nepřepisuje předchozí exporty a pokyny pro ChatGPT vysvětlují chybějící data. Bez reklam a Premium.

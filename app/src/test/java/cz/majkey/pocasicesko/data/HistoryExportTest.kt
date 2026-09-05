@@ -8,6 +8,22 @@ import org.junit.Test
 
 class HistoryExportTest {
     @Test
+    fun promptDisclosesMissingDaysAndMetricCoverage() {
+        val first = HistoricalDay(LocalDate.of(2026, 1, 1), 2.0, 3.0, 1.0, 0.5, 70.0, 2.0, 4.0)
+        val archive = HistoryArchive(
+            CzechLocation("Praha", REGION_PRAGUE, 50.0755, 14.4378, "CZ"),
+            listOf(first, first.copy(date = first.date.plusDays(2), solarEnergyMegajoulesPerSquareMeter = null)),
+            "v1", 123L,
+        )
+
+        val prompt = historyChatPrompt(archive)
+
+        assertTrue(prompt.contains("2 of 3 calendar days"))
+        assertTrue(prompt.contains("Solar energy: 1 days"))
+        assertTrue(prompt.contains("Missing days and blank values are not zero"))
+    }
+
+    @Test
     fun exportsDailyRowsWithStableUnitsAndSourceMetadata() {
         val archive = HistoryArchive(
             location = CzechLocation("Praha, pole", REGION_PRAGUE, 50.0755, 14.4378, "CZ"),

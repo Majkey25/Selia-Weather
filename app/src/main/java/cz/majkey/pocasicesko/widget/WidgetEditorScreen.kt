@@ -378,13 +378,19 @@ private fun WidgetPreview(settings: WidgetSettings, size: WidgetSize) {
         data.humidityPercent,
         data.updatedAt,
     )
-    val visibility = widgetContentVisibility(
+    val advancedText = widgetAdvancedText(normalized, data.advanced)
+    val configuredVisibility = widgetContentVisibility(
         settings = normalized,
         size = size,
         availability = availability,
         heightDp = previewHeight.value.roundToInt(),
+        advancedText = advancedText,
     )
-    val advancedText = widgetAdvancedText(normalized, data.advanced)
+    val temperatureFit = widgetTemperatureFit(
+        localized, normalized, configuredVisibility, previewWidthDp, data.temperature, previewHeight.value.roundToInt(),
+        listOf(data.precipitation, data.wind, data.humidity), advancedText,
+    )
+    val visibility = temperatureFit.visibility
     val primary = androidx.compose.ui.graphics.Color(AndroidColor.parseColor(normalized.primaryColor))
     val secondary = androidx.compose.ui.graphics.Color(AndroidColor.parseColor(normalized.secondaryColor))
     val accent = androidx.compose.ui.graphics.Color(AndroidColor.parseColor(normalized.accentColor))
@@ -412,7 +418,7 @@ private fun WidgetPreview(settings: WidgetSettings, size: WidgetSize) {
             )
             Row(Modifier.fillMaxSize()) {
                 Column(
-                    modifier = Modifier.fillMaxHeight().fillMaxWidth().padding(normalized.contentPaddingDp.dp),
+                    modifier = Modifier.fillMaxHeight().fillMaxWidth().padding(temperatureFit.contentPaddingDp.dp),
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth().weight(1f),
@@ -421,9 +427,9 @@ private fun WidgetPreview(settings: WidgetSettings, size: WidgetSize) {
                         Column(Modifier.weight(1f)) {
                             if (visibility.showLabel) Text(normalized.customLabel, Modifier.fillMaxWidth(), color = secondary, fontSize = 11.sp * scale)
                             if (visibility.showLocation) Text(data.city, Modifier.fillMaxWidth(), color = secondary, fontSize = 12.sp * scale, fontWeight = FontWeight.SemiBold)
-                            if (visibility.showTemperature) Text(data.temperature, Modifier.fillMaxWidth(), color = primary, fontSize = 34.sp * scale, lineHeight = 40.sp * scale, fontWeight = FontWeight.SemiBold)
+                            if (visibility.showTemperature) Text(data.temperature, Modifier.fillMaxWidth(), color = primary, fontSize = temperatureFit.textSizeSp.sp, lineHeight = (temperatureFit.textSizeSp * 1.18f).sp, fontWeight = FontWeight.SemiBold)
                         }
-                        if (visibility.showIcon) {
+                    if (visibility.showIcon) {
                             WeatherIcon(
                                 kind = data.kind,
                                 isDay = data.isDay,
@@ -450,7 +456,7 @@ private fun WidgetPreview(settings: WidgetSettings, size: WidgetSize) {
                             if (visibility.showHumidity) Text(data.humidity, Modifier.weight(1f), color = secondary, fontSize = 10.sp * scale, textAlign = TextAlign.End)
                         }
                     }
-                    if (widgetAdvancedVisible(size, advancedText)) {
+                    if (visibility.showAdvanced) {
                         Text(advancedText, Modifier.fillMaxWidth(), color = secondary, fontSize = 10.sp * scale, maxLines = 2)
                     }
                     if (visibility.showHourly) {

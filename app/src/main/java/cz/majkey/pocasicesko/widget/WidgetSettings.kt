@@ -175,6 +175,7 @@ internal data class WidgetContentVisibility(
     val showHumidity: Boolean,
     val showDate: Boolean,
     val showUpdatedAt: Boolean,
+    val showAdvanced: Boolean = false,
 )
 
 internal fun widgetSize(minWidth: Int, minHeight: Int): WidgetSize = when {
@@ -232,6 +233,51 @@ internal fun widgetCorners(value: String?): WidgetCorners = runCatching {
 internal fun widgetCornerRadiusPixels(corners: WidgetCorners, host: WidgetHostSize, bitmap: WidgetBitmapSize): Float {
     val radiusDp = minOf(corners.radiusDp.toFloat(), host.width / 2f, host.height / 2f)
     return radiusDp * minOf(bitmap.width.toFloat() / host.width, bitmap.height.toFloat() / host.height)
+}
+
+internal fun fitWidgetTemperatureSp(requestedSp: Float, fits: (Float) -> Boolean): Float {
+    val maximum = requestedSp.coerceAtLeast(12f)
+    if (fits(maximum)) return maximum
+    var low = 12f
+    var high = maximum
+    repeat(12) {
+        val candidate = (low + high) / 2
+        if (fits(candidate)) low = candidate else high = candidate
+    }
+    return low
+}
+
+internal data class WidgetTemperatureFit(
+    val textSizeSp: Float,
+    val visibility: WidgetContentVisibility,
+    val contentPaddingDp: Int,
+)
+
+internal fun fitWidgetHeader(
+    requestedSp: Float,
+    visibility: WidgetContentVisibility,
+    contentPaddingDp: Int,
+    availableWidth: (WidgetContentVisibility, Int) -> Float,
+    measure: (Float) -> Float,
+    availableHeight: (WidgetContentVisibility, Int) -> Float = { _, _ -> Float.POSITIVE_INFINITY },
+    measureHeight: (Float) -> Float = { 0f },
+): WidgetTemperatureFit {
+    var visible = visibility
+    var padding = contentPaddingDp.coerceIn(0, 24)
+    if (!visible.showTemperature) return WidgetTemperatureFit(requestedSp, visible, padding)
+    val minimumWidth = measure(12f)
+    val minimumHeight = measureHeight(12f)
+    fun fitsMinimum() = availableWidth(visible, padding) >= minimumWidth && availableHeight(visible, padding) >= minimumHeight
+    if (!fitsMinimum()) visible = visible.copy(showIcon = false)
+    if (!fitsMinimum()) visible = visible.copy(showClock = false, showDate = false)
+    while (padding > 0 && !fitsMinimum()) padding--
+    if (!fitsMinimum()) visible = visible.copy(showAdvanced = false, showUpdatedAt = false)
+    if (!fitsMinimum()) visible = visible.copy(showHourly = false)
+    if (!fitsMinimum()) visible = visible.copy(showMetrics = false, showPrecipitation = false, showWind = false, showHumidity = false)
+    if (!fitsMinimum()) visible = visible.copy(showLabel = false, showLocation = false, showCondition = false, showRange = false)
+    val width = availableWidth(visible, padding)
+    val height = availableHeight(visible, padding)
+    return WidgetTemperatureFit(fitWidgetTemperatureSp(requestedSp) { measure(it) <= width && measureHeight(it) <= height }, visible, padding)
 }
 
 internal fun widgetPresetSettings(preset: WidgetPreset, current: WidgetSettings): WidgetSettings = when (preset) {
@@ -464,6 +510,7 @@ internal fun widgetContentVisibility(
     size: WidgetSize,
     availability: WidgetDataAvailability,
     heightDp: Int = 120,
+    advancedText: String = "",
 ): WidgetContentVisibility {
     val contentHeightDp = heightDp - 2 * (settings.contentPaddingDp.coerceIn(0, 24) - DEFAULT_WIDGET_PADDING_DP)
     val showDetails = size != WidgetSize.COMPACT && (settings.showCondition || settings.showRange)
@@ -489,6 +536,7 @@ internal fun widgetContentVisibility(
         showHumidity = showHumidity,
         showDate = size != WidgetSize.COMPACT && settings.showDate,
         showUpdatedAt = settings.showUpdatedAt && size != WidgetSize.COMPACT && availability.hasUpdatedAt,
+        showAdvanced = widgetAdvancedVisible(size, advancedText),
     )
 }
 
@@ -578,6 +626,17 @@ internal fun backgroundBitmapSize(width: Int, height: Int): WidgetBitmapSize {
 internal fun widgetHostSize(minWidth: Int, minHeight: Int): WidgetHostSize = WidgetHostSize(
     minWidth.coerceAtLeast(1),
     minHeight.coerceAtLeast(1),
+)
+
+internal fun widgetHostSize(
+    minWidth: Int,
+    minHeight: Int,
+    maxWidth: Int,
+    maxHeight: Int,
+    landscape: Boolean,
+): WidgetHostSize = widgetHostSize(
+    if (landscape) maxWidth.takeIf { it > 0 } ?: minWidth else minWidth,
+    if (landscape) minHeight else maxHeight.takeIf { it > 0 } ?: minHeight,
 )
 
 internal fun widgetFontLayout(fontStyle: WidgetFontStyle, alignment: WidgetAlignment): Int = when (fontStyle) {

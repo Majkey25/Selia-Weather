@@ -11,6 +11,7 @@
 - Read forecast/cache metadata consistently during concurrent updates. Replace archive caches atomically and preserve the previous archive when refresh is cancelled or cannot be saved.
 - Match widget previews to selected fonts, alignment, and size. Improve selected-option accessibility and hourly data wrapping.
 - Add an App style widget preset with the forecast's weather-aware gradient, adjustable corners, and content spacing.
+- Fit widget temperatures to the available space at large text sizes and use matching portrait or landscape dimensions.
 - Publish a reproducible 313-case temperature comparison with regional limitations. No new calibration weights or worldwide accuracy guarantee.
 - Capture future model forecasts for research and compare them with independently sourced station observations. Missing observations remain unscored. WeatherNext 3 access and usage constraints are documented; it is not an active provider.
 

@@ -116,4 +116,22 @@ class WidgetLayoutTest {
         assertEquals(40f, widgetCornerRadiusPixels(WidgetCorners.ROUND, WidgetHostSize(110, 40), WidgetBitmapSize(220, 80)), 0.001f)
         assertEquals(1f, widgetCornerRadiusPixels(WidgetCorners.ROUND, WidgetHostSize(1, 1), WidgetBitmapSize(2, 2)), 0.001f)
     }
+
+    @Test
+    fun previewAndLauncherUseTheSameTemperatureWidthFit() {
+        val root = File(System.getProperty("user.dir"), "src/main/java/cz/majkey/pocasicesko/widget")
+        val provider = File(root, "WeatherWidgetProvider.kt").readText()
+        val preview = File(root, "WidgetEditorScreen.kt").readText()
+        assertTrue(provider.contains("val temperatureFit = widgetTemperatureFit("))
+        assertTrue(preview.contains("val temperatureFit = widgetTemperatureFit("))
+        assertTrue(provider.contains("temperatureFit.textSizeSp"))
+        assertTrue(preview.contains("temperatureFit.textSizeSp.sp"))
+        assertTrue(provider.contains("('0'..'9').maxOf"))
+        assertTrue(provider.contains("TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP"))
+        assertTrue(provider.contains("paint.fontMetrics.descent - paint.fontMetrics.ascent"))
+        assertTrue(provider.contains("availableHeight ="))
+        assertTrue(provider.contains("StaticLayout.Builder.obtain"))
+        assertFalse(provider.contains("getDefaultPaddingForWidget"))
+        assertFalse(provider.contains("hostPaddingPx"))
+    }
 }

@@ -5,8 +5,13 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
+import android.content.res.Configuration
 import android.content.Intent
 import android.net.Uri
+import android.graphics.Paint
+import android.graphics.Typeface
+import android.text.TextPaint
+import android.text.StaticLayout
 import android.os.Bundle
 import android.util.Log
 import android.util.TypedValue
@@ -197,7 +202,13 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             val options = manager.getAppWidgetOptions(appWidgetId)
             val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, COMPACT_WIDTH_DP)
             val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, COMPACT_HEIGHT_DP)
-            val hostSize = widgetHostSize(minWidth, minHeight)
+            val hostSize = widgetHostSize(
+                minWidth,
+                minHeight,
+                options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, minWidth),
+                options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, minHeight),
+                localizedContext.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE,
+            )
             val size = widgetSize(hostSize.width, hostSize.height)
             val views = RemoteViews(localizedContext.packageName, widgetFontLayout(settings.fontStyle, settings.alignment))
 
@@ -223,6 +234,11 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             val precipitation = weather.getInt(WeatherRepository.KEY_WIDGET_PRECIPITATION_PROBABILITY, -1)
             val wind = weather.getFloat(WeatherRepository.KEY_WIDGET_WIND_SPEED, Float.NaN)
             val humidity = weather.getInt(WeatherRepository.KEY_WIDGET_HUMIDITY, -1)
+            val metricTexts = listOf(
+                if (precipitation < 0) "--" else "${localizedContext.getString(R.string.precipitation)} $precipitation%",
+                if (wind.isNaN()) "--" else "${localizedContext.getString(R.string.wind)} ${unitFormatter.windSpeed(wind.toDouble())}",
+                if (humidity < 0) "--" else "${localizedContext.getString(R.string.humidity)} $humidity%",
+            )
             val advancedText = widgetAdvancedText(
                 settings,
                 weather.widgetAdvancedData(localizedContext, unitFormatter),
@@ -240,24 +256,31 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             val secondaryColor = android.graphics.Color.parseColor(settings.secondaryColor)
 
             WidgetBackground.apply(localizedContext, views, settings, kind, isDay, hostSize.width, hostSize.height)
-            val contentPadding = (settings.contentPaddingDp * localizedContext.resources.displayMetrics.density).roundToInt()
-            views.setViewPadding(R.id.widget_content, contentPadding, contentPadding, contentPadding, contentPadding)
+            val temperatureText = if (temperature.isNaN()) localizedContext.getString(R.string.widget_placeholder_temperature)
+                else unitFormatter.temperature(temperature.toDouble())
             views.setTextViewText(
                 R.id.widget_temperature,
-                if (temperature.isNaN()) localizedContext.getString(R.string.widget_placeholder_temperature)
-                else unitFormatter.temperature(temperature.toDouble()),
+                temperatureText,
             )
             views.setTextColor(R.id.widget_temperature, primaryColor)
             views.setTextViewText(R.id.widget_city, city)
             views.setTextColor(R.id.widget_city, secondaryColor)
             views.setTextViewText(R.id.widget_condition, condition)
             views.setTextColor(R.id.widget_condition, primaryColor)
-            val visibility = widgetContentVisibility(
+            val configuredVisibility = widgetContentVisibility(
                 settings = settings,
                 size = size,
                 availability = availability,
                 heightDp = hostSize.height,
+                advancedText = advancedText,
             )
+            val temperatureFit = widgetTemperatureFit(
+                localizedContext, settings, configuredVisibility, hostSize.width, temperatureText,
+                hostSize.height, metricTexts, advancedText,
+            )
+            val visibility = temperatureFit.visibility
+            val contentPadding = (temperatureFit.contentPaddingDp * localizedContext.resources.displayMetrics.density).roundToInt()
+            views.setViewPadding(R.id.widget_content, contentPadding, contentPadding, contentPadding, contentPadding)
             views.setViewVisibility(
                 R.id.widget_label,
                 if (visibility.showLabel) View.VISIBLE else View.GONE,
@@ -317,22 +340,22 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             )
             views.setTextViewText(
                 R.id.widget_precipitation,
-                if (precipitation < 0) "--" else "${localizedContext.getString(R.string.precipitation)} $precipitation%",
+                metricTexts[0],
             )
             views.setTextViewText(
                 R.id.widget_wind,
-                if (wind.isNaN()) "--" else "${localizedContext.getString(R.string.wind)} ${unitFormatter.windSpeed(wind.toDouble())}",
+                metricTexts[1],
             )
             views.setTextViewText(
                 R.id.widget_humidity,
-                if (humidity < 0) "--" else "${localizedContext.getString(R.string.humidity)} $humidity%",
+                metricTexts[2],
             )
             views.setTextColor(R.id.widget_precipitation, secondaryColor)
             views.setTextColor(R.id.widget_wind, secondaryColor)
             views.setTextColor(R.id.widget_humidity, secondaryColor)
             views.setViewVisibility(
                 R.id.widget_advanced,
-                if (widgetAdvancedVisible(size, advancedText)) View.VISIBLE else View.GONE,
+                if (visibility.showAdvanced) View.VISIBLE else View.GONE,
             )
             views.setTextViewText(R.id.widget_advanced, advancedText)
             views.setTextColor(R.id.widget_advanced, secondaryColor)
@@ -377,6 +400,7 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                 primaryColor,
                 secondaryColor,
             )
+            views.setTextViewTextSize(R.id.widget_temperature, TypedValue.COMPLEX_UNIT_SP, temperatureFit.textSizeSp)
 
             val openApp = Intent(context, MainActivity::class.java)
             val pendingIntent = PendingIntent.getActivity(
@@ -717,6 +741,75 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             }
         }
     }
+}
+
+internal fun widgetTemperatureFit(
+    context: Context,
+    settings: WidgetSettings,
+    visibility: WidgetContentVisibility,
+    hostWidthDp: Int,
+    temperature: String,
+    hostHeightDp: Int,
+    metricTexts: List<String>,
+    advancedText: String,
+): WidgetTemperatureFit {
+    require(metricTexts.size == 3)
+    val metrics = context.resources.displayMetrics
+    val family = widgetPreviewFontName(settings.fontStyle)
+    val paint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.create(family, Typeface.BOLD) }
+    val scale = settings.textScale / 100f
+    paint.textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 14f * scale, metrics)
+    val clockWidth = if (visibility.showClock) {
+        ('0'..'9').maxOf { paint.measureText(it.toString()) } * 4 + paint.measureText(":")
+    } else 0f
+    paint.typeface = Typeface.create(family, Typeface.NORMAL)
+    paint.textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 10f * scale, metrics)
+    val dateWidth = if (visibility.showDate) {
+        paint.measureText(widgetDate(LocalDate.now(), context.resources.configuration.locales[0]))
+    } else 0f
+    paint.typeface = Typeface.create(family, Typeface.BOLD)
+    fun measure(sp: Float): Float {
+        paint.textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sp, metrics)
+        return paint.measureText(temperature)
+    }
+    fun lineHeight(sp: Float): Float {
+        paint.textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sp, metrics)
+        return kotlin.math.ceil(paint.fontMetrics.descent - paint.fontMetrics.ascent)
+    }
+    fun wrappedHeight(text: String, width: Float, maxLines: Int = Int.MAX_VALUE): Float =
+        StaticLayout.Builder.obtain(text, 0, text.length, paint, width.toInt().coerceAtLeast(1))
+            .setIncludePad(false).setMaxLines(maxLines).build().height.toFloat()
+    return fitWidgetHeader(
+        requestedSp = 34f * scale,
+        visibility = visibility,
+        contentPaddingDp = settings.contentPaddingDp,
+        availableWidth = { visible, padding ->
+            val remaining = (hostWidthDp - padding * 2) * metrics.density -
+                kotlin.math.ceil(maxOf(if (visible.showClock) clockWidth else 0f, if (visible.showDate) dateWidth else 0f)) -
+                (if (visible.showIcon) 46f * metrics.density else 0f) - 2f
+            remaining / if (visible.showCondition || visible.showRange) 2 else 1
+        },
+        measure = ::measure,
+        availableHeight = { visible, padding ->
+            val contentWidth = (hostWidthDp - padding * 2) * metrics.density
+            var reserved = if (visible.showLabel) lineHeight(11f * scale) else 0f
+            if (visible.showLocation) reserved += lineHeight(12f * scale)
+            if (visible.showHourly) reserved += lineHeight(11f * scale) + lineHeight(14f * scale) + 14f * metrics.density
+            if (visible.showUpdatedAt) reserved += lineHeight(9f * scale)
+            val shownMetrics = listOf(visible.showPrecipitation, visible.showWind, visible.showHumidity)
+                .zip(metricTexts).filter { it.first }.map { it.second }
+            if (shownMetrics.isNotEmpty()) {
+                lineHeight(10f * scale)
+                reserved += shownMetrics.maxOf { wrappedHeight(it, contentWidth / shownMetrics.size) }
+            }
+            if (visible.showAdvanced) {
+                lineHeight(10f * scale)
+                reserved += wrappedHeight(advancedText, contentWidth, 2)
+            }
+            (hostHeightDp - padding * 2) * metrics.density - reserved - 2f
+        },
+        measureHeight = ::lineHeight,
+    )
 }
 
 internal fun widgetConditionKey(value: String?): WeatherConditionKey = runCatching {

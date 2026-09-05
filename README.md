@@ -89,6 +89,8 @@ Release builds do not contain or initialise Ads, UMP, Play Billing, Premium, or 
 
 The debug APK is at `app/build/outputs/apk/debug/app-debug.apk`.
 
+To publish documentation when an upstream forecast fails validation, run `gh workflow run forecast-data.yml --ref main -f include_forecasts=false`. This manual mode publishes an empty diagnostic feed alongside the privacy page. Default forecast runs still require valid data; this does not enable production calibration.
+
 ## Privacy
 
 The app has no developer account or separate analytics SDK. It keeps the selected place, favourites, widget settings, forecast cache, and a bounded history cache in internal app storage. Current location is optional. Forecast coordinates are sent to Open-Meteo. A bounded coordinate box is sent to AviationWeather to find nearby METAR reports, including in Czechia. The observed map loads visible OpenStreetMap and RainViewer tiles. After you select **Weather history** or **Load archive**, the selected coordinates are sent to NASA POWER when the archive needs a refresh. A history CSV leaves the app only after you select **Ask AI with CSV** and choose a recipient in Android's share sheet. In Czechia, the app selects nearby ČHMÚ station IDs locally and requests their public observation files without sending the selected coordinates to ČHMÚ. Read the [privacy policy](https://majkey25.github.io/Selia-Weather/).

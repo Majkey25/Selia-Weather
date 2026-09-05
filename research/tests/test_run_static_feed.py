@@ -115,3 +115,7 @@ def test_forecast_workflow_builds_and_deploys_pages_site() -> None:
     assert "python -m aladin_ensemble.run_static_feed" in source
     assert "--operational" in source
     assert "actions/deploy-pages@v4" in source
+    assert "include_forecasts:" in source
+    assert "default: true" in source
+    assert "if: github.event_name != 'workflow_dispatch' || inputs.include_forecasts" in source
+    assert "if: github.event_name == 'workflow_dispatch' && !inputs.include_forecasts" in source

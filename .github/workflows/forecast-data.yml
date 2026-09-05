@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: "17 */6 * * *"
   workflow_dispatch:
+    inputs:
+      include_forecasts:
+        description: Include validated forecast tiles; disable for a docs-only publication
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -40,6 +45,7 @@ jobs:
         run: uv sync --project research --frozen
 
       - name: Build verified operational diagnostic feed
+        if: github.event_name != 'workflow_dispatch' || inputs.include_forecasts
         run: >-
           uv run --project research python -m aladin_ensemble.run_static_feed
           --docs-root docs
@@ -47,6 +53,14 @@ jobs:
           --source-registry research/static-source-registry.json
           --operational
           --cache-root "$RUNNER_TEMP/forecast-cache"
+
+      - name: Build documentation with an empty diagnostic feed
+        if: github.event_name == 'workflow_dispatch' && !inputs.include_forecasts
+        run: >-
+          uv run --project research python -m aladin_ensemble.run_static_feed
+          --docs-root docs
+          --output "$RUNNER_TEMP/pages-site"
+          --source-registry research/static-source-registry.json
 
       - uses: actions/configure-pages@v5
 

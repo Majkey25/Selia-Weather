@@ -418,8 +418,19 @@ def _precipitation_intervals(
             if cumulative
             else raw_values
         )
-        if any(value < -PRECIPITATION_TOLERANCE_MM for value in interval_values):
-            raise ValueError("cumulative precipitation decreased")
+        invalid = next(
+            (index for index, value in enumerate(interval_values)
+             if value < -PRECIPITATION_TOLERANCE_MM),
+            None,
+        )
+        if invalid is not None:
+            point = message.values[invalid]
+            raise ValueError(
+                "cumulative precipitation decreased "
+                f"at ({point.latitude}, {point.longitude}), run={message.run_time.isoformat()}, "
+                f"lead={previous_end}->{message.end_step_hours}h: "
+                f"delta={interval_values[invalid]} mm, tolerance={PRECIPITATION_TOLERANCE_MM} mm"
+            )
         result.append(
             replace(
                 message,

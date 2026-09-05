@@ -8,6 +8,19 @@ import org.junit.Test
 
 class PinnedLocationTest {
     @Test
+    fun mapAndSaveUseTheSameValidatedCoordinates() {
+        val point = requireNotNull(mapCoordinatesOrNull("-33,8688", "151.2093"))
+        val saved = requireNotNull(pinnedLocationOrNull("Sydney", "-33,8688", "151.2093"))
+        assertEquals(saved.latitude, point.latitude, 0.0)
+        assertEquals(saved.longitude, point.longitude, 0.0)
+        assertNull(pinnedLocationOrNull("", "-33,8688", "151.2093"))
+        assertNull(mapCoordinatesOrNull("-", "151.2093"))
+        assertNull(mapCoordinatesOrNull("Infinity", "151.2093"))
+        assertNull(mapCoordinatesOrNull("0", "-181"))
+        assertEquals(MapCoordinates(0.0, 0.0), mapCoordinatesOrNull("0", "0"))
+    }
+
+    @Test
     fun createsNamedCzechPointFromDirectCoordinates() {
         val location = pinnedLocationOrNull("  North field  ", "50,075500", "14.437800")
 

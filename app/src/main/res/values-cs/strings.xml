@@ -311,7 +311,7 @@
     <string name="history_description">Načíst pět let denních odhadů pro tuto lokalitu.</string>
     <string name="history_load">Načíst archiv</string>
     <string name="history_unavailable">Archiv se nepodařilo načíst.</string>
-    <string name="history_source_note">Mřížkové odhady NASA POWER založené na družicových pozorováních a asimilačních modelech. Nejde o měření místní stanice. Poslední dny mohou mít zpoždění.</string>
+    <string name="history_source_note">Mřížkové odhady NASA POWER založené na družicových pozorováních a asimilačních modelech. Nejde o měření místní stanice. Poslední dny mohou mít zpoždění. Denní období jsou v UTC.</string>
     <string name="history_period">%1$s – %2$s</string>
     <string name="history_coverage">Data pro %1$d z %2$d dnů</string>
     <string name="history_total_precipitation">Celkové srážky</string>
@@ -320,11 +320,11 @@
     <string name="history_average_temperature">Průměrná teplota</string>
     <string name="history_temperature_range">Rozsah teplot</string>
     <string name="history_solar_energy">Sluneční energie na povrchu</string>
-    <string name="history_ask_chatgpt">Zeptat se ChatGPT s CSV</string>
+    <string name="history_ask_chatgpt">Zeptat se AI s CSV</string>
     <string name="history_show_days">Zobrazit denní data</string>
     <string name="history_hide_days">Skrýt denní data</string>
     <string name="history_daily_title">Denní archiv</string>
-    <string name="history_share_chooser">Zeptat se ChatGPT nebo sdílet</string>
+    <string name="history_share_chooser">Vyberte AI aplikaci nebo sdílejte</string>
     <string name="history_share_failed">Archiv se nepodařilo sdílet.</string>
     <string name="daily_briefing">Ranní přehled</string>
     <string name="daily_briefing_summary">Každé ráno v 7:00 · doporučení oblečení a deštníku</string>
@@ -354,4 +354,16 @@
     <string name="hourly_feels_like_summary">Pocitově bude %1$s, teplota vzduchu %2$s. Oblečení volte podle pocitové teploty.</string>
     <string name="hourly_uv_summary">UV index %1$.1f. Venku použijte ochranu před sluncem, i když je chladno.</string>
     <string name="widget_edit">Upravit widget %1$d</string>
+    <string name="history_last_30">Posledních 30 dní</string>
+    <string name="history_last_365">Posledních 365 dní</string>
+    <string name="history_all_available">Vše dostupné</string>
+    <string name="history_ai_share_note">Sdílí celý archiv (%1$d denních záznamů), i když je vybrané kratší období. Vyberte kompatibilní nainstalovanou AI aplikaci nebo jinou aplikaci, která přijímá soubory CSV.</string>
+    <string name="history_custom_period">Vlastní období</string>
+    <string name="history_no_period_data">Pro toto období nejsou dostupné denní záznamy. Chybějící hodnoty neznamenají nulové srážky.</string>
+    <string name="widget_app_style">Styl aplikace</string>
+    <string name="widget_corners">Rohy</string>
+    <string name="widget_corners_square">Hranaté</string>
+    <string name="widget_corners_soft">Mírně zaoblené</string>
+    <string name="widget_corners_round">Kulaté</string>
+    <string name="widget_content_padding">Odsazení obsahu</string>
 </resources>

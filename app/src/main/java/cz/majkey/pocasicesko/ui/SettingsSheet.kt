@@ -4,6 +4,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -29,6 +31,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -106,7 +109,11 @@ fun SettingsSheet(
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onMeasurementSystem(system) },
+                        .selectable(
+                            selected = system == selectedMeasurementSystem,
+                            role = Role.RadioButton,
+                            onClick = { onMeasurementSystem(system) },
+                        ),
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                 )
             }
@@ -125,7 +132,11 @@ fun SettingsSheet(
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onLanguage(language.tag) },
+                        .selectable(
+                            selected = language.tag == selectedTag,
+                            role = Role.RadioButton,
+                            onClick = { onLanguage(language.tag) },
+                        ),
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                 )
             }
@@ -135,12 +146,12 @@ fun SettingsSheet(
                 trailingContent = {
                     Switch(
                         checked = dailyBriefingEnabled,
-                        onCheckedChange = onDailyBriefingChange,
+                        onCheckedChange = null,
                     )
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onDailyBriefingChange(!dailyBriefingEnabled) },
+                    .toggleable(value = dailyBriefingEnabled, role = Role.Switch, onValueChange = onDailyBriefingChange),
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             )
             Text(

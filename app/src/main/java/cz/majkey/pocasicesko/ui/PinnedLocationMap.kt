@@ -23,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,6 +43,7 @@ import cz.majkey.pocasicesko.data.CzechLocation
 @SuppressLint("SetJavaScriptEnabled")
 internal fun PinnedLocationMap(
     initialLocation: CzechLocation,
+    coordinates: MapCoordinates?,
     onCoordinates: (MapCoordinates) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -53,6 +55,8 @@ internal fun PinnedLocationMap(
     }
     var loading by remember(url) { mutableStateOf(true) }
     var error by remember(url) { mutableStateOf<String?>(null) }
+    val currentCoordinates by rememberUpdatedState(coordinates)
+    val currentOnCoordinates by rememberUpdatedState(onCoordinates)
 
     Box(modifier.background(Color(0xFF071018)), contentAlignment = Alignment.Center) {
         key(url) {
@@ -73,7 +77,7 @@ internal fun PinnedLocationMap(
                         }
                         addJavascriptInterface(
                             LocationBridge { latitude, longitude ->
-                                post { onCoordinates(MapCoordinates(latitude, longitude)) }
+                                post { currentOnCoordinates(MapCoordinates(latitude, longitude)) }
                             },
                             LOCATION_BRIDGE,
                         )
@@ -85,6 +89,10 @@ internal fun PinnedLocationMap(
 
                             override fun onPageCommitVisible(view: WebView?, pageUrl: String?) {
                                 loading = false
+                            }
+
+                            override fun onPageFinished(view: WebView?, pageUrl: String?) {
+                                view?.updateLocationPin(currentCoordinates)
                             }
 
                             override fun onReceivedError(
@@ -124,6 +132,7 @@ internal fun PinnedLocationMap(
                     view.destroy()
                 },
                 update = { view ->
+                    view.updateLocationPin(coordinates)
                     if (lifecycleState.isAtLeast(Lifecycle.State.RESUMED)) {
                         view.onResume()
                     } else {
@@ -140,6 +149,12 @@ internal fun PinnedLocationMap(
                 color = Color.White.copy(alpha = 0.72f),
             )
         }
+    }
+}
+
+private fun WebView.updateLocationPin(coordinates: MapCoordinates?) {
+    coordinates?.let {
+        evaluateJavascript("window.updateLocationPin && window.updateLocationPin(${it.latitude},${it.longitude})", null)
     }
 }
 

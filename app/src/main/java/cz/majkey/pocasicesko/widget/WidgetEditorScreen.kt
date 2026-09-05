@@ -2,6 +2,7 @@ package cz.majkey.pocasicesko.widget
 
 import android.content.Context
 import android.graphics.Color as AndroidColor
+import android.graphics.Typeface
 import android.text.format.DateFormat
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -26,6 +27,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
@@ -50,6 +53,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -83,12 +87,10 @@ internal fun WidgetEditorScreen(
         }
     }
     val invalidColors = listOf(
-        settings.backgroundStart,
-        settings.backgroundEnd,
         settings.primaryColor,
         settings.secondaryColor,
         settings.accentColor,
-    ).any { !isWidgetColor(it) }
+    ).plus(settings.editableBackgroundColors()).any { !isWidgetColor(it) }
 
     Scaffold(
         bottomBar = {
@@ -143,11 +145,15 @@ internal fun WidgetEditorScreen(
                             )
                         }
                     }
-                    ColorInput(settings.backgroundStart, stringResource(R.string.widget_background_start)) {
-                        settings = settings.copy(backgroundStart = it)
+                    if (settings.editableBackgroundColors().isNotEmpty()) {
+                        ColorInput(settings.backgroundStart, stringResource(R.string.widget_background_start)) {
+                            settings = settings.copy(backgroundStart = it)
+                        }
                     }
-                    ColorInput(settings.backgroundEnd, stringResource(R.string.widget_background_end)) {
-                        settings = settings.copy(backgroundEnd = it)
+                    if (settings.editableBackgroundColors().size > 1) {
+                        ColorInput(settings.backgroundEnd, stringResource(R.string.widget_background_end)) {
+                            settings = settings.copy(backgroundEnd = it)
+                        }
                     }
                     if (settings.backgroundMode == WidgetBackgroundMode.CUSTOM_IMAGE) {
                         ImageControl(
@@ -181,6 +187,22 @@ internal fun WidgetEditorScreen(
             }
             item {
                 EditorSection(stringResource(R.string.widget_editor_layout)) {
+                    Text(stringResource(R.string.widget_corners), fontWeight = FontWeight.Medium)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        WidgetCorners.entries.forEach { corners ->
+                            FilterChip(
+                                selected = settings.corners == corners,
+                                onClick = { settings = settings.copy(corners = corners) },
+                                label = { Text(stringResource(corners.labelResource())) },
+                            )
+                        }
+                    }
+                    SliderControl(
+                        title = stringResource(R.string.widget_content_padding),
+                        value = settings.contentPaddingDp,
+                        range = 0..24,
+                        valueLabel = "${settings.contentPaddingDp} dp",
+                    ) { settings = settings.copy(contentPaddingDp = it) }
                     SliderControl(
                         title = stringResource(R.string.widget_text_scale),
                         value = settings.textScale,
@@ -282,11 +304,11 @@ private fun ImageControl(hasImage: Boolean, onPick: () -> Unit, onRemove: () -> 
 }
 
 @Composable
-private fun SliderControl(title: String, value: Int, range: IntRange, onValueChange: (Int) -> Unit) {
+private fun SliderControl(title: String, value: Int, range: IntRange, valueLabel: String? = null, onValueChange: (Int) -> Unit) {
     Column {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(title, fontWeight = FontWeight.Medium)
-            Text(stringResource(R.string.widget_percent, value), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(valueLabel ?: stringResource(R.string.widget_percent, value), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Slider(
             value = value.toFloat(),
@@ -331,13 +353,20 @@ private fun WidgetPreview(settings: WidgetSettings, size: WidgetSize) {
     val locale = localized.resources.configuration.locales[0]
     val data = remember(localized, locale) { loadPreview(localized) }
     val normalized = settings.normalized()
-    val backgroundKey = widgetPreviewBackgroundKey(normalized, data.kind, data.isDay)
+    val previewHeight = when (size) {
+        WidgetSize.COMPACT -> 96.dp
+        WidgetSize.STANDARD -> 132.dp
+        WidgetSize.TALL -> 160.dp
+        WidgetSize.WIDE -> 174.dp
+    }
+    val previewWidthDp = (configuration.screenWidthDp - 40).coerceAtLeast(1)
+    val backgroundKey = widgetPreviewBackgroundKey(normalized, data.kind, data.isDay, previewWidthDp, previewHeight.value.roundToInt())
     val image by produceState<android.graphics.Bitmap?>(
         initialValue = null,
         backgroundKey,
     ) {
         value = withContext(Dispatchers.IO) {
-            WidgetBackground.previewBitmap(context, normalized, data.kind, data.isDay)
+            WidgetBackground.previewBitmap(context, normalized, data.kind, data.isDay, previewWidthDp, previewHeight.value.roundToInt())
         }
     }
     val backgroundAlpha = widgetBackgroundAlpha(normalized, 255) / 255f
@@ -353,103 +382,111 @@ private fun WidgetPreview(settings: WidgetSettings, size: WidgetSize) {
         settings = normalized,
         size = size,
         availability = availability,
+        heightDp = previewHeight.value.roundToInt(),
     )
     val advancedText = widgetAdvancedText(normalized, data.advanced)
     val primary = androidx.compose.ui.graphics.Color(AndroidColor.parseColor(normalized.primaryColor))
     val secondary = androidx.compose.ui.graphics.Color(AndroidColor.parseColor(normalized.secondaryColor))
     val accent = androidx.compose.ui.graphics.Color(AndroidColor.parseColor(normalized.accentColor))
-    val scale = normalized.textScale / 100f * when (size) {
-        WidgetSize.COMPACT -> 0.78f
-        WidgetSize.STANDARD -> 0.9f
-        WidgetSize.TALL, WidgetSize.WIDE -> 1f
+    val scale = normalized.textScale / 100f
+    val fontFamily = remember(normalized.fontStyle) {
+        FontFamily(Typeface.create(widgetPreviewFontName(normalized.fontStyle), Typeface.NORMAL))
     }
-    val previewHeight = when (size) {
-        WidgetSize.COMPACT -> 96.dp
-        WidgetSize.STANDARD -> 132.dp
-        WidgetSize.TALL -> 160.dp
-        WidgetSize.WIDE -> 174.dp
+    val textAlignment = when (normalized.alignment) {
+        WidgetAlignment.LEFT -> TextAlign.Start
+        WidgetAlignment.CENTER -> TextAlign.Center
+        WidgetAlignment.RIGHT -> TextAlign.End
     }
-    Box(
-        modifier = Modifier.fillMaxWidth().height(previewHeight)
-            .clip(androidx.compose.foundation.shape.RoundedCornerShape(28.dp))
-            .border(1.dp, accent.copy(alpha = 0.32f), androidx.compose.foundation.shape.RoundedCornerShape(28.dp))
-    ) {
-        if (image != null) Image(
-            bitmap = image!!.asImageBitmap(),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            alpha = backgroundAlpha,
-            modifier = Modifier.matchParentSize(),
-        )
-        Row(Modifier.fillMaxSize()) {
-            Column(
-                modifier = Modifier.fillMaxHeight().fillMaxWidth().padding(12.dp),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().weight(1f),
-                    verticalAlignment = Alignment.CenterVertically,
+    ProvideTextStyle(LocalTextStyle.current.copy(fontFamily = fontFamily, textAlign = textAlignment)) {
+        Box(
+            modifier = Modifier.fillMaxWidth().height(previewHeight)
+                .clip(androidx.compose.foundation.shape.RoundedCornerShape(normalized.corners.radiusDp.dp))
+                .border(1.dp, accent.copy(alpha = 0.32f), androidx.compose.foundation.shape.RoundedCornerShape(normalized.corners.radiusDp.dp))
+        ) {
+            if (image != null) Image(
+                bitmap = image!!.asImageBitmap(),
+                contentDescription = null,
+                contentScale = ContentScale.FillBounds,
+                alpha = backgroundAlpha,
+                modifier = Modifier.matchParentSize(),
+            )
+            Row(Modifier.fillMaxSize()) {
+                Column(
+                    modifier = Modifier.fillMaxHeight().fillMaxWidth().padding(normalized.contentPaddingDp.dp),
                 ) {
-                    Column(Modifier.weight(1f)) {
-                        if (visibility.showLabel) Text(normalized.customLabel, color = secondary, fontSize = 11.sp * scale)
-                        if (visibility.showLocation) Text(data.city, color = secondary, fontSize = 12.sp * scale, fontWeight = FontWeight.SemiBold)
-                        if (visibility.showTemperature) Text(data.temperature, color = primary, fontSize = 34.sp * scale, lineHeight = 40.sp * scale, fontWeight = FontWeight.SemiBold)
-                    }
-                    if (visibility.showIcon) {
-                        WeatherIcon(
-                            kind = data.kind,
-                            isDay = data.isDay,
-                            contentDescription = data.condition,
-                            modifier = Modifier.padding(horizontal = 8.dp).size(30.dp),
-                            tint = primary,
-                        )
-                    }
-                    if (visibility.showCondition || visibility.showRange) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         Column(Modifier.weight(1f)) {
-                            if (visibility.showCondition) Text(data.condition, color = primary, fontSize = 12.sp * scale, fontWeight = FontWeight.SemiBold)
-                            if (visibility.showRange) Text(data.range, color = secondary, fontSize = 11.sp * scale)
+                            if (visibility.showLabel) Text(normalized.customLabel, Modifier.fillMaxWidth(), color = secondary, fontSize = 11.sp * scale)
+                            if (visibility.showLocation) Text(data.city, Modifier.fillMaxWidth(), color = secondary, fontSize = 12.sp * scale, fontWeight = FontWeight.SemiBold)
+                            if (visibility.showTemperature) Text(data.temperature, Modifier.fillMaxWidth(), color = primary, fontSize = 34.sp * scale, lineHeight = 40.sp * scale, fontWeight = FontWeight.SemiBold)
+                        }
+                        if (visibility.showIcon) {
+                            WeatherIcon(
+                                kind = data.kind,
+                                isDay = data.isDay,
+                                contentDescription = data.condition,
+                                modifier = Modifier.padding(horizontal = 8.dp).size(30.dp),
+                                tint = primary,
+                            )
+                        }
+                        if (visibility.showCondition || visibility.showRange) {
+                            Column(Modifier.weight(1f)) {
+                                if (visibility.showCondition) Text(data.condition, Modifier.fillMaxWidth(), color = primary, fontSize = 12.sp * scale, fontWeight = FontWeight.SemiBold)
+                                if (visibility.showRange) Text(data.range, Modifier.fillMaxWidth(), color = secondary, fontSize = 11.sp * scale)
+                            }
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            if (visibility.showClock) Text(widgetClock(LocalTime.now(), DateFormat.is24HourFormat(context)), color = primary, fontSize = 14.sp * scale, fontWeight = FontWeight.SemiBold)
+                            if (visibility.showDate) Text(widgetDate(LocalDate.now(), locale), color = secondary, fontSize = 10.sp * scale)
                         }
                     }
-                    Column(horizontalAlignment = Alignment.End) {
-                        if (visibility.showClock) Text(widgetClock(LocalTime.now(), DateFormat.is24HourFormat(context)), color = primary, fontSize = 14.sp * scale, fontWeight = FontWeight.SemiBold)
-                        if (visibility.showDate) Text(widgetDate(LocalDate.now(), locale), color = secondary, fontSize = 10.sp * scale)
+                    if (visibility.showMetrics) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            if (visibility.showPrecipitation) Text(data.precipitation, Modifier.weight(1f), color = secondary, fontSize = 10.sp * scale)
+                            if (visibility.showWind) Text(data.wind, Modifier.weight(1f), color = secondary, fontSize = 10.sp * scale, textAlign = TextAlign.Center)
+                            if (visibility.showHumidity) Text(data.humidity, Modifier.weight(1f), color = secondary, fontSize = 10.sp * scale, textAlign = TextAlign.End)
+                        }
                     }
-                }
-                if (visibility.showMetrics) {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        if (visibility.showPrecipitation) Text(data.precipitation, Modifier.weight(1f), color = secondary, fontSize = 10.sp * scale)
-                        if (visibility.showWind) Text(data.wind, Modifier.weight(1f), color = secondary, fontSize = 10.sp * scale, textAlign = TextAlign.Center)
-                        if (visibility.showHumidity) Text(data.humidity, Modifier.weight(1f), color = secondary, fontSize = 10.sp * scale, textAlign = TextAlign.End)
+                    if (widgetAdvancedVisible(size, advancedText)) {
+                        Text(advancedText, Modifier.fillMaxWidth(), color = secondary, fontSize = 10.sp * scale, maxLines = 2)
                     }
-                }
-                if (widgetAdvancedVisible(size, advancedText)) {
-                    Text(advancedText, color = secondary, fontSize = 10.sp * scale, maxLines = 2)
-                }
-                if (visibility.showHourly) {
-                    Spacer(Modifier.height(5.dp))
-                    Box(Modifier.fillMaxWidth().height(1.dp).background(accent))
-                    Spacer(Modifier.height(5.dp))
-                    Row(Modifier.fillMaxWidth()) {
-                        repeat(3) { index ->
-                            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(data.hourlyTimes[index], color = secondary, fontSize = 11.sp * scale)
-                                Text(data.hourlyTemperatures[index], color = primary, fontSize = 14.sp * scale, fontWeight = FontWeight.SemiBold)
+                    if (visibility.showHourly) {
+                        Spacer(Modifier.height(5.dp))
+                        Box(Modifier.fillMaxWidth().height(1.dp).background(accent))
+                        Spacer(Modifier.height(5.dp))
+                        Row(Modifier.fillMaxWidth()) {
+                            repeat(3) { index ->
+                                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(data.hourlyTimes[index], color = secondary, fontSize = 11.sp * scale)
+                                    Text(data.hourlyTemperatures[index], color = primary, fontSize = 14.sp * scale, fontWeight = FontWeight.SemiBold)
+                                }
                             }
                         }
                     }
+                    if (visibility.showUpdatedAt) Text(
+                        widgetUpdatedAt(data.updatedAt, ZoneId.systemDefault(), locale),
+                        modifier = Modifier.fillMaxWidth(),
+                        color = secondary,
+                        fontSize = 9.sp * scale,
+                        textAlign = textAlignment,
+                    )
                 }
-                if (visibility.showUpdatedAt) Text(
-                    widgetUpdatedAt(data.updatedAt, ZoneId.systemDefault(), locale),
-                    modifier = Modifier.fillMaxWidth(),
-                    color = secondary,
-                    fontSize = 9.sp * scale,
-                    textAlign = TextAlign.End,
-                )
             }
         }
     }
 }
 
-private val WidgetSettingsSaver = listSaver<WidgetSettings, Any>(
+internal fun widgetPreviewFontName(fontStyle: WidgetFontStyle): String = when (fontStyle) {
+    WidgetFontStyle.SYSTEM -> "sans-serif"
+    WidgetFontStyle.MATERIAL -> "sans-serif-medium"
+    WidgetFontStyle.ROUNDED -> "sans-serif-rounded"
+    WidgetFontStyle.LIGHT -> "sans-serif-light"
+}
+
+internal val WidgetSettingsSaver = listSaver<WidgetSettings, Any>(
     save = { settings ->
         listOf(
             settings.backgroundMode.name,
@@ -481,6 +518,8 @@ private val WidgetSettingsSaver = listSaver<WidgetSettings, Any>(
             settings.showWindGusts,
             settings.showMoon,
             settings.fontStyle.name,
+            settings.corners.name,
+            settings.contentPaddingDp,
         )
     },
     restore = { values ->
@@ -514,6 +553,8 @@ private val WidgetSettingsSaver = listSaver<WidgetSettings, Any>(
             showWindGusts = values.getOrNull(26) as? Boolean ?: false,
             showMoon = values.getOrNull(27) as? Boolean ?: false,
             fontStyle = widgetFontStyle(values.getOrNull(28) as? String),
+            corners = widgetCorners(values.getOrNull(29) as? String),
+            contentPaddingDp = values.getOrNull(30) as? Int ?: DEFAULT_WIDGET_PADDING_DP,
         ).normalized()
     },
 )
@@ -576,6 +617,7 @@ private fun loadPreview(context: Context): WidgetPreviewData {
 }
 
 private fun WidgetBackgroundMode.labelResource(): Int = when (this) {
+    WidgetBackgroundMode.APP_STYLE -> R.string.widget_app_style
     WidgetBackgroundMode.AUTOMATIC -> R.string.widget_background_automatic
     WidgetBackgroundMode.LIGHT -> R.string.widget_background_light
     WidgetBackgroundMode.DARK -> R.string.widget_background_dark
@@ -592,6 +634,7 @@ private fun WidgetAlignment.labelResource(): Int = when (this) {
 }
 
 private fun WidgetPreset.labelResource(): Int = when (this) {
+    WidgetPreset.APP_STYLE -> R.string.widget_app_style
     WidgetPreset.MINIMAL -> R.string.widget_preset_minimal
     WidgetPreset.MATERIAL -> R.string.widget_preset_material
     WidgetPreset.PIXEL -> R.string.widget_preset_pixel
@@ -603,6 +646,12 @@ private fun WidgetFontStyle.labelResource(): Int = when (this) {
     WidgetFontStyle.MATERIAL -> R.string.widget_font_material
     WidgetFontStyle.ROUNDED -> R.string.widget_font_rounded
     WidgetFontStyle.LIGHT -> R.string.widget_font_light
+}
+
+private fun WidgetCorners.labelResource(): Int = when (this) {
+    WidgetCorners.SQUARE -> R.string.widget_corners_square
+    WidgetCorners.SOFT -> R.string.widget_corners_soft
+    WidgetCorners.ROUND -> R.string.widget_corners_round
 }
 
 private fun WidgetSize.labelResource(): Int = when (this) {

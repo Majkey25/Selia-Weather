@@ -30,6 +30,7 @@ import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.math.roundToInt
 
 class WeatherWidgetProvider : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -238,7 +239,9 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             val primaryColor = android.graphics.Color.parseColor(settings.primaryColor)
             val secondaryColor = android.graphics.Color.parseColor(settings.secondaryColor)
 
-            WidgetBackground.apply(localizedContext, views, settings, kind, isDay)
+            WidgetBackground.apply(localizedContext, views, settings, kind, isDay, hostSize.width, hostSize.height)
+            val contentPadding = (settings.contentPaddingDp * localizedContext.resources.displayMetrics.density).roundToInt()
+            views.setViewPadding(R.id.widget_content, contentPadding, contentPadding, contentPadding, contentPadding)
             views.setTextViewText(
                 R.id.widget_temperature,
                 if (temperature.isNaN()) localizedContext.getString(R.string.widget_placeholder_temperature)
@@ -437,6 +440,8 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                     .orEmpty(),
                 opacity = preferences.getInt(widgetPreferenceKey(appWidgetId, "opacity"), 100),
                 textScale = preferences.getInt(widgetPreferenceKey(appWidgetId, "text_scale"), 100),
+                corners = widgetCorners(preferences.getString(widgetPreferenceKey(appWidgetId, "corners"), null)),
+                contentPaddingDp = preferences.getInt(widgetPreferenceKey(appWidgetId, "content_padding"), DEFAULT_WIDGET_PADDING_DP),
                 fontStyle = widgetFontStyle(
                     preferences.getString(widgetPreferenceKey(appWidgetId, "font_style"), null),
                 ),
@@ -477,6 +482,8 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                 .putString(widgetPreferenceKey(appWidgetId, "accent_color"), normalized.accentColor)
                 .putInt(widgetPreferenceKey(appWidgetId, "opacity"), normalized.opacity)
                 .putInt(widgetPreferenceKey(appWidgetId, "text_scale"), normalized.textScale)
+                .putString(widgetPreferenceKey(appWidgetId, "corners"), normalized.corners.name)
+                .putInt(widgetPreferenceKey(appWidgetId, "content_padding"), normalized.contentPaddingDp)
                 .putString(widgetPreferenceKey(appWidgetId, "font_style"), normalized.fontStyle.name)
                 .putString(widgetPreferenceKey(appWidgetId, "alignment"), normalized.alignment.name)
                 .putString(widgetPreferenceKey(appWidgetId, "label"), normalized.customLabel)

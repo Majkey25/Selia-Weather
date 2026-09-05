@@ -67,6 +67,17 @@ class WeatherChromeTest {
         assertTrue(shouldRefreshWeatherOnResume(now + 1_000L, now + 1_000L, false, now))
     }
 
+    @Test
+    fun settingsExposeSelectedOptionsAndOneBriefingToggle() {
+        val settings = source("SettingsSheet.kt")
+        assertTrue(settings.contains("selected = system == selectedMeasurementSystem"))
+        assertTrue(settings.contains("selected = language.tag == selectedTag"))
+        assertTrue(settings.contains("role = Role.RadioButton"))
+        assertTrue(settings.contains(".toggleable(value = dailyBriefingEnabled, role = Role.Switch"))
+        val briefingSwitch = settings.substringAfter("checked = dailyBriefingEnabled").substringBefore("modifier = Modifier")
+        assertTrue(briefingSwitch.contains("onCheckedChange = null"))
+    }
+
     private fun source(name: String): String = File(
         System.getProperty("user.dir"),
         "src/main/java/cz/majkey/pocasicesko/ui/$name",

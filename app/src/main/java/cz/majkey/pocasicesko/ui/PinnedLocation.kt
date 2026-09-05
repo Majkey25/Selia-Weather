@@ -6,26 +6,31 @@ import cz.majkey.pocasicesko.data.REGION_WORLD
 
 internal data class MapCoordinates(val latitude: Double, val longitude: Double)
 
+internal fun mapCoordinatesOrNull(latitude: String, longitude: String): MapCoordinates? {
+    val lat = latitude.replace(',', '.').toDoubleOrNull()
+    val lon = longitude.replace(',', '.').toDoubleOrNull()
+    if (lat?.isFinite() != true || lon?.isFinite() != true ||
+        lat !in WORLD_LATITUDE || lon !in WORLD_LONGITUDE
+    ) return null
+    return MapCoordinates(lat, lon)
+}
+
 internal fun pinnedLocationOrNull(
     name: String,
     latitude: String,
     longitude: String,
 ): CzechLocation? {
     val normalizedName = name.trim()
-    val parsedLatitude = latitude.replace(',', '.').toDoubleOrNull()
-    val parsedLongitude = longitude.replace(',', '.').toDoubleOrNull()
-    if (normalizedName.isEmpty() || normalizedName.length > MAX_LOCATION_NAME_LENGTH ||
-        parsedLatitude?.isFinite() != true || parsedLongitude?.isFinite() != true ||
-        parsedLatitude !in WORLD_LATITUDE || parsedLongitude !in WORLD_LONGITUDE
-    ) {
+    val coordinates = mapCoordinatesOrNull(latitude, longitude) ?: return null
+    if (normalizedName.isEmpty() || normalizedName.length > MAX_LOCATION_NAME_LENGTH) {
         return null
     }
-    val region = if (parsedLatitude in CZECH_LATITUDE && parsedLongitude in CZECH_LONGITUDE) {
+    val region = if (coordinates.latitude in CZECH_LATITUDE && coordinates.longitude in CZECH_LONGITUDE) {
         REGION_CZECHIA
     } else {
         REGION_WORLD
     }
-    return CzechLocation(normalizedName, region, parsedLatitude, parsedLongitude)
+    return CzechLocation(normalizedName, region, coordinates.latitude, coordinates.longitude)
 }
 
 private const val MAX_LOCATION_NAME_LENGTH = 60

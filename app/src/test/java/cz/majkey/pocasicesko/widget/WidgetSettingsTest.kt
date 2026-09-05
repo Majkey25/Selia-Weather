@@ -11,6 +11,7 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneOffset
 import java.util.Locale
+import androidx.compose.runtime.saveable.SaverScope
 
 class WidgetSettingsTest {
     @Test
@@ -44,6 +45,8 @@ class WidgetSettingsTest {
         assertEquals(100, settings.textScale)
         assertEquals(WidgetFontStyle.SYSTEM, settings.fontStyle)
         assertEquals(WidgetAlignment.LEFT, settings.alignment)
+        assertEquals(WidgetCorners.ROUND, settings.corners)
+        assertEquals(12, settings.contentPaddingDp)
         assertTrue(settings.showClock)
         assertTrue(settings.showDate)
         assertTrue(settings.showLocation)
@@ -290,6 +293,52 @@ class WidgetSettingsTest {
         assertTrue(widgetAdvancedVisible(WidgetSize.WIDE, text))
         assertFalse(widgetAdvancedVisible(WidgetSize.COMPACT, text))
         assertFalse(widgetAdvancedVisible(WidgetSize.TALL, ""))
+    }
+
+    @Test
+    fun appStyleIsExplicitAndLegacyGeometryDefaultsRemainStable() {
+        val current = WidgetSettings(customLabel = "My field", imageUri = "content://example/photo")
+        val preset = widgetPresetSettings(WidgetPreset.APP_STYLE, current)
+        assertEquals(WidgetBackgroundMode.APP_STYLE, preset.backgroundMode)
+        assertEquals(WidgetFontStyle.MATERIAL, preset.fontStyle)
+        assertEquals("My field", preset.customLabel)
+        assertEquals(current.imageUri, preset.imageUri)
+        assertEquals(WidgetBackgroundMode.AUTOMATIC, widgetBackgroundMode(null, null))
+        assertEquals(WidgetCorners.ROUND, widgetCorners(null))
+        assertEquals(WidgetCorners.ROUND, widgetCorners("future-shape"))
+        assertEquals(0, current.copy(contentPaddingDp = -5).normalized().contentPaddingDp)
+        assertEquals(24, current.copy(contentPaddingDp = 99).normalized().contentPaddingDp)
+        assertEquals(0, widgetBackgroundAlpha(preset.copy(opacity = 0), 255))
+    }
+
+    @Test
+    fun savedEditorStateRestoresGeometryAndMigratesOlderLists() {
+        val scope = object : SaverScope { override fun canBeSaved(value: Any): Boolean = true }
+        val settings = WidgetSettings(corners = WidgetCorners.SOFT, contentPaddingDp = 21, textScale = 130)
+        val saved = requireNotNull(with(WidgetSettingsSaver) { scope.save(settings) })
+        assertEquals(settings, WidgetSettingsSaver.restore(saved))
+        val legacy = (saved as List<*>).take(29)
+        val restored = requireNotNull(WidgetSettingsSaver.restore(legacy))
+        assertEquals(WidgetCorners.ROUND, restored.corners)
+        assertEquals(DEFAULT_WIDGET_PADDING_DP, restored.contentPaddingDp)
+        assertEquals(130, restored.textScale)
+    }
+
+    @Test
+    fun backgroundControlsOnlyValidateColorsThatAffectTheChosenMode() {
+        val settings = WidgetSettings(backgroundStart = "invalid", backgroundEnd = "invalid")
+        assertTrue(settings.copy(backgroundMode = WidgetBackgroundMode.APP_STYLE).editableBackgroundColors().isEmpty())
+        assertEquals(1, settings.copy(backgroundMode = WidgetBackgroundMode.SOLID).editableBackgroundColors().size)
+        assertEquals(2, settings.copy(backgroundMode = WidgetBackgroundMode.GRADIENT).editableBackgroundColors().size)
+        assertEquals(2, settings.copy(backgroundMode = WidgetBackgroundMode.CUSTOM_IMAGE).editableBackgroundColors().size)
+        assertNotEquals(
+            widgetPreviewBackgroundKey(settings, WeatherKind.CLEAR, true, 320, 180),
+            widgetPreviewBackgroundKey(settings, WeatherKind.CLEAR, true, 180, 320),
+        )
+        assertNotEquals(
+            widgetPreviewBackgroundKey(settings.copy(corners = WidgetCorners.ROUND), WeatherKind.CLEAR, true),
+            widgetPreviewBackgroundKey(settings.copy(corners = WidgetCorners.SQUARE), WeatherKind.CLEAR, true),
+        )
     }
 
     @Test

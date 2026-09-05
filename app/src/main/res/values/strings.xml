@@ -312,7 +312,7 @@
     <string name="history_description">Load five years of daily estimates for this location.</string>
     <string name="history_load">Load archive</string>
     <string name="history_unavailable">Could not load the archive.</string>
-    <string name="history_source_note">NASA POWER grid estimates based on satellite observations and assimilation models. Not local station measurements. Latest days may be delayed.</string>
+    <string name="history_source_note">NASA POWER grid estimates based on satellite observations and assimilation models. Not local station measurements. Latest days may be delayed. Daily periods use UTC.</string>
     <string name="history_period">%1$s – %2$s</string>
     <string name="history_coverage">Data for %1$d of %2$d days</string>
     <string name="history_total_precipitation">Total precipitation</string>
@@ -321,11 +321,11 @@
     <string name="history_average_temperature">Average temperature</string>
     <string name="history_temperature_range">Temperature range</string>
     <string name="history_solar_energy">Surface solar energy</string>
-    <string name="history_ask_chatgpt">Ask ChatGPT with CSV</string>
+    <string name="history_ask_chatgpt">Ask AI with CSV</string>
     <string name="history_show_days">Show daily data</string>
     <string name="history_hide_days">Hide daily data</string>
     <string name="history_daily_title">Daily archive</string>
-    <string name="history_share_chooser">Ask ChatGPT or share</string>
+    <string name="history_share_chooser">Choose an AI app or share</string>
     <string name="history_share_failed">Could not share the archive.</string>
     <string name="daily_briefing">Morning briefing</string>
     <string name="daily_briefing_summary">Every morning at 7:00 · clothing and umbrella advice</string>
@@ -355,4 +355,16 @@
     <string name="hourly_feels_like_summary">It will feel like %1$s, compared with an air temperature of %2$s. Dress for the feels-like temperature.</string>
     <string name="hourly_uv_summary">UV index %1$.1f. Use sun protection outdoors, even when it feels cool.</string>
     <string name="widget_edit">Customize widget %1$d</string>
+    <string name="history_last_30">Last 30 days</string>
+    <string name="history_last_365">Last 365 days</string>
+    <string name="history_all_available">All available</string>
+    <string name="history_ai_share_note">Shares the full archive (%1$d daily records), even when a shorter period is selected. Choose a compatible installed AI app or another app that accepts CSV files.</string>
+    <string name="history_custom_period">Custom period</string>
+    <string name="history_no_period_data">No daily records are available for this period. Missing values do not mean zero rainfall.</string>
+    <string name="widget_app_style">App style</string>
+    <string name="widget_corners">Corners</string>
+    <string name="widget_corners_square">Square</string>
+    <string name="widget_corners_soft">Soft</string>
+    <string name="widget_corners_round">Round</string>
+    <string name="widget_content_padding">Content spacing</string>
 </resources>

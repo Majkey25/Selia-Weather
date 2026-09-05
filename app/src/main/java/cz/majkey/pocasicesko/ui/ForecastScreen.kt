@@ -108,6 +108,7 @@ internal fun ForecastScreen(
     val currentDayIndex = snapshot.daily.indexOf(currentDay)
     var selectedDayIndex by rememberSaveable(location.latitude, location.longitude) { mutableStateOf<Int?>(null) }
     var showDetails by rememberSaveable(location.latitude, location.longitude) { mutableStateOf(false) }
+    var openHistory by rememberSaveable(location.latitude, location.longitude) { mutableStateOf(false) }
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -136,7 +137,16 @@ internal fun ForecastScreen(
             CurrentMetrics(snapshot = snapshot, accent = accent, units = units)
         }
         item {
-            WeatherDetailAction { showDetails = true }
+            WeatherDetailAction {
+                openHistory = false
+                showDetails = true
+            }
+        }
+        item {
+            WeatherDetailAction(label = R.string.history_title) {
+                openHistory = true
+                showDetails = true
+            }
         }
         item {
             DailyForecastPanel(
@@ -162,13 +172,14 @@ internal fun ForecastScreen(
             location = location,
             units = units,
             loadHistory = loadHistory,
+            initialHistory = openHistory,
             onDismiss = { showDetails = false },
         )
     }
 }
 
 @Composable
-private fun WeatherDetailAction(onClick: () -> Unit) {
+private fun WeatherDetailAction(label: Int = R.string.open_weather_details, onClick: () -> Unit) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -182,7 +193,7 @@ private fun WeatherDetailAction(onClick: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                stringResource(R.string.open_weather_details),
+                stringResource(label),
                 modifier = Modifier.weight(1f),
                 fontWeight = FontWeight.SemiBold,
             )
@@ -809,11 +820,9 @@ private fun DayDetailSheet(
                                 "${hour.precipitationProbability}% · ${units.precipitation(hour.precipitation)} · " +
                                 "${units.windSpeed(hour.windSpeed)} " +
                                 stringResource(windDirectionResource(hour.windDirection)),
-                            modifier = Modifier.padding(start = 81.dp, top = 4.dp),
+                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
                             color = Color(0xFF8EDCF0),
                             fontSize = 11.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
                         )
                         if (expanded) {
                             ExpandedHourDetails(

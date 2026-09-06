@@ -1,0 +1,1 @@
+Sélecteur de couleurs du widget avec HEX, RGB, nuances et opacité. Texte lisible sur fond clair ; couleurs et saisies HEX conservées. Les anciennes valeurs horaires ne remplacent plus les données actuelles récentes. Conditions de pluie, consensus et totaux quotidiens pluie/neige plus cohérents. Probabilités de pluie inchangées. Sans publicité ni Premium.

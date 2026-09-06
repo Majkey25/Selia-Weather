@@ -1,0 +1,1 @@
+Widget color picker with HEX, RGB, swatches and opacity. Light backgrounds now use readable text; custom colors and unfinished HEX edits are preserved. Older hourly forecasts no longer overwrite newer current readings. Rain conditions, hazard consensus and daily rain/snow totals are more consistent across sources. Rain probabilities are unchanged. No ads or Premium.

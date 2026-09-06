@@ -22,7 +22,7 @@
 <main>
   <img class="mark" src="assets/app-icon.png" alt="Selia Weather icon">
   <h1>Privacy policy</h1>
-  <p class="date">Selia Weather · effective 5 September 2026</p>
+  <p class="date">Selia Weather · effective 6 September 2026</p>
   <p>Selia Weather, package <code>com.majkeylab.weatheraladin</code>, does not require a developer account. The developer does not sell personal data or run a separate analytics service. Release builds do not contain or initialise Ads, UMP, Play Billing, Premium, or <code>AD_ID</code>. Debug-only QA builds can use Google test integrations outside the release dependency graph.</p>
 
   <h2>Data on your device</h2>
@@ -36,6 +36,7 @@
   <h2>Network communication</h2>
   <ul>
     <li>Open-Meteo receives place search terms and selected coordinates. It provides geocoding and forecasts. Widgets and an enabled morning briefing can refresh forecasts in an Android background job using the last selected coordinates. They do not request a new device location. Android may delay a refresh while offline or conserving battery. The developer does not retain this data off-device. <a href="https://open-meteo.com/en/terms">Open-Meteo states</a> that free API server logs may contain coordinates and are deleted after 90 days.</li>
+    <li>GitHub Pages hosts this policy and the public forecast-calibration feed. The app checks the feed during forecast refreshes. If a validated feed covers the selected location, it requests public calibration files and forecast tiles. Those requests expose normal HTTPS technical data such as your IP address; tile paths can reveal the approximate selected area. The app does not upload your saved places or precise coordinates to GitHub Pages. See the <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub Privacy Statement</a>.</li>
     <li>After you select <strong>Weather history</strong> or <strong>Load archive</strong>, NASA POWER receives the selected coordinates and requested five-year date range when the cached archive needs a refresh. It returns daily model and satellite grid estimates. The app stores the response only in its bounded on-device cache. NASA POWER data are not local-station measurements. See the <a href="https://power.larc.nasa.gov/docs/services/api/temporal/daily/">NASA POWER Daily API</a> and <a href="https://power.larc.nasa.gov/docs/referencing/">referencing guide</a>.</li>
     <li>In Czechia, ČHMÚ provides public automatic-station observations. The app selects nearby station IDs on the device and does not send the selected coordinates to ČHMÚ. ČHMÚ servers process normal HTTPS technical data such as your IP address and requested public file names.</li>
     <li>AviationWeather receives a bounded coordinate box around the selected location to find recent worldwide METAR observations, including in Czechia. The request reveals the approximate selected area and normal HTTPS technical data such as your IP address. See the <a href="https://aviationweather.gov/data/api/">AviationWeather Data API</a>.</li>
@@ -46,7 +47,7 @@
   <p>All app network communication uses HTTPS. The app does not send contacts, messages, photos, audio, or the contents of a selected widget image. A weather-history CSV leaves the app only after you select <strong>Ask AI with CSV</strong> and choose a recipient in Android's share sheet. That recipient processes the file under its own terms.</p>
 
   <h2>Retention and choices</h2>
-  <p>The developer does not operate a server that stores app data. Data on your device remains until the cache replaces it, you clear app data, or you uninstall the app. You can remove location permission in Android settings. You can remove image access by deleting the widget, changing its image, or managing the selected document in Android. Open-Meteo, NASA POWER, ČHMÚ, AviationWeather, OpenStreetMap, RainViewer, Buy Me a Coffee, and a share-sheet recipient process data under their own terms when you contact their services.</p>
+  <p>The developer does not operate a server that stores app data. Data on your device remains until the cache replaces it, you clear app data, or you uninstall the app. You can remove location permission in Android settings. You can remove image access by deleting the widget, changing its image, or managing the selected document in Android. Open-Meteo, GitHub, NASA POWER, ČHMÚ, AviationWeather, OpenStreetMap, RainViewer, Buy Me a Coffee, and a share-sheet recipient process data under their own terms when you contact their services.</p>
 
   <h2>Contact</h2>
   <p>For privacy questions, open the <a href="https://github.com/Majkey25/Selia-Weather/issues/new">project support form</a>.</p>

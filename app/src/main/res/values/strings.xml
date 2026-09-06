@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">Weather</string>
     <string name="product_name" translatable="false">Selia Weather</string>
     <string name="widget_description">Time and weather for the selected location</string>
@@ -375,4 +375,9 @@
     <string name="widget_green">Green</string>
     <string name="widget_blue">Blue</string>
     <string name="widget_alpha">Opacity</string>
+    <!-- Calibration diagnostics intentionally use English fallback outside Czech. -->
+    <string name="forecast_calculation_applied_method" tools:ignore="MissingTranslation">Applied forecast method</string>
+    <string name="forecast_calculation_value_count" tools:ignore="MissingTranslation">Calibrated hourly values</string>
+    <string name="forecast_calculation_first_sample" tools:ignore="MissingTranslation">First calibrated sample</string>
+    <string name="forecast_calculation_first_weights" tools:ignore="MissingTranslation">Weights for the first calibrated sample</string>
 </resources>

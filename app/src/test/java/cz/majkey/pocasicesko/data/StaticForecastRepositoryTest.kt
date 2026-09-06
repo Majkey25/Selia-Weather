@@ -6,7 +6,10 @@ import java.security.MessageDigest
 import java.time.Instant
 import java.util.concurrent.CancellationException
 import java.util.zip.GZIPOutputStream
+import org.json.JSONArray
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -44,12 +47,60 @@ class StaticForecastRepositoryTest {
     }
 
     @Test
+    fun optionalCalibrationDoesNotBreakForecastsWhenFeedIsUnavailable() {
+        val invalidTime = PRODUCTION_MANIFEST.replace("2026-08-29T12:00:00Z", "invalid-time")
+        listOf(DIAGNOSTIC_MANIFEST, "not-json", invalidTime).forEach { response ->
+            val repository = StaticForecastRepository { response }
+            assertEquals(null, repository.fetchForLocation(
+                CzechLocation("Prague", REGION_PRAGUE, 50.0755, 14.4378, "CZ"),
+                Instant.parse("2026-08-29T15:00:00Z"),
+            ))
+        }
+        val repository = StaticForecastRepository { throw java.io.IOException("offline") }
+        assertEquals(null, repository.fetchForLocation(
+            CzechLocation("Tokyo", REGION_WORLD, 35.6762, 139.6503, "JP"),
+            Instant.parse("2026-08-29T15:00:00Z"),
+        ))
+    }
+
+    @Test
+    fun doesNotDownloadCalibrationOrTilesOutsidePublishedGrid() {
+        val repository = StaticForecastRepository(
+            fetchText = { PRODUCTION_MANIFEST },
+            fetchBytes = { error("Out-of-area location must not request forecast tiles") },
+        )
+        assertEquals(null, repository.fetchForLocation(
+            CzechLocation("Tokyo", REGION_WORLD, 35.6762, 139.6503, "JP"),
+            Instant.parse("2026-08-29T15:00:00Z"),
+        ))
+    }
+
+    @Test
     fun returnsFreshProductionManifest() {
         val repository = StaticForecastRepository { PRODUCTION_MANIFEST }
 
         val manifest = repository.fetchUsableManifest(Instant.parse("2026-08-29T15:00:00Z"))
 
         assertEquals(StaticFeedState.PRODUCTION, manifest.state)
+    }
+
+    @Test
+    fun cachesDiagnosticManifestBrieflyButRechecksAfterExpiry() {
+        var requests = 0
+        val repository = StaticForecastRepository(
+            fetchBytes = { byteArrayOf() },
+            fetchText = {
+                requests++
+                if (requests == 1) DIAGNOSTIC_MANIFEST else PRODUCTION_MANIFEST
+            },
+        )
+        val now = Instant.parse("2026-08-29T15:00:00Z")
+        val location = CzechLocation("Prague", REGION_PRAGUE, 50.0755, 14.4378, "CZ")
+        assertEquals(null, repository.fetchForLocation(location, now))
+        assertEquals(null, repository.fetchForLocation(location, now.plusSeconds(60)))
+        assertEquals(1, requests)
+        assertEquals(StaticFeedState.PRODUCTION, repository.fetchUsableManifest(now.plusSeconds(901)).state)
+        assertEquals(2, requests)
     }
 
     @Test
@@ -76,6 +127,44 @@ class StaticForecastRepositoryTest {
     }
 
     @Test
+    fun verifiedFeedRecalculatesAnHourlyForecastAtTheRequestedCoordinate() {
+        val tileJson = JSONObject(TILE)
+        val rows = tileJson.getJSONArray("values")
+        for (index in 0 until rows.length()) {
+            val original = rows.getJSONObject(index)
+            rows.put(JSONObject(original.toString()).put("source_id", "ecmwf")
+                .put("model_id", "ecmwf_ifs025").put("value", original.getDouble("value") + 10.0))
+        }
+        val tile = gzip(tileJson.toString().toByteArray())
+        val artifact = CalibrationArtifactTest.VALID_ARTIFACT
+            .replace("\"AFRICA\"", "\"CZECHIA\"").replace("gfs_seamless", "noaa_gfs").toByteArray()
+        val path = "tiles/20260829T120000Z/1/4.json.gz"
+        val manifest = JSONObject(manifest("production", checksum(tile), path))
+            .put("calibration_checksum", checksum(artifact)).put("dataset_manifest_hash", "a".repeat(64))
+            .put("sources", JSONArray(SOURCE).put(JSONObject()
+                .put("source_id", "ecmwf").put("model_id", "ecmwf_ifs025")
+                .put("enabled", true).put("commercial_redistribution", true)))
+        val repository = StaticForecastRepository(
+            fetchText = { manifest.toString() },
+            fetchBytes = { if (it.endsWith("ensemble_weights.json")) artifact else tile },
+        )
+        val location = CzechLocation("Test point", REGION_PRAGUE, 49.025, 14.025, "CZ")
+        val now = Instant.parse("2026-08-29T13:00:00Z")
+        val input = requireNotNull(repository.fetchForLocation(location, now))
+        val base = """{"timezone":"UTC","utc_offset_seconds":0,
+            "current":{"time":"2026-08-29T13:00","temperature_2m":99},
+            "hourly":{"time":["2026-08-29T13:00"],"temperature_2m":[99]},
+            "daily":{"time":["2026-08-29"],"temperature_2m_max":[99],"temperature_2m_min":[99]}}
+        """.trimIndent()
+        val live = """{"hourly":{"time":["2026-08-29T13:00"],"temperature_2m_noaa_gfs":[99]}}"""
+        val result = blendModelForecast(base, live, location, input.artifact, input.values, now)
+        assertEquals(ForecastCalculationMode.CALIBRATED, result.mode)
+        assertEquals(31.0, JSONObject(result.json).getJSONObject("current").getDouble("temperature_2m"), 1e-9)
+        assertEquals(31.0, JSONObject(result.json).getJSONObject("daily").getJSONArray("temperature_2m_max").getDouble(0), 1e-9)
+        assertEquals(1, result.calibratedValueCount)
+    }
+
+    @Test
     fun fetchesCalibrationOnlyAfterVerifyingItsManifestChecksum() {
         val artifact = CalibrationArtifactTest.VALID_ARTIFACT.toByteArray()
         val requestedUrls = mutableListOf<String>()
@@ -84,8 +173,9 @@ class StaticForecastRepositoryTest {
                 manifest(
                     state = "production",
                     calibration = "\"${checksum(artifact)}\"",
-                    dataset = "\"${"c".repeat(64)}\"",
+                    dataset = "\"${"a".repeat(64)}\"",
                     tiles = "{\"tiles/20260829T120000Z/0/0.json.gz\":\"${"a".repeat(64)}\"}",
+                    sources = CALIBRATION_SOURCES,
                 )
             },
             fetchBytes = { url ->
@@ -128,6 +218,71 @@ class StaticForecastRepositoryTest {
     }
 
     @Test
+    fun rejectsCalibrationWithDifferentDatasetOrUnpublishedModelContracts() {
+        val artifact = CalibrationArtifactTest.VALID_ARTIFACT.toByteArray()
+        for ((dataset, sources) in listOf("c".repeat(64) to CALIBRATION_SOURCES, "a".repeat(64) to SOURCE)) {
+            val repository = StaticForecastRepository(
+                fetchText = {
+                    manifest(
+                        "production", "\"${checksum(artifact)}\"", "\"$dataset\"",
+                        "{\"tiles/20260829T120000Z/0/0.json.gz\":\"${"a".repeat(64)}\"}", sources,
+                    )
+                },
+                fetchBytes = { artifact },
+            )
+            assertThrows(IllegalArgumentException::class.java) {
+                repository.fetchCalibrationArtifact(Instant.ofEpochSecond(CalibrationArtifactTest.NOW))
+            }
+        }
+    }
+
+    @Test
+    fun loadsCalibrationAndTilesAgainstOneVerifiedManifestWithoutRefetching() {
+        val artifact = CalibrationArtifactTest.VALID_ARTIFACT.toByteArray()
+        val tile = gzip(TILE.toByteArray())
+        val path = "tiles/20260829T120000Z/1/4.json.gz"
+        val sources = JSONArray(CALIBRATION_SOURCES).put(JSONArray(SOURCE).getJSONObject(0)).toString()
+        var manifestRequests = 0
+        val repository = StaticForecastRepository(
+            fetchText = {
+                manifestRequests++
+                check(manifestRequests == 1) { "Manifest was fetched again during one forecast." }
+                manifest("production", "\"${checksum(artifact)}\"", "\"${"a".repeat(64)}\"",
+                    JSONObject().put(path, checksum(tile)).toString(), sources)
+            },
+            fetchBytes = { url -> if (url.endsWith(".json.gz")) tile else artifact },
+        )
+        val now = Instant.ofEpochSecond(CalibrationArtifactTest.NOW)
+        val verifiedManifest = repository.fetchUsableManifest(now)
+        val calibration = repository.fetchCalibrationArtifact(verifiedManifest, now)
+        val values = repository.fetchInterpolatedValues(verifiedManifest, now, 49.025, 14.025)
+
+        assertEquals(1, manifestRequests)
+        assertEquals(verifiedManifest.datasetManifestHash, calibration.datasetManifestHash)
+        assertEquals(25.0, requireNotNull(values.single().value), 1e-9)
+    }
+
+    @Test
+    fun suppliedManifestStillRequiresProductionAndFreshnessBeforeFetchingBytes() {
+        val now = Instant.ofEpochSecond(CalibrationArtifactTest.NOW)
+        val production = StaticForecastParser.parseManifest(PRODUCTION_MANIFEST)
+        var requests = 0
+        val repository = StaticForecastRepository(fetchBytes = { requests++; byteArrayOf() })
+        for (manifest in listOf(
+            production.copy(state = StaticFeedState.DIAGNOSTIC),
+            production.copy(expiresAt = now),
+        )) {
+            assertThrows(StaticForecastUnavailableException::class.java) {
+                repository.fetchCalibrationArtifact(manifest, now)
+            }
+            assertThrows(StaticForecastUnavailableException::class.java) {
+                repository.fetchInterpolatedValues(manifest, now, 49.025, 14.025)
+            }
+        }
+        assertEquals(0, requests)
+    }
+
+    @Test
     fun selectsEveryTileNeededAcrossTileBoundaries() {
         val manifest = StaticForecastParser.parseManifest(PRODUCTION_MANIFEST)
 
@@ -157,6 +312,10 @@ class StaticForecastRepositoryTest {
         private val SOURCE = """
             [{"source_id":"noaa-gfs","model_id":"noaa_gfs","enabled":true,"commercial_redistribution":true}]
         """.trimIndent()
+        private val CALIBRATION_SOURCES = """
+            [{"source_id":"ecmwf-ifs","model_id":"ecmwf_ifs025","enabled":true,"commercial_redistribution":true},
+             {"source_id":"noaa-gfs-seamless","model_id":"gfs_seamless","enabled":true,"commercial_redistribution":true}]
+        """.trimIndent()
 
         private val DIAGNOSTIC_MANIFEST = manifest(
             state = "diagnostic",
@@ -179,14 +338,14 @@ class StaticForecastRepositoryTest {
             tiles = "{\"$path\":\"$checksum\"}",
         )
 
-        private fun manifest(state: String, calibration: String, dataset: String, tiles: String) = """
+        private fun manifest(state: String, calibration: String, dataset: String, tiles: String, sources: String = SOURCE) = """
             {
               "schema_version":1,
               "calibration_checksum":$calibration,
               "dataset_manifest_hash":$dataset,
               "grid":{"south":48.45,"north":51.2,"west":11.9,"east":19.0,"step":0.05,"tile_step":0.5},
               "run":{"run_id":"20260829T120000Z","generated_at":"2026-08-29T12:00:00Z","expires_at":"2026-08-29T18:00:00Z","state":"$state"},
-              "sources":$SOURCE,
+              "sources":$sources,
               "tile_checksums":$tiles
             }
         """.trimIndent()

@@ -374,4 +374,8 @@
     <string name="widget_green">Zelená</string>
     <string name="widget_blue">Modrá</string>
     <string name="widget_alpha">Krytí</string>
+    <string name="forecast_calculation_applied_method">Použitá metoda předpovědi</string>
+    <string name="forecast_calculation_value_count">Kalibrované hodinové hodnoty</string>
+    <string name="forecast_calculation_first_sample">První kalibrovaná hodnota</string>
+    <string name="forecast_calculation_first_weights">Váhy první kalibrované hodnoty</string>
 </resources>

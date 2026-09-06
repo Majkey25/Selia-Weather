@@ -7,8 +7,10 @@ import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.time.Instant
+import java.time.DateTimeException
 import kotlin.math.abs
 import kotlin.math.floor
+import org.json.JSONException
 
 internal class StaticForecastRepository(
     private val fetchBytes: (String) -> ByteArray = { request(it, MAX_TILE_BYTES) },
@@ -16,18 +18,62 @@ internal class StaticForecastRepository(
         request(it, MAX_MANIFEST_BYTES).toString(Charsets.UTF_8)
     },
 ) {
-    fun fetchUsableManifest(now: Instant): StaticForecastManifest {
-        val manifest = StaticForecastParser.parseManifest(fetchText(MANIFEST_URL))
-        if (!manifest.isUsableAt(now)) {
-            throw StaticForecastUnavailableException(
-                "Static forecast is ${manifest.state.name.lowercase()} or outside its validity window.",
-            )
+    private var cachedManifest: StaticForecastManifest? = null
+    private var manifestFetchedAt: Instant? = null
+
+    fun fetchForLocation(location: CzechLocation, now: Instant): CalibratedForecastInput? = try {
+        val manifest = fetchUsableManifest(now)
+        if (location.latitude !in manifest.grid.south..manifest.grid.north ||
+            location.longitude !in manifest.grid.west..manifest.grid.east
+        ) {
+            null
+        } else {
+            val artifact = fetchCalibrationArtifact(manifest, now)
+            require((forecastApiModelsFor(location) + artifact.models.map { it.modelId }).distinct().size <= MAX_FORECAST_MODEL_IDS) {
+                "Combined forecast has too many model identities."
+            }
+            if (artifact.segments.none { it.region == forecastRegionFor(location) }) {
+                null
+            } else {
+                CalibratedForecastInput(
+                    artifact,
+                    fetchInterpolatedValues(manifest, now, location.latitude, location.longitude),
+                )
+            }
         }
+    } catch (_: IOException) {
+        null
+    } catch (_: JSONException) {
+        null
+    } catch (_: DateTimeException) {
+        null
+    } catch (_: IllegalArgumentException) {
+        null
+    }
+
+    @Synchronized
+    fun fetchUsableManifest(now: Instant): StaticForecastManifest {
+        val fetchedAt = manifestFetchedAt
+        val manifest = cachedManifest?.takeIf {
+            fetchedAt != null && !now.isBefore(fetchedAt) && now.isBefore(fetchedAt.plusSeconds(MANIFEST_CACHE_SECONDS))
+        } ?: StaticForecastParser.parseManifest(fetchText(MANIFEST_URL)).also {
+            cachedManifest = it
+            manifestFetchedAt = now
+        }
+        requireUsableManifest(manifest, now)
         return manifest
     }
 
-    fun fetchInterpolatedValues(now: Instant, latitude: Double, longitude: Double): List<StaticModelValue> {
-        val manifest = fetchUsableManifest(now)
+    fun fetchInterpolatedValues(now: Instant, latitude: Double, longitude: Double): List<StaticModelValue> =
+        fetchInterpolatedValues(fetchUsableManifest(now), now, latitude, longitude)
+
+    fun fetchInterpolatedValues(
+        manifest: StaticForecastManifest,
+        now: Instant,
+        latitude: Double,
+        longitude: Double,
+    ): List<StaticModelValue> {
+        requireUsableManifest(manifest, now)
         val values = requiredTilePaths(manifest, latitude, longitude).flatMap { path ->
             require(path in manifest.tileChecksums) { "Required forecast tile is absent from the manifest." }
             StaticForecastParser.parseTile(fetchBytes(BASE_URL + path), manifest, path).values
@@ -35,15 +81,34 @@ internal class StaticForecastRepository(
         return interpolateStaticValues(values, manifest.grid, latitude, longitude)
     }
 
-    fun fetchCalibrationArtifact(now: Instant): CalibrationArtifact {
-        val manifest = fetchUsableManifest(now)
+    fun fetchCalibrationArtifact(now: Instant): CalibrationArtifact =
+        fetchCalibrationArtifact(fetchUsableManifest(now), now)
+
+    fun fetchCalibrationArtifact(manifest: StaticForecastManifest, now: Instant): CalibrationArtifact {
+        requireUsableManifest(manifest, now)
         val expectedChecksum = requireNotNull(manifest.calibrationChecksum)
         val bytes = fetchBytes(BASE_URL + CALIBRATION_PATH)
         if (bytes.size > MAX_CALIBRATION_BYTES) {
             throw IOException("Calibration payload is too large.")
         }
         require(sha256Hex(bytes) == expectedChecksum) { "Calibration checksum mismatch." }
-        return parseCalibrationArtifact(bytes.toString(Charsets.UTF_8), now.epochSecond)
+        val artifact = parseCalibrationArtifact(bytes.toString(Charsets.UTF_8), now.epochSecond)
+        require(artifact.datasetManifestHash == manifest.datasetManifestHash) {
+            "Calibration dataset does not match its manifest."
+        }
+        val publishedModels = manifest.sources.map(StaticFeedSource::modelId).toSet()
+        require(artifact.models.all { it.modelId in publishedModels }) {
+            "Calibration model is not published by its manifest."
+        }
+        return artifact
+    }
+
+    private fun requireUsableManifest(manifest: StaticForecastManifest, now: Instant) {
+        if (!manifest.isUsableAt(now)) {
+            throw StaticForecastUnavailableException(
+                "Static forecast is ${manifest.state.name.lowercase()} or outside its validity window.",
+            )
+        }
     }
 
     companion object {
@@ -55,6 +120,7 @@ internal class StaticForecastRepository(
         private const val MAX_MANIFEST_BYTES = 1_000_000
         private const val MAX_CALIBRATION_BYTES = 2_000_000
         private const val MAX_TILE_BYTES = 20_000_000
+        private const val MANIFEST_CACHE_SECONDS = 15 * 60L
 
         private fun request(url: String, maxBytes: Int): ByteArray {
             val connection = URL(url).openConnection() as HttpURLConnection
@@ -76,6 +142,11 @@ internal class StaticForecastRepository(
         }
     }
 }
+
+internal data class CalibratedForecastInput(
+    val artifact: CalibrationArtifact,
+    val values: List<StaticModelValue>,
+)
 
 internal class StaticForecastUnavailableException(message: String) : IOException(message)
 

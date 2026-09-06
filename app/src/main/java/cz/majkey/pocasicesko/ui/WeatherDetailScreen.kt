@@ -539,7 +539,10 @@ private fun ForecastCalculationSection(calculation: ForecastCalculation) {
             stringResource(calculation.region.labelResource()),
         )
         DetailRow(
-            stringResource(R.string.forecast_calculation_mode),
+            stringResource(
+                if (calculation.calibratedValueCount > 0) R.string.forecast_calculation_applied_method
+                else R.string.forecast_calculation_mode,
+            ),
             stringResource(calculation.mode.labelResource()),
         )
         DetailRow(
@@ -568,10 +571,23 @@ private fun ForecastCalculationSection(calculation: ForecastCalculation) {
         }
         if (calculation.weights.isNotEmpty()) {
             DetailRow(
-                stringResource(R.string.forecast_calculation_weights),
+                stringResource(
+                    if (calculation.calibratedValueCount > 0) R.string.forecast_calculation_first_weights
+                    else R.string.forecast_calculation_weights,
+                ),
                 calculation.weights.entries.joinToString(", ") { (modelId, weight) ->
                     "$modelId ${(weight * 100).roundToInt()}%"
                 },
+            )
+        }
+        if (calculation.calibratedValueCount > 0) {
+            DetailRow(
+                stringResource(R.string.forecast_calculation_value_count),
+                calculation.calibratedValueCount.toString(),
+            )
+            DetailRow(
+                stringResource(R.string.forecast_calculation_first_sample),
+                "${requireNotNull(calculation.calibrationAppliedAt)} · ${requireNotNull(calculation.calibrationVariable)}",
             )
         }
         Text(

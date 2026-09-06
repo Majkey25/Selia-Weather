@@ -2,9 +2,10 @@
 
 ## Current result
 
-Selia Weather classifies coordinates as Czechia, Europe, North America, East Asia, Oceania, or
-global. The region is a calibration and observation selector. It does not discard independent
-global model families.
+Selia Weather selects a calibration region from the requested coordinates and country. Regions
+cover Czechia, Europe, North America, South America, Africa, south/central Asia, east Asia,
+northern Asia, Oceania, and global fallback. The selector does not discard independent global
+model families.
 
 Open-Meteo documents that a provider's `seamless` series combines its global and local models. For
 example, NOAA GFS seamless uses HRRR where its North American domain is available, and JMA
@@ -48,23 +49,47 @@ zero. A later valid timestamp can contain a different contributor count.
 ## Calculation state
 
 The current worldwide calculation is an outlier-resistant median baseline. It runs only with at
-least three finite aligned model values, blends wind as east/north vectors, derives precipitation
-probability from contributor occurrence, and derives the weather condition from calculated
-continuous fields. Otherwise it retains Open-Meteo Best Match.
+least three finite aligned model values, blends wind as east/north vectors, and derives the weather
+condition from calculated continuous fields. It preserves provider precipitation probability;
+deterministic wet-model agreement is not a calibrated probability. Otherwise it retains Open-Meteo
+Best Match.
 
 This is diagnostic routing, not evidence that the median is more accurate than every contributing
 model. Production weights require independent regional observations, fixed issued model runs,
 training-only model selection, and an untouched chronological holdout under the global regional
 ensemble design.
 
-Weather details expose the current-hour region, calculation mode, finite contributor count and
-IDs, and fallback reason. The typed provenance is stored inside the bounded cached forecast JSON,
-so a cache reload retains the same evidence. Legacy cache entries remain readable and simply omit
-the section.
+## Learned-weight delivery
+
+The runtime now checks the existing Pages manifest instead of permanently passing `calibration =
+null`. A diagnostic, expired, missing, corrupt, or out-of-area feed leaves the live multi-model
+calculation available. No diagnostic tiles become production forecasts.
+
+The accepted feed must link the artifact and tiles to the same manifest. Each learned value must
+match its location, exact model ID, variable, unit, actual model run time, and forecast validity.
+Lead time is measured from the model run, not the current array index. ISO timestamps use the
+response's explicit UTC offset, as specified by Open-Meteo's JSON writer, rather than possibly old
+Android timezone rules. Legacy responses without that offset cannot calibrate ambiguous
+daylight-saving hours. Stale runs, future run times, expired weights, and inadequate contributor
+coverage cannot apply learned weights. Selectors cannot overlap, and the artifact must contain an accepted
+holdout with at least 30 samples. That parser check does not replace the research acceptance gates.
+
+This path supports instantaneous temperature, dew point, and pressure. It does not substitute
+six-hour rainfall totals into hourly rainfall or treat wind direction as a scalar. Other values
+retain their existing live multi-model or provider calculation.
+
+Weather details distinguish the first calibrated hourly value from current conditions and show
+the number of calibrated hourly values. Displayed weights describe that first sample, not every
+hour or variable. Typed provenance remains in the bounded forecast cache. Older cache entries
+remain readable.
+
+The public feed still has no accepted production artifact. The integration makes accepted weights
+deliverable; it does not establish that any blend is more accurate worldwide.
 
 ## Sources
 
 - [Open-Meteo Forecast API](https://open-meteo.com/en/docs)
+- [Open-Meteo JSON timestamp writer](https://github.com/open-meteo/open-meteo/blob/main/Sources/App/Helper/Writer/JsonWriter.swift)
 - [Open-Meteo GFS and HRRR API](https://open-meteo.com/en/docs/gfs-api)
 - [Open-Meteo ECMWF API](https://open-meteo.com/en/docs/ecmwf-api)
 - [Open-Meteo JMA API](https://open-meteo.com/en/docs/jma-api)

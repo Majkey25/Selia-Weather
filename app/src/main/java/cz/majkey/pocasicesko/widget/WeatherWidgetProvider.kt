@@ -198,7 +198,7 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                 localizedContext.resources.configuration.locales[0],
             )
             val weather = localizedContext.getSharedPreferences(WeatherRepository.PREFERENCES_NAME, Context.MODE_PRIVATE)
-            val settings = loadSettings(localizedContext, appWidgetId)
+            val settings = loadSettings(localizedContext, appWidgetId).renderedTextColors()
             val options = manager.getAppWidgetOptions(appWidgetId)
             val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, COMPACT_WIDTH_DP)
             val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, COMPACT_HEIGHT_DP)
@@ -460,6 +460,10 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                     .orEmpty(),
                 primaryColor = migratedColor("primary_color", DEFAULT_PRIMARY_COLOR),
                 secondaryColor = migratedColor("secondary_color", DEFAULT_SECONDARY_COLOR),
+                automaticTextColors = storedBoolean("automatic_text_colors") ?: defaultAutomaticWidgetTextColors(
+                    migratedColor("primary_color", DEFAULT_PRIMARY_COLOR),
+                    migratedColor("secondary_color", DEFAULT_SECONDARY_COLOR),
+                ),
                 accentColor = preferences.getString(widgetPreferenceKey(appWidgetId, "accent_color"), DEFAULT_ACCENT_COLOR)
                     .orEmpty(),
                 opacity = preferences.getInt(widgetPreferenceKey(appWidgetId, "opacity"), 100),
@@ -503,6 +507,7 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                 .putString(widgetPreferenceKey(appWidgetId, "background_end"), normalized.backgroundEnd)
                 .putString(widgetPreferenceKey(appWidgetId, "primary_color"), normalized.primaryColor)
                 .putString(widgetPreferenceKey(appWidgetId, "secondary_color"), normalized.secondaryColor)
+                .putBoolean(widgetPreferenceKey(appWidgetId, "automatic_text_colors"), normalized.automaticTextColors)
                 .putString(widgetPreferenceKey(appWidgetId, "accent_color"), normalized.accentColor)
                 .putInt(widgetPreferenceKey(appWidgetId, "opacity"), normalized.opacity)
                 .putInt(widgetPreferenceKey(appWidgetId, "text_scale"), normalized.textScale)

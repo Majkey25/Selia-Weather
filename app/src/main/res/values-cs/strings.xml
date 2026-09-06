@@ -366,4 +366,12 @@
     <string name="widget_corners_soft">Mírně zaoblené</string>
     <string name="widget_corners_round">Kulaté</string>
     <string name="widget_content_padding">Odsazení obsahu</string>
+    <string name="widget_hex_format">#RRGGBB / #AARRGGBB</string>
+    <string name="widget_automatic_text_colors">Automatický kontrast textu</string>
+    <string name="widget_contrast_note">Automatický kontrast vyžaduje neprůhledné pozadí. U obrázků a průhlednosti vyberte barvu textu ručně; přechody zkontrolujte na domovské obrazovce.</string>
+    <string name="widget_choose_color">Vybrat barvu: %1$s</string>
+    <string name="widget_red">Červená</string>
+    <string name="widget_green">Zelená</string>
+    <string name="widget_blue">Modrá</string>
+    <string name="widget_alpha">Krytí</string>
 </resources>

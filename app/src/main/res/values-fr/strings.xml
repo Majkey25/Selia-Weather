@@ -366,4 +366,12 @@
     <string name="widget_corners_soft">Adoucis</string>
     <string name="widget_corners_round">Arrondis</string>
     <string name="widget_content_padding">Espacement intérieur</string>
+    <string name="widget_hex_format">#RRGGBB / #AARRGGBB</string>
+    <string name="widget_automatic_text_colors">Contraste automatique du texte</string>
+    <string name="widget_contrast_note">Le contraste automatique nécessite un fond opaque. Choisissez le texte manuellement avec les images ou la transparence ; vérifiez les dégradés sur votre écran d’accueil.</string>
+    <string name="widget_choose_color">Choisir la couleur : %1$s</string>
+    <string name="widget_red">Rouge</string>
+    <string name="widget_green">Vert</string>
+    <string name="widget_blue">Bleu</string>
+    <string name="widget_alpha">Opacité</string>
 </resources>

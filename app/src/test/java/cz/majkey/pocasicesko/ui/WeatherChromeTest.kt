@@ -81,5 +81,5 @@ class WeatherChromeTest {
     private fun source(name: String): String = File(
         System.getProperty("user.dir"),
         "src/main/java/cz/majkey/pocasicesko/ui/$name",
-    ).readText()
+    ).readText().replace("\r\n", "\n")
 }

@@ -1,0 +1,1 @@
+Widget-Farbauswahl mit HEX, RGB, Farbfeldern und Deckkraft. Helle Hintergründe erhalten lesbaren Text; eigene Farben und HEX-Entwürfe bleiben erhalten. Ältere Stundenwerte überschreiben keine neueren aktuellen Daten mehr. Regenzustand, Modellmehrheiten und tägliche Regen-/Schneesummen sind konsistenter. Regenwahrscheinlichkeiten bleiben unverändert. Ohne Werbung oder Premium.

@@ -1,0 +1,1 @@
+Výběr barev widgetu s HEX, RGB, vzorníkem a krytím. Světlé pozadí má čitelný text; vlastní barvy i rozepsané HEX hodnoty zůstávají zachované. Starší hodinová předpověď už nepřepisuje novější aktuální údaje. Sjednoceny podmínky deště, shoda modelů na nebezpečných jevech a denní součty deště a sněhu. Pravděpodobnost srážek se nemění. Bez reklam a Premium.

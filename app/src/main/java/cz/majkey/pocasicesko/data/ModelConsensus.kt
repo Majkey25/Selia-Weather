@@ -185,27 +185,39 @@ private fun deriveCondition(
     val precipitation = modelValues(source, suffixes, "precipitation", sourceIndex)
     val clouds = modelValues(source, suffixes, "cloud_cover", sourceIndex)
     if (precipitation.size < MINIMUM_MODELS || clouds.size < MINIMUM_MODELS) return false
-    val wetModelPercent = (precipitation.count { it >= WET_THRESHOLD_MM } * 100.0 / precipitation.size)
-        .roundToInt()
-    val cloudCover = clouds.median().roundToInt().coerceIn(0, 100)
+    val amount = target.optJSONArray("precipitation").numberOrNull(targetIndex) ?: return false
+    val cloudCover = target.optJSONArray("cloud_cover").numberOrNull(targetIndex)
+        ?.roundToInt()?.coerceIn(0, 100) ?: return false
+    val fallbackCode = target.optJSONArray("weather_code").numberOrNull(targetIndex)?.roundToInt()
     target.optJSONArray("weather_code")?.put(
         targetIndex,
         deriveWeatherCode(
             modelValues(source, suffixes, "weather_code", sourceIndex).map(Double::roundToInt),
-            wetModelPercent,
+            amount,
             cloudCover,
+            fallbackCode,
         ),
     )
     return true
 }
 
-private fun deriveWeatherCode(codes: List<Int>, wetModelPercent: Int, cloudCover: Int): Int {
-    val required = (codes.size + 1) / 2
+private fun deriveWeatherCode(
+    codes: List<Int>,
+    precipitation: Double,
+    cloudCover: Int,
+    fallbackCode: Int?,
+): Int {
+    val sufficientCodes = codes.size >= MINIMUM_MODELS
+    // Missing codes cannot disprove a provider's snow, freezing rain, fog, or storm forecast.
+    if (!sufficientCodes && fallbackCode != null && fallbackCode !in 0..3) return fallbackCode
+    val required = codes.size / 2 + 1
     return when {
-        codes.isNotEmpty() && codes.count { it in 95..99 } >= required -> 95
-        codes.isNotEmpty() && codes.count { it in 71..77 || it == 85 || it == 86 } >= required -> 71
-        codes.isNotEmpty() && codes.count { it in 45..48 } >= required -> 45
-        wetModelPercent >= 50 -> 61
+        sufficientCodes && codes.count { it in 95..99 } >= required -> 95
+        sufficientCodes && codes.count { it in 66..67 } >= required -> 66
+        sufficientCodes && codes.count { it in 56..57 } >= required -> 56
+        sufficientCodes && codes.count { it in 71..77 || it == 85 || it == 86 } >= required -> 71
+        sufficientCodes && codes.count { it in 45..48 } >= required -> 45
+        precipitation >= WET_THRESHOLD_MM -> 61
         cloudCover <= 20 -> 0
         cloudCover <= 50 -> 1
         cloudCover <= 80 -> 2
@@ -215,8 +227,8 @@ private fun deriveWeatherCode(codes: List<Int>, wetModelPercent: Int, cloudCover
 
 private fun updateCurrent(root: JSONObject, hourly: JSONObject, times: JSONArray) {
     val current = root.getJSONObject("current")
-    val currentHour = current.getString("time").take(13)
-    val index = (0 until times.length()).firstOrNull { times.getString(it).take(13) == currentHour }
+    val currentTime = current.getString("time")
+    val index = (0 until times.length()).firstOrNull { times.getString(it) == currentTime }
         ?: return
     CURRENT_FIELDS.forEach { field ->
         hourly.optJSONArray(field).numberOrNull(index)?.let { current.put(field, it) }
@@ -234,11 +246,13 @@ private fun updateDaily(root: JSONObject, hourly: JSONObject, times: JSONArray) 
         daily.putAt("temperature_2m_min", dayIndex, hourly.values("temperature_2m", indices).minOrNull())
         daily.putAt("apparent_temperature_max", dayIndex, hourly.values("apparent_temperature", indices).maxOrNull())
         daily.putAt("apparent_temperature_min", dayIndex, hourly.values("apparent_temperature", indices).minOrNull())
-        daily.putAt(
-            "precipitation_sum",
-            dayIndex,
-            hourly.values("precipitation", indices).takeIf { it.size == indices.size }?.sum(),
-        )
+        listOf("precipitation", "rain", "snowfall").forEach { field ->
+            daily.putAt(
+                "${field}_sum",
+                dayIndex,
+                hourly.values(field, indices).takeIf { it.size == indices.size }?.sum(),
+            )
+        }
         daily.putAt(
             "precipitation_probability_max",
             dayIndex,
@@ -359,11 +373,12 @@ private val CONTINUOUS_FIELDS = listOf(
     "dew_point_2m",
     "visibility",
 )
-// Current aggregates cover the provider's current interval, not the preceding forecast hour.
+// Keep current sky and interval aggregates at the provider's current validity time.
+// Hourly conditions are derived partly from the preceding hour's precipitation.
 private val CURRENT_FIELDS = CONTINUOUS_FIELDS - setOf(
     "precipitation", "rain", "snowfall", "wind_gusts_10m",
+    "cloud_cover", "cloud_cover_low", "cloud_cover_mid", "cloud_cover_high",
 ) + listOf(
-    "weather_code",
     "wind_speed_10m",
     "wind_direction_10m",
 )

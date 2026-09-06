@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## [0.2.0-beta.17] - 2026-09-06
+
+- Add a widget color picker with HEX input, swatches, RGB channels, and opacity. HEX input accepts values with or without a leading hash.
+- Keep text readable on Light and opaque custom backgrounds with automatic contrast. Preserve manual colors, saved preferences, and unfinished HEX edits across recreation.
+- Preserve current sky conditions and prevent older hourly values from replacing newer current readings. Independent station corrections remain active.
+- Require sufficient source coverage and a strict majority for hazard consensus, retain freezing-rain/drizzle types, and classify hourly rain from its blended amount. Provider rain probabilities remain unchanged.
+- Recalculate daily rain and snowfall totals from complete hourly data, retaining provider totals when coverage is incomplete. These are consistency fixes, not a validated forecast-accuracy claim.
+
 ## [0.2.0-beta.16] - 2026-09-05
 
 - Open the five-year archive directly from the forecast screen. Select the last 30 days, 365 days, all data, or a custom inclusive date range to calculate rainfall totals and coverage.

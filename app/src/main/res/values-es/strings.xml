@@ -366,4 +366,12 @@
     <string name="widget_corners_soft">Suaves</string>
     <string name="widget_corners_round">Redondas</string>
     <string name="widget_content_padding">Espacio interior</string>
+    <string name="widget_hex_format">#RRGGBB / #AARRGGBB</string>
+    <string name="widget_automatic_text_colors">Contraste de texto automático</string>
+    <string name="widget_contrast_note">El contraste automático necesita un fondo opaco. Elige el texto manualmente con imágenes o transparencia; comprueba los degradados en la pantalla de inicio.</string>
+    <string name="widget_choose_color">Elegir color: %1$s</string>
+    <string name="widget_red">Rojo</string>
+    <string name="widget_green">Verde</string>
+    <string name="widget_blue">Azul</string>
+    <string name="widget_alpha">Opacidad</string>
 </resources>

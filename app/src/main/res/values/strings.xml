@@ -367,4 +367,12 @@
     <string name="widget_corners_soft">Soft</string>
     <string name="widget_corners_round">Round</string>
     <string name="widget_content_padding">Content spacing</string>
+    <string name="widget_hex_format">#RRGGBB / #AARRGGBB</string>
+    <string name="widget_automatic_text_colors">Automatic text contrast</string>
+    <string name="widget_contrast_note">Automatic contrast needs an opaque background. Choose text colors manually for images or transparency; check gradients on your home screen.</string>
+    <string name="widget_choose_color">Choose %1$s color</string>
+    <string name="widget_red">Red</string>
+    <string name="widget_green">Green</string>
+    <string name="widget_blue">Blue</string>
+    <string name="widget_alpha">Opacity</string>
 </resources>

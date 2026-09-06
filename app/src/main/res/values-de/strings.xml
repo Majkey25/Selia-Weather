@@ -366,4 +366,12 @@
     <string name="widget_corners_soft">Leicht gerundet</string>
     <string name="widget_corners_round">Rund</string>
     <string name="widget_content_padding">Innenabstand</string>
+    <string name="widget_hex_format">#RRGGBB / #AARRGGBB</string>
+    <string name="widget_automatic_text_colors">Automatischer Textkontrast</string>
+    <string name="widget_contrast_note">Automatischer Kontrast braucht einen deckenden Hintergrund. Wähle Textfarben bei Bildern oder Transparenz manuell; prüfe Farbverläufe auf dem Startbildschirm.</string>
+    <string name="widget_choose_color">Farbe wählen: %1$s</string>
+    <string name="widget_red">Rot</string>
+    <string name="widget_green">Grün</string>
+    <string name="widget_blue">Blau</string>
+    <string name="widget_alpha">Deckkraft</string>
 </resources>

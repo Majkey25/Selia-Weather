@@ -59,6 +59,7 @@ data class WidgetSettings(
     val backgroundEnd: String = "#28758D",
     val primaryColor: String = "#FFFFFFFF",
     val secondaryColor: String = "#CCFFFFFF",
+    val automaticTextColors: Boolean = true,
     val accentColor: String = "#FF66C9DF",
     val opacity: Int = 100,
     val textScale: Int = 100,
@@ -198,7 +199,7 @@ internal fun WidgetSettings.normalized(): WidgetSettings = copy(
     imageUri = imageUri.trim(),
 )
 
-internal fun isWidgetColor(value: String): Boolean = WIDGET_COLOR.matches(value)
+internal fun isWidgetColor(value: String): Boolean = widgetHexOrNull(value) != null
 
 internal fun WidgetSettings.editableBackgroundColors(): List<String> = when (backgroundMode) {
     WidgetBackgroundMode.SOLID -> listOf(backgroundStart)
@@ -209,8 +210,7 @@ internal fun WidgetSettings.editableBackgroundColors(): List<String> = when (bac
 internal fun widgetColorInput(value: String): String = value.take(MAX_WIDGET_COLOR_INPUT_LENGTH)
 
 internal fun normalizedWidgetColor(value: String, fallback: String): String {
-    val trimmed = value.trim()
-    return if (isWidgetColor(trimmed)) trimmed.uppercase() else fallback
+    return widgetHexOrNull(value) ?: fallback
 }
 
 internal fun widgetBackgroundMode(value: String?, legacyTheme: String?): WidgetBackgroundMode =
@@ -398,7 +398,7 @@ internal fun widgetPresetSettings(preset: WidgetPreset, current: WidgetSettings)
         showMoon = false,
         showUpdatedAt = false,
     )
-}.normalized()
+}.copy(automaticTextColors = true).normalized()
 
 internal fun migratedWidgetVisibility(
     newValue: Boolean?,
@@ -674,7 +674,6 @@ private fun legacyBackgroundMode(value: String): WidgetBackgroundMode? = when (v
     else -> null
 }
 
-private val WIDGET_COLOR = Regex("^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$")
 internal const val MAX_BACKGROUND_WIDTH = 512
 internal const val DEFAULT_WIDGET_PADDING_DP = 12
 internal const val MAX_BACKGROUND_HEIGHT = 256

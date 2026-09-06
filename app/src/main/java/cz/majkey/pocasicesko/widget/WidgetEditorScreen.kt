@@ -81,6 +81,7 @@ internal fun WidgetEditorScreen(
 ) {
     var settings by rememberSaveable(stateSaver = WidgetSettingsSaver) { mutableStateOf(initial) }
     var previewSize by rememberSaveable { mutableStateOf(WidgetSize.WIDE) }
+    val displayedColors = settings.renderedTextColors()
     LaunchedEffect(pickedImageUri) {
         if (pickedImageUri != null) {
             settings = settings.copy(imageUri = pickedImageUri)
@@ -169,11 +170,17 @@ internal fun WidgetEditorScreen(
             }
             item {
                 EditorSection(stringResource(R.string.widget_editor_colors)) {
-                    ColorInput(settings.primaryColor, stringResource(R.string.widget_color_primary)) {
-                        settings = settings.copy(primaryColor = it)
+                    FieldToggle(R.string.widget_automatic_text_colors, settings.automaticTextColors) {
+                        settings = displayedColors.copy(automaticTextColors = it)
                     }
-                    ColorInput(settings.secondaryColor, stringResource(R.string.widget_color_secondary)) {
-                        settings = settings.copy(secondaryColor = it)
+                    if (!settings.automaticTextColorsAvailable() || settings.backgroundMode == WidgetBackgroundMode.GRADIENT) {
+                        Text(stringResource(R.string.widget_contrast_note), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                    }
+                    ColorInput(displayedColors.primaryColor, stringResource(R.string.widget_color_primary)) {
+                        settings = displayedColors.copy(primaryColor = it, automaticTextColors = false)
+                    }
+                    ColorInput(displayedColors.secondaryColor, stringResource(R.string.widget_color_secondary)) {
+                        settings = displayedColors.copy(secondaryColor = it, automaticTextColors = false)
                     }
                     ColorInput(settings.accentColor, stringResource(R.string.widget_color_accent)) {
                         settings = settings.copy(accentColor = it)
@@ -277,20 +284,6 @@ private fun EditorSection(title: String, content: @Composable ColumnScope.() -> 
 }
 
 @Composable
-private fun ColorInput(value: String, label: String, onValueChange: (String) -> Unit) {
-    val invalid = !isWidgetColor(value)
-    OutlinedTextField(
-        value = value,
-        onValueChange = { onValueChange(widgetColorInput(it)) },
-        label = { Text(label) },
-        isError = invalid,
-        supportingText = { if (invalid) Text(stringResource(R.string.widget_invalid_hex)) },
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
-    )
-}
-
-@Composable
 private fun ImageControl(hasImage: Boolean, onPick: () -> Unit, onRemove: () -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
         Button(onClick = onPick, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.widget_image_select)) }
@@ -352,7 +345,7 @@ private fun WidgetPreview(settings: WidgetSettings, size: WidgetSize) {
     val localized = remember(context, configuration.locales[0]) { AppLocale.localized(context) }
     val locale = localized.resources.configuration.locales[0]
     val data = remember(localized, locale) { loadPreview(localized) }
-    val normalized = settings.normalized()
+    val normalized = settings.normalized().renderedTextColors()
     val previewHeight = when (size) {
         WidgetSize.COMPACT -> 96.dp
         WidgetSize.STANDARD -> 132.dp
@@ -526,6 +519,7 @@ internal val WidgetSettingsSaver = listSaver<WidgetSettings, Any>(
             settings.fontStyle.name,
             settings.corners.name,
             settings.contentPaddingDp,
+            settings.automaticTextColors,
         )
     },
     restore = { values ->
@@ -561,7 +555,9 @@ internal val WidgetSettingsSaver = listSaver<WidgetSettings, Any>(
             fontStyle = widgetFontStyle(values.getOrNull(28) as? String),
             corners = widgetCorners(values.getOrNull(29) as? String),
             contentPaddingDp = values.getOrNull(30) as? Int ?: DEFAULT_WIDGET_PADDING_DP,
-        ).normalized()
+            automaticTextColors = values.getOrNull(31) as? Boolean
+                ?: defaultAutomaticWidgetTextColors(values[3] as String, values[4] as String),
+        )
     },
 )
 

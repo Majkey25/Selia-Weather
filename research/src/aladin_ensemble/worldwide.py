@@ -130,7 +130,7 @@ def download_worldwide_truth(
         for item in _normalize_hourly_rain(parsed)
         if start_date <= item.valid_time.date() <= end_date
     )
-    observations = _select_daily_synoptic_observations(
+    observations = select_daily_synoptic_observations(
         (*_drop_unpaired_wind_observations(exact_hours), *rain)
     )
     if any(not start_date <= item.valid_time.date() <= end_date for item in observations):
@@ -163,7 +163,7 @@ def build_worldwide_truth_requests(
     )
 
 
-def _select_daily_synoptic_observations(
+def select_daily_synoptic_observations(
     observations: Sequence[Observation],
 ) -> tuple[Observation, ...]:
     by_hour: dict[tuple[str, date, int], list[Observation]] = {}

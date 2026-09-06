@@ -5,6 +5,7 @@
 - Connect validated, location-scoped learned weights to hourly forecasts through the checksum-linked Pages feed. Use actual model run times and response UTC offsets; reject stale, mismatched, or unvalidated inputs.
 - Show the first calibrated hourly sample and its weights separately from current conditions. Keep live multi-model forecasts available when calibration is unavailable.
 - Require nonoverlapping calibration selectors and sufficient holdout samples. Keep rainfall intervals and wind outside scalar calibration until their contracts are validated.
+- Add NOAA GHCNh temperature observations and a frozen, reproducible East Asia comparison. Preserve the rejected candidate and per-station results; do not activate weights from pooled scores alone.
 
 ## [0.2.0-beta.17] - 2026-09-06
 

@@ -112,6 +112,20 @@ provider-family IDs returned to Android. No worldwide segment currently satisfie
 so no production runtime artifact is checked in or published. See
 [Worldwide ensemble validation status](../docs/research/worldwide-ensemble-validation.md).
 
+`sources.noaa_ghcnh` reads the NOAA successor to the retired ISD archive. It preserves native UTC
+observation times and source-linked raw files, with source-specific quality checks. The frozen
+East Asia temperature study has a cache-only reproducer in
+`scripts/ghcnh_temperature_validation_2025.py`. Its pooled holdout improved, but the existing
+stability gate failed and individual stations favored different models. No weights were exported.
+See [GHCNh temperature validation](../docs/research/2026-09-06-ghcnh-temperature-validation.md)
+for exact sampling, scores, limitations, and reproduction requirements.
+
+Previous-runs budgets report HTTP requests and weighted Open-Meteo quota units separately.
+The quota estimate uses each request's locations, variables, and inclusive date span. A planned
+77-request batch with 24 locations, 165 days, and six variables costs 13,068 units before cache
+reuse, so it cannot pass a 10,000-unit limit. This is a conservative plan estimate, not an account
+usage meter or a guarantee that the shared daily quota remains available.
+
 Run the locked-backtest preflight before any download:
 
 ```powershell

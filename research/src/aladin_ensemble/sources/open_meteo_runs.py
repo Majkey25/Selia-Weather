@@ -5,7 +5,7 @@ import json
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
-from math import isfinite
+from math import fsum, isfinite
 from pathlib import Path
 from time import sleep
 from typing import cast
@@ -80,6 +80,8 @@ class PreviousRunsRequest:
     def __post_init__(self) -> None:
         if not self.model_id:
             raise ValueError("model_id is required")
+        if "," in self.model_id:
+            raise ValueError("previous-runs requests require exactly one model")
         if not self.points:
             raise ValueError("points must be non-empty")
         point_ids = tuple(point.point_id for point in self.points)
@@ -196,6 +198,16 @@ def estimate_previous_runs_budget(
         date_count=len(dates),
         expected_http_requests=len(requests),
         provider_limit=provider_limit,
+        # Open-Meteo ForecastApiResult.calculateQueryWeight: one domain per request.
+        expected_quota_units=fsum(
+            len(request.points) * max(
+                1.0,
+                len(request.variables) / 10.0,
+                len(request.variables) / 10.0
+                * ((request.end_date - request.start_date).days + 1) / 14.0,
+            )
+            for request in requests
+        ),
     )
 
 

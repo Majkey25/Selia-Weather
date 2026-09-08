@@ -1,10 +1,12 @@
-Selia Weather gives you a clear worldwide weather view without an account, with observed precipitation radar, regional model routing, and a custom widget. This build contains no ads or Premium.
+Selia Weather brings together worldwide forecasts, radar, a custom widget and a five-year weather archive. No app account, ads or Premium purchase is required.
 
-The forecast uses Open-Meteo Best Match and a diagnostic multi-model calculation for up to 14 days. Fresh ČHMÚ observations correct current conditions in Czechia. Elsewhere, nearby fresh METAR reports can correct available temperature, humidity, dew point, pressure, visibility, cloud cover, and wind fields. Future hours remain model forecasts.
+Ask AI about weather history. Browse daily NASA POWER estimates, choose a date range and calculate rainfall totals with data coverage. After confirmation, share the full five-year CSV with your question through a compatible installed AI app. The prompt requests an answer in the weather app's language. File support depends on the recipient; a manual-upload fallback is available. The archive contains model and satellite grid estimates, not measurements from a sensor at your selected point.
+
+The forecast uses Open-Meteo Best Match and a diagnostic multi-model calculation for up to 14 days. Nearby ČHMÚ stations in Czechia and METAR reports worldwide can supplement current conditions. Hourly forecasts remain separate from current observations. View temperature, feels-like temperature, precipitation, wind, humidity, pressure, UV and Sun/Moon details. Forecasts can be incomplete or wrong; a saved coordinate does not guarantee field-level accuracy.
 
 Search places worldwide, save favourites, choose an exact named point on the world map, enter coordinates, or use your optional current location. The last successful forecast remains available offline.
 
-The radar uses worldwide RainViewer observations with zoom, pan, animation, a timeline, and a coverage mask. Hourly forecast details explain future precipitation probability and amount in plain language.
+The radar shows available RainViewer observations with zoom, pan, animation, a timeline and a coverage mask. Switch to a separate sampled model precipitation map for a 12-hour outlook. Controls sit below the map, and fullscreen provides more space. The outlook is model output, not observed future radar. Hourly details explain precipitation probability and amount in plain language.
 
 Build your own launcher widget. Each widget can use its own colours, transparency, gradient or custom-image background, text scale, alignment, label, and visible weather fields. If Android can no longer read a selected image, the widget uses its configured colour background and keeps working.
 

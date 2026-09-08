@@ -1,1 +1,1 @@
-Worldwide forecast, observed radar, local details, history, and a custom widget.
+World weather, radar, custom widgets and a five-year archive for Ask AI.

@@ -291,6 +291,109 @@ class ModelConsensusTest {
     }
 
     @Test
+    fun majorityDrizzleIsNotErasedByTheMeasurableRainThreshold() {
+        listOf(
+            listOf(51, 53, 55) to 51,
+            listOf(51, 53, 0) to 51,
+            listOf(55, 55, 0) to 55,
+            listOf(53, 53, 0) to 53,
+            listOf(51, 0, 0) to 0,
+        )
+            .forEach { (codes, expectedCode) ->
+                val base = JSONObject(BASE).also { root ->
+                    root.getJSONObject("hourly").getJSONArray("precipitation_probability").put(0, 3)
+                }
+                val models = JSONObject(MODELS).also { root ->
+                    val hourly = root.getJSONObject("hourly")
+                    listOf("a", "b", "c").forEachIndexed { index, suffix ->
+                        hourly.getJSONArray("weather_code_$suffix").put(0, codes[index])
+                        hourly.getJSONArray("precipitation_$suffix").put(0, 0.03)
+                    }
+                }
+
+                val hourly = JSONObject(blendModelForecast(base.toString(), models.toString()).json)
+                    .getJSONObject("hourly")
+
+                assertEquals(expectedCode, hourly.getJSONArray("weather_code").getInt(0))
+                assertEquals(0.03, hourly.getJSONArray("precipitation").getDouble(0), 0.0)
+                assertEquals(3, hourly.getJSONArray("precipitation_probability").getInt(0))
+            }
+    }
+
+    @Test
+    fun blendedCloudCoverUpdatesBenignSkyCodeWhenPrecipitationContributorsAreMissing() {
+        listOf(10 to 0, 40 to 1, 70 to 2, 95 to 3).forEach { (cloudCover, expectedCode) ->
+            val base = JSONObject(BASE).also { root ->
+                root.getJSONObject("hourly").apply {
+                    getJSONArray("weather_code").put(0, 0)
+                    getJSONArray("precipitation_probability").put(0, 3)
+                    put("cloud_cover_low", JSONArray(listOf(0, 0)))
+                    put("cloud_cover_mid", JSONArray(listOf(85, 0)))
+                    put("cloud_cover_high", JSONArray(listOf(100, 0)))
+                }
+            }
+            val models = JSONObject(MODELS).also { root ->
+                root.getJSONObject("hourly").apply {
+                    getJSONArray("precipitation_c").put(0, JSONObject.NULL)
+                    listOf("a", "b", "c").forEach { suffix ->
+                        getJSONArray("cloud_cover_$suffix").put(0, cloudCover)
+                    }
+                }
+            }
+
+            val hourly = JSONObject(blendModelForecast(base.toString(), models.toString()).json)
+                .getJSONObject("hourly")
+
+            assertEquals(expectedCode, hourly.getJSONArray("weather_code").getInt(0))
+            assertEquals(cloudCover, hourly.getJSONArray("cloud_cover").getInt(0))
+            assertEquals(3, hourly.getJSONArray("precipitation_probability").getInt(0))
+            assertEquals(0.0, hourly.getJSONArray("precipitation").getDouble(0), 0.0)
+            // Layer fractions have provider-specific definitions, not a union constraint.
+            assertEquals(85, hourly.getJSONArray("cloud_cover_mid").getInt(0))
+            assertEquals(100, hourly.getJSONArray("cloud_cover_high").getInt(0))
+        }
+    }
+
+    @Test
+    fun cloudOnlyBlendPreservesProviderDrizzleRainAndHazards() {
+        listOf(51, 61, 71, 66, 95, 45).forEach { providerCode ->
+            val base = JSONObject(BASE).also { root ->
+                root.getJSONObject("hourly").getJSONArray("weather_code").put(0, providerCode)
+            }
+            val models = JSONObject(MODELS).also { root ->
+                root.getJSONObject("hourly").getJSONArray("precipitation_c").put(0, JSONObject.NULL)
+            }
+
+            val hourly = JSONObject(blendModelForecast(base.toString(), models.toString()).json)
+                .getJSONObject("hourly")
+
+            assertEquals(providerCode, hourly.getJSONArray("weather_code").getInt(0))
+            assertEquals(10, hourly.getJSONArray("cloud_cover").getInt(0))
+        }
+    }
+
+    @Test
+    fun cloudOnlyBlendDoesNotTurnPrecedingHourRainIntoAnInstantRainCondition() {
+        val base = JSONObject(BASE).also { root ->
+            root.getJSONObject("hourly").apply {
+                getJSONArray("weather_code").put(0, 3)
+                getJSONArray("precipitation").put(0, 0.2)
+                getJSONArray("precipitation_probability").put(0, 3)
+            }
+        }
+        val models = JSONObject(MODELS).also { root ->
+            root.getJSONObject("hourly").getJSONArray("precipitation_c").put(0, JSONObject.NULL)
+        }
+
+        val hourly = JSONObject(blendModelForecast(base.toString(), models.toString()).json)
+            .getJSONObject("hourly")
+
+        assertEquals(0, hourly.getJSONArray("weather_code").getInt(0))
+        assertEquals(0.2, hourly.getJSONArray("precipitation").getDouble(0), 0.0)
+        assertEquals(3, hourly.getJSONArray("precipitation_probability").getInt(0))
+    }
+
+    @Test
     fun appliesIssuedValuesAtTheRequestedLocationUsingActualRunLead() {
         val result = issuedBlend(issuedValues())
         val hourly = JSONObject(result.json).getJSONObject("hourly")

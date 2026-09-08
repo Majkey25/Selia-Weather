@@ -37,7 +37,8 @@ private fun parseMetarObservation(value: JSONObject): CurrentStationObservation?
     val windSpeed = value.numberOrNull("wspd")?.times(KNOTS_TO_KILOMETRES_PER_HOUR)
     val windDirection = value.numberOrNull("wdir")?.takeIf { it in 0.0..360.0 }
     val visibility = value.textNumberOrNull("visib")?.times(STATUTE_MILES_TO_METRES)
-    val pressure = value.numberOrNull("altim")
+    // AWC distinguishes sea-level pressure from the altimeter setting (altim/QNH).
+    val pressure = value.numberOrNull("slp")
     val cloudCover = CLOUD_COVER[value.optString("cover")]
     return try {
         CurrentStationObservation(
@@ -55,10 +56,28 @@ private fun parseMetarObservation(value: JSONObject): CurrentStationObservation?
             pressureHpa = pressure,
             visibilityMeters = visibility,
             cloudCoverPercent = cloudCover,
+            weatherCode = parseMetarWeatherCode(value.opt("wxString") as? String),
         )
     } catch (_: IllegalArgumentException) {
         null
     }
+}
+
+private fun parseMetarWeatherCode(encoded: String?): Int? {
+    if (encoded.isNullOrBlank() || encoded.length > 64) return null
+    val groups = encoded.trim().split(Regex("\\s+"))
+    if (groups.size > 3) return null
+    // Exact present-weather groups only. Unknown, vicinity and recent-weather groups
+    // fail closed; never classify free text or find RA inside mixed RASN/FZRA.
+    if (groups.any { it !in METAR_WEATHER_CODES && it !in setOf("BR", "HZ") }) return null
+    val codes = groups.mapNotNull(METAR_WEATHER_CODES::get)
+    val phases = listOf(
+        codes.any { it in 51..55 || it in 61..65 || it in 80..82 },
+        codes.any { it in 56..57 || it in 66..67 },
+        codes.any { it in 71..77 || it in 85..86 },
+    )
+    if (phases.count { it } > 1) return null
+    return codes.maxOrNull()
 }
 
 private fun relativeHumidity(temperature: Double, dewPoint: Double): Int {
@@ -80,14 +99,24 @@ private fun JSONObject.textNumberOrNull(name: String): Double? = when (val value
 
 private val METAR_STATION_ID = Regex("[A-Z0-9]{4}")
 private val CLOUD_COVER = mapOf(
-    "CLR" to 0,
     "SKC" to 0,
-    "CAVOK" to 0,
     "FEW" to 13,
     "SCT" to 38,
     "BKN" to 75,
     "OVC" to 100,
     "VV" to 100,
+)
+// FAA METAR present-weather codes; WMO intensity classes. No amount or probability inference.
+private val METAR_WEATHER_CODES = mapOf(
+    "-DZ" to 51, "DZ" to 53, "+DZ" to 55,
+    "-RA" to 61, "RA" to 63, "+RA" to 65,
+    "-SHRA" to 80, "SHRA" to 81, "+SHRA" to 81,
+    "-FZDZ" to 56, "FZDZ" to 57, "+FZDZ" to 57,
+    "-FZRA" to 66, "FZRA" to 67, "+FZRA" to 67,
+    "-SN" to 71, "SN" to 73, "+SN" to 75,
+    "-SHSN" to 85, "SHSN" to 86, "+SHSN" to 86,
+    "FG" to 45, "FZFG" to 48,
+    "TS" to 95, "-TSRA" to 95, "TSRA" to 95, "+TSRA" to 95,
 )
 private const val KNOTS_TO_KILOMETRES_PER_HOUR = 1.852
 private const val STATUTE_MILES_TO_METRES = 1_609.344

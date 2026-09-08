@@ -1,6 +1,14 @@
 # Changelog
 
-## Unreleased
+## [0.2.0-beta.18] - 2026-09-08
+
+- Keep current conditions separate from the hourly forecast and daily summary. Remove sunshine-to-clear-sky guesses and prevent ten-minute station amounts from replacing fifteen-minute model totals.
+- Preserve a strict majority of model drizzle reports even below 0.1 mm. Keep sky labels consistent with supported cloud-only blends and show trace precipitation as less than 0.1 mm (or 0.01 in), not zero. Provider rain probabilities are not inflated.
+- Read explicit nearby METAR drizzle/rain reports, distinguish sea-level pressure from altimeter pressure, and stop treating partial-height CLR/CAVOK reports as zero total cloud. Reject invalid station humidity instead of converting it to zero.
+- Add a 12-hour sampled model precipitation map alongside observed radar, load-before-swap animation, missing/stale-area warnings, controls below the map, and fullscreen mode.
+- Share the full five-year archive with a custom question and selected UTC focus period. Confirm the disclosure before Android recipient selection; request answers in the app language. Preserve missing data and per-variable coverage across 15 archive metrics.
+- Keep Ask AI compact, pin sheet back controls, group detailed statistics, and mark the actual current day/hour in the selected location's time.
+- Add in-app links to privacy, terms, refunds and cookie pages, with accessible navigation and verified developer contact details. Include the complete Leaflet licence in the app.
 
 - Connect validated, location-scoped learned weights to hourly forecasts through the checksum-linked Pages feed. Use actual model run times and response UTC offsets; reject stale, mismatched, or unvalidated inputs.
 - Show the first calibrated hourly sample and its weights separately from current conditions. Keep live multi-model forecasts available when calibration is unavailable.

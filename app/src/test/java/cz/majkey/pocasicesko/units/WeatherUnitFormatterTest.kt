@@ -30,6 +30,19 @@ class WeatherUnitFormatterTest {
     }
 
     @Test
+    fun tracePrecipitationIsNotDisplayedAsZero() {
+        val metric = WeatherUnitFormatter(MeasurementSystem.METRIC, Locale.US)
+        val imperial = WeatherUnitFormatter(MeasurementSystem.IMPERIAL, Locale.US)
+        assertEquals("0.0 mm", metric.precipitation(0.0))
+        assertEquals("<0.1 mm", metric.precipitation(0.03))
+        assertEquals("0.1 mm", metric.precipitation(0.1))
+        assertEquals("0.00 in", imperial.precipitation(0.0))
+        assertEquals("<0.01 in", imperial.precipitation(0.03))
+        assertEquals("0.01 in", imperial.precipitation(0.254))
+        assertEquals("<0,1 mm", WeatherUnitFormatter(MeasurementSystem.METRIC, Locale.GERMANY).precipitation(0.03))
+    }
+
+    @Test
     fun unknownStoredPresetFallsBackToMetric() {
         assertEquals(MeasurementSystem.METRIC, measurementSystem("broken"))
         assertEquals(MeasurementSystem.IMPERIAL, measurementSystem("IMPERIAL"))

@@ -114,6 +114,13 @@ object WeatherParser {
 
         return WeatherSnapshot(
             timezone = root.getString("timezone"),
+            utcOffsetSeconds = if (root.isNull("utc_offset_seconds")) null else {
+                val offset = root.get("utc_offset_seconds")
+                if (offset !is Number || offset.toDouble() != offset.toInt().toDouble() || offset.toInt() !in -64_800..64_800) {
+                    throw JSONException("Invalid forecast UTC offset.")
+                }
+                offset.toInt()
+            },
             current = CurrentWeather(
                 time = currentJson.getString("time"),
                 temperature = currentJson.requiredDouble("temperature_2m"),

@@ -55,7 +55,7 @@ class HistoryRepositoryTest {
                 SAMPLE_JSON.replace("-0.77", "19.0").padEnd(2_000_001, ' ')
             }, now = { now })
 
-            assertEquals(-0.77, repository.fetch(location).days.first().temperatureMeanC, 0.0)
+            assertEquals(-0.77, repository.fetch(location).days.first().temperatureMeanC!!, 0.0)
             assertEquals(SAMPLE_JSON, cache.readText())
             assertEquals(listOf(cache), directory.listFiles().orEmpty().toList())
         } finally {
@@ -86,6 +86,9 @@ class HistoryRepositoryTest {
         assertEquals("UTC", query["time-standard"])
         assertEquals("JSON", query["format"])
         assertTrue(query.getValue("parameters").contains("PRECTOTCORR"))
+        assertEquals(15, query.getValue("parameters").split(',').size)
+        assertTrue(query.getValue("parameters").contains("WS10M_MAX"))
+        assertTrue(query.getValue("parameters").contains("T2MDEW"))
         assertEquals(1, cache.listFiles()?.size)
     }
 
@@ -122,6 +125,29 @@ class HistoryRepositoryTest {
         repository.fetch(location)
 
         assertEquals(1, calls)
+    }
+
+    @Test
+    fun refreshesSevenParameterCacheButKeepsItAsOfflineFallback() = runBlocking {
+        val directory = Files.createTempDirectory("history-parameters-upgrade").toFile()
+        try {
+            val legacy = directory.resolve("power_5y_50.0755_14.4378.json")
+            legacy.writeText(SAMPLE_JSON)
+            legacy.setLastModified(now.toEpochMilli())
+            var calls = 0
+            val offline = HistoryRepository(directory, fetchText = {
+                calls++
+                throw IOException("offline")
+            }, now = { now })
+            assertEquals(2, offline.fetch(location).days.size)
+            assertEquals(1, calls)
+            assertEquals(SAMPLE_JSON, legacy.readText())
+
+            HistoryRepository(directory, fetchText = { SAMPLE_JSON }, now = { now }).fetch(location)
+            assertTrue(directory.resolve("power_5y_v2_50.0755_14.4378.json").isFile)
+        } finally {
+            directory.deleteRecursively()
+        }
     }
 
     @Test

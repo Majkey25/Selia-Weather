@@ -26,6 +26,7 @@ internal data class CurrentStationObservation(
     val pressureHpa: Double? = null,
     val visibilityMeters: Double? = null,
     val cloudCoverPercent: Int? = null,
+    val weatherCode: Int? = null,
 ) {
     init {
         require(stationId.isNotBlank())
@@ -41,6 +42,7 @@ internal data class CurrentStationObservation(
         require(pressureHpa == null || pressureHpa.isFinite() && pressureHpa > 0)
         require(visibilityMeters == null || visibilityMeters.isFinite() && visibilityMeters >= 0)
         require(cloudCoverPercent == null || cloudCoverPercent in 0..100)
+        require(weatherCode == null || weatherCode in 0..99)
         require(
             listOf(
                 temperature,
@@ -53,6 +55,7 @@ internal data class CurrentStationObservation(
                 pressureHpa,
                 visibilityMeters,
                 cloudCoverPercent,
+                weatherCode,
             ).any { it != null },
         )
     }
@@ -83,14 +86,20 @@ internal fun fuseCurrentConditions(
 
     val temperature = weighted(CurrentStationObservation::temperature)
     val humidity = weighted { it.humidity?.toDouble() }?.roundToInt()?.coerceIn(0, 100)
-    val precipitation = weighted(CurrentStationObservation::precipitation)
     val dewPoint = weighted(CurrentStationObservation::dewPoint)
     val pressure = weighted(CurrentStationObservation::pressureHpa)
     val visibility = weighted(CurrentStationObservation::visibilityMeters)
-    val reportedCloudCover = weighted { it.cloudCoverPercent?.toDouble() }
-        ?.roundToInt()
-        ?.coerceIn(0, 100)
-    val sunshineFraction = weighted(CurrentStationObservation::sunshineSeconds)?.div(600.0)
+    // Point weather changes faster and over shorter distances than temperature.
+    // These are conservative support limits, not fitted accuracy weights.
+    val localWeather = nearby.filter { (observation, distance) ->
+        distance <= MAX_WEATHER_DISTANCE_KM &&
+            Duration.between(observation.time, now).seconds <= MAX_WEATHER_AGE_SECONDS
+    }
+    val nearestRain = localWeather.firstOrNull { it.first.precipitation != null }?.first
+    val reportedCloudCover = localWeather.firstOrNull { it.first.cloudCoverPercent != null }
+        ?.first?.cloudCoverPercent
+    val reportedWeatherCode = localWeather.firstOrNull { it.first.weatherCode != null }
+        ?.first?.weatherCode
     val wind = nearby.mapNotNull { (observation, distance) ->
         val speed = observation.windSpeed ?: return@mapNotNull null
         val direction = observation.windDirection ?: return@mapNotNull null
@@ -103,30 +112,25 @@ internal fun fuseCurrentConditions(
         hypot(east, north) to (Math.toDegrees(kotlin.math.atan2(east, north)) + 360.0) % 360.0
     }
     val (weatherCode, cloudCover) = when {
-        precipitation != null && precipitation >= RAIN_THRESHOLD_MM -> 61 to 100
-        model.isDay && sunshineFraction != null && sunshineFraction >= CLEAR_SUNSHINE_FRACTION -> 0 to 5
-        model.isDay && sunshineFraction != null && sunshineFraction >= MOSTLY_CLEAR_SUNSHINE_FRACTION -> 1 to 25
+        reportedWeatherCode != null && model.weatherCode in 0..3 ->
+            reportedWeatherCode to (reportedCloudCover ?: model.cloudCover)
+        (nearestRain?.precipitation ?: 0.0) > 0.0 && (nearestRain?.temperature ?: 0.0) > 0.0 &&
+            model.temperature > 0.0 && model.weatherCode in 0..3 ->
+            61 to (reportedCloudCover ?: model.cloudCover)
         reportedCloudCover != null && model.weatherCode in 0..3 -> {
             cloudWeatherCode(reportedCloudCover) to reportedCloudCover
         }
         else -> model.weatherCode to (reportedCloudCover ?: model.cloudCover)
-    }
-    val observedLayerCover = cloudCover.takeIf {
-        precipitation != null && precipitation < RAIN_THRESHOLD_MM && sunshineFraction != null &&
-            sunshineFraction >= MOSTLY_CLEAR_SUNSHINE_FRACTION
     }
     val temperatureDelta = temperature?.minus(model.temperature)
     return model.copy(
         temperature = temperature ?: model.temperature,
         feelsLike = temperatureDelta?.let(model.feelsLike::plus) ?: model.feelsLike,
         humidity = humidity ?: model.humidity,
-        precipitation = precipitation ?: model.precipitation,
-        rain = precipitation ?: model.rain,
+        // Ten-minute gauge totals cannot replace fifteen-minute model amounts.
+        // Sunshine duration also does not measure total or layered cloud cover.
         weatherCode = weatherCode,
         cloudCover = cloudCover,
-        cloudCoverLow = observedLayerCover ?: model.cloudCoverLow,
-        cloudCoverMid = observedLayerCover ?: model.cloudCoverMid,
-        cloudCoverHigh = observedLayerCover ?: model.cloudCoverHigh,
         windSpeed = windVector?.first ?: model.windSpeed,
         windDirection = windVector?.second?.roundToInt() ?: model.windDirection,
         dewPoint = dewPoint ?: model.dewPoint,
@@ -157,17 +161,8 @@ internal fun applyCurrentConditionsToForecastJson(json: String, current: Current
     )
     values.forEach { (name, value) -> if (value != null) currentJson.put(name, value) }
 
-    val hourly = root.optJSONObject("hourly") ?: return root.toString()
-    val times = hourly.optJSONArray("time") ?: return root.toString()
-    val currentHour = current.time.take(13)
-    val index = (0 until times.length()).firstOrNull { times.optString(it).take(13) == currentHour }
-        ?: return root.toString()
-    values.forEach { (name, value) ->
-        // Station totals cover ten minutes, not the forecast hour.
-        if (name == "precipitation" || name == "rain") return@forEach
-        val array = hourly.optJSONArray(name)
-        if (value != null && array != null && index < array.length()) array.put(index, value)
-    }
+    // Current conditions and the hourly forecast have different time support.
+    // Copying current values into an hour also invalidates its daily summary.
     return root.toString()
 }
 
@@ -194,7 +189,6 @@ private const val MAX_STATION_COUNT = 3
 private const val MAX_STATION_DISTANCE_KM = 50.0
 private const val MAX_OBSERVATION_AGE_SECONDS = 90 * 60L
 private const val MAX_CLOCK_SKEW_SECONDS = 5 * 60L
-private const val RAIN_THRESHOLD_MM = 0.1
-private const val CLEAR_SUNSHINE_FRACTION = 0.8
-private const val MOSTLY_CLEAR_SUNSHINE_FRACTION = 0.4
+private const val MAX_WEATHER_DISTANCE_KM = 10.0
+private const val MAX_WEATHER_AGE_SECONDS = 30 * 60L
 private const val EARTH_RADIUS_KM = 6_371.0088

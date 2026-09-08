@@ -25,6 +25,7 @@ class WidgetConfigActivity : ComponentActivity() {
     private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
     private var selectedImageUri by mutableStateOf<String?>(null)
     private var initialImageUri = ""
+    private var applying by mutableStateOf(false)
     private val applyState = WidgetApplyState()
     private val applyingBackCallback = object : OnBackPressedCallback(false) {
         override fun handleOnBackPressed() = Unit
@@ -72,6 +73,7 @@ class WidgetConfigActivity : ComponentActivity() {
                         selectedImageUri = null
                     },
                     onApply = ::applySettings,
+                    applying = applying,
                 )
             }
         }
@@ -91,6 +93,7 @@ class WidgetConfigActivity : ComponentActivity() {
 
     private fun applySettings(settings: WidgetSettings) {
         if (!applyState.start()) return
+        applying = true
         applyingBackCallback.isEnabled = true
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LOCKED
         val normalized = settings.normalized()
@@ -114,6 +117,7 @@ class WidgetConfigActivity : ComponentActivity() {
 
     private fun finishApply(saved: Boolean) {
         applyState.cancel()
+        applying = false
         applyingBackCallback.isEnabled = false
         if (!isDestroyed) requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         if (!widgetCanFinishActivity(isDestroyed, isFinishing)) return

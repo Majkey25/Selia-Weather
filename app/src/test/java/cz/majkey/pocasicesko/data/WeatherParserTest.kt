@@ -8,6 +8,21 @@ import org.junit.Test
 
 class WeatherParserTest {
     @Test
+    fun preservesResponseOffsetAndAcceptsLegacyCacheWithoutOffset() {
+        assertEquals(null, WeatherParser.parseForecast(VALID_FORECAST, 123L).utcOffsetSeconds)
+        val forecast = JSONObject(VALID_FORECAST).put("utc_offset_seconds", 19_800).toString()
+        assertEquals(19_800, WeatherParser.parseForecast(forecast, 123L).utcOffsetSeconds)
+    }
+
+    @Test
+    fun rejectsInvalidResponseOffsets() {
+        for (offset in listOf(19_800.5, 64_801, -64_801, "3600", 4_294_967_296L)) {
+            val forecast = JSONObject(VALID_FORECAST).put("utc_offset_seconds", offset).toString()
+            assertThrows(JSONException::class.java) { WeatherParser.parseForecast(forecast, 123L) }
+        }
+    }
+
+    @Test
     fun parsesForecastShape() {
         val snapshot = WeatherParser.parseForecast(VALID_FORECAST, updatedAtEpochMillis = 123L)
 

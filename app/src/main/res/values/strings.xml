@@ -10,7 +10,7 @@
     <string name="widget_placeholder_range">--° / --°</string>
     <string name="widget_placeholder_time">--:--</string>
     <string name="nav_weather">Weather</string>
-    <string name="nav_maps">Maps</string>
+    <string name="nav_maps">Radar</string>
     <string name="open_settings">Open settings</string>
     <string name="refresh_forecast">Refresh forecast</string>
     <string name="forecast_unavailable">Forecast unavailable</string>
@@ -212,8 +212,10 @@
     <string name="condition_storm">Thunderstorm</string>
     <string name="condition_unknown">Unknown</string>
     <string name="radar_title">Radar</string>
-    <string name="radar_subtitle">Worldwide observed precipitation radar with animation and timeline</string>
-    <string name="radar_footer">Observed radar: RainViewer · map: OpenStreetMap</string>
+    <string name="radar_fullscreen">Fullscreen</string>
+    <string name="radar_exit_fullscreen">Exit fullscreen</string>
+    <string name="radar_subtitle">Observed radar + 12-hour model precipitation forecast</string>
+    <string name="radar_footer">Observed: RainViewer · forecast: Open-Meteo · map: OpenStreetMap</string>
     <string name="radar_retry">Retry radar</string>
     <string name="radar_unavailable">Radar unavailable</string>
     <string name="widget_title">Weather widget</string>
@@ -225,6 +227,8 @@
     <string name="widget_size_tall">Tall</string>
     <string name="widget_size_wide">Wide</string>
     <string name="widget_apply">Apply</string>
+    <string name="widget_saving">Saving widget…</string>
+    <string name="widget_saving_wait">Back is available after saving finishes.</string>
     <string name="widget_editor_background">Background</string>
     <string name="widget_editor_colors">Colors</string>
     <string name="widget_editor_layout">Layout</string>
@@ -380,4 +384,28 @@
     <string name="forecast_calculation_value_count" tools:ignore="MissingTranslation">Calibrated hourly values</string>
     <string name="forecast_calculation_first_sample" tools:ignore="MissingTranslation">First calibrated sample</string>
     <string name="forecast_calculation_first_weights" tools:ignore="MissingTranslation">Weights for the first calibrated sample</string>
+    <string name="history_question">Question (optional)</string>
+    <string name="history_question_hint">What would you like to know about this location?</string>
+    <string name="history_question_count">%1$d / %2$d</string>
+    <string name="history_temperature_maximum">Maximum temperature</string>
+    <string name="history_temperature_minimum">Minimum temperature</string>
+    <string name="history_average_wind">Average wind</string>
+    <string name="history_wind_maximum">Maximum daily wind</string>
+    <string name="history_wind_minimum">Minimum daily wind</string>
+    <string name="history_wind_direction">Wind direction</string>
+    <string name="history_clear_sky_solar_energy">Clear-sky solar energy</string>
+    <string name="history_temperature_coverage">Min %1$d/%3$d days · Max %2$d/%3$d days</string>
+    <string name="history_dates_coverage">Dates in archive: %1$d of %2$d</string>
+    <string name="home_ask_ai">Ask AI</string>
+    <string name="history_choose_ai_title">Choose an AI app</string>
+    <string name="history_choose_ai_action">Choose app</string>
+    <string name="history_choose_ai_message">The full five-year archive for %1$s (%2$d daily records), your question and the selected UTC period will be shared.\n\nChoose ChatGPT, Gemini, Claude or Grok if the installed app accepts CSV files. If it is missing from the chooser or cannot open the attachment, save the CSV through a compatible sharing app and upload it manually in your AI app.</string>
+    <string name="detail_group_sun_moon">Sun and Moon</string>
+    <string name="detail_group_other">Other conditions</string>
+    <string name="detail_group_sources">Sources and diagnostics</string>
+    <string name="legal_title">Legal</string>
+    <string name="legal_privacy">Privacy policy</string>
+    <string name="legal_terms">Terms of use</string>
+    <string name="legal_refunds">Refund policy</string>
+    <string name="legal_cookies">Cookie policy</string>
 </resources>

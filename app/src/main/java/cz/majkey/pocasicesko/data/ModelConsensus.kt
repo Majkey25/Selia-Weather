@@ -211,20 +211,25 @@ private fun deriveCondition(
 ): Boolean {
     val precipitation = modelValues(source, suffixes, "precipitation", sourceIndex)
     val clouds = modelValues(source, suffixes, "cloud_cover", sourceIndex)
-    if (precipitation.size < MINIMUM_MODELS || clouds.size < MINIMUM_MODELS) return false
-    val amount = target.optJSONArray("precipitation").numberOrNull(targetIndex) ?: return false
+    if (clouds.size < MINIMUM_MODELS) return false
     val cloudCover = target.optJSONArray("cloud_cover").numberOrNull(targetIndex)
         ?.roundToInt()?.coerceIn(0, 100) ?: return false
     val fallbackCode = target.optJSONArray("weather_code").numberOrNull(targetIndex)?.roundToInt()
-    target.optJSONArray("weather_code")?.put(
-        targetIndex,
+    val code = if (precipitation.size >= MINIMUM_MODELS) {
+        val amount = target.optJSONArray("precipitation").numberOrNull(targetIndex) ?: return false
         deriveWeatherCode(
             modelValues(source, suffixes, "weather_code", sourceIndex).map(Double::roundToInt),
             amount,
             cloudCover,
             fallbackCode,
-        ),
-    )
+        )
+    } else {
+        // Cloud-only evidence updates sky classes, never disproves drizzle or other hazards.
+        // A provider's preceding-hour rain total is not an instantaneous condition.
+        if (fallbackCode !in 0..3) return false
+        skyWeatherCode(cloudCover)
+    }
+    target.optJSONArray("weather_code")?.put(targetIndex, code)
     return true
 }
 
@@ -242,14 +247,20 @@ private fun deriveWeatherCode(
         sufficientCodes && codes.count { it in 95..99 } >= required -> 95
         sufficientCodes && codes.count { it in 66..67 } >= required -> 66
         sufficientCodes && codes.count { it in 56..57 } >= required -> 56
+        sufficientCodes && codes.count { it in DRIZZLE_CODES } >= required ->
+            DRIZZLE_CODES.firstOrNull { code -> codes.count { it == code } >= required } ?: 51
         sufficientCodes && codes.count { it in 71..77 || it == 85 || it == 86 } >= required -> 71
         sufficientCodes && codes.count { it in 45..48 } >= required -> 45
         precipitation >= WET_THRESHOLD_MM -> 61
-        cloudCover <= 20 -> 0
-        cloudCover <= 50 -> 1
-        cloudCover <= 80 -> 2
-        else -> 3
+        else -> skyWeatherCode(cloudCover)
     }
+}
+
+private fun skyWeatherCode(cloudCover: Int): Int = when {
+    cloudCover <= 20 -> 0
+    cloudCover <= 50 -> 1
+    cloudCover <= 80 -> 2
+    else -> 3
 }
 
 private fun updateCurrent(root: JSONObject, hourly: JSONObject, times: JSONArray) {
@@ -438,6 +449,7 @@ private val NON_NEGATIVE_FIELDS = setOf(
 )
 private const val MINIMUM_MODELS = 3
 private const val WET_THRESHOLD_MM = 0.1
+private val DRIZZLE_CODES = setOf(51, 53, 55)
 // Interval totals and wind need their own interval/vector contracts, not scalar substitution.
 private val CALIBRATION_UNITS = mapOf(
     "temperature_2m" to "°C", "dew_point_2m" to "°C",

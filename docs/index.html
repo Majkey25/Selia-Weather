@@ -4,30 +4,26 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'self'; base-uri 'none'; form-action 'none'">
   <title>Privacy policy | Selia Weather</title>
-  <style>
-    :root { color-scheme: dark; font-family: Inter, system-ui, sans-serif; background: #07131c; color: #eef7fa; }
-    body { margin: 0; background: radial-gradient(circle at 20% 0%, #194f68 0, #0b2331 28rem, #07131c 60rem); }
-    main { width: min(720px, calc(100% - 40px)); margin: 0 auto; padding: 72px 0 96px; }
-    .mark { width: 64px; height: 64px; border-radius: 18px; }
-    h1 { margin: 24px 0 8px; font-size: clamp(2rem, 6vw, 3.5rem); letter-spacing: -.04em; }
-    h2 { margin: 42px 0 10px; font-size: 1.2rem; }
-    p, li { color: #b9cbd3; line-height: 1.7; }
-    .date { margin: 0; color: #75c8dc; }
-    a { color: #8bdef0; }
-    footer { margin-top: 56px; padding-top: 24px; border-top: 1px solid #ffffff1a; }
-  </style>
+  <link rel="stylesheet" href="legal.css">
 </head>
 <body>
-<main>
-  <img class="mark" src="assets/app-icon.png" alt="Selia Weather icon">
+<a class="skip-link" href="#content">Skip to content</a>
+<header class="page">
+  <a class="brand" href="index.html"><img src="assets/app-icon.png" width="48" height="48" alt="">Selia Weather</a>
+  <nav aria-label="Legal pages"><a href="index.html" aria-current="page">Privacy</a><a href="terms.html">Terms</a><a href="refunds.html">Refunds</a><a href="cookies.html">Cookies</a></nav>
+</header>
+<main id="content" class="page" tabindex="-1">
   <h1>Privacy policy</h1>
-  <p class="date">Selia Weather · effective 6 September 2026</p>
-  <p>Selia Weather, package <code>com.majkeylab.weatheraladin</code>, does not require a developer account. The developer does not sell personal data or run a separate analytics service. Release builds do not contain or initialise Ads, UMP, Play Billing, Premium, or <code>AD_ID</code>. Debug-only QA builds can use Google test integrations outside the release dependency graph.</p>
+  <p class="updated">Updated 8 September 2026</p>
+  <p>This policy covers the official Android app and these project pages. The developer and privacy contact is Matěj Teplý, publishing as <a href="https://github.com/Majkey25/Selia-Weather">Majkey25</a>. Email: <a href="mailto:majkeylab@gmail.com">majkeylab@gmail.com</a>.</p>
+  <p>Selia Weather, package <code>com.majkeylab.weatheraladin</code>, does not require an app account. The current release is free, has no advertising or in-app purchases, and does not request an advertising identifier. The developer does not sell personal data or run a separate app analytics service. Test-only builds can include development integrations.</p>
 
   <h2>Data on your device</h2>
   <p>The app stores the last selected place, favourite places, the last successful forecast, language preference, and widget settings in internal app storage. A history archive is cached for up to 12 selected coordinates and refreshed at most once per 24 hours. Clearing app data or uninstalling the app deletes it. Android backup and device transfer are disabled for this data.</p>
-  <p>After you select <strong>Ask AI with CSV</strong>, the app creates a separate CSV file in its private cache. The file contains the selected location name and coordinates, daily weather estimates, data-source version, and access time. Android shares the file only with the app you choose in the system share sheet. Later exports do not overwrite previously shared files. When creating a new export, the app retains at most 12 recent exports and removes exports older than seven days. Android may clear cached files sooner.</p>
+  <p><strong>Ask AI with CSV</strong> first displays a confirmation describing the location and archive size. After you confirm, the app creates a separate CSV file in its private cache. It contains the <strong>full available five-year archive</strong>, selected location name and coordinates, daily weather estimates, data-source version and access time. Your question and selected-period context accompany it; selecting a shorter period does not shorten the attachment. Android shares it only with the recipient you choose in the system share sheet. Cancel either step to stop sharing. Later exports do not overwrite earlier files. On a new export, the app keeps at most 12 exports and removes files older than seven days. Android may clear cache sooner.</p>
   <p>A custom widget image remains in its original location. The app stores only its Android content URI and reads a bounded copy when it renders the widget. Removing the widget removes its settings and releases its retained image permission when no other widget uses the URI.</p>
 
   <h2>Location</h2>
@@ -35,7 +31,7 @@
 
   <h2>Network communication</h2>
   <ul>
-    <li>Open-Meteo receives place search terms and selected coordinates. It provides geocoding and forecasts. Widgets and an enabled morning briefing can refresh forecasts in an Android background job using the last selected coordinates. They do not request a new device location. Android may delay a refresh while offline or conserving battery. The developer does not retain this data off-device. <a href="https://open-meteo.com/en/terms">Open-Meteo states</a> that free API server logs may contain coordinates and are deleted after 90 days.</li>
+    <li>Open-Meteo receives place search terms and selected coordinates. Opening the app may fetch the default or last selected place even without device-location permission. Selecting the map's model forecast sends 49 sample coordinates around the displayed area. Widgets and an enabled morning briefing can refresh forecasts in an Android background job using the last selected coordinates; they do not request a new device location. Android may delay refreshes while offline or conserving battery. <a href="https://open-meteo.com/en/terms">Open-Meteo states</a> that free API logs may contain coordinates and are deleted after 90 days.</li>
     <li>GitHub Pages hosts this policy and the public forecast-calibration feed. The app checks the feed during forecast refreshes. If a validated feed covers the selected location, it requests public calibration files and forecast tiles. Those requests expose normal HTTPS technical data such as your IP address; tile paths can reveal the approximate selected area. The app does not upload your saved places or precise coordinates to GitHub Pages. See the <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub Privacy Statement</a>.</li>
     <li>After you select <strong>Weather history</strong> or <strong>Load archive</strong>, NASA POWER receives the selected coordinates and requested five-year date range when the cached archive needs a refresh. It returns daily model and satellite grid estimates. The app stores the response only in its bounded on-device cache. NASA POWER data are not local-station measurements. See the <a href="https://power.larc.nasa.gov/docs/services/api/temporal/daily/">NASA POWER Daily API</a> and <a href="https://power.larc.nasa.gov/docs/referencing/">referencing guide</a>.</li>
     <li>In Czechia, ČHMÚ provides public automatic-station observations. The app selects nearby station IDs on the device and does not send the selected coordinates to ČHMÚ. ČHMÚ servers process normal HTTPS technical data such as your IP address and requested public file names.</li>
@@ -49,10 +45,21 @@
   <h2>Retention and choices</h2>
   <p>The developer does not operate a server that stores app data. Data on your device remains until the cache replaces it, you clear app data, or you uninstall the app. You can remove location permission in Android settings. You can remove image access by deleting the widget, changing its image, or managing the selected document in Android. Open-Meteo, GitHub, NASA POWER, ČHMÚ, AviationWeather, OpenStreetMap, RainViewer, Buy Me a Coffee, and a share-sheet recipient process data under their own terms when you contact their services.</p>
 
-  <h2>Contact</h2>
-  <p>For privacy questions, open the <a href="https://github.com/Majkey25/Selia-Weather/issues/new">project support form</a>.</p>
+  <p>Some providers process data outside your country, including in the United States. Their policies describe their own practices and safeguards. The developer cannot remotely delete a provider's logs or an AI recipient's copy. Declining future sharing does not retrieve previously shared data.</p>
 
-  <footer><a href="https://github.com/Majkey25/Selia-Weather">Source code and support</a></footer>
+  <h2>Purposes, support and privacy rights</h2>
+  <p>Data is used to supply the weather, widget, history and export functions you request. Optional device access and sharing remain under your control. If you email support, your address, message and attachments are processed to answer and resolve your request; they are not used to enrol you in marketing. Keep unrelated personal information out of support messages and public GitHub issues.</p>
+  <p>Where GDPR applies, the bases for the developer's processing are providing the service you request (Article 6(1)(b)), your consent for the optional disclosure through the sharing flow (Article 6(1)(a)), and legitimate interests in responding to support and protecting the service (Article 6(1)(f)). Handling statutory requests or record-keeping duties may rely on a legal obligation (Article 6(1)(c)). Support correspondence is kept while needed to resolve the request or an associated dispute, or to meet a legal duty. These bases do not replace a provider's own privacy obligations.</p>
+  <p>Where GDPR applies, you may request access, correction, erasure, restriction or portability where applicable, and object to processing based on legitimate interests. Consent may be withdrawn for future processing without invalidating earlier lawful processing. Email <a href="mailto:majkeylab@gmail.com">majkeylab@gmail.com</a> to exercise these rights. Requests are generally due a response within one month, subject to lawful exceptions described by the <a href="https://uoou.gov.cz/poradna/poradna-gdpr/prava-subjektu-udaju">Czech Data Protection Authority</a>.</p>
+  <p>You can complain to your local supervisory authority, including the <a href="https://uoou.gov.cz/">Úřad pro ochranu osobních údajů</a> in Czechia. The developer has no remote access to your device-only archive. Weather calculations do not make legal or similarly significant decisions about you.</p>
+
+  <h2>These pages</h2>
+  <p>These static legal pages have no analytics, advertising scripts, forms, embedded maps or cookie-based tracking. GitHub Pages receives normal hosting traffic. See the <a href="cookies.html">cookie and storage notice</a>. Material changes to the app's data flows require updated disclosures; the date above identifies this version.</p>
+
+  <h2>Contact</h2>
+  <p>For private requests, email <a href="mailto:majkeylab@gmail.com">majkeylab@gmail.com</a>. The <a href="https://github.com/Majkey25/Selia-Weather/issues/new">public issue tracker</a> is for non-sensitive bug reports.</p>
+
 </main>
+<footer class="page"><a href="mailto:majkeylab@gmail.com">Contact support</a><a href="https://github.com/Majkey25/Selia-Weather">Source code</a><a href="#content">Back to top</a></footer>
 </body>
 </html>

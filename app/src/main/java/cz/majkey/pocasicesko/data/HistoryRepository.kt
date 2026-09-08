@@ -26,6 +26,7 @@ internal class HistoryRepository(
     suspend fun fetch(location: CzechLocation): HistoryArchive = withContext(Dispatchers.IO) {
         val requestedAt = now()
         val cache = cacheFile(location)
+        val legacyCache = cacheFile(location, "power_5y_")
         if (cache.isFresh(requestedAt)) readCacheOrNull(cache, location)?.let { return@withContext it }
 
         val end = requestedAt.atZone(ZoneOffset.UTC).toLocalDate().minusDays(SOURCE_LAG_DAYS)
@@ -38,15 +39,15 @@ internal class HistoryRepository(
             writeCache(cache, json, requestedAt.toEpochMilli())
             archive
         } catch (error: IOException) {
-            readCacheOrNull(cache, location) ?: throw error
+            readCacheOrNull(cache, location) ?: readCacheOrNull(legacyCache, location) ?: throw error
         } catch (error: JSONException) {
-            readCacheOrNull(cache, location) ?: throw error
+            readCacheOrNull(cache, location) ?: readCacheOrNull(legacyCache, location) ?: throw error
         }
     }
 
-    private fun cacheFile(location: CzechLocation): File {
+    private fun cacheFile(location: CzechLocation, prefix: String = "power_5y_v2_"): File {
         val coordinates = String.format(Locale.US, "%.4f_%.4f", location.latitude, location.longitude)
-        return File(cacheDirectory, "power_5y_$coordinates.json")
+        return File(cacheDirectory, "$prefix$coordinates.json")
     }
 
     private fun File.isFresh(at: Instant): Boolean = isFile &&
@@ -104,8 +105,7 @@ internal class HistoryRepository(
                 "&format=JSON&time-standard=UTC"
 
         private const val BASE_URL = "https://power.larc.nasa.gov/api/temporal/daily/point"
-        private const val PARAMETERS =
-            "T2M,T2M_MAX,T2M_MIN,PRECTOTCORR,RH2M,WS10M,ALLSKY_SFC_SW_DWN"
+        private val PARAMETERS = POWER_HISTORY_UNITS.keys.joinToString(",")
         private const val HISTORY_YEAR_COUNT = 5L
         private const val SOURCE_LAG_DAYS = 2L
         private const val CACHE_TTL_MILLIS = 24L * 60L * 60L * 1_000L

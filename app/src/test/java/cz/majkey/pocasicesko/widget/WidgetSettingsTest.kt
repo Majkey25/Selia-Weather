@@ -558,9 +558,14 @@ class WidgetSettingsTest {
 
         assertTrue(state.start())
         assertTrue(state.isActive())
+        assertFalse(state.start())
+        assertTrue(state.commitIfActive { true })
+        assertTrue(state.isActive())
         state.cancel()
         assertFalse(state.isActive())
         assertFalse(state.commitIfActive { true })
+        assertTrue(state.start())
+        state.cancel()
     }
 
     @Test

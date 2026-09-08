@@ -25,9 +25,9 @@
 
 - Shows current and apparent temperature, dew point, wet-bulb temperature, precipitation, cloud layers, visibility, pressure, wind, sun, and Moon details.
 - Adds UV, freezing-level, boundary-layer, atmospheric-water, instability, showers, and ground details.
-- Shows worldwide observed precipitation through RainViewer for the available past two hours, with zoom, pan, animation, a timeline, and a radar-coverage mask. Future precipitation remains in the hourly point forecast.
+- Shows worldwide observed precipitation through RainViewer for the available past two hours, with zoom, pan, animation, a timeline, and a radar-coverage mask. A separate sampled model map provides a 12-hour outlook where data are available; it is not future radar observation.
 - Shows a horizontal 24-hour outlook, a 14-day forecast, and an hourly detail for each day. A complete day normally has 24 hours.
-- Opens a five-year NASA POWER archive from the forecast screen. Select 30 days, 365 days, all data, or custom dates to calculate rainfall totals and data coverage locally. Ask AI shares the full provenance-labelled CSV with a compatible installed app.
+- Opens a five-year NASA POWER archive with 15 daily metrics. Select 30 days, 365 days, all data, or custom dates to calculate totals and coverage locally. After confirmation, Ask AI shares the full provenance-labelled CSV and your question with the compatible installed app you choose.
 - Searches places worldwide, stores favourites, can use your optional current location, and can save an exact named point on an interactive world map or by coordinate.
 - In Czechia, corrects current temperature, humidity, wind, precipitation, and sky condition from up to three nearby ČHMÚ automatic stations when their observations are fresh.
 - Outside Czechia, uses nearby fresh worldwide METAR reports to correct available temperature, humidity, dew point, pressure, visibility, cloud-cover, and wind fields. A METAR report never invents a precipitation amount.
@@ -39,7 +39,7 @@
 
 The base forecast uses Open-Meteo Best Match worldwide. The app also requests verified provider-family series and calculates a robust median on the device when at least three values are available. Provider seamless series use local high-resolution grids inside their domains and global output elsewhere. Czech locations additionally request CHMI ALADIN. Suspended providers are excluded.
 
-The production forecast uses the diagnostic median or Best Match. Provider precipitation probability is preserved: agreement among deterministic models is not a calibrated probability. Runtime weight application stays disabled until individual model run timestamps and a matching regional holdout are available. The research exporter rejects weights outside their evaluated region, season, or forecast lead. Weather details show the actual mode and contributors; no superior-accuracy claim is made.
+The app normally uses the diagnostic median or Best Match. Provider precipitation probability is preserved: agreement among deterministic models is not a calibrated probability. Learned weights require a validated production feed, individual model issue times and a matching regional holdout; the published feed is currently diagnostic. The research exporter rejects weights outside their evaluated region, season, or forecast lead. Weather details show the actual mode and contributors; no superior-accuracy claim is made.
 
 The evidence and limits are recorded in [Global model routing](docs/research/global-model-routing.md), [Worldwide ensemble validation](docs/research/worldwide-ensemble-validation.md), and the [313-case temperature replay](docs/research/2026-09-05-temperature-replay.md). That replay improves pooled error over Best Match but contains station-level failures and is not a new holdout.
 
@@ -99,7 +99,18 @@ The app has no developer account or separate analytics SDK. It keeps the selecte
 
 ## Status
 
-The app uses the product identity Selia Weather and the short launcher label Weather. It keeps the public package `com.majkeylab.weatheraladin`, so existing Play installations update normally. GitHub prereleases are for testing. Worldwide calibration remains diagnostic until the seamless-model holdout passes. Google Play uses a separate private upload key and Play App Signing.
+The app uses the product identity Selia Weather and the short launcher label Weather. It keeps the public package `com.majkeylab.weatheraladin`, so existing Play installations update normally. GitHub prereleases are for testing. Published calibration remains diagnostic until its source, provenance and holdout checks pass. Google Play uses a separate private upload key and Play App Signing.
+
+## Legal information
+
+Developer and privacy contact: Matěj Teplý (Majkey25), [majkeylab@gmail.com](mailto:majkeylab@gmail.com).
+
+- [Privacy policy](https://majkey25.github.io/Selia-Weather/)
+- [Terms of use](https://majkey25.github.io/Selia-Weather/terms.html)
+- [Payments and refunds](https://majkey25.github.io/Selia-Weather/refunds.html)
+- [Cookies and storage](https://majkey25.github.io/Selia-Weather/cookies.html)
+
+The legal pages use local assets, keyboard navigation and visible focus indicators, with no tracking scripts or consent banner for nonexistent cookies. [Review evidence and unresolved requirements](docs/legal-audit-2026-09-08.md) distinguish implemented disclosures from legal and accessibility certification; no global compliance claim is made.
 
 ## License
 

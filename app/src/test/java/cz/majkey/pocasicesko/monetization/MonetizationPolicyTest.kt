@@ -20,8 +20,8 @@ class MonetizationPolicyTest {
 
         assertTrue(gradle.contains("buildConfigField(\"boolean\", \"MONETIZATION_CONFIGURED\", \"false\")"))
         assertTrue(gradle.contains("buildConfigField(\"boolean\", \"PAYMENTS_ENABLED\", \"false\")"))
-        assertTrue(debugBlock.contains("buildConfigField(\"boolean\", \"MONETIZATION_CONFIGURED\", \"true\")"))
-        assertTrue(debugBlock.contains("buildConfigField(\"boolean\", \"PAYMENTS_ENABLED\", \"true\")"))
+        assertFalse(debugBlock.contains("buildConfigField(\"boolean\", \"MONETIZATION_CONFIGURED\", \"true\")"))
+        assertFalse(debugBlock.contains("buildConfigField(\"boolean\", \"PAYMENTS_ENABLED\", \"true\")"))
         assertTrue(mainActivity.contains("premiumBillingController?.start()"))
         assertTrue(
             mainActivity.contains(

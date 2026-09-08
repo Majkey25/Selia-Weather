@@ -50,4 +50,33 @@ class HistoryExportTest {
         assertTrue(historyChatPrompt(archive).contains("2026-01-01 to 2026-01-02"))
         assertTrue(historyChatPrompt(archive).contains("precipitation for any requested date range"))
     }
+
+    @Test
+    fun exportsEveryExpandedMetricAndLeavesMissingValuesBlank() {
+        val day = HistoricalDay(
+            LocalDate.of(2026, 1, 1), null, 3.0, null, 0.5, 70.0, 2.0, null,
+            dewPointC = -2.3, wetBulbTemperatureC = -1.01, surfacePressureHpa = 977.0,
+            windSpeedMaximumMetersPerSecond = 10.72, windSpeedMinimumMetersPerSecond = 6.02,
+            windDirectionDegrees = 224.4, clearSkySolarEnergyMegajoulesPerSquareMeter = 4.53,
+            cloudCoverPercent = 93.79,
+        )
+        val archive = HistoryArchive(CzechLocation("Praha", REGION_PRAGUE, 50.0, 14.0), listOf(day), "v1", 123L)
+        val lines = historyCsv(archive).lines()
+        assertEquals(22, lines[0].split(',').size)
+        assertEquals(lines[0].split(',').size, lines[1].split(',').size)
+        assertTrue(lines[1].contains(",2026-01-01,,3.00,,0.50,70.00,2.00,,"))
+        assertTrue(lines[1].endsWith(",-2.30,-1.01,977.00,10.72,6.02,224.40,4.53,93.79"))
+        assertTrue(historyChatPrompt(archive).contains("Wind maxima are not gust measurements"))
+    }
+
+    @Test
+    fun exportsLocationNamesAndSourceVersionsAsTextNotSpreadsheetFormulas() {
+        val day = HistoricalDay(LocalDate.of(2026, 1, 1), 1.0, 2.0, 0.0, 0.0, null, null, null)
+        for (name in listOf("=1+1", "+123", "-123", "@SUM(A1)", "\t=1+1")) {
+            val archive = HistoryArchive(CzechLocation(name, REGION_PRAGUE, 50.0, 14.0), listOf(day), "=version", 123L)
+            val row = historyCsv(archive).lines()[1]
+            assertTrue(row.startsWith("'$name,"))
+            assertTrue(row.contains(",NASA POWER,'=version,"))
+        }
+    }
 }

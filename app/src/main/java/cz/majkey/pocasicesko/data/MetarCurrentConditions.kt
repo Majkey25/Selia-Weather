@@ -67,9 +67,11 @@ private fun parseMetarWeatherCode(encoded: String?): Int? {
     if (encoded.isNullOrBlank() || encoded.length > 64) return null
     val groups = encoded.trim().split(Regex("\\s+"))
     if (groups.size > 3) return null
-    // Exact present-weather groups only. Unknown, vicinity and recent-weather groups
-    // fail closed; never classify free text or find RA inside mixed RASN/FZRA.
-    if (groups.any { it !in METAR_WEATHER_CODES && it !in setOf("BR", "HZ") }) return null
+    // Recognized vicinity/recent groups do not erase separately reported local weather.
+    // Unknown groups still fail closed; never find RA inside mixed RASN/FZRA or free text.
+    if (groups.any {
+        it !in METAR_WEATHER_CODES && it !in METAR_NONLOCAL_WEATHER_GROUPS && it !in setOf("BR", "HZ")
+    }) return null
     val codes = groups.mapNotNull(METAR_WEATHER_CODES::get)
     val phases = listOf(
         codes.any { it in 51..55 || it in 61..65 || it in 80..82 },
@@ -117,6 +119,12 @@ private val METAR_WEATHER_CODES = mapOf(
     "-SHSN" to 85, "SHSN" to 86, "+SHSN" to 86,
     "FG" to 45, "FZFG" to 48,
     "TS" to 95, "-TSRA" to 95, "TSRA" to 95, "+TSRA" to 95,
+)
+// Exact tokens only: FAA JO 7900.5E section 13.13 / Appendix E (VC),
+// EU 2017/373 Annex V Appendix 1 METAR template (RE). These never supply local weather.
+private val METAR_NONLOCAL_WEATHER_GROUPS = setOf(
+    "VCSH", "VCTS", "VCFG", "VCBLSN", "VCBLSA", "VCBLDU", "VCPO", "VCSS", "VCDS",
+    "REDZ", "RERA", "RESN", "REFZDZ", "REFZRA", "RESHRA", "RESHSN", "RETS", "RETSRA",
 )
 private const val KNOTS_TO_KILOMETRES_PER_HOUR = 1.852
 private const val STATUTE_MILES_TO_METRES = 1_609.344

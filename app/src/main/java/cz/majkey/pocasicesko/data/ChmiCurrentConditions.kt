@@ -106,7 +106,7 @@ internal fun parseCurrentStationObservation(
         longitude = station.longitude,
         time = latest.key,
         temperature = requireNotNull(values["T"]),
-        humidity = requireNotNull(values["H"]).toInt(),
+        humidity = values["H"]?.toInt(),
         precipitation = requireNotNull(values["SRA10M"]),
         windSpeed = values["F"]?.times(3.6),
         windDirection = values["D"],
@@ -134,7 +134,7 @@ private fun distanceKm(
     return 6_371.0088 * 2 * kotlin.math.asin(kotlin.math.sqrt(value))
 }
 
-private val REQUIRED_CURRENT_ELEMENTS = setOf("T", "H", "SRA10M")
-private val CURRENT_ELEMENTS = REQUIRED_CURRENT_ELEMENTS + setOf("F", "D", "SSV10M")
+private val REQUIRED_CURRENT_ELEMENTS = setOf("T", "SRA10M")
+private val CURRENT_ELEMENTS = REQUIRED_CURRENT_ELEMENTS + setOf("H", "F", "D", "SSV10M")
 private val STATION_ID_PATTERN = Regex("[0-9-]+")
 private const val SUNSHINE_SAMPLE_COUNT = 6

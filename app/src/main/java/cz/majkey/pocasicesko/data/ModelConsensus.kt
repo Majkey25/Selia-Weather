@@ -282,6 +282,12 @@ private fun deriveCondition(
     sourceIndex: Int,
     targetIndex: Int,
 ): Boolean {
+    val codes = modelValues(source, suffixes, "weather_code", sourceIndex).map(Double::toInt)
+    val explicitCode = phenomenonWeatherCode(codes)
+    if (explicitCode != null) {
+        target.optJSONArray("weather_code")?.put(targetIndex, explicitCode)
+        return true
+    }
     val precipitation = modelValues(source, suffixes, "precipitation", sourceIndex)
     val clouds = modelValues(source, suffixes, "cloud_cover", sourceIndex)
     if (clouds.size < MINIMUM_MODELS) return false
@@ -291,7 +297,7 @@ private fun deriveCondition(
     val code = if (precipitation.size >= MINIMUM_MODELS) {
         val amount = target.optJSONArray("precipitation").numberOrNull(targetIndex) ?: return false
         deriveWeatherCode(
-            modelValues(source, suffixes, "weather_code", sourceIndex).map(Double::roundToInt),
+            codes,
             amount,
             cloudCover,
             fallbackCode,
@@ -306,24 +312,34 @@ private fun deriveCondition(
     return true
 }
 
+private fun phenomenonWeatherCode(codes: List<Int>): Int? {
+    if (codes.size < MINIMUM_MODELS) return null
+    val required = codes.size / 2 + 1
+    return when {
+        codes.count { it in 95..99 } >= required -> 95
+        codes.count { it in 66..67 } >= required -> 66
+        codes.count { it in 56..57 } >= required -> 56
+        codes.count { it in DRIZZLE_CODES } >= required ->
+            DRIZZLE_CODES.firstOrNull { code -> codes.count { it == code } >= required } ?: 51
+        codes.count { it in 71..77 || it == 85 || it == 86 } >= required -> 71
+        codes.count { it in 45..48 } >= required -> 45
+        codes.count { it in 80..82 } >= required ->
+            (80..82).firstOrNull { code -> codes.count { it == code } >= required } ?: 80
+        codes.count { it in 61..65 || it in 80..82 } >= required ->
+            listOf(61, 63, 65).firstOrNull { code -> codes.count { it == code } >= required } ?: 61
+        else -> null
+    }
+}
+
 private fun deriveWeatherCode(
     codes: List<Int>,
     precipitation: Double,
     cloudCover: Int,
     fallbackCode: Int?,
 ): Int {
-    val sufficientCodes = codes.size >= MINIMUM_MODELS
     // Missing codes cannot disprove a provider's snow, freezing rain, fog, or storm forecast.
-    if (!sufficientCodes && fallbackCode != null && fallbackCode !in 0..3) return fallbackCode
-    val required = codes.size / 2 + 1
+    if (codes.size < MINIMUM_MODELS && fallbackCode != null && fallbackCode !in 0..3) return fallbackCode
     return when {
-        sufficientCodes && codes.count { it in 95..99 } >= required -> 95
-        sufficientCodes && codes.count { it in 66..67 } >= required -> 66
-        sufficientCodes && codes.count { it in 56..57 } >= required -> 56
-        sufficientCodes && codes.count { it in DRIZZLE_CODES } >= required ->
-            DRIZZLE_CODES.firstOrNull { code -> codes.count { it == code } >= required } ?: 51
-        sufficientCodes && codes.count { it in 71..77 || it == 85 || it == 86 } >= required -> 71
-        sufficientCodes && codes.count { it in 45..48 } >= required -> 45
         precipitation >= WET_THRESHOLD_MM -> 61
         else -> skyWeatherCode(cloudCover)
     }
@@ -453,7 +469,7 @@ private fun currentIndex(root: JSONObject, times: JSONArray): Int? {
 private fun isValidModelValue(field: String, value: Double): Boolean = when {
     field in NON_NEGATIVE_FIELDS -> value >= 0
     field == "relative_humidity_2m" || field.startsWith("cloud_cover") -> value in 0.0..100.0
-    field == "weather_code" -> value in 0.0..99.0
+    field == "weather_code" -> value == value.toInt().toDouble() && value.toInt() in MODEL_WEATHER_CODES
     else -> true
 }
 
@@ -514,6 +530,10 @@ private val NON_NEGATIVE_FIELDS = setOf(
 private const val MINIMUM_MODELS = 3
 private const val WET_THRESHOLD_MM = 0.1
 private val DRIZZLE_CODES = setOf(51, 53, 55)
+private val MODEL_WEATHER_CODES = setOf(
+    0, 1, 2, 3, 45, 48, 51, 53, 55, 56, 57, 61, 63, 65, 66, 67,
+    71, 73, 75, 77, 80, 81, 82, 85, 86, 95, 96, 99,
+)
 // Interval totals and wind need their own interval/vector contracts, not scalar substitution.
 private val CALIBRATION_UNITS = mapOf(
     "temperature_2m" to "°C", "dew_point_2m" to "°C",

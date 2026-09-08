@@ -75,6 +75,69 @@ class ModelConsensusTest {
     }
 
     @Test
+    fun explicitPhenomenonQuorumDoesNotRequireCloudTotals() {
+        listOf(45, 51, 56, 61, 66, 71, 80, 95).forEach { code ->
+            val result = phenomenonFixture(listOf(code, code, code), setOf("cloud_cover"))
+            val hourly = result.getJSONObject("hourly")
+            assertEquals("code=$code", code, hourly.getJSONArray("weather_code").getInt(0))
+            assertEquals(0.0, hourly.getJSONArray("precipitation").getDouble(0), 0.0)
+            assertEquals(3, hourly.getJSONArray("precipitation_probability").getInt(0))
+            assertEquals(3, result.getJSONObject("current").getInt("weather_code"))
+        }
+    }
+
+    @Test
+    fun explicitPhenomenonQuorumDoesNotRequirePrecipitationTotals() {
+        listOf(setOf("precipitation"), setOf("precipitation", "cloud_cover")).forEach { missing ->
+            listOf(45, 51, 56, 61, 66, 71, 80, 95).forEach { code ->
+                val hourly = phenomenonFixture(listOf(code, code, code), missing).getJSONObject("hourly")
+                assertEquals("code=$code missing=$missing", code, hourly.getJSONArray("weather_code").getInt(0))
+                assertEquals(0.0, hourly.getJSONArray("precipitation").getDouble(0), 0.0)
+                assertEquals(3, hourly.getJSONArray("precipitation_probability").getInt(0))
+                assertTrue(hourly.getJSONArray(PRECIPITATION_SPREAD_KEY).isNull(0))
+            }
+        }
+    }
+
+    @Test
+    fun malformedOrUnsupportedCodesCannotSupplyTheThirdQuorumMember() {
+        listOf(JSONObject.NULL, "NaN", -1, 100, 51.25, 52).forEach { invalid ->
+            val hourly = phenomenonFixture(listOf(51, 51, invalid), emptySet()).getJSONObject("hourly")
+            assertEquals("invalid=$invalid", 0, hourly.getJSONArray("weather_code").getInt(0))
+        }
+    }
+
+    @Test
+    fun minorityTieAndSparsePhenomenaDoNotReplaceProviderConditions() {
+        listOf(listOf(51), listOf(51, 51), listOf(51, 0, 0), listOf(51, 51, 0, 0)).forEach { codes ->
+            val missing = setOf("cloud_cover", "precipitation")
+            assertEquals(0, phenomenonFixture(codes, missing).getJSONObject("hourly")
+                .getJSONArray("weather_code").getInt(0))
+            listOf(45, 56, 66, 71, 95).forEach { providerCode ->
+                assertEquals(providerCode, phenomenonFixture(codes, missing, providerCode)
+                    .getJSONObject("hourly").getJSONArray("weather_code").getInt(0))
+            }
+        }
+    }
+
+    private fun phenomenonFixture(
+        codes: List<Any>, missingFields: Set<String>, providerCode: Int = 0,
+    ): JSONObject {
+        val base = JSONObject(BASE).also { root ->
+            root.getJSONObject("hourly").getJSONArray("weather_code").put(0, providerCode)
+            root.getJSONObject("hourly").getJSONArray("precipitation_probability").put(0, 3)
+        }
+        val models = JSONObject(MODELS).also { root ->
+            val hourly = root.getJSONObject("hourly")
+            listOf("a", "b", "c", "d").forEachIndexed { index, suffix ->
+                hourly.put("weather_code_$suffix", JSONArray(listOf(codes.getOrNull(index), 0)))
+                missingFields.forEach { field -> hourly.remove("${field}_$suffix") }
+            }
+        }
+        return JSONObject(blendModelForecast(base.toString(), models.toString()).json)
+    }
+
+    @Test
     fun incompleteCodeCoverageKeepsProviderHazardsInsteadOfInventingRain() {
         listOf(71, 66, 56, 95, 45).forEach { providerCode ->
             val base = JSONObject(BASE).also { root ->

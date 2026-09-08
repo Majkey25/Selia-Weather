@@ -412,4 +412,15 @@
     <string name="precipitation_interval">Precipitation interval: %1$s</string>
     <string name="precipitation_probability_note">Chance comes from a separate ensemble forecast and means more than 0.1 mm (~0.004 in) in this interval, not every drop. It can disagree with forecast amounts. Temperature and conditions refer to the displayed time.</string>
     <string name="hourly_precipitation_models">%1$d of %2$d models calculate precipitation above zero. Amount range: %3$s.</string>
+    <string name="widget_date_time_format">Date and time formats</string>
+    <string name="widget_date_format">Date format</string>
+    <string name="widget_time_format">Clock format</string>
+    <string name="widget_format_system">System default</string>
+    <string name="widget_date_custom">Custom</string>
+    <string name="widget_date_pattern">Custom date pattern</string>
+    <string name="widget_date_pattern_error">Invalid date pattern or result too long.</string>
+    <string name="widget_date_pattern_hint">Java date pattern: d = day, M = month, yyyy = year. Use EEEE for the weekday. Maximum %1$d characters.</string>
+    <string name="widget_format_preview">Preview: %1$s</string>
+    <string name="widget_time_12">12-hour</string>
+    <string name="widget_time_24">24-hour</string>
 </resources>

@@ -486,11 +486,125 @@ class ModelConsensusTest {
             assertEquals(cloudCover, hourly.getJSONArray("cloud_cover").getInt(0))
             assertEquals(3, hourly.getJSONArray("precipitation_probability").getInt(0))
             assertEquals(0.0, hourly.getJSONArray("precipitation").getDouble(0), 0.0)
-            // Layer fractions have provider-specific definitions, not a union constraint.
-            assertEquals(85, hourly.getJSONArray("cloud_cover_mid").getInt(0))
-            assertEquals(100, hourly.getJSONArray("cloud_cover_high").getInt(0))
+            // Selected models do not supply layers; unrelated Best Match layers must not leak.
+            assertTrue(hourly.getJSONArray("cloud_cover_low").isNull(0))
+            assertTrue(hourly.getJSONArray("cloud_cover_mid").isNull(0))
+            assertTrue(hourly.getJSONArray("cloud_cover_high").isNull(0))
         }
     }
+
+    @Test
+    fun cloudLayersFollowTheOddMedianTotalInsteadOfIndependentMemberMasks() {
+        val base = cloudBase()
+        val result = JSONObject(blendModelForecast(base.toString(), cloudModels(
+            listOf(0.0, 0.0, 0.0, 100.0, 100.0),
+            mapOf(
+                "cloud_cover_low" to listOf(0.0, 0.0, 0.0, 0.0, 0.0),
+                "cloud_cover_mid" to listOf(null, null, 0.0, 85.0, 85.0),
+                "cloud_cover_high" to listOf(null, null, 0.0, 100.0, 100.0),
+            ),
+        )).json)
+        val hourly = result.getJSONObject("hourly")
+        assertEquals(0, hourly.getJSONArray("weather_code").getInt(0))
+        listOf("cloud_cover", "cloud_cover_low", "cloud_cover_mid", "cloud_cover_high").forEach { field ->
+            assertEquals(0.0, hourly.getJSONArray(field).getDouble(0), 0.0)
+            assertEquals(base.getJSONObject("current").getInt(field), result.getJSONObject("current").getInt(field))
+        }
+        assertEquals(3, result.getJSONObject("current").getInt("weather_code"))
+        assertEquals(3, hourly.getJSONArray("precipitation_probability").getInt(0))
+        assertEquals(0.0, hourly.getJSONArray("precipitation").getDouble(0), 0.0)
+        assertEquals(5, hourly.getJSONArray(PRECIPITATION_SPREAD_KEY).getJSONObject(0).getInt("model_count"))
+        assertEquals(0.0, result.getJSONObject("daily").getJSONArray("precipitation_sum").getDouble(0), 0.0)
+    }
+
+    @Test
+    fun missingMedianCloudLayersStayUnknownRatherThanBorrowingBestMatch() {
+        val hourly = JSONObject(blendModelForecast(cloudBase().toString(), cloudModels(
+            listOf(0.0, 10.0, 20.0), emptyMap(),
+        )).json).getJSONObject("hourly")
+        assertEquals(10.0, hourly.getJSONArray("cloud_cover").getDouble(0), 0.0)
+        listOf("cloud_cover_low", "cloud_cover_mid", "cloud_cover_high").forEach { field ->
+            assertTrue(hourly.getJSONArray(field).isNull(0))
+        }
+    }
+
+    @Test
+    fun evenCloudMedianUsesBothMiddleSourcesAndInvalidSelectedLayersStayNull() {
+        val models = JSONObject(cloudModels(
+            listOf(0.0, 20.0, 60.0, 100.0),
+            mapOf("cloud_cover_high" to listOf(0.0, 10.0, 50.0, 90.0)),
+        ))
+        val hourly = JSONObject(blendModelForecast(cloudBase().toString(), models.toString()).json)
+            .getJSONObject("hourly")
+        assertEquals(40.0, hourly.getJSONArray("cloud_cover").getDouble(0), 0.0)
+        assertEquals(30.0, hourly.getJSONArray("cloud_cover_high").getDouble(0), 0.0)
+        listOf(JSONObject.NULL, "NaN", -1, 101).forEach { invalid ->
+            models.getJSONObject("hourly").getJSONArray("cloud_cover_high_b").put(0, invalid)
+            val changed = JSONObject(blendModelForecast(cloudBase().toString(), models.toString()).json)
+                .getJSONObject("hourly")
+            assertEquals(40.0, changed.getJSONArray("cloud_cover").getDouble(0), 0.0)
+            assertTrue(changed.getJSONArray("cloud_cover_high").isNull(0))
+        }
+    }
+
+    @Test
+    fun invalidCloudTotalsAreExcludedAndInsufficientTotalsKeepWholeProviderGroup() {
+        listOf(JSONObject.NULL, "NaN", -1, 101).forEach { invalid ->
+            val base = cloudBase()
+            val models = JSONObject(cloudModels(
+                listOf(0.0, 20.0, 60.0, 100.0),
+                mapOf("cloud_cover_high" to listOf(0.0, 10.0, 50.0, 90.0)),
+            ))
+            val source = models.getJSONObject("hourly")
+            source.getJSONArray("cloud_cover_b").put(0, invalid)
+            val hourly = JSONObject(blendModelForecast(base.toString(), models.toString()).json).getJSONObject("hourly")
+            assertEquals(60.0, hourly.getJSONArray("cloud_cover").getDouble(0), 0.0)
+            assertEquals(50.0, hourly.getJSONArray("cloud_cover_high").getDouble(0), 0.0)
+            source.getJSONArray("cloud_cover_c").put(0, JSONObject.NULL)
+            val fallback = JSONObject(blendModelForecast(base.toString(), models.toString()).json).getJSONObject("hourly")
+            listOf("cloud_cover", "cloud_cover_low", "cloud_cover_mid", "cloud_cover_high").forEach { field ->
+                assertEquals(base.getJSONObject("hourly").getJSONArray(field).getDouble(0), fallback.getJSONArray(field).getDouble(0), 0.0)
+            }
+        }
+    }
+
+    @Test
+    fun cloudGroupingPreservesProviderNonUnionDefinitions() {
+        val hourly = JSONObject(blendModelForecast(cloudBase().toString(), cloudModels(
+            listOf(0.0, 30.0, 60.0),
+            mapOf("cloud_cover_low" to listOf(0.0, 0.0, 0.0),
+                "cloud_cover_mid" to listOf(0.0, 0.0, 50.0),
+                "cloud_cover_high" to listOf(0.0, 100.0, 100.0)),
+        )).json).getJSONObject("hourly")
+        assertEquals(30.0, hourly.getJSONArray("cloud_cover").getDouble(0), 0.0)
+        assertEquals(100.0, hourly.getJSONArray("cloud_cover_high").getDouble(0), 0.0)
+        assertEquals(1, hourly.getJSONArray("weather_code").getInt(0))
+    }
+
+    private fun cloudBase(): JSONObject = JSONObject(BASE).also { root ->
+        root.getJSONObject("current").put("time", "2026-08-29T19:00")
+        mapOf("cloud_cover_low" to 15, "cloud_cover_mid" to 85, "cloud_cover_high" to 100)
+            .forEach { (field, value) ->
+                root.getJSONObject("hourly").put(field, JSONArray(listOf(value, value)))
+                root.getJSONObject("current").put(field, value)
+            }
+        root.getJSONObject("hourly").getJSONArray("precipitation_probability").put(0, 3)
+    }
+
+    private fun cloudModels(totals: List<Double>, layers: Map<String, List<Double?>>): String =
+        JSONObject(MODELS).also { root ->
+            val hourly = root.getJSONObject("hourly")
+            totals.forEachIndexed { index, total ->
+                val suffix = ('a' + index).toString()
+                hourly.put("temperature_2m_$suffix", JSONArray(listOf(20, 20)))
+                hourly.put("cloud_cover_$suffix", JSONArray(listOf(total, total)))
+                hourly.put("precipitation_$suffix", JSONArray(listOf(0.0, 0.0)))
+                hourly.put("weather_code_$suffix", JSONArray(listOf(if (total <= 20) 0 else 3, 3)))
+                layers.forEach { (field, values) ->
+                    hourly.put("${field}_$suffix", JSONArray(listOf(values[index], values[index])))
+                }
+            }
+        }.toString()
 
     @Test
     fun cloudOnlyBlendPreservesProviderDrizzleRainAndHazards() {

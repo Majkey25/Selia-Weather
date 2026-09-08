@@ -406,4 +406,15 @@
     <string name="precipitation_interval">Niederschlagszeitraum: %1$s</string>
     <string name="precipitation_probability_note">Die Wahrscheinlichkeit stammt aus einer separaten Ensembleprognose und gilt für mehr als 0,1 mm (~0,004 in) im Zeitraum, nicht für jeden Tropfen. Sie kann von der Mengenprognose abweichen. Temperatur und Wetterzustand gelten für den angezeigten Zeitpunkt.</string>
     <string name="hourly_precipitation_models">%1$d von %2$d Modellen berechnen eine Niederschlagsmenge über null. Modellspanne: %3$s.</string>
+    <string name="widget_date_time_format">Datums- und Zeitformate</string>
+    <string name="widget_date_format">Datumsformat</string>
+    <string name="widget_time_format">Zeitformat</string>
+    <string name="widget_format_system">Systemstandard</string>
+    <string name="widget_date_custom">Benutzerdefiniert</string>
+    <string name="widget_date_pattern">Eigenes Datumsmuster</string>
+    <string name="widget_date_pattern_error">Ungültiges Datumsmuster oder zu langes Ergebnis.</string>
+    <string name="widget_date_pattern_hint">Java-Datumsmuster: d = Tag, M = Monat, yyyy = Jahr. EEEE zeigt den Wochentag. Höchstens %1$d Zeichen.</string>
+    <string name="widget_format_preview">Vorschau: %1$s</string>
+    <string name="widget_time_12">12 Stunden</string>
+    <string name="widget_time_24">24 Stunden</string>
 </resources>

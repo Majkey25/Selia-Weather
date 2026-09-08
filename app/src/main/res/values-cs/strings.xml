@@ -410,4 +410,15 @@
     <string name="precipitation_interval">Interval srážek: %1$s</string>
     <string name="precipitation_probability_note">Pravděpodobnost pochází ze samostatné skupiny modelových simulací a znamená více než 0,1 mm (~0,004 in) za interval, ne každou kapku. S předpovědí množství se může rozcházet. Teplota a stav počasí platí pro zobrazený čas.</string>
     <string name="hourly_precipitation_models">%1$d z %2$d modelů počítá s množstvím srážek nad nulou. Rozpětí: %3$s.</string>
+    <string name="widget_date_time_format">Formát data a času</string>
+    <string name="widget_date_format">Formát data</string>
+    <string name="widget_time_format">Formát hodin</string>
+    <string name="widget_format_system">Podle systému</string>
+    <string name="widget_date_custom">Vlastní</string>
+    <string name="widget_date_pattern">Vlastní vzor data</string>
+    <string name="widget_date_pattern_error">Neplatný vzor data nebo příliš dlouhý výsledek.</string>
+    <string name="widget_date_pattern_hint">Vzor data Java: d = den, M = měsíc, yyyy = rok. EEEE zobrazí den v týdnu. Nejvýše %1$d znaků.</string>
+    <string name="widget_format_preview">Náhled: %1$s</string>
+    <string name="widget_time_12">12hodinový</string>
+    <string name="widget_time_24">24hodinový</string>
 </resources>

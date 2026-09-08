@@ -15,6 +15,64 @@ import androidx.compose.runtime.saveable.SaverScope
 
 class WidgetSettingsTest {
     @Test
+    fun widgetDateFormatsArePerWidgetAndPreserveSystemDefault() {
+        val date = LocalDate.of(2026, 9, 8)
+        val defaults = WidgetSettings()
+        assertEquals(WidgetDateFormat.SYSTEM, defaults.dateFormat)
+        assertEquals("9/8/26", widgetDate(date, Locale.US, defaults))
+        assertEquals("8.9.2026", widgetDate(date, Locale.US, defaults.copy(dateFormat = WidgetDateFormat.NUMERIC)))
+        assertEquals("08.09.2026", widgetDate(date, Locale.US, defaults.copy(dateFormat = WidgetDateFormat.PADDED)))
+        assertEquals("2026-09-08", widgetDate(date, Locale.US, defaults.copy(dateFormat = WidgetDateFormat.ISO)))
+        assertEquals("Sep 8, 2026", widgetDate(date, Locale.US, defaults.copy(dateFormat = WidgetDateFormat.READABLE)))
+        val custom = defaults.copy(dateFormat = WidgetDateFormat.CUSTOM, customDatePattern = "EEEE d.M.yyyy", timeFormat = WidgetTimeFormat.HOUR_12)
+        assertEquals("Tuesday 8.9.2026", widgetDate(date, Locale.US, custom))
+        WidgetPreset.entries.forEach {
+            val preset = widgetPresetSettings(it, custom)
+            assertEquals(WidgetDateFormat.CUSTOM, preset.dateFormat)
+            assertEquals(custom.customDatePattern, preset.customDatePattern)
+            assertEquals(WidgetTimeFormat.HOUR_12, preset.timeFormat)
+        }
+    }
+
+    @Test
+    fun validatesDatePatternsWithoutDroppingInvalidEditorDrafts() {
+        assertTrue(isWidgetDatePattern("d.M.yyyy"))
+        assertTrue(isWidgetDatePattern("d 'of' MMMM yyyy"))
+        listOf("", " ", "HH:mm", "yyyy-MM-dd '", "yyyy\nMM", "yyyy\u2028MM", "x".repeat(41)).forEach {
+            assertFalse(it, isWidgetDatePattern(it))
+            val invalid = WidgetSettings(dateFormat = WidgetDateFormat.CUSTOM, customDatePattern = it)
+            assertEquals(WidgetDateFormat.SYSTEM, invalid.normalized().dateFormat)
+            assertEquals("9/8/26", widgetDate(LocalDate.of(2026, 9, 8), Locale.US, invalid))
+        }
+        val scope = object : SaverScope { override fun canBeSaved(value: Any): Boolean = true }
+        val draft = WidgetSettings(dateFormat = WidgetDateFormat.CUSTOM, customDatePattern = "yyyy '", timeFormat = WidgetTimeFormat.HOUR_12)
+        val saved = requireNotNull(with(WidgetSettingsSaver) { scope.save(draft) })
+        assertEquals(draft, WidgetSettingsSaver.restore(saved))
+        val legacy = requireNotNull(WidgetSettingsSaver.restore((saved as List<*>).take(32)))
+        assertEquals(WidgetDateFormat.SYSTEM, legacy.dateFormat)
+        assertEquals(WidgetTimeFormat.SYSTEM, legacy.timeFormat)
+        assertEquals(WidgetDateFormat.SYSTEM, widgetDateFormat("unknown"))
+        assertEquals(WidgetTimeFormat.SYSTEM, widgetTimeFormat(null))
+        val longSeptember = "MMMM MMMM MMMM MMMM MMMM MMMM MMMM"
+        assertFalse(isWidgetDatePattern(longSeptember, Locale.US))
+        assertEquals("9/8/26", widgetDate(LocalDate.of(2026, 9, 8), Locale.US,
+            WidgetSettings(dateFormat = WidgetDateFormat.CUSTOM, customDatePattern = longSeptember)))
+    }
+
+    @Test
+    fun clockOverrideUsesSameFormatsForNativeSystemSlotsAndPreview() {
+        val time = LocalTime.of(13, 5)
+        assertEquals("1:05 PM", widgetClock(time, true, WidgetTimeFormat.HOUR_12, Locale.US))
+        assertEquals("13:05", widgetClock(time, false, WidgetTimeFormat.HOUR_24, Locale.US))
+        assertEquals("1:05", widgetClock(time, false, WidgetTimeFormat.SYSTEM, Locale.US))
+        assertEquals("13:05", widgetClock(time, true, WidgetTimeFormat.SYSTEM, Locale.US))
+        assertEquals("h:mm a", widgetClockPattern(WidgetTimeFormat.HOUR_12, true))
+        assertEquals("h:mm a", widgetClockPattern(WidgetTimeFormat.HOUR_12, false))
+        assertEquals("HH:mm", widgetClockPattern(WidgetTimeFormat.HOUR_24, true))
+        assertEquals("HH:mm", widgetClockPattern(WidgetTimeFormat.HOUR_24, false))
+    }
+
+    @Test
     fun classifiesEverySupportedWidgetSize() {
         assertEquals(WidgetSize.COMPACT, widgetSize(110, 40))
         assertEquals(WidgetSize.STANDARD, widgetSize(180, 80))

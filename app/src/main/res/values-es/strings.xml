@@ -406,4 +406,15 @@
     <string name="precipitation_interval">Intervalo de precipitación: %1$s</string>
     <string name="precipitation_probability_note">La probabilidad procede de un pronóstico por conjuntos separado y se refiere a más de 0,1 mm (~0,004 in) en el intervalo, no a cada gota. Puede diferir del pronóstico de cantidad. La temperatura y las condiciones corresponden a la hora indicada.</string>
     <string name="hourly_precipitation_models">%1$d de %2$d modelos calculan una cantidad de precipitación mayor que cero. Rango: %3$s.</string>
+    <string name="widget_date_time_format">Formatos de fecha y hora</string>
+    <string name="widget_date_format">Formato de fecha</string>
+    <string name="widget_time_format">Formato del reloj</string>
+    <string name="widget_format_system">Predeterminado del sistema</string>
+    <string name="widget_date_custom">Personalizado</string>
+    <string name="widget_date_pattern">Patrón de fecha personalizado</string>
+    <string name="widget_date_pattern_error">Patrón de fecha no válido o resultado demasiado largo.</string>
+    <string name="widget_date_pattern_hint">Patrón de fecha Java: d = día, M = mes, yyyy = año. EEEE muestra el día de la semana. Máximo %1$d caracteres.</string>
+    <string name="widget_format_preview">Vista previa: %1$s</string>
+    <string name="widget_time_12">12 horas</string>
+    <string name="widget_time_24">24 horas</string>
 </resources>

@@ -6,6 +6,7 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.res.Configuration
+import android.content.res.Resources
 import android.content.Intent
 import android.net.Uri
 import android.graphics.Paint
@@ -30,6 +31,7 @@ import cz.majkey.pocasicesko.ui.labelResource
 import cz.majkey.pocasicesko.units.MeasurementUnits
 import cz.majkey.pocasicesko.units.WeatherUnitFormatter
 import java.time.LocalDate
+import java.text.DateFormatSymbols
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.ThreadPoolExecutor
@@ -308,6 +310,8 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                 if (visibility.showTemperature) View.VISIBLE else View.GONE,
             )
             views.setViewVisibility(R.id.widget_clock, if (visibility.showClock) View.VISIBLE else View.GONE)
+            views.setCharSequence(R.id.widget_clock, "setFormat12Hour", widgetClockPattern(settings.timeFormat, false))
+            views.setCharSequence(R.id.widget_clock, "setFormat24Hour", widgetClockPattern(settings.timeFormat, true))
             views.setTextColor(R.id.widget_clock, primaryColor)
             views.setViewVisibility(R.id.widget_icon, if (visibility.showIcon) View.VISIBLE else View.GONE)
             views.setImageViewResource(R.id.widget_icon, widgetIconFor(kind, isDay))
@@ -365,7 +369,7 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             )
             views.setTextViewText(
                 R.id.widget_date,
-                widgetDate(LocalDate.now(), localizedContext.resources.configuration.locales[0]),
+                widgetDate(LocalDate.now(), localizedContext.resources.configuration.locales[0], settings),
             )
             views.setViewVisibility(R.id.widget_update_time, if (visibility.showUpdatedAt) View.VISIBLE else View.GONE)
             if (visibility.showUpdatedAt) {
@@ -493,6 +497,9 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                 showWindGusts = preferences.getBoolean(widgetPreferenceKey(appWidgetId, "wind_gusts"), false),
                 showMoon = preferences.getBoolean(widgetPreferenceKey(appWidgetId, "moon"), false),
                 showUpdatedAt = preferences.getBoolean(widgetPreferenceKey(appWidgetId, "updated_at"), false),
+                dateFormat = widgetDateFormat(preferences.getString(widgetPreferenceKey(appWidgetId, "date_format"), null)),
+                customDatePattern = preferences.getString(widgetPreferenceKey(appWidgetId, "date_pattern"), "d.M.yyyy").orEmpty(),
+                timeFormat = widgetTimeFormat(preferences.getString(widgetPreferenceKey(appWidgetId, "time_format"), null)),
             ).normalized()
         }
 
@@ -534,6 +541,9 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                 .putBoolean(widgetPreferenceKey(appWidgetId, "wind_gusts"), normalized.showWindGusts)
                 .putBoolean(widgetPreferenceKey(appWidgetId, "moon"), normalized.showMoon)
                 .putBoolean(widgetPreferenceKey(appWidgetId, "updated_at"), normalized.showUpdatedAt)
+                .putString(widgetPreferenceKey(appWidgetId, "date_format"), normalized.dateFormat.name)
+                .putString(widgetPreferenceKey(appWidgetId, "date_pattern"), normalized.customDatePattern)
+                .putString(widgetPreferenceKey(appWidgetId, "time_format"), normalized.timeFormat.name)
                 .commit()
             if (saved && oldImageUri != normalized.imageUri) releaseImageIfUnused(context, oldImageUri)
             return saved
@@ -763,14 +773,20 @@ internal fun widgetTemperatureFit(
     val family = widgetPreviewFontName(settings.fontStyle)
     val paint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.create(family, Typeface.BOLD) }
     val scale = settings.textScale / 100f
+    val locale = context.resources.configuration.locales[0]
     paint.textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 14f * scale, metrics)
     val clockWidth = if (visibility.showClock) {
-        ('0'..'9').maxOf { paint.measureText(it.toString()) } * 4 + paint.measureText(":")
+        ('0'..'9').maxOf { paint.measureText(it.toString()) } * 4 + paint.measureText(":") +
+            if (settings.timeFormat == WidgetTimeFormat.HOUR_12) {
+                // TextClock formats in the launcher process, not the app-selected language.
+                DateFormatSymbols.getInstance(Resources.getSystem().configuration.locales[0]).amPmStrings
+                    .maxOf { paint.measureText(" $it") }
+            } else 0f
     } else 0f
     paint.typeface = Typeface.create(family, Typeface.NORMAL)
     paint.textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 10f * scale, metrics)
     val dateWidth = if (visibility.showDate) {
-        paint.measureText(widgetDate(LocalDate.now(), context.resources.configuration.locales[0]))
+        paint.measureText(widgetDate(LocalDate.now(), locale, settings))
     } else 0f
     paint.typeface = Typeface.create(family, Typeface.BOLD)
     fun measure(sp: Float): Float {

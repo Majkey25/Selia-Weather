@@ -53,6 +53,14 @@ enum class WidgetCorners(val radiusDp: Int) {
     SQUARE(0), SOFT(16), ROUND(28),
 }
 
+enum class WidgetDateFormat {
+    SYSTEM, NUMERIC, PADDED, ISO, READABLE, CUSTOM,
+}
+
+enum class WidgetTimeFormat {
+    SYSTEM, HOUR_12, HOUR_24,
+}
+
 data class WidgetSettings(
     val backgroundMode: WidgetBackgroundMode = WidgetBackgroundMode.AUTOMATIC,
     val backgroundStart: String = "#0C1922",
@@ -86,6 +94,9 @@ data class WidgetSettings(
     val showWindGusts: Boolean = false,
     val showMoon: Boolean = false,
     val showUpdatedAt: Boolean = false,
+    val dateFormat: WidgetDateFormat = WidgetDateFormat.SYSTEM,
+    val customDatePattern: String = "d.M.yyyy",
+    val timeFormat: WidgetTimeFormat = WidgetTimeFormat.SYSTEM,
 )
 
 enum class WidgetSize {
@@ -197,6 +208,9 @@ internal fun WidgetSettings.normalized(): WidgetSettings = copy(
     contentPaddingDp = contentPaddingDp.coerceIn(0, 24),
     customLabel = customLabel.trim().take(40),
     imageUri = imageUri.trim(),
+    dateFormat = if (dateFormat == WidgetDateFormat.CUSTOM &&
+        customWidgetDate(LocalDate.now(), Locale.ROOT, customDatePattern) == null) WidgetDateFormat.SYSTEM else dateFormat,
+    customDatePattern = customDatePattern.take(MAX_WIDGET_DATE_PATTERN_LENGTH),
 )
 
 internal fun isWidgetColor(value: String): Boolean = widgetHexOrNull(value) != null
@@ -229,6 +243,14 @@ internal fun widgetFontStyle(value: String?): WidgetFontStyle = runCatching {
 internal fun widgetCorners(value: String?): WidgetCorners = runCatching {
     WidgetCorners.valueOf(value.orEmpty())
 }.getOrDefault(WidgetCorners.ROUND)
+
+internal fun widgetDateFormat(value: String?): WidgetDateFormat = runCatching {
+    WidgetDateFormat.valueOf(value.orEmpty())
+}.getOrDefault(WidgetDateFormat.SYSTEM)
+
+internal fun widgetTimeFormat(value: String?): WidgetTimeFormat = runCatching {
+    WidgetTimeFormat.valueOf(value.orEmpty())
+}.getOrDefault(WidgetTimeFormat.SYSTEM)
 
 internal fun widgetCornerRadiusPixels(corners: WidgetCorners, host: WidgetHostSize, bitmap: WidgetBitmapSize): Float {
     val radiusDp = minOf(corners.radiusDp.toFloat(), host.width / 2f, host.height / 2f)
@@ -600,11 +622,56 @@ internal fun widgetUpdatedAt(epochMillis: Long, zoneId: ZoneId, locale: Locale):
         .atZone(zoneId)
         .format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(locale))
 
-internal fun widgetDate(date: LocalDate, locale: Locale): String =
-    date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.SHORT).withLocale(locale))
+internal const val MAX_WIDGET_DATE_PATTERN_LENGTH = 40
+private const val MAX_WIDGET_DATE_TEXT_LENGTH = 64
 
-internal fun widgetClock(time: LocalTime, is24Hour: Boolean): String =
-    time.format(DateTimeFormatter.ofPattern(if (is24Hour) "HH:mm" else "h:mm"))
+private fun customDateFormatter(pattern: String, locale: Locale): DateTimeFormatter? {
+    if (pattern.isBlank() || pattern.length > MAX_WIDGET_DATE_PATTERN_LENGTH ||
+        pattern.any { it.isISOControl() || it == '\u2028' || it == '\u2029' }) return null
+    return runCatching { DateTimeFormatter.ofPattern(pattern, locale) }.getOrNull()
+}
+
+private fun customWidgetDate(date: LocalDate, locale: Locale, pattern: String): String? {
+    val formatter = customDateFormatter(pattern, locale) ?: return null
+    return runCatching { date.format(formatter) }.getOrNull()
+        ?.takeIf { it.isNotBlank() && it.length <= MAX_WIDGET_DATE_TEXT_LENGTH }
+}
+
+internal fun isWidgetDatePattern(pattern: String, locale: Locale = Locale.ROOT): Boolean {
+    val start = LocalDate.of(2000, 1, 1)
+    val formatter = customDateFormatter(pattern, locale) ?: return false
+    return runCatching {
+        (0L..365L).all {
+            val text = start.plusDays(it).format(formatter)
+            text.isNotBlank() && text.length <= MAX_WIDGET_DATE_TEXT_LENGTH
+        }
+    }.getOrDefault(false)
+}
+
+internal fun widgetDate(date: LocalDate, locale: Locale, settings: WidgetSettings = WidgetSettings()): String {
+    val formatter = when (settings.dateFormat) {
+        WidgetDateFormat.NUMERIC -> DateTimeFormatter.ofPattern("d.M.yyyy", locale)
+        WidgetDateFormat.PADDED -> DateTimeFormatter.ofPattern("dd.MM.yyyy", locale)
+        WidgetDateFormat.ISO -> DateTimeFormatter.ISO_LOCAL_DATE
+        WidgetDateFormat.READABLE -> DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale)
+        WidgetDateFormat.CUSTOM -> {
+            customWidgetDate(date, locale, settings.customDatePattern)?.let { return it }
+            DateTimeFormatter.ofLocalizedDate(FormatStyle.SHORT).withLocale(locale)
+        }
+        WidgetDateFormat.SYSTEM -> DateTimeFormatter.ofLocalizedDate(FormatStyle.SHORT).withLocale(locale)
+    }
+    return date.format(formatter)
+}
+
+internal fun widgetClockPattern(format: WidgetTimeFormat, is24Hour: Boolean): String = when (format) {
+    WidgetTimeFormat.SYSTEM -> if (is24Hour) "HH:mm" else "h:mm"
+    WidgetTimeFormat.HOUR_12 -> "h:mm a"
+    WidgetTimeFormat.HOUR_24 -> "HH:mm"
+}
+
+internal fun widgetClock(time: LocalTime, is24Hour: Boolean, format: WidgetTimeFormat = WidgetTimeFormat.SYSTEM,
+    locale: Locale = Locale.getDefault()): String =
+    time.format(DateTimeFormatter.ofPattern(widgetClockPattern(format, is24Hour), locale))
 
 internal fun widgetPreferenceKey(appWidgetId: Int, name: String): String =
     "widget_settings_${appWidgetId}_$name"

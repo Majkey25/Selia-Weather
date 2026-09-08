@@ -346,7 +346,7 @@
     <string name="hourly_rain_possible">Regen ist möglich: %1$s im angegebenen Zeitraum erwartet (%2$d%% Wahrscheinlichkeit).</string>
     <string name="hourly_rain_likely">Regen ist wahrscheinlich: %1$s im angegebenen Zeitraum erwartet (%2$d%% Wahrscheinlichkeit).</string>
     <string name="hourly_rain_heavy">Starker Regen ist möglich: %1$s im angegebenen Zeitraum erwartet (%2$d%% Wahrscheinlichkeit).</string>
-    <string name="hourly_dry_summary">%1$s. Es wird kein messbarer Regen erwartet (%2$d%% Wahrscheinlichkeit). Gefühlt %3$s bei %4$s Wind aus %5$s.</string>
+    <string name="hourly_dry_summary">%1$s. Niederschlagswahrscheinlichkeit des Anbieters: %2$d%%. Gefühlt %3$s bei %4$s Wind aus %5$s.</string>
     <string name="hourly_snow_summary">Im angegebenen Zeitraum ist Schnee möglich: %1$s Wasseräquivalent (%2$d%% Niederschlagswahrscheinlichkeit).</string>
     <string name="hourly_mixed_summary">Im angegebenen Zeitraum sind Regen und Schnee möglich: insgesamt %1$s Wasseräquivalent (%2$d%% Niederschlagswahrscheinlichkeit).</string>
     <string name="hourly_freezing_summary">Gefrierender Niederschlag ist möglich. Oberflächen können glatt werden: %1$s im angegebenen Zeitraum (%2$d%% Wahrscheinlichkeit).</string>
@@ -405,4 +405,5 @@
     <string name="hourly_source_precipitation_summary">Vorhersage: %1$s. %2$s im angegebenen Zeitraum (%3$d%% Wahrscheinlichkeit).</string>
     <string name="precipitation_interval">Niederschlagszeitraum: %1$s</string>
     <string name="precipitation_probability_note">Die Wahrscheinlichkeit stammt aus einer separaten Ensembleprognose und gilt für mehr als 0,1 mm (~0,004 in) im Zeitraum, nicht für jeden Tropfen. Sie kann von der Mengenprognose abweichen. Temperatur und Wetterzustand gelten für den angezeigten Zeitpunkt.</string>
+    <string name="hourly_precipitation_models">%1$d von %2$d Modellen berechnen eine Niederschlagsmenge über null. Modellspanne: %3$s.</string>
 </resources>

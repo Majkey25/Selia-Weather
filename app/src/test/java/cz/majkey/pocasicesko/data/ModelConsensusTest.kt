@@ -267,6 +267,52 @@ class ModelConsensusTest {
             .put("snowfall_sum", JSONArray(listOf(4.2)))
     }
 
+    @Test
+    fun precipitationSpreadRetainsMinorityTraceWithoutChangingDryMedianOrProbability() {
+        val result = JSONObject(blendModelForecast(precipitationBase().toString(), precipitationModels(
+            listOf(0.0, 0.0, 0.03),
+            mapOf("rain" to listOf(0.0, 0.0, 0.03), "showers" to listOf(0.0, 0.0, 0.0),
+                "snowfall" to listOf(0.0, 0.0, 0.0)),
+        )).json)
+        val hourly = result.getJSONObject("hourly")
+        val spreads = hourly.getJSONArray(PRECIPITATION_SPREAD_KEY)
+        assertEquals(hourly.getJSONArray("time").length(), spreads.length())
+        val spread = spreads.getJSONObject(0)
+        assertEquals(3, spread.getInt("model_count"))
+        assertEquals(1, spread.getInt("wet_model_count"))
+        assertEquals(0.0, spread.getDouble("minimum_mm"), 0.0)
+        assertEquals(0.03, spread.getDouble("maximum_mm"), 0.0)
+        assertEquals(0.0, hourly.getJSONArray("precipitation").getDouble(0), 0.0)
+        assertEquals(3, hourly.getJSONArray("precipitation_probability").getInt(0))
+        listOf("rain", "showers", "snowfall").forEach { field ->
+            assertEquals(0.0, hourly.getJSONArray(field).getDouble(0), 0.0)
+        }
+        assertEquals(0.0, result.getJSONObject("daily").getJSONArray("precipitation_sum").getDouble(0), 0.0)
+        assertEquals(0.0, result.getJSONObject("current").getDouble("precipitation"), 0.0)
+    }
+
+    @Test
+    fun precipitationSpreadExcludesInvalidMembersAndKeepsMissingHourAligned() {
+        listOf(JSONObject.NULL, "NaN", -0.1).forEach { invalid ->
+            val models = JSONObject(precipitationModels(listOf(0.0, 0.03, 0.1, 0.2), emptyMap()))
+            val source = models.getJSONObject("hourly")
+            source.getJSONArray("precipitation_d").put(0, invalid)
+            val spread = JSONObject(blendModelForecast(precipitationBase().toString(), models.toString()).json)
+                .getJSONObject("hourly").getJSONArray(PRECIPITATION_SPREAD_KEY).getJSONObject(0)
+            assertEquals(3, spread.getInt("model_count"))
+            assertEquals(2, spread.getInt("wet_model_count"))
+            assertEquals(0.1, spread.getDouble("maximum_mm"), 0.0)
+            source.getJSONArray("precipitation_c").put(0, JSONObject.NULL)
+            val aligned = JSONObject(blendModelForecast(precipitationBase().toString(), models.toString()).json)
+                .getJSONObject("hourly").getJSONArray(PRECIPITATION_SPREAD_KEY)
+            assertEquals(2, aligned.length())
+            assertTrue(aligned.isNull(0))
+            assertFalse(aligned.isNull(1))
+        }
+        assertFalse(JSONObject(blendModelForecast(BASE, ONE_MODEL).json)
+            .getJSONObject("hourly").has(PRECIPITATION_SPREAD_KEY))
+    }
+
     private fun precipitationModels(totals: List<Double>, components: Map<String, List<Double?>>): String =
         JSONObject(MODELS).also { root ->
             val hourly = root.getJSONObject("hourly")

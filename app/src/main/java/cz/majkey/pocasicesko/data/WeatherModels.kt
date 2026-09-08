@@ -45,6 +45,24 @@ data class CurrentWeather(
     val showers: Double? = null,
 )
 
+/** Descriptive spread of contributing hourly totals, not a precipitation probability. */
+data class PrecipitationModelSpread(
+    val modelCount: Int,
+    val wetModelCount: Int,
+    val minimumMm: Double,
+    val maximumMm: Double,
+) {
+    init {
+        require(modelCount in 3..MAX_FORECAST_MODEL_IDS)
+        require(wetModelCount in 0..modelCount)
+        require(minimumMm.isFinite() && maximumMm.isFinite() && minimumMm >= 0.0 && maximumMm >= minimumMm)
+        require((wetModelCount == 0) == (maximumMm == 0.0))
+        require((wetModelCount == modelCount) == (minimumMm > 0.0))
+    }
+}
+
+internal const val PRECIPITATION_SPREAD_KEY = "_selia_precipitation_spread"
+
 data class HourlyWeather(
     val time: String,
     val temperature: Double,
@@ -81,6 +99,7 @@ data class HourlyWeather(
     val soilTemperature0Cm: Double? = null,
     val soilMoisture0To1Cm: Double? = null,
     val showers: Double? = null,
+    val precipitationSpread: PrecipitationModelSpread? = null,
 )
 
 data class DailyWeather(

@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.0-beta.21] - 2026-09-08
+
+- Show how many contributing models predict a nonzero precipitation amount and their amount range in expanded hourly details, including trace amounts.
+- Compute this optional information from the already downloaded model data. Keep forecasts, provider probabilities, component blending and advice unchanged.
+- Preserve old caches and ignore malformed or misaligned optional spread metadata. Model agreement is descriptive, not a calibrated probability or accuracy guarantee.
+
 ## [0.2.0-beta.20] - 2026-09-08
 
 - Keep the model precipitation map usable across an hour boundary by retaining one additional forecast sample. The ten-minute cache limit and minimum twelve-hour horizon remain enforced.

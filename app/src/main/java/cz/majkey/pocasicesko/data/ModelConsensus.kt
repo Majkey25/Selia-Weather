@@ -56,6 +56,7 @@ internal fun blendModelForecast(
 
     val sourceIndices = (0 until sourceTimes.length()).associateBy { sourceTimes.getString(it) }
     val targetTimes = target.getJSONArray("time")
+    target.put(PRECIPITATION_SPREAD_KEY, JSONArray(List(targetTimes.length()) { JSONObject.NULL }))
     val currentTargetIndex = currentIndex(root, targetTimes)
     val region = location?.let(::forecastRegionFor)
     // Open-Meteo writes every ISO timestamp using this response offset, not device timezone rules.
@@ -197,6 +198,13 @@ private fun blendPrecipitation(
     val middle = ranked.size / 2
     val selected = if (ranked.size % 2 == 1) listOf(ranked[middle]) else ranked.subList(middle - 1, middle + 1)
     total.put(targetIndex, selected.map { it.second }.average())
+    if (ranked.size <= MAX_FORECAST_MODEL_IDS) {
+        target.getJSONArray(PRECIPITATION_SPREAD_KEY).put(targetIndex, JSONObject()
+            .put("model_count", ranked.size)
+            .put("wet_model_count", ranked.count { it.second > 0.0 })
+            .put("minimum_mm", ranked.first().second)
+            .put("maximum_mm", ranked.last().second))
+    }
     // Keep each component with the source(s) that determine the median total.
     // Snowfall stays in cm; missing partitions never borrow a different model's zero.
     listOf("rain", "showers", "snowfall").forEach { field ->

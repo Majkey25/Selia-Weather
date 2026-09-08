@@ -346,7 +346,7 @@
     <string name="hourly_rain_possible">La pluie est possible : %1$s attendu sur l’intervalle indiqué (%2$d%% de probabilité).</string>
     <string name="hourly_rain_likely">La pluie est probable : %1$s attendu sur l’intervalle indiqué (%2$d%% de probabilité).</string>
     <string name="hourly_rain_heavy">De fortes pluies sont possibles : %1$s attendu sur l’intervalle indiqué (%2$d%% de probabilité).</string>
-    <string name="hourly_dry_summary">%1$s. Aucune pluie mesurable n’est attendue (%2$d%% de probabilité). Ressenti %3$s, avec un vent de %4$s venant de %5$s.</string>
+    <string name="hourly_dry_summary">%1$s. Probabilité de précipitations du fournisseur : %2$d%%. Ressenti %3$s, avec un vent de %4$s venant de %5$s.</string>
     <string name="hourly_snow_summary">De la neige est possible sur l’intervalle indiqué : %1$s en équivalent eau (%2$d%% de probabilité de précipitations).</string>
     <string name="hourly_mixed_summary">Pluie et neige sont possibles sur l’intervalle indiqué : %1$s en équivalent eau au total (%2$d%% de probabilité de précipitations).</string>
     <string name="hourly_freezing_summary">Des précipitations verglaçantes sont possibles. Les surfaces peuvent devenir glissantes : %1$s sur l’intervalle indiqué (%2$d%% de probabilité).</string>
@@ -405,4 +405,5 @@
     <string name="hourly_source_precipitation_summary">Prévisions : %1$s. %2$s sur l’intervalle indiqué (%3$d%% de probabilité).</string>
     <string name="precipitation_interval">Intervalle de précipitations : %1$s</string>
     <string name="precipitation_probability_note">La probabilité vient d’une prévision d’ensemble distincte et concerne plus de 0,1 mm (~0,004 in) sur cet intervalle, pas chaque goutte. Elle peut différer de la quantité prévue. La température et les conditions correspondent à l’heure affichée.</string>
+    <string name="hourly_precipitation_models">%1$d modèles sur %2$d calculent une quantité de précipitations supérieure à zéro. Plage des valeurs : %3$s.</string>
 </resources>

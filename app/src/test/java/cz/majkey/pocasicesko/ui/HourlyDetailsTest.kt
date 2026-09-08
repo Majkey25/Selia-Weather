@@ -1,6 +1,7 @@
 package cz.majkey.pocasicesko.ui
 
 import cz.majkey.pocasicesko.data.HourlyWeather
+import cz.majkey.pocasicesko.data.PrecipitationModelSpread
 import java.io.File
 import java.util.Locale
 import org.junit.Assert.assertEquals
@@ -11,6 +12,16 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class HourlyDetailsTest {
+    @Test
+    fun modelSpreadDoesNotBecomeAProbabilityOrOverrideSourceConditions() {
+        val dry = hour(null, 7.0).copy(precipitation = 0.0, precipitationProbability = 0)
+        val withSpread = dry.copy(precipitationSpread = PrecipitationModelSpread(3, 1, 0.0, 0.3))
+        assertEquals(0, withSpread.precipitationProbability)
+        assertEquals(dry.weatherCode, withSpread.weatherCode)
+        assertEquals(HourlyRainLevel.NONE, hourlyRainLevel(withSpread))
+        assertEquals(HourlyHighlight.UV, hourlyHighlight(withSpread))
+    }
+
     @Test
     fun precipitationIntervalEndsAtTheSourceTimestamp() {
         assertEquals("07:00–08:00", hourlyPrecipitationInterval("2026-09-09T08:00", Locale.ENGLISH))

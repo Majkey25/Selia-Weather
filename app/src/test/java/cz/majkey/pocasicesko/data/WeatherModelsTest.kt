@@ -3,9 +3,30 @@ package cz.majkey.pocasicesko.data
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class WeatherModelsTest {
+    @Test
+    fun precipitationSpreadRejectsIncoherentCountsAndAmounts() {
+        assertEquals(0, PrecipitationModelSpread(3, 0, 0.0, 0.0).wetModelCount)
+        assertEquals(32, PrecipitationModelSpread(32, 32, 0.01, 1.0).modelCount)
+        listOf(
+            { PrecipitationModelSpread(2, 1, 0.0, 1.0) },
+            { PrecipitationModelSpread(33, 1, 0.0, 1.0) },
+            { PrecipitationModelSpread(3, -1, 0.0, 1.0) },
+            { PrecipitationModelSpread(3, 4, 0.0, 1.0) },
+            { PrecipitationModelSpread(3, 0, 0.0, 1.0) },
+            { PrecipitationModelSpread(3, 1, 0.0, 0.0) },
+            { PrecipitationModelSpread(3, 1, 0.1, 1.0) },
+            { PrecipitationModelSpread(3, 3, 0.0, 1.0) },
+            { PrecipitationModelSpread(3, 3, -0.1, 1.0) },
+            { PrecipitationModelSpread(3, 3, 1.0, 0.1) },
+            { PrecipitationModelSpread(3, 3, Double.NaN, 1.0) },
+            { PrecipitationModelSpread(3, 3, 0.1, Double.POSITIVE_INFINITY) },
+        ).forEach { invalid -> assertThrows(IllegalArgumentException::class.java) { invalid() } }
+    }
+
     @Test
     fun precipitationEvidencePreservesSourceCodesAndFiniteTraceAmounts() {
         listOf(51, 53, 55, 56, 57, 61, 66, 71, 85, 95).forEach {

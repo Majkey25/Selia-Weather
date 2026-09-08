@@ -1,12 +1,61 @@
 package cz.majkey.pocasicesko.data
 
 import org.json.JSONException
+import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class WeatherParserTest {
+    @Test
+    fun optionalPrecipitationSpreadPreservesLegacyForecastsAndRawHourAlignment() {
+        val legacy = WeatherParser.parseForecast(VALID_FORECAST, 123L)
+        assertEquals(null, legacy.hourly[0].precipitationSpread)
+        val root = JSONObject(VALID_FORECAST)
+        val spread = JSONObject("""{"model_count":3,"wet_model_count":1,"minimum_mm":0,"maximum_mm":0.03}""")
+        root.getJSONObject("hourly").put(PRECIPITATION_SPREAD_KEY, JSONArray().put(JSONObject.NULL).put(spread))
+        val parsed = WeatherParser.parseForecast(root.toString(), 123L)
+        assertEquals(null, parsed.hourly[0].precipitationSpread)
+        assertEquals(PrecipitationModelSpread(3, 1, 0.0, 0.03), parsed.hourly[1].precipitationSpread)
+        assertEquals(legacy.hourly[1], parsed.hourly[1].copy(precipitationSpread = null))
+        assertEquals(legacy.current, parsed.current)
+        assertEquals(legacy.daily, parsed.daily)
+        root.getJSONObject("hourly").getJSONArray("temperature_2m").put(0, JSONObject.NULL)
+        val skipped = WeatherParser.parseForecast(root.toString(), 123L)
+        assertEquals(1, skipped.hourly.size)
+        assertEquals(parsed.hourly[1], skipped.hourly.single())
+    }
+
+    @Test
+    fun malformedOptionalPrecipitationSpreadDoesNotRejectTheForecast() {
+        val valid = """{"model_count":3,"wet_model_count":1,"minimum_mm":0,"maximum_mm":0.03}"""
+        val malformed = listOf(
+            JSONObject.NULL, "not an object", JSONObject(),
+            JSONObject(valid).put("model_count", 2), JSONObject(valid).put("model_count", 33),
+            JSONObject(valid).put("model_count", 3.5), JSONObject(valid).put("model_count", "3"),
+            JSONObject(valid).put("model_count", 4_294_967_299L),
+            JSONObject(valid).put("wet_model_count", -1), JSONObject(valid).put("wet_model_count", 4),
+            JSONObject(valid).put("wet_model_count", 1.5), JSONObject(valid).put("wet_model_count", true),
+            JSONObject(valid).put("minimum_mm", -0.1), JSONObject(valid).put("minimum_mm", 0.04),
+            JSONObject(valid).put("minimum_mm", "NaN"), JSONObject(valid).put("maximum_mm", "Infinity"),
+            JSONObject(valid).put("wet_model_count", 0), JSONObject(valid).put("wet_model_count", 3),
+            JSONObject(valid).put("minimum_mm", 0.01), JSONObject(valid).put("maximum_mm", 0),
+        )
+        val legacy = WeatherParser.parseForecast(VALID_FORECAST, 123L)
+        malformed.forEach { value ->
+            val root = JSONObject(VALID_FORECAST)
+            root.getJSONObject("hourly").put(PRECIPITATION_SPREAD_KEY, JSONArray().put(value).put(JSONObject.NULL))
+            assertEquals(legacy, WeatherParser.parseForecast(root.toString(), 123L))
+        }
+        listOf(JSONArray(), JSONArray().put(JSONObject(valid)), JSONArray().put(JSONObject(valid)).put(JSONObject.NULL).put(JSONObject.NULL), JSONObject(valid))
+            .forEach { wrongLength ->
+                val root = JSONObject(VALID_FORECAST)
+                root.getJSONObject("hourly").put(PRECIPITATION_SPREAD_KEY, wrongLength)
+                assertEquals(legacy, WeatherParser.parseForecast(root.toString(), 123L))
+            }
+    }
+
     @Test
     fun preservesResponseOffsetAndAcceptsLegacyCacheWithoutOffset() {
         assertEquals(null, WeatherParser.parseForecast(VALID_FORECAST, 123L).utcOffsetSeconds)

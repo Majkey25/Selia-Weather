@@ -305,6 +305,20 @@ internal fun ExpandedHourDetails(
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
             )
         }
+        hour.precipitationSpread?.let { spread ->
+            val minimum = units.precipitation(spread.minimumMm)
+            val maximum = units.precipitation(spread.maximumMm)
+            Text(
+                stringResource(
+                    R.string.hourly_precipitation_models,
+                    spread.wetModelCount,
+                    spread.modelCount,
+                    if (minimum == maximum) minimum else "$minimum – $maximum",
+                ),
+                color = Color.White.copy(alpha = 0.82f),
+                fontSize = 12.sp,
+            )
+        }
         Text(
             stringResource(R.string.precipitation_probability_note),
             color = Color.White.copy(alpha = 0.62f),

@@ -348,7 +348,7 @@
     <string name="hourly_rain_possible">Rain is possible: %1$s expected in the reported interval (%2$d%% chance).</string>
     <string name="hourly_rain_likely">Rain is likely: %1$s expected in the reported interval (%2$d%% chance).</string>
     <string name="hourly_rain_heavy">Heavy rain is possible: %1$s expected in the reported interval (%2$d%% chance).</string>
-    <string name="hourly_dry_summary">%1$s. No measurable rain is expected (%2$d%% chance). Feels like %3$s with %4$s wind from %5$s.</string>
+    <string name="hourly_dry_summary">%1$s. Provider precipitation chance: %2$d%%. Feels like %3$s with %4$s wind from %5$s.</string>
     <string name="hourly_snow_summary">Snow is possible in the reported interval: %1$s water equivalent (%2$d%% chance of precipitation).</string>
     <string name="hourly_mixed_summary">Rain and snow are possible in the reported interval: %1$s total water equivalent (%2$d%% chance of precipitation).</string>
     <string name="hourly_freezing_summary">Freezing precipitation is possible. Surfaces may become slippery: %1$s expected in the reported interval (%2$d%% chance).</string>
@@ -411,4 +411,5 @@
     <string name="legal_cookies">Cookie policy</string>
     <string name="precipitation_interval">Precipitation interval: %1$s</string>
     <string name="precipitation_probability_note">Chance comes from a separate ensemble forecast and means more than 0.1 mm (~0.004 in) in this interval, not every drop. It can disagree with forecast amounts. Temperature and conditions refer to the displayed time.</string>
+    <string name="hourly_precipitation_models">%1$d of %2$d models calculate precipitation above zero. Amount range: %3$s.</string>
 </resources>

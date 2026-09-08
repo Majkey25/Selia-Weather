@@ -13,6 +13,8 @@ object WeatherParser {
 
         val hourlyTimes = hourlyJson.getJSONArray("time")
         validateLengths(hourlyTimes, hourlyJson, *HOURLY_FIELDS)
+        val precipitationSpreads = hourlyJson.optJSONArray(PRECIPITATION_SPREAD_KEY)
+            ?.takeIf { it.length() == hourlyTimes.length() }
 
         val dailyTimes = dailyJson.getJSONArray("time")
         validateLengths(
@@ -106,6 +108,7 @@ object WeatherParser {
                             index,
                         ),
                         showers = hourlyJson.optionalFiniteDoubleAt("showers", index),
+                        precipitationSpread = precipitationSpreads?.optJSONObject(index)?.precipitationSpreadOrNull(),
                     ),
                 )
             }
@@ -253,6 +256,19 @@ object WeatherParser {
         optionalDoubleAt(name, index)?.also { value ->
             if (!value.isFinite()) throw JSONException("Hodnota $name[$index] není konečná.")
         }
+
+    private fun JSONObject.precipitationSpreadOrNull(): PrecipitationModelSpread? {
+        val count = opt("model_count") as? Number ?: return null
+        val wet = opt("wet_model_count") as? Number ?: return null
+        if (count.toDouble() != count.toInt().toDouble() || wet.toDouble() != wet.toInt().toDouble()) return null
+        val minimum = opt("minimum_mm") as? Number ?: return null
+        val maximum = opt("maximum_mm") as? Number ?: return null
+        return try {
+            PrecipitationModelSpread(count.toInt(), wet.toInt(), minimum.toDouble(), maximum.toDouble())
+        } catch (_: IllegalArgumentException) {
+            null
+        }
+    }
 
     private fun JSONObject.optionalIntAt(name: String, index: Int): Int? {
         val values = optJSONArray(name) ?: return null

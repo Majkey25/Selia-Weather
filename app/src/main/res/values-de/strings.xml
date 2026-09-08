@@ -404,5 +404,5 @@
     <string name="legal_cookies">Cookie-Richtlinie</string>
     <string name="hourly_source_precipitation_summary">Vorhersage: %1$s. %2$s im angegebenen Zeitraum (%3$d%% Wahrscheinlichkeit).</string>
     <string name="precipitation_interval">Niederschlagszeitraum: %1$s</string>
-    <string name="precipitation_probability_note">Die Niederschlagswahrscheinlichkeit gilt für mehr als 0,1 mm (~0,004 in) in diesem Zeitraum. Nieselregen oder Spuren können auch bei niedrigen Prozentwerten auftreten. Temperatur und Wetterzustand gelten für den angezeigten Zeitpunkt.</string>
+    <string name="precipitation_probability_note">Die Wahrscheinlichkeit stammt aus einer separaten Ensembleprognose und gilt für mehr als 0,1 mm (~0,004 in) im Zeitraum, nicht für jeden Tropfen. Sie kann von der Mengenprognose abweichen. Temperatur und Wetterzustand gelten für den angezeigten Zeitpunkt.</string>
 </resources>

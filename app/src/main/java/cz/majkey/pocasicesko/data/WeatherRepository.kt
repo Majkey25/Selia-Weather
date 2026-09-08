@@ -2,6 +2,8 @@ package cz.majkey.pocasicesko.data
 
 import android.content.Context
 import android.net.Uri
+import android.os.SystemClock
+import android.util.Log
 import cz.majkey.pocasicesko.astro.MoonCalculator
 import androidx.core.content.edit
 import cz.majkey.pocasicesko.BuildConfig
@@ -117,21 +119,29 @@ class WeatherRepository(context: Context) {
         checkActive: () -> Unit,
     ): WeatherSnapshot {
         checkActive()
-        val bestMatchJson = request(forecastUri(location).toString())
+        val bestMatchJson = loggedForecastStage(ForecastFetchStage.BEST_MATCH) {
+            request(forecastUri(location).toString())
+        }
         checkActive()
         val requestedModels = forecastApiModelsFor(location)
         val blend = try {
-            val modelsJson = request(modelForecastUrl(location))
+            val modelsJson = loggedForecastStage(ForecastFetchStage.MODELS) {
+                request(modelForecastUrl(location))
+            }
             checkActive()
-            val calibration = calibratedForecasts.fetchForLocation(location, Instant.now())
+            val calibration = loggedForecastStage(ForecastFetchStage.CALIBRATION) {
+                calibratedForecasts.fetchForLocation(location, Instant.now())
+            }
             checkActive()
-            blendModelForecast(
-                bestMatchJson,
-                modelsJson,
-                location,
-                calibration = calibration?.artifact,
-                calibratedValues = calibration?.values.orEmpty(),
-            )
+            loggedForecastStage(ForecastFetchStage.BLEND) {
+                blendModelForecast(
+                    bestMatchJson,
+                    modelsJson,
+                    location,
+                    calibration = calibration?.artifact,
+                    calibratedValues = calibration?.values.orEmpty(),
+                )
+            }
         } catch (_: IOException) {
             ModelBlendResult(
                 bestMatchJson,
@@ -165,14 +175,14 @@ class WeatherRepository(context: Context) {
         val forecastJson = JSONObject(blend.json).putForecastCalculation(calculation).toString()
         val updatedAt = System.currentTimeMillis()
         val modelSnapshot = WeatherParser.parseForecast(forecastJson, updatedAt)
-        val now = Instant.ofEpochMilli(updatedAt)
-        val observations = currentObservations(location, now, checkActive)
+        val observations = currentObservations(location, Instant.now(), checkActive)
         checkActive()
         val observedCurrent = fuseCurrentConditions(
             model = modelSnapshot.current,
             location = location,
             observations = observations,
-            now = now,
+            // Count station network time toward observation age; keep updatedAt unchanged.
+            now = Instant.now(),
         )
         val correctedJson = applyCurrentConditionsToForecastJson(forecastJson, observedCurrent)
         val snapshot = WeatherParser.parseForecast(correctedJson, updatedAt)
@@ -192,10 +202,14 @@ class WeatherRepository(context: Context) {
         checkActive: () -> Unit,
     ): List<CurrentStationObservation> {
         checkActive()
-        val metar = stationObservations { metarCurrentConditions.fetch(location) }
+        val metar = stationObservations {
+            loggedForecastStage(ForecastFetchStage.METAR) { metarCurrentConditions.fetch(location) }
+        }
         checkActive()
         return metar + if (location.isInCzechia()) {
-            stationObservations { currentConditions.fetch(location, now) }
+            stationObservations {
+                loggedForecastStage(ForecastFetchStage.CHMI) { currentConditions.fetch(location, now) }
+            }
         } else {
             emptyList()
         }
@@ -281,7 +295,7 @@ class WeatherRepository(context: Context) {
             connection.setRequestProperty("User-Agent", USER_AGENT)
             val responseCode = connection.responseCode
             if (responseCode !in 200..299) {
-                throw IOException("Server odpověděl kódem $responseCode.")
+                throw WeatherHttpException(responseCode)
             }
             connection.inputStream.use { readLimited(it, MAX_JSON_BYTES).toString(Charsets.UTF_8) }
         } finally {
@@ -381,6 +395,39 @@ class WeatherRepository(context: Context) {
             longitude = 14.4378,
             countryCode = "CZ",
         )
+    }
+}
+
+internal enum class ForecastFetchStage { BEST_MATCH, MODELS, CALIBRATION, BLEND, METAR, CHMI }
+
+internal class WeatherHttpException(val statusCode: Int) : IOException("Server odpověděl kódem $statusCode.")
+
+internal fun <T> loggedForecastStage(
+    stage: ForecastFetchStage,
+    monotonicMillis: () -> Long = SystemClock::elapsedRealtime,
+    writeLog: (String) -> Unit = { Log.i("WeatherFetch", it) },
+    operation: () -> T,
+): T {
+    val started = monotonicMillis()
+    var outcome = "failed"
+    var failure: Exception? = null
+    try {
+        return operation().also { result ->
+            outcome = if (result == null || result is Collection<*> && result.isEmpty()) "unavailable" else "ok"
+        }
+    } catch (error: Exception) {
+        failure = error
+        outcome = if (error is CancellationException) "cancelled" else "failed"
+        throw error
+    } finally {
+        val elapsed = (monotonicMillis() - started).coerceAtLeast(0L)
+        val errorType = if (failure is WeatherHttpException) "WeatherHttpException" else failure?.javaClass?.simpleName ?: "-"
+        val status = (failure as? WeatherHttpException)?.statusCode?.takeIf { it in 100..599 }?.toString() ?: "-"
+        // Log only fixed stage names, duration, exception type and a numeric HTTP status.
+        // Diagnostics must not replace the operation's result or cancellation with a logging failure.
+        runCatching {
+            writeLog("stage=${stage.name} elapsed_ms=$elapsed outcome=$outcome error=$errorType http_status=$status")
+        }
     }
 }
 

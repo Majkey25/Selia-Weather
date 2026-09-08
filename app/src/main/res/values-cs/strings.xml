@@ -408,5 +408,5 @@
     <string name="legal_cookies">Zásady cookies</string>
     <string name="hourly_source_precipitation_summary">Předpověď: %1$s. %2$s za uvedený interval (pravděpodobnost %3$d%%).</string>
     <string name="precipitation_interval">Interval srážek: %1$s</string>
-    <string name="precipitation_probability_note">Pravděpodobnost srážek znamená více než 0,1 mm (~0,004 in) za tento interval. Mrholení nebo stopové množství se může objevit i při nízkém procentu. Teplota a stav počasí se vztahují k zobrazenému času.</string>
+    <string name="precipitation_probability_note">Pravděpodobnost pochází ze samostatné skupiny modelových simulací a znamená více než 0,1 mm (~0,004 in) za interval, ne každou kapku. S předpovědí množství se může rozcházet. Teplota a stav počasí platí pro zobrazený čas.</string>
 </resources>

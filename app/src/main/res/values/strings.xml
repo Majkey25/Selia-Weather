@@ -410,5 +410,5 @@
     <string name="legal_refunds">Refund policy</string>
     <string name="legal_cookies">Cookie policy</string>
     <string name="precipitation_interval">Precipitation interval: %1$s</string>
-    <string name="precipitation_probability_note">Precipitation chance means more than 0.1 mm (~0.004 in) during this interval. Drizzle or trace amounts can occur at a low percentage. Temperature and conditions refer to the displayed timestamp.</string>
+    <string name="precipitation_probability_note">Chance comes from a separate ensemble forecast and means more than 0.1 mm (~0.004 in) in this interval, not every drop. It can disagree with forecast amounts. Temperature and conditions refer to the displayed time.</string>
 </resources>

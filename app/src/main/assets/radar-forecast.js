@@ -31,7 +31,7 @@ var RadarForecast = (function() {
     return 'https://api.open-meteo.com/v1/forecast?' + new URLSearchParams({
       latitude: area.points.map(function(point) { return point.lat.toFixed(5); }).join(','),
       longitude: area.points.map(function(point) { return point.lon.toFixed(5); }).join(','),
-      hourly: 'precipitation', forecast_hours: '14', timezone: 'GMT', timeformat: 'unixtime',
+      hourly: 'precipitation', forecast_hours: '15', timezone: 'GMT', timeformat: 'unixtime',
       precipitation_unit: 'mm', cell_selection: 'nearest'
     }).toString();
   }
@@ -39,7 +39,7 @@ var RadarForecast = (function() {
   function parse(payload, area, now) {
     if (!Array.isArray(payload) || payload.length !== SIZE * SIZE) throw new Error('Incomplete forecast area');
     var times = payload[0] && payload[0].hourly && payload[0].hourly.time;
-    if (!Array.isArray(times) || times.length !== 14 || !times.every(function(time, index) {
+    if (!Array.isArray(times) || times.length !== 15 || !times.every(function(time, index) {
       return Number.isInteger(time) && time % 3600 === 0 && (!index || time === times[index - 1] + 3600);
     }) || Math.abs(times[0] - Math.floor(now / 3600) * 3600) > 3600) throw new Error('Invalid forecast times');
     payload.forEach(function(point, index) {
@@ -65,7 +65,7 @@ var RadarForecast = (function() {
     if (frames.length < 13 || frames[frames.length - 1].time < now + 12 * 3600) {
       throw new Error('Forecast does not cover the next 12 hours');
     }
-    return frames.slice(0, 13);
+    return frames;
   }
 
   function image(frame) {

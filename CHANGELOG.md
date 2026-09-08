@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.0-beta.20] - 2026-09-08
+
+- Keep the model precipitation map usable across an hour boundary by retaining one additional forecast sample. The ten-minute cache limit and minimum twelve-hour horizon remain enforced.
+- Explain that precipitation amounts and probabilities use separate model guidance and can disagree.
+- Record bounded, coordinate-free fetch diagnostics to investigate source timeouts. Check station freshness again after network requests finish.
+
 ## [0.2.0-beta.19] - 2026-09-08
 
 - Keep drizzle, trace rainfall and snowfall visible in hourly summaries, the next-precipitation summary and optional morning advice. Do not derive a higher rain probability from an amount or condition code.

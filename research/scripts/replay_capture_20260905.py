@@ -5,11 +5,10 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-from collections import Counter, defaultdict
+from collections import Counter
 from datetime import UTC, datetime
 from io import StringIO
 from pathlib import Path
-from statistics import fmean, median
 from typing import cast
 
 from aladin_ensemble.registry import JsonValue
@@ -18,7 +17,11 @@ from aladin_ensemble.sources.chmi_station import (
     parse_station_metadata,
     parse_station_observations,
 )
-from aladin_ensemble.sources.live_capture import CaptureError, evaluate_capture, write_immutable
+from aladin_ensemble.sources.live_capture import (
+    compare_capture_models,
+    evaluate_capture,
+    write_immutable,
+)
 from aladin_ensemble.sources.official_runs import download_http_with_retry
 from aladin_ensemble.types import Observation
 
@@ -68,39 +71,6 @@ def inputs() -> tuple[dict[str, bytes], dict[str, JsonValue]]:
     return bodies, cast(dict[str, JsonValue], records)
 
 
-def comparison(rows: tuple[CaptureError, ...]) -> dict[str, JsonValue]:
-    models = sorted({row.model_id for row in rows})
-    grouped: dict[tuple[str, str], list[CaptureError]] = defaultdict(list)
-    for row in rows:
-        if row.status == "paired":
-            grouped[row.variable, row.valid_time].append(row)
-    errors: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
-    actuals: dict[str, list[float]] = defaultdict(list)
-    for (variable, _), cases in sorted(grouped.items()):
-        if sorted(row.model_id for row in cases) != models:
-            continue
-        actual = {row.observed_value for row in cases}
-        if len(actual) != 1 or None in actual:
-            raise ValueError("Matched predictors disagree about truth")
-        truth = next(value for value in actual if value is not None)
-        values = [row.forecast_value for row in cases if row.forecast_value is not None]
-        if len(values) != len(models):
-            raise ValueError("Paired forecast is missing")
-        actuals[variable].append(truth)
-        for row in cases:
-            assert row.absolute_error is not None
-            errors[variable][row.model_id].append(row.absolute_error)
-        if variable != "wind_direction":
-            errors[variable]["arithmetic_mean"].append(abs(fmean(values) - truth))
-            errors[variable]["median"].append(abs(median(values) - truth))
-    return {variable: {
-        "matched_hours": len(actuals[variable]),
-        "nonzero_observation_hours": sum(value > 0 for value in actuals[variable]),
-        "observed_sum": sum(actuals[variable]) if variable == "precipitation" else None,
-        "mae": {model: fmean(values) for model, values in estimates.items()},
-    } for variable, estimates in errors.items()}
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--download", action="store_true")
@@ -142,9 +112,9 @@ def main() -> None:
         "quality_counts": dict(Counter(str(row.quality) for row in observations)),
         "flag_counts": dict(Counter(str(row.flag) for row in observations)),
         "strict_status_counts": dict(Counter(row.status for row in strict)),
-        "strict_comparison": comparison(strict),
+        "strict_comparison": compare_capture_models(strict),
         "provisional_status_counts": dict(Counter(row.status for row in provisional)),
-        "provisional_comparison": comparison(provisional),
+        "provisional_comparison": compare_capture_models(provisional),
         "calibration_eligible": False,
         "caveat": (
             "One captured forecast, one station, two days. Provisional QC5 is not validated truth. "

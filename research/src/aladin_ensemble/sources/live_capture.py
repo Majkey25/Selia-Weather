@@ -6,11 +6,13 @@ import argparse
 import hashlib
 import json
 import re
+from collections import defaultdict
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from math import isfinite
 from pathlib import Path
+from statistics import fmean, median
 from typing import Literal, cast
 from urllib.parse import parse_qs, urlencode, urlsplit
 
@@ -59,6 +61,40 @@ class CaptureError:
     absolute_error: float | None
     status: Literal["paired", "missing_truth", "missing_forecast", "incompatible_truth"]
     truth_checksum: str | None
+
+
+def compare_capture_models(rows: tuple[CaptureError, ...]) -> dict[str, JsonValue]:
+    """Compare models and scalar baselines on the same complete set of captured hours."""
+    models = sorted({row.model_id for row in rows})
+    grouped: dict[tuple[str, str], list[CaptureError]] = defaultdict(list)
+    for row in rows:
+        if row.status == "paired":
+            grouped[row.variable, row.valid_time].append(row)
+    errors: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
+    actuals: dict[str, list[float]] = defaultdict(list)
+    for (variable, _), cases in sorted(grouped.items()):
+        if sorted(row.model_id for row in cases) != models:
+            continue
+        actual = {row.observed_value for row in cases}
+        if len(actual) != 1 or None in actual:
+            raise ValueError("Matched predictors disagree about truth")
+        truth = next(value for value in actual if value is not None)
+        values = [row.forecast_value for row in cases if row.forecast_value is not None]
+        if len(values) != len(models):
+            raise ValueError("Paired forecast is missing")
+        actuals[variable].append(truth)
+        for row in cases:
+            assert row.absolute_error is not None
+            errors[variable][row.model_id].append(row.absolute_error)
+        if variable != "wind_direction":
+            errors[variable]["arithmetic_mean"].append(abs(fmean(values) - truth))
+            errors[variable]["median"].append(abs(median(values) - truth))
+    return {variable: {
+        "matched_hours": len(actuals[variable]),
+        "nonzero_observation_hours": sum(value > 0 for value in actuals[variable]),
+        "observed_sum": sum(actuals[variable]) if variable == "precipitation" else None,
+        "mae": {model: fmean(values) for model, values in estimates.items()},
+    } for variable, estimates in errors.items()}
 
 
 def evaluate_capture(

@@ -20,6 +20,9 @@ jobs:
   quality:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: research
 
     steps:
       - uses: actions/checkout@v7
@@ -33,13 +36,13 @@ jobs:
           version: "0.12.5"
 
       - name: Install locked environment
-        run: uv sync --project research --frozen
+        run: uv sync --frozen
 
       - name: Test
-        run: uv run --project research pytest -q
+        run: uv run pytest -q
 
       - name: Lint
-        run: uv run --project research ruff check .
+        run: uv run ruff check .
 
       - name: Type check
-        run: uv run --project research pyright
+        run: uv run pyright

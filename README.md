@@ -16,6 +16,8 @@
 <p align="center">
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/01-weather.png" width="240" alt="Selia Weather forecast">
   &nbsp;&nbsp;
+  <img src="docs/assets/ask-ai-history.png" width="240" alt="Five-year weather archive with an Ask AI CSV action">
+  &nbsp;&nbsp;
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/03-radar.png" width="240" alt="Observed precipitation radar">
   &nbsp;&nbsp;
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/05-widget-editor.png" width="240" alt="Weather widget editor">
@@ -29,8 +31,8 @@
 - Shows a horizontal 24-hour outlook, a 14-day forecast, and an hourly detail for each day. A complete day normally has 24 hours.
 - Opens a five-year NASA POWER archive with 15 daily metrics. Select 30 days, 365 days, all data, or custom dates to calculate totals and coverage locally. After confirmation, Ask AI shares the full provenance-labelled CSV and your question with the compatible installed app you choose.
 - Searches places worldwide, stores favourites, can use your optional current location, and can save an exact named point on an interactive world map or by coordinate.
-- In Czechia, corrects current temperature, humidity, wind, precipitation, and sky condition from up to three nearby ČHMÚ automatic stations when their observations are fresh.
-- Outside Czechia, uses nearby fresh worldwide METAR reports to correct available temperature, humidity, dew point, pressure, visibility, cloud-cover, and wind fields. A METAR report never invents a precipitation amount.
+- Uses nearby ČHMÚ stations in Czechia and METAR reports worldwide for available current measurements. Point-weather corrections require reports within 10 km and 30 minutes; nearby weather can still differ from the selected point. Ten-minute station totals do not replace model precipitation amounts or hourly forecasts.
+- Preserves explicit drizzle reports, does not infer clear skies from sunshine duration, and distinguishes total cloud observations from partial-height airport reports. METAR observations never invent a precipitation amount.
 - Keeps the last successful forecast for offline display.
 - Includes a resizable launcher widget with per-widget colours, transparency, gradient or custom-image backgrounds, text scale, alignment, custom label, and selectable weather fields.
 - Supports Metric and Imperial display units in the app and widgets.

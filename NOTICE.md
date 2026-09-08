@@ -2,9 +2,10 @@
 
 ## Leaflet 1.9.4
 
-The worldwide point picker bundles Leaflet 1.9.4.
+The point picker and radar bundle Leaflet 1.9.4. The complete BSD notice is
+included in the application at `assets/leaflet-LICENSE.txt`.
 
-- Copyright 2010–2023 Vladimir Agafonkin and contributors.
+- Copyright 2010–2023 Volodymyr Agafonkin; 2010–2011 CloudMade.
 - Software licence: BSD 2-Clause License.
 - Source: <https://github.com/Leaflet/Leaflet/tree/v1.9.4>
 - JavaScript SHA-256: `db49d009c841f5ca34a888c96511ae936fd9f5533e90d8b2c4d57596f4e5641a`.
@@ -24,7 +25,7 @@ and has no availability guarantee.
 
 ## AviationWeather Data API
 
-Outside Czechia, the app requests recent worldwide METAR reports from the U.S. National Weather
+The app requests recent worldwide METAR reports from the U.S. National Weather
 Service Aviation Weather Center. Requests use a bounded coordinate box and follow the documented
 100-request-per-minute limit.
 
@@ -79,7 +80,7 @@ attribution recorded in `research/static-source-registry.json`.
 
 ## commons-suncalc 3.11
 
-ALADIN weather uses `org.shredzone.commons:commons-suncalc:3.11` for offline Sun and Moon
+Selia Weather uses `org.shredzone.commons:commons-suncalc:3.11` for offline Sun and Moon
 calculations.
 
 - Copyright 2017 Richard "Shred" Körber and contributors.

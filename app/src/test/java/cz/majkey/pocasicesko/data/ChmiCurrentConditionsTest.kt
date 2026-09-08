@@ -105,7 +105,7 @@ class ChmiCurrentConditionsTest {
     }
 
     @Test
-    fun stationSelectionKeepsOneSunshineSource() {
+    fun stationSelectionDoesNotReplaceNearbySensorsForDistantSunshine() {
         val location = CzechLocation("Point", REGION_PRAGUE, 50.0, 14.0)
         val stations = listOf(
             CurrentStation("0-1", "One", 50.00, 14.01, 200.0, false),
@@ -117,8 +117,7 @@ class ChmiCurrentConditionsTest {
         val selected = nearestCurrentStations(location, stations, count = 3)
 
         assertEquals(3, selected.size)
-        assertTrue(selected.any { it.sunshine })
-        assertTrue(selected.none { it.stationId == "0-3" })
+        assertEquals(listOf("0-1", "0-2", "0-3"), selected.map { it.stationId })
     }
 
     @Test
@@ -127,6 +126,19 @@ class ChmiCurrentConditionsTest {
         val incomplete = STATION_JSON.replace(",\"H\",", ",\"unsupported\",")
 
         assertEquals(null, parseCurrentStationObservation(incomplete, station))
+    }
+
+    @Test
+    fun nonFiniteAndOutOfRangeHumidityIsMissingRatherThanClamped() {
+        val station = CurrentStation("0-203-0-11775", "Station", 49.2, 17.7, 250.0, false)
+        listOf("\"NaN\"", "\"Infinity\"", "-1", "101", "null").forEach { value ->
+            val invalid = STATION_JSON.replace(",64,", ",$value,").replace(",66,", ",$value,")
+            assertEquals(null, parseCurrentStationObservation(invalid, station))
+        }
+        listOf(0, 100).forEach { value ->
+            val valid = STATION_JSON.replace(",64,", ",$value,")
+            assertEquals(value, requireNotNull(parseCurrentStationObservation(valid, station)).humidity)
+        }
     }
 
     companion object {

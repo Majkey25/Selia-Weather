@@ -167,6 +167,8 @@ def test_request_budget_counts_probe_and_download_calls() -> None:
         provider_limit=100,
     )
     assert budget.expected_http_requests == 16
+    assert budget.expected_quota_units is None
+    assert "quota units" not in budget.summary()
     budget.require_within_limit()
     retried = estimate_http_request_budget(
         candidate_count=2,
@@ -178,6 +180,19 @@ def test_request_budget_counts_probe_and_download_calls() -> None:
         probe_attempts=2,
     )
     assert retried.expected_http_requests == 20
+
+
+def test_request_budget_rejects_invalid_weighted_usage_and_enforces_its_limit() -> None:
+    budget = estimate_http_request_budget(
+        candidate_count=1, location_count=1, run_count=1, variable_count=1,
+        date_count=1, provider_limit=100,
+    )
+    for invalid in (-1.0, nan, float("inf")):
+        with pytest.raises(ValueError, match="quota"):
+            replace(budget, expected_quota_units=invalid)
+    replace(budget, expected_quota_units=99.0).require_within_limit()
+    with pytest.raises(ValueError, match="quota units.*reaches"):
+        replace(budget, expected_quota_units=100.0).require_within_limit()
 
 
 def test_probe_rejects_invalid_hourly_data() -> None:

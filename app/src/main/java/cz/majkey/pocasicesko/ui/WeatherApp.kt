@@ -13,6 +13,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.BackHandler
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
@@ -163,6 +164,10 @@ fun WeatherApp(
     val context = LocalContext.current
     val deviceLocationRepository = remember { DeviceLocationRepository(context) }
     var destination by rememberSaveable { mutableStateOf(Destination.WEATHER) }
+    var radarFullscreen by rememberSaveable { mutableStateOf(false) }
+    BackHandler(enabled = destination == Destination.MAPS && radarFullscreen) {
+        radarFullscreen = false
+    }
     var location by remember { mutableStateOf(repository.lastLocation()) }
     var reloadKey by remember { mutableIntStateOf(0) }
     var showLocationSearch by rememberSaveable { mutableStateOf(false) }
@@ -276,10 +281,12 @@ fun WeatherApp(
                     Destination.MAPS -> MapHubScreen(
                         location = location,
                         padding = padding,
+                        fullscreen = radarFullscreen,
+                        onToggleFullscreen = { radarFullscreen = !radarFullscreen },
                     )
                 }
             }
-            FloatingNavigation(
+            if (!(destination == Destination.MAPS && radarFullscreen)) FloatingNavigation(
                 destination = destination,
                 modifier = Modifier.align(Alignment.BottomCenter),
                 onDestination = { selected ->
@@ -354,6 +361,14 @@ fun WeatherApp(
                     onSupport = {
                         try {
                             context.startActivity(supportIntent())
+                            supportError = null
+                        } catch (_: ActivityNotFoundException) {
+                            supportError = supportUnavailable
+                        }
+                    },
+                    onLegalPage = { page ->
+                        try {
+                            context.startActivity(legalIntent(page))
                             supportError = null
                         } catch (_: ActivityNotFoundException) {
                             supportError = supportUnavailable

@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import UTC, date, datetime
+from dataclasses import replace
+from datetime import UTC, date, datetime, timedelta
+from math import isclose
 from pathlib import Path
 from typing import cast
 from urllib.request import Request
@@ -346,7 +348,7 @@ def test_previous_parser_filters_hours_before_materializing_rows() -> None:
         parse_previous_run_values(_previous_payload(), _previous_request(), sample_hours=())
 
 
-def test_previous_runs_budget_counts_batched_requests_not_points() -> None:
+def test_previous_runs_budget_keeps_http_count_separate_from_quota_units() -> None:
     requests = (_previous_request(lead_days=1), _previous_request(lead_days=2))
 
     budget = estimate_previous_runs_budget(requests, provider_limit=10)
@@ -354,9 +356,55 @@ def test_previous_runs_budget_counts_batched_requests_not_points() -> None:
     assert budget.candidate_count == 1
     assert budget.location_count == 2
     assert budget.expected_http_requests == 2
+    assert budget.expected_quota_units == 4.0
+    assert "expected HTTP requests: 2" in budget.summary()
+    assert "expected quota units: 4.000" in budget.summary()
     budget.require_within_limit()
     with pytest.raises(ValueError, match="reaches"):
-        estimate_previous_runs_budget(requests, provider_limit=2).require_within_limit()
+        estimate_previous_runs_budget(requests, provider_limit=4).require_within_limit()
+
+
+def test_previous_runs_budget_rejects_165_day_worldwide_batch_below_http_limit() -> None:
+    first = replace(
+        _previous_request(),
+        points=tuple(ForecastPoint(f"station-{index}", 50.0 + index / 100, 14.0)
+                     for index in range(24)),
+        variables=_request().variables,
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 6, 14),
+    )
+    requests = tuple(replace(first, model_id=f"model_{model}", lead_days=lead)
+                     for model in range(11) for lead in range(1, 8))
+    budget = estimate_previous_runs_budget(requests, provider_limit=10_000)
+
+    assert budget.expected_http_requests == 77
+    assert budget.date_count == 165
+    assert budget.expected_quota_units is not None
+    assert isclose(budget.expected_quota_units, 13_068.0)
+    with pytest.raises(ValueError, match="quota units.*reaches"):
+        budget.require_within_limit()
+
+
+def test_previous_runs_budget_sums_each_requests_own_locations_variables_and_dates() -> None:
+    first = _previous_request()
+    second = replace(first, points=first.points[:1], variables=_request().variables,
+                     end_date=first.start_date + timedelta(days=13))
+    third = replace(second, points=first.points + (ForecastPoint("third", 49.0, 15.0),),
+                    end_date=first.start_date + timedelta(days=27))
+    budget = estimate_previous_runs_budget((first, second, third), provider_limit=7)
+
+    assert budget.expected_http_requests == 3
+    assert budget.expected_quota_units is not None
+    assert isclose(budget.expected_quota_units, 2.0 + 1.0 + 3.6)
+    budget.require_within_limit()
+    restricted = estimate_previous_runs_budget((first, second, third), provider_limit=6)
+    with pytest.raises(ValueError, match="quota units.*reaches"):
+        restricted.require_within_limit()
+
+
+def test_previous_runs_request_cannot_hide_multiple_model_domains_in_one_id() -> None:
+    with pytest.raises(ValueError, match="one model"):
+        replace(_previous_request(), model_id="gfs_seamless,icon_seamless")
 
 
 def test_downloader_caches_batched_previous_runs(tmp_path: Path) -> None:

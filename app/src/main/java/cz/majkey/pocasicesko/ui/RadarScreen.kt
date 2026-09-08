@@ -84,6 +84,8 @@ fun ChmiWebScreen(url: String, modifier: Modifier = Modifier) {
                         settings.setSupportZoom(true)
                         settings.builtInZoomControls = true
                         settings.displayZoomControls = false
+                        settings.userAgentString =
+                            "${settings.userAgentString} Selia-Weather/${BuildConfig.VERSION_NAME}"
                         CookieManager.getInstance().apply {
                             setAcceptCookie(false)
                             setAcceptThirdPartyCookies(this@web, false)

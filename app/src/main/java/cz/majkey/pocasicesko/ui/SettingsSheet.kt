@@ -8,7 +8,6 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -65,6 +64,7 @@ fun SettingsSheet(
     onAddWidget: () -> Unit,
     onEditWidget: (Int) -> Unit,
     onWeatherDataAttribution: () -> Unit,
+    onLegalPage: (LegalPage) -> Unit,
     onSupport: () -> Unit,
     supportError: String?,
     onPurchase: (PremiumOfferType) -> Unit,
@@ -80,19 +80,15 @@ fun SettingsSheet(
         contentColor = Color.White,
         sheetState = sheetState,
     ) {
+        SheetHeader(stringResource(R.string.settings), onBack = onDismiss)
         Column(
             Modifier
-                .fillMaxHeight()
+                .weight(1f)
+                .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
                 .navigationBarsPadding()
                 .padding(bottom = 24.dp),
         ) {
-            Text(
-                text = stringResource(R.string.settings),
-                fontSize = 24.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-            )
             Text(
                 text = stringResource(R.string.units),
                 color = Color.White.copy(alpha = 0.58f),
@@ -280,6 +276,20 @@ fun SettingsSheet(
                     .clickable(onClick = onWeatherDataAttribution),
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             )
+            Text(
+                stringResource(R.string.legal_title),
+                color = Color.White.copy(alpha = 0.58f),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+            )
+            LegalPage.entries.forEach { page ->
+                ListItem(
+                    headlineContent = { Text(stringResource(page.labelResource)) },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { onLegalPage(page) },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                )
+            }
             Button(
                 onClick = onSupport,
                 modifier = Modifier

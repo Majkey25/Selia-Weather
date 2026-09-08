@@ -42,8 +42,12 @@ class WeatherUnitFormatter(
     }
 
     fun precipitation(millimetres: Double): String = when (system) {
-        MeasurementSystem.METRIC -> String.format(locale, "%.1f mm", millimetres)
-        MeasurementSystem.IMPERIAL -> String.format(locale, "%.2f in", millimetres / MILLIMETRES_PER_INCH)
+        MeasurementSystem.METRIC -> if (millimetres > 0.0 && millimetres < 0.1) {
+            String.format(locale, "<%.1f mm", 0.1)
+        } else String.format(locale, "%.1f mm", millimetres)
+        MeasurementSystem.IMPERIAL -> if (millimetres > 0.0 && millimetres < 0.01 * MILLIMETRES_PER_INCH) {
+            String.format(locale, "<%.2f in", 0.01)
+        } else String.format(locale, "%.2f in", millimetres / MILLIMETRES_PER_INCH)
     }
 
     fun snowfall(centimetres: Double): String = when (system) {

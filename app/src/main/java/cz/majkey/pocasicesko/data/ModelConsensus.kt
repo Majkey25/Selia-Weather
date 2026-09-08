@@ -1,5 +1,10 @@
 package cz.majkey.pocasicesko.data
 
+import java.time.Duration
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.ZoneOffset
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.hypot
@@ -17,6 +22,9 @@ internal data class ModelBlendResult(
     val truthClass: CalibrationTruthClass? = null,
     val artifactVersion: Int? = null,
     val artifactGeneratedAtEpochSeconds: Long? = null,
+    val calibrationAppliedAt: String? = null,
+    val calibrationVariable: String? = null,
+    val calibratedValueCount: Int = 0,
 )
 
 internal fun blendModelForecast(
@@ -24,6 +32,8 @@ internal fun blendModelForecast(
     modelsJson: String,
     location: CzechLocation? = null,
     calibration: CalibrationArtifact? = null,
+    calibratedValues: List<StaticModelValue> = emptyList(),
+    now: Instant = Instant.now(),
 ): ModelBlendResult {
     val root = JSONObject(bestMatchJson)
     val target = root.getJSONObject("hourly")
@@ -48,23 +58,43 @@ internal fun blendModelForecast(
     val targetTimes = target.getJSONArray("time")
     val currentTargetIndex = currentIndex(root, targetTimes)
     val region = location?.let(::forecastRegionFor)
-    var currentCalibration: WeightedModelValue? = null
-    var currentTruthClass: CalibrationTruthClass? = null
+    // Open-Meteo writes every ISO timestamp using this response offset, not device timezone rules.
+    val zone: ZoneId? = runCatching {
+        if (root.has("utc_offset_seconds")) {
+            val offset = root.get("utc_offset_seconds")
+            require(offset is Number && offset.toDouble() == offset.toInt().toDouble())
+            ZoneOffset.ofTotalSeconds(offset.toInt())
+        } else {
+            ZoneId.of(root.getString("timezone"))
+        }
+    }.getOrNull()
+    val issuedValues = calibratedValues.filter { value ->
+        location != null && kotlin.math.abs(value.latitude - location.latitude) < 1e-6 &&
+            kotlin.math.abs(value.longitude - location.longitude) < 1e-6
+    }.groupBy { it.validTime to it.variable }
+    val activeCalibration = calibration?.takeIf {
+        !now.isBefore(it.generatedAt) && now.isBefore(it.expiresAt)
+    }
+    var firstCalibration: WeightedModelValue? = null
+    var calibrationAppliedAt: String? = null
+    var calibrationVariable: String? = null
+    var calibratedValueCount = 0
     var blendedAny = false
     for (targetIndex in 0 until targetTimes.length()) {
         val sourceIndex = sourceIndices[targetTimes.getString(targetIndex)] ?: continue
-        val leadHours = currentTargetIndex?.let { current ->
-            (targetIndex - current).takeIf { it >= 0 }
-        }
-        val month = targetTimes.getString(targetIndex).substring(5, 7).toIntOrNull()
+        val localTime = LocalDateTime.parse(targetTimes.getString(targetIndex))
+        // Legacy responses without an offset cannot disambiguate daylight-saving transitions.
+        val validTime = zone?.takeIf { it.rules.getValidOffsets(localTime).size == 1 }
+            ?.let { localTime.atZone(it).toInstant() }
         CONTINUOUS_FIELDS.forEach { field ->
-            val segment = if (region != null && leadHours != null && month != null) {
-                calibration?.segment(region, field, leadHours, month)
+            val calibrated = if (region != null && validTime != null && currentTargetIndex != null && targetIndex >= currentTargetIndex) {
+                activeCalibration?.let { artifact ->
+                    weightedModelValue(
+                        issuedValues[validTime to field].orEmpty(), artifact, region, field, validTime, now,
+                    )
+                }
             } else {
                 null
-            }
-            val calibrated = segment?.let { calibratedSegment ->
-                weightedModelValue(source, field, sourceIndex, calibratedSegment)
             }
             val value = calibrated?.value ?: modelValues(source, suffixes, field, sourceIndex)
                 .takeIf { it.size >= MINIMUM_MODELS }
@@ -72,16 +102,15 @@ internal fun blendModelForecast(
             if (value != null && target.optJSONArray(field) != null) {
                 target.getJSONArray(field).put(targetIndex, value)
                 blendedAny = true
+                if (calibrated != null) {
+                    calibratedValueCount++
+                    if (firstCalibration == null) {
+                        firstCalibration = calibrated
+                        calibrationAppliedAt = targetTimes.getString(targetIndex)
+                        calibrationVariable = field
+                    }
+                }
             }
-            if (targetIndex == currentTargetIndex && field == "temperature_2m" && calibrated != null) {
-                currentCalibration = calibrated
-                currentTruthClass = segment.truthClass
-            }
-        }
-        val windSegment = if (region != null && leadHours != null && month != null) {
-            calibration?.segment(region, WIND_VECTOR_VARIABLE, leadHours, month)
-        } else {
-            null
         }
         blendedAny = blendWind(
             source,
@@ -89,7 +118,6 @@ internal fun blendModelForecast(
             suffixes,
             sourceIndex,
             targetIndex,
-            windSegment,
         ) || blendedAny
         blendedAny = deriveCondition(
             source,
@@ -109,9 +137,9 @@ internal fun blendModelForecast(
     }
     updateCurrent(root, target, targetTimes)
     updateDaily(root, target, targetTimes)
-    val appliedWeights = currentCalibration?.weights.orEmpty()
-    val contributorIds = currentCalibration?.weights?.keys?.toList() ?: diagnosticContributors
-    val calibrated = currentCalibration != null
+    val appliedWeights = firstCalibration?.weights.orEmpty()
+    val contributorIds = firstCalibration?.weights?.keys?.toList() ?: diagnosticContributors
+    val calibrated = firstCalibration != null
     val diagnostic = diagnosticContributors.size >= MINIMUM_MODELS
     return ModelBlendResult(
         root.toString(),
@@ -123,9 +151,12 @@ internal fun blendModelForecast(
         contributorIds,
         if (calibrated || diagnostic) null else ForecastFallbackReason.INSUFFICIENT_CONTRIBUTORS,
         appliedWeights,
-        currentTruthClass,
+        firstCalibration?.truthClass,
         calibration?.schemaVersion?.takeIf { calibrated },
         calibration?.generatedAt?.epochSecond?.takeIf { calibrated },
+        calibrationAppliedAt,
+        calibrationVariable,
+        calibratedValueCount,
     )
 }
 
@@ -151,22 +182,18 @@ private fun blendWind(
     suffixes: List<String>,
     sourceIndex: Int,
     targetIndex: Int,
-    segment: CalibrationSegment?,
 ): Boolean {
-    val sourceIds = segment?.weights?.keys ?: suffixes
-    val vectors = sourceIds.mapNotNull { suffix ->
+    val vectors = suffixes.mapNotNull { suffix ->
         val speed = source.optJSONArray("wind_speed_10m_$suffix").numberOrNull(sourceIndex)
             ?: return@mapNotNull null
         val direction = source.optJSONArray("wind_direction_10m_$suffix").numberOrNull(sourceIndex)
             ?: return@mapNotNull null
         if (speed < 0 || direction !in 0.0..360.0) return@mapNotNull null
-        WindVector(speed, Math.toRadians(direction), segment?.weights?.get(suffix) ?: 1.0)
+        WindVector(speed, Math.toRadians(direction))
     }
-    val minimum = segment?.minimumContributors ?: MINIMUM_MODELS
-    if (vectors.size < minimum) return false
-    val totalWeight = vectors.sumOf(WindVector::weight)
-    val east = vectors.sumOf { vector -> vector.speed * sin(vector.angle) * vector.weight } / totalWeight
-    val north = vectors.sumOf { vector -> vector.speed * cos(vector.angle) * vector.weight } / totalWeight
+    if (vectors.size < MINIMUM_MODELS) return false
+    val east = vectors.sumOf { vector -> vector.speed * sin(vector.angle) } / vectors.size
+    val north = vectors.sumOf { vector -> vector.speed * cos(vector.angle) } / vectors.size
     target.optJSONArray("wind_speed_10m")?.put(targetIndex, hypot(east, north))
     target.optJSONArray("wind_direction_10m")?.put(
         targetIndex,
@@ -184,20 +211,25 @@ private fun deriveCondition(
 ): Boolean {
     val precipitation = modelValues(source, suffixes, "precipitation", sourceIndex)
     val clouds = modelValues(source, suffixes, "cloud_cover", sourceIndex)
-    if (precipitation.size < MINIMUM_MODELS || clouds.size < MINIMUM_MODELS) return false
-    val amount = target.optJSONArray("precipitation").numberOrNull(targetIndex) ?: return false
+    if (clouds.size < MINIMUM_MODELS) return false
     val cloudCover = target.optJSONArray("cloud_cover").numberOrNull(targetIndex)
         ?.roundToInt()?.coerceIn(0, 100) ?: return false
     val fallbackCode = target.optJSONArray("weather_code").numberOrNull(targetIndex)?.roundToInt()
-    target.optJSONArray("weather_code")?.put(
-        targetIndex,
+    val code = if (precipitation.size >= MINIMUM_MODELS) {
+        val amount = target.optJSONArray("precipitation").numberOrNull(targetIndex) ?: return false
         deriveWeatherCode(
             modelValues(source, suffixes, "weather_code", sourceIndex).map(Double::roundToInt),
             amount,
             cloudCover,
             fallbackCode,
-        ),
-    )
+        )
+    } else {
+        // Cloud-only evidence updates sky classes, never disproves drizzle or other hazards.
+        // A provider's preceding-hour rain total is not an instantaneous condition.
+        if (fallbackCode !in 0..3) return false
+        skyWeatherCode(cloudCover)
+    }
+    target.optJSONArray("weather_code")?.put(targetIndex, code)
     return true
 }
 
@@ -215,14 +247,20 @@ private fun deriveWeatherCode(
         sufficientCodes && codes.count { it in 95..99 } >= required -> 95
         sufficientCodes && codes.count { it in 66..67 } >= required -> 66
         sufficientCodes && codes.count { it in 56..57 } >= required -> 56
+        sufficientCodes && codes.count { it in DRIZZLE_CODES } >= required ->
+            DRIZZLE_CODES.firstOrNull { code -> codes.count { it == code } >= required } ?: 51
         sufficientCodes && codes.count { it in 71..77 || it == 85 || it == 86 } >= required -> 71
         sufficientCodes && codes.count { it in 45..48 } >= required -> 45
         precipitation >= WET_THRESHOLD_MM -> 61
-        cloudCover <= 20 -> 0
-        cloudCover <= 50 -> 1
-        cloudCover <= 80 -> 2
-        else -> 3
+        else -> skyWeatherCode(cloudCover)
     }
+}
+
+private fun skyWeatherCode(cloudCover: Int): Int = when {
+    cloudCover <= 20 -> 0
+    cloudCover <= 50 -> 1
+    cloudCover <= 80 -> 2
+    else -> 3
 }
 
 private fun updateCurrent(root: JSONObject, hourly: JSONObject, times: JSONArray) {
@@ -298,25 +336,39 @@ private fun modelValues(
 }
 
 private fun weightedModelValue(
-    source: JSONObject,
+    values: List<StaticModelValue>,
+    artifact: CalibrationArtifact,
+    region: ForecastRegion,
     field: String,
-    index: Int,
-    segment: CalibrationSegment,
+    validTime: Instant,
+    now: Instant,
 ): WeightedModelValue? {
-    val available = segment.weights.mapNotNull { (modelId, weight) ->
-        if (weight <= 0) return@mapNotNull null
-        val value = source.optJSONArray("${field}_$modelId").numberOrNull(index)
-            ?.takeIf { candidate -> isValidModelValue(field, candidate) }
-            ?: return@mapNotNull null
-        WeightedModelInput(modelId, value, weight)
+    if (values.isEmpty() || field !in CALIBRATION_UNITS) return null
+    val contracts = artifact.models.associateBy(CalibrationModelContract::modelId)
+    val month = validTime.atZone(ZoneOffset.UTC).monthValue
+    for (segment in artifact.segments.filter { it.region == region && it.variable == field && month in it.months }) {
+        val available = values.filter { row ->
+            val contract = contracts[row.modelId]
+            val age = Duration.between(row.runTime, now)
+            val lead = Duration.between(row.runTime, validTime)
+            contract != null && !age.isNegative && age <= Duration.ofHours(contract.maximumRunAgeHours.toLong()) &&
+                lead >= Duration.ofHours(segment.minimumLeadHours.toLong()) &&
+                lead <= Duration.ofHours(segment.maximumLeadHours.toLong()) &&
+                row.unit == CALIBRATION_UNITS[field] && row.value?.let { it.isFinite() && isValidModelValue(field, it) } == true
+        }.groupBy(StaticModelValue::modelId).mapValues { (_, rows) -> rows.maxBy(StaticModelValue::runTime) }
+        val inputs = segment.weights.mapNotNull { (modelId, weight) ->
+            val value = available[modelId]?.value ?: return@mapNotNull null
+            if (weight > 0) WeightedModelInput(modelId, value, weight) else null
+        }
+        if (inputs.size < segment.minimumContributors) continue
+        val totalWeight = inputs.sumOf(WeightedModelInput::weight)
+        return WeightedModelValue(
+            inputs.sumOf { it.value * it.weight } / totalWeight,
+            inputs.associate { it.modelId to it.weight / totalWeight },
+            segment.truthClass,
+        )
     }
-    if (available.size < segment.minimumContributors) return null
-    val totalWeight = available.sumOf(WeightedModelInput::weight)
-    val normalized = available.associate { input -> input.modelId to input.weight / totalWeight }
-    return WeightedModelValue(
-        value = available.sumOf { input -> input.value * input.weight } / totalWeight,
-        weights = normalized,
-    )
+    return null
 }
 
 private fun currentIndex(root: JSONObject, times: JSONArray): Int? {
@@ -342,8 +394,12 @@ private fun List<Double>.median(): Double = sorted().let { values ->
 }
 
 private data class WeightedModelInput(val modelId: String, val value: Double, val weight: Double)
-private data class WeightedModelValue(val value: Double, val weights: Map<String, Double>)
-private data class WindVector(val speed: Double, val angle: Double, val weight: Double)
+private data class WeightedModelValue(
+    val value: Double,
+    val weights: Map<String, Double>,
+    val truthClass: CalibrationTruthClass,
+)
+private data class WindVector(val speed: Double, val angle: Double)
 
 private fun weatherSeverity(code: Int): Int = when (code) {
     in 95..99 -> 7
@@ -393,4 +449,9 @@ private val NON_NEGATIVE_FIELDS = setOf(
 )
 private const val MINIMUM_MODELS = 3
 private const val WET_THRESHOLD_MM = 0.1
-private const val WIND_VECTOR_VARIABLE = "wind_vector_10m"
+private val DRIZZLE_CODES = setOf(51, 53, 55)
+// Interval totals and wind need their own interval/vector contracts, not scalar substitution.
+private val CALIBRATION_UNITS = mapOf(
+    "temperature_2m" to "°C", "dew_point_2m" to "°C",
+    "pressure_msl" to "hPa", "surface_pressure" to "hPa",
+)

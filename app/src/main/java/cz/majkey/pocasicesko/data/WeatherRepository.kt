@@ -31,6 +31,7 @@ class WeatherRepository(context: Context) {
     private val currentConditions = ChmiCurrentConditionsRepository(appContext)
     private val metarCurrentConditions = MetarCurrentConditionsRepository()
     private val historyRepository = HistoryRepository(File(appContext.cacheDir, "history"))
+    private val calibratedForecasts = StaticForecastRepository()
 
     fun lastLocation(): CzechLocation = synchronized(PERSISTENCE_LOCK) {
         val location = CzechLocation(
@@ -120,12 +121,16 @@ class WeatherRepository(context: Context) {
         checkActive()
         val requestedModels = forecastApiModelsFor(location)
         val blend = try {
+            val modelsJson = request(modelForecastUrl(location))
+            checkActive()
+            val calibration = calibratedForecasts.fetchForLocation(location, Instant.now())
+            checkActive()
             blendModelForecast(
                 bestMatchJson,
-                request(modelForecastUrl(location)),
+                modelsJson,
                 location,
-                // Live responses omit model issue times, so calibrated lead/age cannot be verified.
-                calibration = null,
+                calibration = calibration?.artifact,
+                calibratedValues = calibration?.values.orEmpty(),
             )
         } catch (_: IOException) {
             ModelBlendResult(
@@ -146,13 +151,16 @@ class WeatherRepository(context: Context) {
         val calculation = ForecastCalculation(
             region = forecastRegionFor(location),
             mode = blend.mode,
-            requestedModelIds = requestedModels,
+            requestedModelIds = (requestedModels + blend.contributorIds).distinct(),
             contributorIds = blend.contributorIds,
             fallbackReason = blend.fallbackReason,
             artifactVersion = blend.artifactVersion,
             artifactGeneratedAtEpochSeconds = blend.artifactGeneratedAtEpochSeconds,
             truthClass = blend.truthClass,
             weights = blend.appliedWeights,
+            calibrationAppliedAt = blend.calibrationAppliedAt,
+            calibrationVariable = blend.calibrationVariable,
+            calibratedValueCount = blend.calibratedValueCount,
         )
         val forecastJson = JSONObject(blend.json).putForecastCalculation(calculation).toString()
         val updatedAt = System.currentTimeMillis()

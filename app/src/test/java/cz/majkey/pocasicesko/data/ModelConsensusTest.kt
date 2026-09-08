@@ -275,7 +275,7 @@ class ModelConsensusTest {
     }
 
     @Test
-    fun appliesOnlyAcceptedVariableSpecificWeights() {
+    fun liveSeriesWithoutIssuedRunTimesCannotUseLearnedWeights() {
         val artifact = parseCalibrationArtifact(
             CALIBRATION,
             Instant.parse("2026-08-29T19:00:00Z").epochSecond,
@@ -284,13 +284,230 @@ class ModelConsensusTest {
         val result = blendModelForecast(BASE, MODELS, PRAGUE, artifact)
         val root = JSONObject(result.json)
 
-        assertEquals(21.2, root.getJSONObject("hourly").getJSONArray("temperature_2m").getDouble(0), 0.0001)
+        assertEquals(22.0, root.getJSONObject("hourly").getJSONArray("temperature_2m").getDouble(0), 0.0001)
         assertEquals(99.0, root.getJSONObject("current").getDouble("temperature_2m"), 0.0)
+        assertEquals(ForecastCalculationMode.DIAGNOSTIC_MEDIAN, result.mode)
+        assertTrue(result.appliedWeights.isEmpty())
+    }
+
+    @Test
+    fun majorityDrizzleIsNotErasedByTheMeasurableRainThreshold() {
+        listOf(
+            listOf(51, 53, 55) to 51,
+            listOf(51, 53, 0) to 51,
+            listOf(55, 55, 0) to 55,
+            listOf(53, 53, 0) to 53,
+            listOf(51, 0, 0) to 0,
+        )
+            .forEach { (codes, expectedCode) ->
+                val base = JSONObject(BASE).also { root ->
+                    root.getJSONObject("hourly").getJSONArray("precipitation_probability").put(0, 3)
+                }
+                val models = JSONObject(MODELS).also { root ->
+                    val hourly = root.getJSONObject("hourly")
+                    listOf("a", "b", "c").forEachIndexed { index, suffix ->
+                        hourly.getJSONArray("weather_code_$suffix").put(0, codes[index])
+                        hourly.getJSONArray("precipitation_$suffix").put(0, 0.03)
+                    }
+                }
+
+                val hourly = JSONObject(blendModelForecast(base.toString(), models.toString()).json)
+                    .getJSONObject("hourly")
+
+                assertEquals(expectedCode, hourly.getJSONArray("weather_code").getInt(0))
+                assertEquals(0.03, hourly.getJSONArray("precipitation").getDouble(0), 0.0)
+                assertEquals(3, hourly.getJSONArray("precipitation_probability").getInt(0))
+            }
+    }
+
+    @Test
+    fun blendedCloudCoverUpdatesBenignSkyCodeWhenPrecipitationContributorsAreMissing() {
+        listOf(10 to 0, 40 to 1, 70 to 2, 95 to 3).forEach { (cloudCover, expectedCode) ->
+            val base = JSONObject(BASE).also { root ->
+                root.getJSONObject("hourly").apply {
+                    getJSONArray("weather_code").put(0, 0)
+                    getJSONArray("precipitation_probability").put(0, 3)
+                    put("cloud_cover_low", JSONArray(listOf(0, 0)))
+                    put("cloud_cover_mid", JSONArray(listOf(85, 0)))
+                    put("cloud_cover_high", JSONArray(listOf(100, 0)))
+                }
+            }
+            val models = JSONObject(MODELS).also { root ->
+                root.getJSONObject("hourly").apply {
+                    getJSONArray("precipitation_c").put(0, JSONObject.NULL)
+                    listOf("a", "b", "c").forEach { suffix ->
+                        getJSONArray("cloud_cover_$suffix").put(0, cloudCover)
+                    }
+                }
+            }
+
+            val hourly = JSONObject(blendModelForecast(base.toString(), models.toString()).json)
+                .getJSONObject("hourly")
+
+            assertEquals(expectedCode, hourly.getJSONArray("weather_code").getInt(0))
+            assertEquals(cloudCover, hourly.getJSONArray("cloud_cover").getInt(0))
+            assertEquals(3, hourly.getJSONArray("precipitation_probability").getInt(0))
+            assertEquals(0.0, hourly.getJSONArray("precipitation").getDouble(0), 0.0)
+            // Layer fractions have provider-specific definitions, not a union constraint.
+            assertEquals(85, hourly.getJSONArray("cloud_cover_mid").getInt(0))
+            assertEquals(100, hourly.getJSONArray("cloud_cover_high").getInt(0))
+        }
+    }
+
+    @Test
+    fun cloudOnlyBlendPreservesProviderDrizzleRainAndHazards() {
+        listOf(51, 61, 71, 66, 95, 45).forEach { providerCode ->
+            val base = JSONObject(BASE).also { root ->
+                root.getJSONObject("hourly").getJSONArray("weather_code").put(0, providerCode)
+            }
+            val models = JSONObject(MODELS).also { root ->
+                root.getJSONObject("hourly").getJSONArray("precipitation_c").put(0, JSONObject.NULL)
+            }
+
+            val hourly = JSONObject(blendModelForecast(base.toString(), models.toString()).json)
+                .getJSONObject("hourly")
+
+            assertEquals(providerCode, hourly.getJSONArray("weather_code").getInt(0))
+            assertEquals(10, hourly.getJSONArray("cloud_cover").getInt(0))
+        }
+    }
+
+    @Test
+    fun cloudOnlyBlendDoesNotTurnPrecedingHourRainIntoAnInstantRainCondition() {
+        val base = JSONObject(BASE).also { root ->
+            root.getJSONObject("hourly").apply {
+                getJSONArray("weather_code").put(0, 3)
+                getJSONArray("precipitation").put(0, 0.2)
+                getJSONArray("precipitation_probability").put(0, 3)
+            }
+        }
+        val models = JSONObject(MODELS).also { root ->
+            root.getJSONObject("hourly").getJSONArray("precipitation_c").put(0, JSONObject.NULL)
+        }
+
+        val hourly = JSONObject(blendModelForecast(base.toString(), models.toString()).json)
+            .getJSONObject("hourly")
+
+        assertEquals(0, hourly.getJSONArray("weather_code").getInt(0))
+        assertEquals(0.2, hourly.getJSONArray("precipitation").getDouble(0), 0.0)
+        assertEquals(3, hourly.getJSONArray("precipitation_probability").getInt(0))
+    }
+
+    @Test
+    fun appliesIssuedValuesAtTheRequestedLocationUsingActualRunLead() {
+        val result = issuedBlend(issuedValues())
+        val hourly = JSONObject(result.json).getJSONObject("hourly")
+
+        assertEquals(21.2, hourly.getJSONArray("temperature_2m").getDouble(0), 1e-9)
+        assertEquals(20.0, hourly.getJSONArray("temperature_2m").getDouble(1), 1e-9)
         assertEquals(ForecastCalculationMode.CALIBRATED, result.mode)
-        assertEquals(listOf("a", "b"), result.contributorIds)
         assertEquals(mapOf("a" to 0.4, "b" to 0.6), result.appliedWeights)
         assertEquals(CalibrationTruthClass.STATION, result.truthClass)
-        assertEquals(2, result.artifactVersion)
+        assertEquals("2026-08-29T19:00", result.calibrationAppliedAt)
+        assertEquals("temperature_2m", result.calibrationVariable)
+        assertEquals(1, result.calibratedValueCount)
+    }
+
+    @Test
+    fun reportsFutureOnlyCalibrationWithoutClaimingItChangedCurrentConditions() {
+        val result = issuedBlend(issuedValues().map { it.copy(validTime = it.validTime.plusSeconds(3600)) })
+        assertEquals(ForecastCalculationMode.CALIBRATED, result.mode)
+        assertEquals("2026-08-29T20:00", result.calibrationAppliedAt)
+        assertEquals(1, result.calibratedValueCount)
+        val root = JSONObject(result.json)
+        assertEquals(99.0, root.getJSONObject("current").getDouble("temperature_2m"), 0.0)
+        assertEquals(22.0, root.getJSONObject("hourly").getJSONArray("temperature_2m").getDouble(0), 0.0)
+        assertEquals(21.2, root.getJSONObject("hourly").getJSONArray("temperature_2m").getDouble(1), 1e-9)
+    }
+
+    @Test
+    fun rejectsStaleFutureWrongLocationUnitAndOutOfLeadIssuedValues() {
+        val values = issuedValues()
+        val invalid = listOf(
+            values.map { it.copy(runTime = Instant.parse("2026-08-28T00:00:00Z")) },
+            values.map { it.copy(runTime = Instant.parse("2026-08-29T18:00:00Z")) },
+            values.map { it.copy(latitude = 51.0) },
+            values.map { it.copy(unit = "K") },
+            values.take(1),
+        )
+        invalid.forEach { rows ->
+            val result = issuedBlend(rows)
+            assertEquals(ForecastCalculationMode.DIAGNOSTIC_MEDIAN, result.mode)
+            assertEquals(22.0, JSONObject(result.json).getJSONObject("hourly").getJSONArray("temperature_2m").getDouble(0), 0.0)
+        }
+        val artifact = JSONObject(CALIBRATION).also {
+            it.getJSONArray("segments").getJSONObject(0).getJSONObject("selector")
+                .put("minimum_lead_hours", 0).put("maximum_lead_hours", 1)
+        }
+        assertEquals(ForecastCalculationMode.DIAGNOSTIC_MEDIAN, issuedBlend(values, artifact.toString()).mode)
+    }
+
+    @Test
+    fun doesNotApplyExpiredWeights() {
+        val expired = JSONObject(CALIBRATION).put("expires_at", "2026-08-29T17:00:00Z")
+        val parsedBeforeExpiry = parseCalibrationArtifact(expired.toString(), Instant.parse("2026-08-29T16:00:00Z").epochSecond)
+        val result = blendModelForecast(BASE, MODELS, PRAGUE, parsedBeforeExpiry, issuedValues(), NOW)
+        assertEquals(ForecastCalculationMode.DIAGNOSTIC_MEDIAN, result.mode)
+    }
+
+    @Test
+    fun doesNotGuessUtcForDaylightSavingOverlapOrGap() {
+        listOf("2026-03-29" to "01", "2026-10-25" to "00").forEach { (date, utcHour) ->
+            val times = JSONArray(listOf("${date}T02:00", "${date}T03:00"))
+            val base = JSONObject(BASE).also {
+                it.getJSONObject("current").put("time", "${date}T02:15")
+                it.getJSONObject("hourly").put("time", times)
+            }
+            val models = JSONObject(MODELS).also { it.getJSONObject("hourly").put("time", times) }
+            val validTime = Instant.parse("${date}T${utcHour}:00:00Z")
+            val now = validTime.plusSeconds(900)
+            val artifact = JSONObject(CALIBRATION).also {
+                it.put("generated_at", validTime.minusSeconds(3600).toString())
+                it.put("expires_at", now.plusSeconds(86400).toString())
+                it.getJSONArray("segments").getJSONObject(0).getJSONObject("selector")
+                    .put("months", JSONArray(listOf(date.substring(5, 7).toInt())))
+            }
+            val values = issuedValues().map { it.copy(runTime = validTime.minusSeconds(3600), validTime = validTime) }
+            val result = blendModelForecast(base.toString(), models.toString(), PRAGUE,
+                parseCalibrationArtifact(artifact.toString(), now.epochSecond), values, now)
+            assertEquals(22.0, JSONObject(result.json).getJSONObject("hourly").getJSONArray("temperature_2m").getDouble(0), 0.0)
+            // In spring, the next real 03:00 hour legitimately matches 01:00 UTC.
+            assertEquals(if (date == "2026-03-29") "${date}T03:00" else null, result.calibrationAppliedAt)
+        }
+    }
+
+    @Test
+    fun usesResponseUtcOffsetInsteadOfPotentiallyOutdatedDeviceTimezoneRules() {
+        val base = JSONObject(BASE).put("timezone", "UTC").put("utc_offset_seconds", 7200)
+        val result = blendModelForecast(base.toString(), MODELS, PRAGUE,
+            parseCalibrationArtifact(CALIBRATION, NOW.epochSecond), issuedValues(), NOW)
+        assertEquals(21.2, JSONObject(result.json).getJSONObject("hourly").getJSONArray("temperature_2m").getDouble(0), 1e-9)
+        assertEquals(1, result.calibratedValueCount)
+    }
+
+    @Test
+    fun neverUsesAnIntervalTotalAsHourlyCalibratedRain() {
+        val artifact = CALIBRATION.replace("\"variable\":\"temperature_2m\"", "\"variable\":\"precipitation\"")
+        val result = issuedBlend(issuedValues().map { it.copy(variable = "precipitation", unit = "mm") }, artifact)
+        assertEquals(0, result.calibratedValueCount)
+        assertEquals(0.0, JSONObject(result.json).getJSONObject("hourly").getJSONArray("precipitation").getDouble(0), 0.0)
+    }
+
+    @Test
+    fun doesNotRecalibrateHoursBeforeCurrentHour() {
+        val base = JSONObject(BASE).also { it.getJSONObject("current").put("time", "2026-08-29T20:15") }
+        val result = blendModelForecast(base.toString(), MODELS, PRAGUE,
+            parseCalibrationArtifact(CALIBRATION, NOW.epochSecond), issuedValues(), NOW)
+        assertEquals(0, result.calibratedValueCount)
+        assertEquals(22.0, JSONObject(result.json).getJSONObject("hourly").getJSONArray("temperature_2m").getDouble(0), 0.0)
+    }
+
+    private fun issuedBlend(values: List<StaticModelValue>, artifact: String = CALIBRATION): ModelBlendResult =
+        blendModelForecast(BASE, MODELS, PRAGUE, parseCalibrationArtifact(artifact, NOW.epochSecond), values, NOW)
+
+    private fun issuedValues(): List<StaticModelValue> = listOf("a" to 20.0, "b" to 22.0).map { (model, value) ->
+        StaticModelValue(model, model, Instant.parse("2026-08-29T12:00:00Z"), Instant.parse("2026-08-29T17:00:00Z"),
+            PRAGUE.latitude, PRAGUE.longitude, 250.0, "temperature_2m", value, "°C")
     }
 
     @Test
@@ -335,13 +552,14 @@ class ModelConsensusTest {
 
     companion object {
         private val PRAGUE = CzechLocation("Praha", REGION_PRAGUE, 50.0755, 14.4378, "CZ")
+        private val NOW = Instant.parse("2026-08-29T17:15:00Z")
 
         private val CALIBRATION = """
             {
               "schema_version":2,
               "dataset_manifest_hash":"${"a".repeat(64)}",
               "model_contract_hash":"${"b".repeat(64)}",
-              "generated_at":"2026-08-29T18:00:00Z",
+              "generated_at":"2026-08-29T12:00:00Z",
               "expires_at":"2026-09-29T18:00:00Z",
               "models":[
                 {"model_id":"a","maximum_run_age_hours":12,"resolution_km":10.0},
@@ -360,7 +578,7 @@ class ModelConsensusTest {
                 "weights":{"a":0.4,"b":0.6},
                 "minimum_source_count":2,
                 "fallback_model":"a",
-                "holdout":{"accepted":true}
+                "holdout":{"accepted":true,"sample_count":30}
               }]
             }
         """.trimIndent()

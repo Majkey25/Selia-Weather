@@ -2,6 +2,9 @@ package cz.majkey.pocasicesko.ui
 
 import android.content.ActivityNotFoundException
 import androidx.annotation.StringRes
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,11 +19,23 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Navigation
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.ChatBubbleOutline
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.CalendarToday
+import androidx.compose.material.icons.rounded.Thermostat
+import androidx.compose.material.icons.rounded.WaterDrop
+import androidx.compose.material.icons.rounded.Air
+import androidx.compose.material.icons.rounded.Cloud
+import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.DatePickerDialog
@@ -30,10 +45,12 @@ import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -49,11 +66,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -74,7 +93,6 @@ import cz.majkey.pocasicesko.data.HistoryArchive
 import cz.majkey.pocasicesko.data.HistorySummary
 import cz.majkey.pocasicesko.data.HourlyWeather
 import cz.majkey.pocasicesko.data.WeatherSnapshot
-import cz.majkey.pocasicesko.data.currentDay
 import cz.majkey.pocasicesko.data.summary
 import cz.majkey.pocasicesko.data.inDateRange
 import cz.majkey.pocasicesko.units.WeatherUnitFormatter
@@ -100,6 +118,7 @@ internal fun WeatherDetailSheet(
     units: WeatherUnitFormatter,
     loadHistory: suspend (CzechLocation) -> HistoryArchive,
     initialHistory: Boolean = false,
+    currentTime: LocalDateTime? = null,
     onDismiss: () -> Unit,
 ) {
     val locale = LocalConfiguration.current.locales[0]
@@ -116,13 +135,16 @@ internal fun WeatherDetailSheet(
         }
     }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val today = snapshot.daily.firstOrNull()?.let { snapshot.currentDay() }
+    val today = snapshot.daily.firstOrNull { it.date == currentTime?.toLocalDate()?.toString() }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val shareChooserTitle = stringResource(R.string.history_share_chooser)
     var historyState by remember(location) { mutableStateOf<HistoryUiState>(HistoryUiState.Idle) }
     var showHistoryDays by remember(location) { mutableStateOf(false) }
     var historyShareError by remember(location) { mutableStateOf(false) }
+    var historySharing by remember(location) { mutableStateOf(false) }
+    var pendingShare by remember(location) { mutableStateOf<PendingHistoryShare?>(null) }
+    var historyQuestion by rememberSaveable(location.latitude, location.longitude) { mutableStateOf("") }
     var historyPeriod by rememberSaveable(location.latitude, location.longitude) { mutableStateOf(HistoryPeriod.ALL) }
     var customStart by rememberSaveable(location.latitude, location.longitude) { mutableStateOf<Long?>(null) }
     var customEnd by rememberSaveable(location.latitude, location.longitude) { mutableStateOf<Long?>(null) }
@@ -130,8 +152,7 @@ internal fun WeatherDetailSheet(
     val customRange = customStart?.let { start -> customEnd?.let { end ->
         historyDateFromUtcMillis(start)..historyDateFromUtcMillis(end)
     } }
-    val historyIndex = if (snapshot.calculation == null) 2 else 3
-    val listState = rememberLazyListState(initialFirstVisibleItemIndex = if (initialHistory) historyIndex else 0)
+    val listState = rememberLazyListState()
     fun loadArchive() {
         historyState = HistoryUiState.Loading
         showHistoryDays = false
@@ -146,25 +167,26 @@ internal fun WeatherDetailSheet(
             }
         }
     }
-    fun shareArchive(archive: HistoryArchive) {
+    fun shareArchive(archive: HistoryArchive, question: String, range: ClosedRange<LocalDate>) {
+        if (historySharing) return
+        historySharing = true
         historyShareError = false
         scope.launch {
             try {
-                context.startActivity(createHistoryShareIntent(context, archive, shareChooserTitle))
+                context.startActivity(createHistoryShareIntent(context, archive, shareChooserTitle, question, range))
             } catch (_: IOException) {
                 historyShareError = true
             } catch (_: ActivityNotFoundException) {
                 historyShareError = true
             } catch (_: IllegalArgumentException) {
                 historyShareError = true
+            } finally {
+                historySharing = false
             }
         }
     }
     LaunchedEffect(initialHistory, location) {
         if (initialHistory) loadArchive()
-    }
-    LaunchedEffect(initialHistory, historyIndex) {
-        if (initialHistory) listState.scrollToItem(historyIndex)
     }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -172,296 +194,318 @@ internal fun WeatherDetailSheet(
         contentColor = Color.White,
         sheetState = sheetState,
     ) {
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight()
-                .navigationBarsPadding(),
-            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 36.dp),
-            verticalArrangement = Arrangement.spacedBy(26.dp),
-        ) {
-            item {
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.back)) }
-                Text(
-                    stringResource(R.string.weather_details),
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    location.name,
-                    color = Color.White.copy(alpha = 0.58f),
-                    modifier = Modifier.padding(top = 4.dp),
-                )
-            }
-            item {
-                AtAGlanceSection(snapshot, today, units, locale)
-            }
-            snapshot.calculation?.let { calculation ->
-                item { ForecastCalculationSection(calculation) }
-            }
-            item {
-                HistoryArchiveSection(
-                    state = historyState,
-                    units = units,
-                    locale = locale,
-                    showDays = showHistoryDays,
-                    shareError = historyShareError,
-                    onLoad = ::loadArchive,
-                    onShare = ::shareArchive,
-                    onToggleDays = { showHistoryDays = !showHistoryDays },
-                    period = historyPeriod,
-                    customRange = customRange,
-                    onPeriod = {
-                        if (it == HistoryPeriod.CUSTOM) showRangePicker = true else historyPeriod = it
-                    },
-                )
-            }
-            val history = (historyState as? HistoryUiState.Content)?.archive
-            if (history != null && showHistoryDays) {
-                item {
-                    Text(
-                        stringResource(R.string.history_daily_title),
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                }
-                items(history.periodDays(historyPeriod, customRange).asReversed(), key = { it.date.toString() }) { day ->
-                    HistoricalDayRow(day, units, locale)
-                }
-            }
-            item {
-                DetailSection(stringResource(R.string.current_details)) {
-                    DetailRow(stringResource(R.string.temperature), units.temperature(snapshot.current.temperature))
-                    DetailRow(stringResource(R.string.feels_like), units.temperature(snapshot.current.feelsLike))
-                    OptionalDetailRow(
-                        stringResource(R.string.dew_point),
-                        snapshot.current.dewPoint?.let(units::temperature),
-                    )
-                    OptionalDetailRow(
-                        stringResource(R.string.wet_bulb_temperature),
-                        snapshot.current.wetBulbTemperature?.let(units::temperature),
-                    )
-                    OptionalDetailRow(
-                        stringResource(R.string.apparent_temperature_range),
-                        today?.let { day ->
-                            day.apparentTemperatureMin?.let { minimum ->
-                                day.apparentTemperatureMax?.let { maximum ->
-                                    "${units.temperature(minimum)} – ${units.temperature(maximum)}"
-                                }
-                            }
-                        },
-                    )
-                    DetailRow(stringResource(R.string.humidity), "${snapshot.current.humidity} %")
-                    DetailRow(stringResource(R.string.pressure), units.pressure(snapshot.current.pressure))
-                    OptionalDetailRow(
-                        stringResource(R.string.surface_pressure),
-                        snapshot.current.surfacePressure?.let(units::pressure),
-                    )
-                    OptionalDetailRow(
-                        stringResource(R.string.visibility),
-                        snapshot.current.visibilityMeters?.let(units::visibility),
-                    )
-                }
-            }
-            item {
-                DetailSection(stringResource(R.string.precipitation_and_clouds)) {
-                    DetailRow(
-                        stringResource(R.string.precipitation),
-                        units.precipitation(snapshot.current.precipitation),
-                    )
-                    OptionalDetailRow(
-                        stringResource(R.string.rain),
-                        snapshot.current.rain?.let(units::precipitation),
-                    )
-                    OptionalDetailRow(
-                        stringResource(R.string.showers),
-                        snapshot.current.showers?.let(units::precipitation),
-                    )
-                    OptionalDetailRow(
-                        stringResource(R.string.snowfall),
-                        snapshot.current.snowfall?.let(units::snowfall),
-                    )
-                    OptionalDetailRow(
-                        stringResource(R.string.snow_water_equivalent),
-                        snapshot.current.snowDepthWaterEquivalent?.let(units::precipitation),
-                    )
-                    OptionalDetailRow(
-                        stringResource(R.string.today_precipitation),
-                        today?.let { units.precipitation(it.precipitationSum) },
-                    )
-                    OptionalDetailRow(
-                        stringResource(R.string.today_rain),
-                        today?.rainSum?.let(units::precipitation),
-                    )
-                    OptionalDetailRow(
-                        stringResource(R.string.today_snowfall),
-                        today?.snowfallSum?.let(units::snowfall),
-                    )
-                    OptionalDetailRow(
-                        stringResource(R.string.precipitation_probability),
-                        today?.let { "${it.precipitationProbability} %" },
-                    )
-                    OptionalDetailRow(
-                        stringResource(R.string.precipitation_hours),
-                        today?.precipitationHours?.let { String.format(locale, "%.1f h", it) },
-                    )
-                    DetailRow(stringResource(R.string.cloud_cover), "${snapshot.current.cloudCover} %")
-                    OptionalDetailRow(
-                        stringResource(R.string.low_clouds),
-                        snapshot.current.cloudCoverLow?.let { "$it %" },
-                    )
-                    OptionalDetailRow(
-                        stringResource(R.string.middle_clouds),
-                        snapshot.current.cloudCoverMid?.let { "$it %" },
-                    )
-                    OptionalDetailRow(
-                        stringResource(R.string.high_clouds),
-                        snapshot.current.cloudCoverHigh?.let { "$it %" },
-                    )
-                }
-            }
-            item {
-                DetailSection(stringResource(R.string.wind)) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            Icons.Rounded.Navigation,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(42.dp)
-                                .rotate(snapshot.current.windDirection.toFloat()),
-                            tint = Color(0xFF83D6E8),
+        Column(Modifier.fillMaxWidth().fillMaxHeight().navigationBarsPadding()) {
+            SheetHeader(
+                title = stringResource(if (initialHistory) R.string.history_title else R.string.weather_details),
+                onBack = onDismiss,
+                subtitle = location.name,
+            )
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 36.dp),
+                verticalArrangement = Arrangement.spacedBy(if (initialHistory) 26.dp else 8.dp),
+            ) {
+                if (initialHistory) {
+                    item {
+                        HistoryArchiveSection(
+                            state = historyState,
+                            units = units,
+                            locale = locale,
+                            showDays = showHistoryDays,
+                            shareError = historyShareError,
+                            sharing = historySharing,
+                            question = historyQuestion,
+                            onQuestion = { historyQuestion = historyQuestionInput(it) },
+                            onLoad = ::loadArchive,
+                            onShare = { archive, question, range ->
+                                if (!historySharing) pendingShare = PendingHistoryShare(archive, question, range)
+                            },
+                            onToggleDays = { showHistoryDays = !showHistoryDays },
+                            period = historyPeriod,
+                            customRange = customRange,
+                            onPeriod = {
+                                if (it == HistoryPeriod.CUSTOM) showRangePicker = true else historyPeriod = it
+                            },
                         )
-                        Column(Modifier.padding(start = 14.dp)) {
+                    }
+                    val history = (historyState as? HistoryUiState.Content)?.archive
+                    if (history != null && showHistoryDays) {
+                        item {
                             Text(
-                                units.windSpeed(snapshot.current.windSpeed),
-                                fontSize = 22.sp,
+                                stringResource(R.string.history_daily_title),
+                                fontSize = 20.sp,
                                 fontWeight = FontWeight.SemiBold,
                             )
-                            Text(
-                                "${stringResource(windDirectionResource(snapshot.current.windDirection))} · " +
-                                    "${snapshot.current.windDirection}°",
-                                color = Color.White.copy(alpha = 0.58f),
+                        }
+                        items(history.periodDays(historyPeriod, customRange).asReversed(), key = { it.date.toString() }) { day ->
+                            HistoricalDayRow(day, units, locale)
+                        }
+                    }
+                } else {
+                    item { AtAGlanceSection(snapshot, today, units, locale, currentTime?.toString() ?: snapshot.current.time) }
+                    item {
+                        DetailSection(stringResource(R.string.temperature), collapsible = true) {
+                            DetailRow(stringResource(R.string.temperature), units.temperature(snapshot.current.temperature))
+                            DetailRow(stringResource(R.string.feels_like), units.temperature(snapshot.current.feelsLike))
+                            OptionalDetailRow(
+                                stringResource(R.string.dew_point),
+                                snapshot.current.dewPoint?.let(units::temperature),
+                            )
+                            OptionalDetailRow(
+                                stringResource(R.string.wet_bulb_temperature),
+                                snapshot.current.wetBulbTemperature?.let(units::temperature),
+                            )
+                            OptionalDetailRow(
+                                stringResource(R.string.apparent_temperature_range),
+                                today?.let { day ->
+                                    day.apparentTemperatureMin?.let { minimum ->
+                                        day.apparentTemperatureMax?.let { maximum ->
+                                            "${units.temperature(minimum)} – ${units.temperature(maximum)}"
+                                        }
+                                    }
+                                },
+                            )
+
+                        }
+                    }
+                    item {
+                        DetailSection(stringResource(R.string.precipitation_and_clouds), collapsible = true) {
+                            DetailRow(
+                                stringResource(R.string.precipitation),
+                                units.precipitation(snapshot.current.precipitation),
+                            )
+                            OptionalDetailRow(
+                                stringResource(R.string.rain),
+                                snapshot.current.rain?.let(units::precipitation),
+                            )
+                            OptionalDetailRow(
+                                stringResource(R.string.showers),
+                                snapshot.current.showers?.let(units::precipitation),
+                            )
+                            OptionalDetailRow(
+                                stringResource(R.string.snowfall),
+                                snapshot.current.snowfall?.let(units::snowfall),
+                            )
+                            OptionalDetailRow(
+                                stringResource(R.string.snow_water_equivalent),
+                                snapshot.current.snowDepthWaterEquivalent?.let(units::precipitation),
+                            )
+                            OptionalDetailRow(
+                                stringResource(R.string.today_precipitation),
+                                today?.let { units.precipitation(it.precipitationSum) },
+                            )
+                            OptionalDetailRow(
+                                stringResource(R.string.today_rain),
+                                today?.rainSum?.let(units::precipitation),
+                            )
+                            OptionalDetailRow(
+                                stringResource(R.string.today_snowfall),
+                                today?.snowfallSum?.let(units::snowfall),
+                            )
+                            OptionalDetailRow(
+                                stringResource(R.string.precipitation_probability),
+                                today?.let { "${it.precipitationProbability} %" },
+                            )
+                            OptionalDetailRow(
+                                stringResource(R.string.precipitation_hours),
+                                today?.precipitationHours?.let { String.format(locale, "%.1f h", it) },
+                            )
+                            DetailRow(stringResource(R.string.cloud_cover), "${snapshot.current.cloudCover} %")
+                            OptionalDetailRow(
+                                stringResource(R.string.low_clouds),
+                                snapshot.current.cloudCoverLow?.let { "$it %" },
+                            )
+                            OptionalDetailRow(
+                                stringResource(R.string.middle_clouds),
+                                snapshot.current.cloudCoverMid?.let { "$it %" },
+                            )
+                            OptionalDetailRow(
+                                stringResource(R.string.high_clouds),
+                                snapshot.current.cloudCoverHigh?.let { "$it %" },
                             )
                         }
                     }
-                    DetailRow(
-                        stringResource(R.string.wind_gusts),
-                        units.windSpeed(snapshot.current.windGusts),
-                    )
-                    OptionalDetailRow(
-                        stringResource(R.string.daily_wind_speed),
-                        today?.let { units.windSpeed(it.windSpeedMax) },
-                    )
-                    OptionalDetailRow(
-                        stringResource(R.string.daily_wind_gusts),
-                        today?.windGustsMax?.let(units::windSpeed),
-                    )
-                    OptionalDetailRow(
-                        stringResource(R.string.dominant_wind),
-                        today?.dominantWindDirection?.let {
-                            "${stringResource(windDirectionResource(it))} · $it°"
-                        },
-                    )
+                    item {
+                        DetailSection(stringResource(R.string.wind), collapsible = true) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(
+                                    Icons.Rounded.Navigation,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(42.dp)
+                                        .rotate(snapshot.current.windDirection.toFloat()),
+                                    tint = Color(0xFF83D6E8),
+                                )
+                                Column(Modifier.padding(start = 14.dp)) {
+                                    Text(
+                                        units.windSpeed(snapshot.current.windSpeed),
+                                        fontSize = 22.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                    Text(
+                                        "${stringResource(windDirectionResource(snapshot.current.windDirection))} · " +
+                                            "${snapshot.current.windDirection}°",
+                                        color = Color.White.copy(alpha = 0.58f),
+                                    )
+                                }
+                            }
+                            DetailRow(
+                                stringResource(R.string.wind_gusts),
+                                units.windSpeed(snapshot.current.windGusts),
+                            )
+                            OptionalDetailRow(
+                                stringResource(R.string.daily_wind_speed),
+                                today?.let { units.windSpeed(it.windSpeedMax) },
+                            )
+                            OptionalDetailRow(
+                                stringResource(R.string.daily_wind_gusts),
+                                today?.windGustsMax?.let(units::windSpeed),
+                            )
+                            OptionalDetailRow(
+                                stringResource(R.string.dominant_wind),
+                                today?.dominantWindDirection?.let {
+                                    "${stringResource(windDirectionResource(it))} · $it°"
+                                },
+                            )
+                        }
+                    }
+                    item {
+                        DetailSection(stringResource(R.string.detail_group_sun_moon), collapsible = true) {
+                            DetailSection(stringResource(R.string.sun)) {
+                                OptionalDetailRow(stringResource(R.string.sunrise), today?.sunrise?.takeLast(5))
+                                OptionalDetailRow(stringResource(R.string.sunset), today?.sunset?.takeLast(5))
+                                OptionalDetailRow(
+                                    stringResource(R.string.daylight_duration),
+                                    durationValue(today?.daylightDurationSeconds),
+                                )
+                                OptionalDetailRow(
+                                    stringResource(R.string.sunshine_duration),
+                                    durationValue(today?.sunshineDurationSeconds),
+                                )
+                                OptionalDetailRow(
+                                    stringResource(R.string.shortwave_radiation),
+                                    today?.shortwaveRadiationSum?.let {
+                                        String.format(locale, "%.1f MJ/m²", it)
+                                    },
+                                )
+                            }
+                            MoonSection(moon, locale)
+                        }
+                    }
+                    item {
+                        DetailSection(stringResource(R.string.detail_group_other), collapsible = true) {
+                            DetailSection(stringResource(R.string.atmosphere)) {
+                                DetailRow(stringResource(R.string.humidity), "${snapshot.current.humidity} %")
+                                DetailRow(stringResource(R.string.pressure), units.pressure(snapshot.current.pressure))
+                                OptionalDetailRow(
+                                    stringResource(R.string.surface_pressure),
+                                    snapshot.current.surfacePressure?.let(units::pressure),
+                                )
+                                OptionalDetailRow(
+                                    stringResource(R.string.visibility),
+                                    snapshot.current.visibilityMeters?.let(units::visibility),
+                                )
+                                OptionalDetailRow(
+                                    stringResource(R.string.uv_index),
+                                    snapshot.current.uvIndex?.let { String.format(locale, "%.1f", it) },
+                                )
+                                OptionalDetailRow(
+                                    stringResource(R.string.uv_index_max),
+                                    today?.uvIndexMax?.let { String.format(locale, "%.1f", it) },
+                                )
+                                OptionalDetailRow(
+                                    stringResource(R.string.freezing_level),
+                                    snapshot.current.freezingLevelHeightMeters?.let { units.distance(it / 1_000.0) },
+                                )
+                                OptionalDetailRow(
+                                    stringResource(R.string.boundary_layer_height),
+                                    snapshot.current.boundaryLayerHeightMeters?.let { units.distance(it / 1_000.0) },
+                                )
+                                OptionalDetailRow(
+                                    stringResource(R.string.integrated_water_vapour),
+                                    snapshot.current.integratedWaterVapour?.let {
+                                        String.format(locale, "%.1f kg/m²", it)
+                                    },
+                                )
+                                OptionalDetailRow(
+                                    stringResource(R.string.lifted_index),
+                                    snapshot.current.liftedIndex?.let { String.format(locale, "%.1f", it) },
+                                )
+                                OptionalDetailRow(
+                                    stringResource(R.string.convective_inhibition),
+                                    snapshot.current.convectiveInhibition?.let {
+                                        String.format(locale, "%.0f J/kg", it)
+                                    },
+                                )
+                                OptionalDetailRow(
+                                    stringResource(R.string.cape),
+                                    snapshot.current.cape?.let { String.format(locale, "%.0f J/kg", it) },
+                                )
+                                OptionalDetailRow(
+                                    stringResource(R.string.vapour_pressure_deficit),
+                                    snapshot.current.vapourPressureDeficit?.let {
+                                        String.format(locale, "%.1f kPa", it)
+                                    },
+                                )
+                            }
+                            DetailSection(stringResource(R.string.ground)) {
+                                OptionalDetailRow(
+                                    stringResource(R.string.soil_temperature),
+                                    snapshot.current.soilTemperature0Cm?.let(units::temperature),
+                                )
+                                OptionalDetailRow(
+                                    stringResource(R.string.soil_moisture),
+                                    snapshot.current.soilMoisture0To1Cm?.let {
+                                        String.format(locale, "%.3f m³/m³", it)
+                                    },
+                                )
+                                OptionalDetailRow(
+                                    stringResource(R.string.surface_temperature),
+                                    snapshot.current.surfaceTemperature?.let(units::temperature),
+                                )
+                                OptionalDetailRow(
+                                    stringResource(R.string.et0_evapotranspiration),
+                                    today?.et0?.let(units::precipitation),
+                                )
+                            }
+                        }
+                    }
+                    snapshot.calculation?.let { calculation ->
+                        item {
+                            DetailSection(stringResource(R.string.detail_group_sources), collapsible = true) {
+                                ForecastCalculationSection(calculation)
+                            }
+                        }
+                    }
                 }
-            }
-            item {
-                DetailSection(stringResource(R.string.atmosphere)) {
-                    OptionalDetailRow(
-                        stringResource(R.string.uv_index),
-                        snapshot.current.uvIndex?.let { String.format(locale, "%.1f", it) },
-                    )
-                    OptionalDetailRow(
-                        stringResource(R.string.uv_index_max),
-                        today?.uvIndexMax?.let { String.format(locale, "%.1f", it) },
-                    )
-                    OptionalDetailRow(
-                        stringResource(R.string.freezing_level),
-                        snapshot.current.freezingLevelHeightMeters?.let { units.distance(it / 1_000.0) },
-                    )
-                    OptionalDetailRow(
-                        stringResource(R.string.boundary_layer_height),
-                        snapshot.current.boundaryLayerHeightMeters?.let { units.distance(it / 1_000.0) },
-                    )
-                    OptionalDetailRow(
-                        stringResource(R.string.integrated_water_vapour),
-                        snapshot.current.integratedWaterVapour?.let {
-                            String.format(locale, "%.1f kg/m²", it)
-                        },
-                    )
-                    OptionalDetailRow(
-                        stringResource(R.string.lifted_index),
-                        snapshot.current.liftedIndex?.let { String.format(locale, "%.1f", it) },
-                    )
-                    OptionalDetailRow(
-                        stringResource(R.string.convective_inhibition),
-                        snapshot.current.convectiveInhibition?.let {
-                            String.format(locale, "%.0f J/kg", it)
-                        },
-                    )
-                    OptionalDetailRow(
-                        stringResource(R.string.cape),
-                        snapshot.current.cape?.let { String.format(locale, "%.0f J/kg", it) },
-                    )
-                    OptionalDetailRow(
-                        stringResource(R.string.vapour_pressure_deficit),
-                        snapshot.current.vapourPressureDeficit?.let {
-                            String.format(locale, "%.1f kPa", it)
-                        },
-                    )
-                }
-            }
-            item {
-                DetailSection(stringResource(R.string.ground)) {
-                    OptionalDetailRow(
-                        stringResource(R.string.soil_temperature),
-                        snapshot.current.soilTemperature0Cm?.let(units::temperature),
-                    )
-                    OptionalDetailRow(
-                        stringResource(R.string.soil_moisture),
-                        snapshot.current.soilMoisture0To1Cm?.let {
-                            String.format(locale, "%.3f m³/m³", it)
-                        },
-                    )
-                    OptionalDetailRow(
-                        stringResource(R.string.surface_temperature),
-                        snapshot.current.surfaceTemperature?.let(units::temperature),
-                    )
-                    OptionalDetailRow(
-                        stringResource(R.string.et0_evapotranspiration),
-                        today?.et0?.let(units::precipitation),
-                    )
-                }
-            }
-            item {
-                DetailSection(stringResource(R.string.sun)) {
-                    OptionalDetailRow(stringResource(R.string.sunrise), today?.sunrise?.takeLast(5))
-                    OptionalDetailRow(stringResource(R.string.sunset), today?.sunset?.takeLast(5))
-                    OptionalDetailRow(
-                        stringResource(R.string.daylight_duration),
-                        durationValue(today?.daylightDurationSeconds),
-                    )
-                    OptionalDetailRow(
-                        stringResource(R.string.sunshine_duration),
-                        durationValue(today?.sunshineDurationSeconds),
-                    )
-                    OptionalDetailRow(
-                        stringResource(R.string.shortwave_radiation),
-                        today?.shortwaveRadiationSum?.let {
-                            String.format(locale, "%.1f MJ/m²", it)
-                        },
-                    )
-                }
-            }
-            item {
-                MoonSection(moon, locale)
             }
         }
+    }
+    pendingShare?.let { share ->
+        AlertDialog(
+            onDismissRequest = { pendingShare = null },
+            icon = { Icon(Icons.Rounded.ChatBubbleOutline, contentDescription = null) },
+            title = { Text(stringResource(R.string.history_choose_ai_title)) },
+            text = {
+                Text(
+                    stringResource(R.string.history_choose_ai_message, share.archive.location.name, share.archive.days.size),
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingShare = null
+                    shareArchive(share.archive, share.question, share.range)
+                }) { Text(stringResource(R.string.history_choose_ai_action)) }
+            },
+            dismissButton = { TextButton(onClick = { pendingShare = null }) { Text(stringResource(android.R.string.cancel)) } },
+        )
     }
     val history = (historyState as? HistoryUiState.Content)?.archive
     if (showRangePicker && history != null) {
@@ -539,7 +583,10 @@ private fun ForecastCalculationSection(calculation: ForecastCalculation) {
             stringResource(calculation.region.labelResource()),
         )
         DetailRow(
-            stringResource(R.string.forecast_calculation_mode),
+            stringResource(
+                if (calculation.calibratedValueCount > 0) R.string.forecast_calculation_applied_method
+                else R.string.forecast_calculation_mode,
+            ),
             stringResource(calculation.mode.labelResource()),
         )
         DetailRow(
@@ -568,10 +615,23 @@ private fun ForecastCalculationSection(calculation: ForecastCalculation) {
         }
         if (calculation.weights.isNotEmpty()) {
             DetailRow(
-                stringResource(R.string.forecast_calculation_weights),
+                stringResource(
+                    if (calculation.calibratedValueCount > 0) R.string.forecast_calculation_first_weights
+                    else R.string.forecast_calculation_weights,
+                ),
                 calculation.weights.entries.joinToString(", ") { (modelId, weight) ->
                     "$modelId ${(weight * 100).roundToInt()}%"
                 },
+            )
+        }
+        if (calculation.calibratedValueCount > 0) {
+            DetailRow(
+                stringResource(R.string.forecast_calculation_value_count),
+                calculation.calibratedValueCount.toString(),
+            )
+            DetailRow(
+                stringResource(R.string.forecast_calculation_first_sample),
+                "${requireNotNull(calculation.calibrationAppliedAt)} · ${requireNotNull(calculation.calibrationVariable)}",
             )
         }
         Text(
@@ -608,6 +668,8 @@ private sealed interface HistoryUiState {
     data object Error : HistoryUiState
 }
 
+private data class PendingHistoryShare(val archive: HistoryArchive, val question: String, val range: ClosedRange<LocalDate>)
+
 @Composable
 private fun HistoryArchiveSection(
     state: HistoryUiState,
@@ -615,13 +677,17 @@ private fun HistoryArchiveSection(
     locale: java.util.Locale,
     showDays: Boolean,
     shareError: Boolean,
+    sharing: Boolean,
+    question: String,
+    onQuestion: (String) -> Unit,
     onLoad: () -> Unit,
-    onShare: (HistoryArchive) -> Unit,
+    onShare: (HistoryArchive, String, ClosedRange<LocalDate>) -> Unit,
     onToggleDays: () -> Unit,
     period: HistoryPeriod,
     customRange: ClosedRange<LocalDate>?,
     onPeriod: (HistoryPeriod) -> Unit,
 ) {
+    val unavailable = stringResource(R.string.unavailable)
     DetailSection(stringResource(R.string.history_title)) {
         when (state) {
             HistoryUiState.Idle -> {
@@ -639,7 +705,11 @@ private fun HistoryArchiveSection(
                         containerColor = Color(0xFF83D6E8),
                         contentColor = Color(0xFF0D151C),
                     ),
-                ) { Text(stringResource(R.string.history_load)) }
+                ) {
+                    Icon(Icons.Rounded.History, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.history_load))
+                }
             }
             HistoryUiState.Loading -> Box(
                 modifier = Modifier
@@ -669,6 +739,7 @@ private fun HistoryArchiveSection(
                 val dateFormatter = remember(locale) {
                     DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale)
                 }
+                Text(archive.location.name, fontWeight = FontWeight.Medium, modifier = Modifier.padding(vertical = 6.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     HistoryPeriod.entries.forEach { option ->
                         FilterChip(
@@ -687,6 +758,47 @@ private fun HistoryArchiveSection(
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.padding(top = 4.dp),
                 )
+                OutlinedTextField(
+                    value = question,
+                    enabled = !sharing,
+                    onValueChange = onQuestion,
+                    label = { Text(stringResource(R.string.history_question)) },
+                    placeholder = { Text(stringResource(R.string.history_question_hint)) },
+                    supportingText = {
+                        Text(stringResource(R.string.history_question_count, question.length, MAX_HISTORY_QUESTION_CHARS))
+                    },
+                    minLines = 2,
+                    maxLines = 4,
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                )
+                Button(
+                    onClick = { onShare(archive, question, range) },
+                    enabled = !sharing,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF83D6E8),
+                        contentColor = Color(0xFF0D151C),
+                    ),
+                ) {
+                    Icon(Icons.Rounded.ChatBubbleOutline, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.history_ask_chatgpt))
+                }
+                Text(
+                    stringResource(R.string.history_ai_share_note, archive.days.size),
+                    color = Color.White.copy(alpha = 0.62f),
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+                if (shareError) {
+                    Text(
+                        stringResource(R.string.history_share_failed),
+                        color = Color(0xFFFFB4AB),
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
                 Text(
                     stringResource(R.string.history_source_note),
                     color = Color.White.copy(alpha = 0.62f),
@@ -694,7 +806,7 @@ private fun HistoryArchiveSection(
                     modifier = Modifier.padding(top = 5.dp, bottom = 8.dp),
                 )
                 Text(
-                    stringResource(R.string.history_coverage, summary?.dayCount ?: 0, ChronoUnit.DAYS.between(range.start, range.endInclusive) + 1),
+                    stringResource(R.string.history_dates_coverage, summary?.dayCount ?: 0, ChronoUnit.DAYS.between(range.start, range.endInclusive) + 1),
                     color = Color.White.copy(alpha = 0.62f),
                     fontSize = 12.sp,
                 )
@@ -703,27 +815,30 @@ private fun HistoryArchiveSection(
                 } else {
                     Row(Modifier.fillMaxWidth()) {
                         GlanceValue(
-                            stringResource(R.string.history_total_precipitation),
-                            units.precipitation(summary.totalPrecipitationMm),
+                            stringResource(R.string.history_total_precipitation) + " · " +
+                                stringResource(R.string.history_coverage, summary.precipitationDayCount, summary.calendarDayCount),
+                            summary.totalPrecipitationMm?.let(units::precipitation) ?: unavailable,
                             Modifier.weight(1f),
                         )
                         GlanceValue(
                             stringResource(R.string.history_wet_days),
-                            stringResource(R.string.history_wet_days_value, summary.wetDayCount),
+                            summary.wetDayCount?.let { stringResource(R.string.history_wet_days_value, it) } ?: unavailable,
                             Modifier.weight(1f),
                         )
                     }
                     HorizontalDivider(color = Color.White.copy(alpha = 0.07f))
                     Row(Modifier.fillMaxWidth()) {
                         GlanceValue(
-                            stringResource(R.string.history_average_temperature),
-                            units.temperature(summary.averageTemperatureC),
+                            stringResource(R.string.history_average_temperature) + " · " +
+                                stringResource(R.string.history_coverage, summary.temperatureDayCount, summary.calendarDayCount),
+                            summary.averageTemperatureC?.let(units::temperature) ?: unavailable,
                             Modifier.weight(1f),
                         )
                         GlanceValue(
-                            stringResource(R.string.history_temperature_range),
-                            "${units.temperature(summary.minimumTemperatureC)} – " +
-                                units.temperature(summary.maximumTemperatureC),
+                            stringResource(R.string.history_temperature_range) + " · " +
+                                stringResource(R.string.history_temperature_coverage, summary.temperatureMinimumDayCount,
+                                    summary.temperatureMaximumDayCount, summary.calendarDayCount),
+                            historicalTemperatureRange(summary.minimumTemperatureC, summary.maximumTemperatureC, units, unavailable),
                             Modifier.weight(1f),
                         )
                     }
@@ -745,39 +860,18 @@ private fun HistoryArchiveSection(
                         summary.averageWindSpeedMetersPerSecond?.let { units.windSpeed(it * 3.6) },
                     )
                 }
-                Button(
-                    onClick = { onShare(archive) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF83D6E8),
-                        contentColor = Color(0xFF0D151C),
-                    ),
-                ) { Text(stringResource(R.string.history_ask_chatgpt)) }
-                Text(
-                    stringResource(R.string.history_ai_share_note, archive.days.size),
-                    color = Color.White.copy(alpha = 0.62f),
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(top = 6.dp),
-                )
                 OutlinedButton(
                     onClick = onToggleDays,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 6.dp),
                 ) {
+                    Icon(Icons.Rounded.CalendarToday, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
                     Text(
                         stringResource(
                             if (showDays) R.string.history_hide_days else R.string.history_show_days,
                         ),
-                    )
-                }
-                if (shareError) {
-                    Text(
-                        stringResource(R.string.history_share_failed),
-                        color = Color(0xFFFFB4AB),
-                        modifier = Modifier.padding(top = 8.dp),
                     )
                 }
             }
@@ -827,34 +921,86 @@ private fun HistoricalDayRow(
     val dateFormatter = remember(locale) {
         DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale)
     }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(day.date.format(dateFormatter), fontWeight = FontWeight.Medium)
-            Text(
-                "${units.temperature(day.temperatureMinimumC)} – " +
-                    units.temperature(day.temperatureMaximumC),
-                color = Color.White.copy(alpha = 0.58f),
-                fontSize = 12.sp,
-            )
-        }
-        Column(horizontalAlignment = Alignment.End) {
-            Text(units.precipitation(day.precipitationMm), fontWeight = FontWeight.Medium)
-            day.solarEnergyMegajoulesPerSquareMeter?.let {
+    var expanded by rememberSaveable(day.date.toString()) { mutableStateOf(false) }
+    val unavailable = stringResource(R.string.unavailable)
+    val expansionState = stringResource(if (expanded) R.string.hour_expanded else R.string.hour_collapsed)
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 64.dp)
+                .clickable { expanded = !expanded }
+                .semantics { stateDescription = expansionState }
+                .padding(vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(day.date.format(dateFormatter), fontWeight = FontWeight.Medium)
                 Text(
-                    String.format(locale, "%.1f MJ/m²", it),
-                    color = Color.White.copy(alpha = 0.48f),
-                    fontSize = 11.sp,
+                    historicalTemperatureRange(day.temperatureMinimumC, day.temperatureMaximumC, units, unavailable),
+                    color = Color.White.copy(alpha = 0.58f),
+                    fontSize = 12.sp,
                 )
             }
+            Column(horizontalAlignment = Alignment.End) {
+                Text(day.precipitationMm?.let(units::precipitation) ?: unavailable, fontWeight = FontWeight.Medium)
+                day.solarEnergyMegajoulesPerSquareMeter?.let {
+                    Text(
+                        String.format(locale, "%.1f MJ/m²", it),
+                        color = Color.White.copy(alpha = 0.48f),
+                        fontSize = 11.sp,
+                    )
+                }
+            }
+            Icon(
+                if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.48f),
+                modifier = Modifier.padding(start = 8.dp).size(20.dp),
+            )
         }
+        if (expanded) historicalDayMetrics(day, units, locale).forEach { metric ->
+            DetailRow(stringResource(metric.label), metric.value ?: unavailable, historicalMetricIcon(metric.label))
+        }
+        HorizontalDivider(color = Color.White.copy(alpha = 0.07f))
     }
-    HorizontalDivider(color = Color.White.copy(alpha = 0.07f))
 }
+
+internal data class HistoricalDayMetric(@param:StringRes val label: Int, val value: String?)
+
+internal fun historicalDayMetrics(day: HistoricalDay, units: WeatherUnitFormatter, locale: java.util.Locale): List<HistoricalDayMetric> = listOf(
+    HistoricalDayMetric(R.string.history_average_temperature, day.temperatureMeanC?.let(units::temperature)),
+    HistoricalDayMetric(R.string.history_temperature_maximum, day.temperatureMaximumC?.let(units::temperature)),
+    HistoricalDayMetric(R.string.history_temperature_minimum, day.temperatureMinimumC?.let(units::temperature)),
+    HistoricalDayMetric(R.string.precipitation, day.precipitationMm?.let(units::precipitation)),
+    HistoricalDayMetric(R.string.humidity, day.relativeHumidityPercent?.let { String.format(locale, "%.0f %%", it) }),
+    HistoricalDayMetric(R.string.history_average_wind, day.windSpeedMetersPerSecond?.let { units.windSpeed(it * 3.6) }),
+    HistoricalDayMetric(R.string.history_solar_energy, day.solarEnergyMegajoulesPerSquareMeter?.let { String.format(locale, "%.1f MJ/m²", it) }),
+    HistoricalDayMetric(R.string.dew_point, day.dewPointC?.let(units::temperature)),
+    HistoricalDayMetric(R.string.wet_bulb_temperature, day.wetBulbTemperatureC?.let(units::temperature)),
+    HistoricalDayMetric(R.string.surface_pressure, day.surfacePressureHpa?.let(units::pressure)),
+    HistoricalDayMetric(R.string.history_wind_maximum, day.windSpeedMaximumMetersPerSecond?.let { units.windSpeed(it * 3.6) }),
+    HistoricalDayMetric(R.string.history_wind_minimum, day.windSpeedMinimumMetersPerSecond?.let { units.windSpeed(it * 3.6) }),
+    HistoricalDayMetric(R.string.history_wind_direction, day.windDirectionDegrees?.let { String.format(locale, "%.0f°", it) }),
+    HistoricalDayMetric(R.string.history_clear_sky_solar_energy, day.clearSkySolarEnergyMegajoulesPerSquareMeter?.let { String.format(locale, "%.1f MJ/m²", it) }),
+    HistoricalDayMetric(R.string.cloud_cover, day.cloudCoverPercent?.let { String.format(locale, "%.0f %%", it) }),
+)
+
+internal fun historicalMetricIcon(@StringRes label: Int): ImageVector? = when (label) {
+    R.string.history_average_temperature, R.string.history_temperature_maximum, R.string.history_temperature_minimum,
+    R.string.dew_point, R.string.wet_bulb_temperature -> Icons.Rounded.Thermostat
+    R.string.precipitation, R.string.humidity -> Icons.Rounded.WaterDrop
+    R.string.history_average_wind, R.string.history_wind_maximum, R.string.history_wind_minimum -> Icons.Rounded.Air
+    R.string.history_wind_direction -> Icons.Rounded.Navigation
+    R.string.surface_pressure -> Icons.Rounded.Speed
+    R.string.history_solar_energy, R.string.history_clear_sky_solar_energy -> Icons.Rounded.WbSunny
+    R.string.cloud_cover -> Icons.Rounded.Cloud
+    else -> null
+}
+
+internal fun historicalTemperatureRange(minimum: Double?, maximum: Double?, units: WeatherUnitFormatter, unavailable: String): String =
+    if (minimum == null && maximum == null) unavailable
+    else "${minimum?.let(units::temperature) ?: unavailable} – ${maximum?.let(units::temperature) ?: unavailable}"
 
 @Composable
 private fun AtAGlanceSection(
@@ -862,10 +1008,11 @@ private fun AtAGlanceSection(
     today: DailyWeather?,
     units: WeatherUnitFormatter,
     locale: java.util.Locale,
+    referenceTime: String,
 ) {
-    val nextRain = nextWetHour(snapshot.hourly, snapshot.current.time)?.time?.takeLast(5)
+    val nextRain = nextWetHour(snapshot.hourly, referenceTime)?.time?.takeLast(5)
         ?: stringResource(R.string.no_rain_next_24h)
-    val maximumProbability = maximumPrecipitationProbability(snapshot.hourly, snapshot.current.time)
+    val maximumProbability = maximumPrecipitationProbability(snapshot.hourly, referenceTime)
         ?.let { "$it %" }
     DetailSection(stringResource(R.string.at_a_glance)) {
         Row(Modifier.fillMaxWidth()) {
@@ -978,22 +1125,43 @@ private fun MoonSection(moon: MoonDetails?, locale: java.util.Locale) {
 }
 
 @Composable
-private fun DetailSection(title: String, content: @Composable () -> Unit) {
+private fun DetailSection(title: String, collapsible: Boolean = false, content: @Composable () -> Unit) {
+    var expanded by rememberSaveable(title) { mutableStateOf(false) }
+    val expansionState = stringResource(if (expanded) R.string.hour_expanded else R.string.hour_collapsed)
     Column {
-        Text(title, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(8.dp))
-        content()
+        if (collapsible) {
+            Row(
+                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
+                    .clickable { expanded = !expanded }
+                    .semantics { stateDescription = expansionState },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(title, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                Icon(if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, contentDescription = null)
+            }
+            HorizontalDivider(color = Color.White.copy(alpha = 0.07f))
+        } else {
+            Text(title, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+        }
+        if (!collapsible || expanded) {
+            Spacer(Modifier.height(8.dp))
+            content()
+        }
     }
 }
 
 @Composable
-private fun DetailRow(label: String, value: String) {
+private fun DetailRow(label: String, value: String, icon: ImageVector? = null) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        icon?.let {
+            Icon(it, contentDescription = null, tint = Color(0xFF83D6E8), modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(10.dp))
+        }
         Text(label, color = Color.White.copy(alpha = 0.62f), modifier = Modifier.weight(1f))
         Text(value, fontWeight = FontWeight.Medium)
     }

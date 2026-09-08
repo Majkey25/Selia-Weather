@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -37,6 +39,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -78,6 +83,7 @@ internal fun WidgetEditorScreen(
     onPickImage: () -> Unit,
     onRemoveImage: (String) -> Unit,
     onApply: (WidgetSettings) -> Unit,
+    applying: Boolean = false,
 ) {
     var settings by rememberSaveable(stateSaver = WidgetSettingsSaver) { mutableStateOf(initial) }
     var previewSize by rememberSaveable { mutableStateOf(WidgetSize.WIDE) }
@@ -95,11 +101,22 @@ internal fun WidgetEditorScreen(
 
     Scaffold(
         bottomBar = {
-            Button(
-                enabled = !invalidColors,
-                onClick = { onApply(settings.normalized()) },
-                modifier = Modifier.fillMaxWidth().padding(20.dp).height(52.dp),
-            ) { Text(stringResource(R.string.widget_apply)) }
+            Column(
+                Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (applying) Text(
+                    stringResource(R.string.widget_saving_wait),
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp,
+                )
+                Button(
+                    enabled = !invalidColors && !applying,
+                    onClick = { onApply(settings.normalized()) },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                ) { Text(stringResource(if (applying) R.string.widget_saving else R.string.widget_apply)) }
+            }
         },
     ) { padding ->
         LazyColumn(

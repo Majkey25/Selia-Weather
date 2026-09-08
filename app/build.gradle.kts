@@ -30,8 +30,8 @@ android {
         applicationId = "com.majkeylab.weatheraladin"
         minSdk = 29
         targetSdk = 36
-        versionCode = 18
-        versionName = "0.2.0-beta.17"
+        versionCode = 19
+        versionName = "0.2.0-beta.18"
 
         manifestPlaceholders["adMobAppId"] = adMobAppId ?: testAdMobAppId
         buildConfigField("boolean", "MONETIZATION_CONFIGURED", "false")
@@ -50,8 +50,6 @@ android {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
             manifestPlaceholders["adMobAppId"] = testAdMobAppId
-            buildConfigField("boolean", "MONETIZATION_CONFIGURED", "true")
-            buildConfigField("boolean", "PAYMENTS_ENABLED", "true")
             buildConfigField("String", "INTERSTITIAL_AD_UNIT_ID", "\"$testInterstitialAdUnitId\"")
         }
         release {

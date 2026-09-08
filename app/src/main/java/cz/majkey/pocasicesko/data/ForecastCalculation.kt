@@ -4,6 +4,7 @@ import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 import kotlin.math.abs
+import java.time.LocalDateTime
 
 enum class ForecastCalculationMode {
     CALIBRATED,
@@ -26,13 +27,25 @@ data class ForecastCalculation(
     val artifactGeneratedAtEpochSeconds: Long? = null,
     val truthClass: CalibrationTruthClass? = null,
     val weights: Map<String, Double> = emptyMap(),
+    val calibrationAppliedAt: String? = null,
+    val calibrationVariable: String? = null,
+    val calibratedValueCount: Int = 0,
 ) {
     init {
-        require(requestedModelIds.isNotEmpty() && requestedModelIds.size <= MAX_MODEL_IDS)
+        require(requestedModelIds.isNotEmpty() && requestedModelIds.size <= MAX_FORECAST_MODEL_IDS)
         require(requestedModelIds.all(::isModelId) && requestedModelIds.distinct() == requestedModelIds)
         require(contributorIds.all(::isModelId) && contributorIds.distinct() == contributorIds)
         require(contributorIds.all(requestedModelIds::contains))
         require(weights.keys.all(::isModelId) && weights.values.all { it.isFinite() && it > 0 })
+        require(calibratedValueCount >= 0) { "Calibrated value count cannot be negative." }
+        if (calibratedValueCount == 0) {
+            require(calibrationAppliedAt == null && calibrationVariable == null) { "Calibration sample requires a positive value count." }
+        } else {
+            require(mode == ForecastCalculationMode.CALIBRATED) { "Applied calibration requires calibrated mode." }
+            require(calibrationAppliedAt != null && calibrationVariable != null) { "Calibration sample time and variable must be paired." }
+            require(runCatching { LocalDateTime.parse(calibrationAppliedAt) }.isSuccess) { "Invalid calibration sample time." }
+            require(CALIBRATION_VARIABLE_ID.matches(calibrationVariable)) { "Invalid calibration sample variable." }
+        }
         when (mode) {
             ForecastCalculationMode.CALIBRATED -> {
                 require(contributorIds.size >= MINIMUM_CALIBRATED_MODELS && fallbackReason == null)
@@ -77,7 +90,10 @@ internal fun JSONObject.putForecastCalculation(calculation: ForecastCalculation)
             calculation.artifactGeneratedAtEpochSeconds ?: JSONObject.NULL,
         )
         .put("truth_class", calculation.truthClass?.name ?: JSONObject.NULL)
-        .put("weights", JSONObject(calculation.weights)),
+        .put("weights", JSONObject(calculation.weights))
+        .put("calibration_applied_at", calculation.calibrationAppliedAt ?: JSONObject.NULL)
+        .put("calibration_variable", calculation.calibrationVariable ?: JSONObject.NULL)
+        .put("calibrated_value_count", calculation.calibratedValueCount),
 )
 
 internal fun JSONObject.forecastCalculationOrNull(): ForecastCalculation? {
@@ -122,6 +138,13 @@ internal fun JSONObject.forecastCalculationOrNull(): ForecastCalculation? {
             } else {
                 value.getJSONObject("weights").modelWeights()
             },
+            calibrationAppliedAt = if (value.isNull("calibration_applied_at")) null else value.getString("calibration_applied_at"),
+            calibrationVariable = if (value.isNull("calibration_variable")) null else value.getString("calibration_variable"),
+            calibratedValueCount = if (value.isNull("calibrated_value_count")) 0 else {
+                val count = value.get("calibrated_value_count")
+                require(count is Number && count.toDouble() == count.toInt().toDouble()) { "Calibrated value count must be an integer." }
+                count.toInt()
+            },
         )
     } catch (error: IllegalArgumentException) {
         throw JSONException(error.message ?: "Invalid forecast calculation metadata.")
@@ -139,8 +162,9 @@ private fun isModelId(value: String): Boolean = MODEL_ID.matches(value)
 private const val CALCULATION_KEY = "_selia_calculation"
 private const val LEGACY_CALCULATION_SCHEMA_VERSION = 1
 private const val CALCULATION_SCHEMA_VERSION = 2
-private const val MAX_MODEL_IDS = 32
+internal const val MAX_FORECAST_MODEL_IDS = 32
 private const val MINIMUM_CALIBRATED_MODELS = 2
 private const val MINIMUM_DIAGNOSTIC_MODELS = 3
 private const val WEIGHT_EPSILON = 1e-6
 private val MODEL_ID = Regex("[A-Za-z0-9][A-Za-z0-9_.-]{0,63}")
+private val CALIBRATION_VARIABLE_ID = Regex("[a-z][a-z0-9_]{0,63}")

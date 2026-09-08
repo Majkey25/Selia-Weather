@@ -7,7 +7,7 @@ import org.junit.Test
 
 class CurrentConditionsTest {
     @Test
-    fun freshFullSunOverridesFalseCloudAndRain() {
+    fun stationSunshineDoesNotEraseModelRainOrInventCloudLayers() {
         val now = Instant.parse("2026-08-29T09:10:00Z")
         val fused = fuseCurrentConditions(
             model = current(weatherCode = 61, precipitation = 0.4, cloudCover = 100),
@@ -19,12 +19,12 @@ class CurrentConditionsTest {
             now = now,
         )
 
-        assertEquals(0, fused.weatherCode)
-        assertEquals(5, fused.cloudCover)
-        assertEquals(5, fused.cloudCoverLow)
-        assertEquals(5, fused.cloudCoverMid)
-        assertEquals(5, fused.cloudCoverHigh)
-        assertEquals(0.0, fused.precipitation, 0.0)
+        assertEquals(61, fused.weatherCode)
+        assertEquals(100, fused.cloudCover)
+        assertEquals(null, fused.cloudCoverLow)
+        assertEquals(null, fused.cloudCoverMid)
+        assertEquals(null, fused.cloudCoverHigh)
+        assertEquals(0.4, fused.precipitation, 0.0)
         assertEquals(20.0, fused.temperature, 0.0)
     }
 
@@ -42,8 +42,9 @@ class CurrentConditionsTest {
         )
 
         assertEquals(61, fused.weatherCode)
-        assertEquals(100, fused.cloudCover)
-        assertEquals(0.3, fused.precipitation, 0.1)
+        assertEquals(0, fused.cloudCover)
+        // A ten-minute station total is not the model's fifteen-minute total.
+        assertEquals(0.0, fused.precipitation, 0.0)
     }
 
     @Test
@@ -65,7 +66,7 @@ class CurrentConditionsTest {
     }
 
     @Test
-    fun delayedPublishedObservationWithinNinetyMinutesStillApplies() {
+    fun delayedStationTemperatureDoesNotTurnTheCurrentSkyClear() {
         val now = Instant.parse("2026-08-29T10:00:00Z")
         val fused = fuseCurrentConditions(
             model = current(weatherCode = 3, precipitation = 0.0, cloudCover = 100),
@@ -76,11 +77,12 @@ class CurrentConditionsTest {
             now = now,
         )
 
-        assertEquals(0, fused.weatherCode)
+        assertEquals(3, fused.weatherCode)
+        assertEquals(20.0, fused.temperature, 0.0)
     }
 
     @Test
-    fun usesNearestStationThatActuallyReportsEachField() {
+    fun sunshineIsNotATotalCloudCoverMeasurement() {
         val now = Instant.parse("2026-08-29T10:00:00Z")
         val fused = fuseCurrentConditions(
             model = current(weatherCode = 3, precipitation = 0.0, cloudCover = 100),
@@ -94,8 +96,8 @@ class CurrentConditionsTest {
             now = now,
         )
 
-        assertEquals(0, fused.weatherCode)
-        assertEquals(5, fused.cloudCover)
+        assertEquals(3, fused.weatherCode)
+        assertEquals(100, fused.cloudCover)
     }
 
     @Test
@@ -129,7 +131,8 @@ class CurrentConditionsTest {
         assertEquals(0.4, fused.precipitation, 0.0)
         assertEquals(1_003.0, fused.pressure, 1e-9)
         assertEquals(4_506.1632, requireNotNull(fused.visibilityMeters), 0.0001)
-        assertEquals(75, fused.cloudCover)
+        // The airport is outside the local sky-condition support radius.
+        assertEquals(100, fused.cloudCover)
     }
 
     @Test
@@ -137,7 +140,7 @@ class CurrentConditionsTest {
         val now = Instant.parse("2026-08-31T20:40:00Z")
         val fused = fuseCurrentConditions(
             model = current(weatherCode = 0, precipitation = 0.0, cloudCover = 0),
-            location = CzechLocation("Delhi", "Delhi", 28.6139, 77.209, "IN"),
+            location = CzechLocation("Delhi airport", "Delhi", 28.567, 77.117, "IN"),
             observations = listOf(
                 CurrentStationObservation(
                     stationId = "VIDP",
@@ -162,7 +165,7 @@ class CurrentConditionsTest {
     }
 
     @Test
-    fun correctedJsonUpdatesConditionsButPreservesHourlyAccumulations() {
+    fun correctedJsonPreservesTheWholeHourlyForecast() {
         val corrected = JSONObject(
             applyCurrentConditionsToForecastJson(
                 """{"current":{"time":"2026-08-29T11:15"},"hourly":{"time":["2026-08-29T10:00","2026-08-29T11:00"],"temperature_2m":[18,19],"relative_humidity_2m":[70,65],"precipitation":[0.2,0.3],"rain":[0.2,0.3],"weather_code":[61,61],"wind_speed_10m":[5,6],"wind_direction_10m":[180,190]}}""",
@@ -174,10 +177,73 @@ class CurrentConditionsTest {
         assertEquals(0.0, corrected.getJSONObject("current").getDouble("precipitation"), 0.0)
         val hourly = corrected.getJSONObject("hourly")
         assertEquals(61, hourly.getJSONArray("weather_code").getInt(0))
-        assertEquals(0, hourly.getJSONArray("weather_code").getInt(1))
-        assertEquals(22.0, hourly.getJSONArray("temperature_2m").getDouble(1), 0.0)
+        assertEquals(61, hourly.getJSONArray("weather_code").getInt(1))
+        assertEquals(19.0, hourly.getJSONArray("temperature_2m").getDouble(1), 0.0)
         assertEquals(0.3, hourly.getJSONArray("precipitation").getDouble(1), 0.0)
         assertEquals(0.3, hourly.getJSONArray("rain").getDouble(1), 0.0)
+    }
+
+    @Test
+    fun nearbyTraceRainIsNotDilutedByDryStations() {
+        val now = Instant.parse("2026-09-07T13:18:00Z")
+        val model = current(weatherCode = 0, precipitation = 0.0, cloudCover = 0)
+        val fused = fuseCurrentConditions(
+            model,
+            CzechLocation("Point", REGION_PRAGUE, 50.0, 14.0),
+            listOf(
+                observation(50.001, 14.0, now.minusSeconds(300), precipitation = 0.1),
+                observation(50.01, 14.0, now.minusSeconds(300), precipitation = 0.0),
+            ),
+            now,
+        )
+        assertEquals(61, fused.weatherCode)
+        assertEquals(model.precipitation, fused.precipitation, 0.0)
+    }
+
+    @Test
+    fun explicitNearbyDrizzleReportOverridesClearWithoutInventingAmount() {
+        val now = Instant.parse("2026-09-07T13:18:00Z")
+        val model = current(weatherCode = 0, precipitation = 0.0, cloudCover = 0)
+        val report = observation(50.001, 14.0, now.minusSeconds(300)).copy(
+            precipitation = null, weatherCode = 51,
+        )
+        val fused = fuseCurrentConditions(
+            model, CzechLocation("Point", REGION_PRAGUE, 50.0, 14.0), listOf(report), now,
+        )
+        assertEquals(51, fused.weatherCode)
+        assertEquals(0.0, fused.precipitation, 0.0)
+        val remote = fuseCurrentConditions(
+            model, CzechLocation("Point", REGION_PRAGUE, 50.0, 14.0), listOf(report.copy(latitude = 50.3)), now,
+        )
+        assertEquals(0, remote.weatherCode)
+    }
+
+    @Test
+    fun gaugeWaterEquivalentBelowFreezingDoesNotInventLiquidRain() {
+        val now = Instant.parse("2026-09-07T13:18:00Z")
+        val fused = fuseCurrentConditions(
+            current(weatherCode = 0, precipitation = 0.0, cloudCover = 0),
+            CzechLocation("Point", REGION_PRAGUE, 50.0, 14.0),
+            listOf(observation(50.001, 14.0, now.minusSeconds(300), precipitation = 0.1).copy(temperature = -3.0)),
+            now,
+        )
+        assertEquals(0, fused.weatherCode)
+        assertEquals(-3.0, fused.temperature, 0.0)
+    }
+
+    @Test
+    fun oldOrRemoteRainDoesNotOverrideCurrentCondition() {
+        val now = Instant.parse("2026-09-07T13:18:00Z")
+        val model = current(weatherCode = 0, precipitation = 0.0, cloudCover = 0)
+        for (station in listOf(
+            observation(50.001, 14.0, now.minusSeconds(3_600), precipitation = 0.3),
+            observation(50.3, 14.0, now.minusSeconds(300), precipitation = 0.3),
+        )) {
+            val fused = fuseCurrentConditions(
+                model, CzechLocation("Point", REGION_PRAGUE, 50.0, 14.0), listOf(station), now,
+            )
+            assertEquals(0, fused.weatherCode)
+        }
     }
 
     private fun current(

@@ -31,13 +31,16 @@ class WeatherDetailScreenTest {
         ).readText()
         val markers = listOf(
             "AtAGlanceSection(",
-            "DetailSection(stringResource(R.string.current_details))",
-            "DetailSection(stringResource(R.string.precipitation_and_clouds))",
-            "DetailSection(stringResource(R.string.wind))",
-            "DetailSection(stringResource(R.string.atmosphere))",
-            "DetailSection(stringResource(R.string.ground))",
+            "DetailSection(stringResource(R.string.temperature), collapsible = true)",
+            "DetailSection(stringResource(R.string.precipitation_and_clouds), collapsible = true)",
+            "DetailSection(stringResource(R.string.wind), collapsible = true)",
+            "DetailSection(stringResource(R.string.detail_group_sun_moon), collapsible = true)",
             "DetailSection(stringResource(R.string.sun))",
             "MoonSection(",
+            "DetailSection(stringResource(R.string.detail_group_other), collapsible = true)",
+            "DetailSection(stringResource(R.string.atmosphere))",
+            "DetailSection(stringResource(R.string.ground))",
+            "DetailSection(stringResource(R.string.detail_group_sources), collapsible = true)",
         )
 
         assertTrue(markers.zipWithNext().all { (first, second) -> source.indexOf(first) < source.indexOf(second) })

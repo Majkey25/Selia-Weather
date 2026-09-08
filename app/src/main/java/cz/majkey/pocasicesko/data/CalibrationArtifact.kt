@@ -72,8 +72,16 @@ internal fun parseCalibrationArtifact(json: String, nowEpochSeconds: Long): Cali
     val modelIds = models.map(CalibrationModelContract::modelId).toSet()
     val segments = parseSegments(root.getJSONArray("segments"), modelIds)
     require(segments.isNotEmpty()) { "Calibration segments are empty." }
-    require(segments.map(CalibrationSegment::selectorKey).toSet().size == segments.size) {
-        "Calibration segment selectors are duplicated."
+    for (index in segments.indices) {
+        val segment = segments[index]
+        for (previousIndex in 0 until index) {
+            val previous = segments[previousIndex]
+            require(segment.region != previous.region || segment.variable != previous.variable ||
+                segment.months.none(previous.months::contains) ||
+                segment.maximumLeadHours < previous.minimumLeadHours ||
+                previous.maximumLeadHours < segment.minimumLeadHours
+            ) { "Calibration segment selectors overlap." }
+        }
     }
     CalibrationArtifact(
         schemaVersion = schemaVersion,
@@ -91,7 +99,7 @@ internal fun parseCalibrationArtifact(json: String, nowEpochSeconds: Long): Cali
 }
 
 private fun parseModelContracts(values: JSONArray): List<CalibrationModelContract> {
-    require(values.length() > 0) { "Calibration models are empty." }
+    require(values.length() in 1..MAX_FORECAST_MODEL_IDS) { "Calibration model count is invalid." }
     val models = List(values.length()) { index ->
         val value = values.getJSONObject(index)
         CalibrationModelContract(
@@ -110,13 +118,19 @@ private fun parseModelContracts(values: JSONArray): List<CalibrationModelContrac
     return models.sortedBy(CalibrationModelContract::modelId)
 }
 
-private fun parseSegments(values: JSONArray, modelIds: Set<String>): List<CalibrationSegment> =
-    List(values.length()) { index ->
+private fun parseSegments(values: JSONArray, modelIds: Set<String>): List<CalibrationSegment> {
+    require(values.length() in 1..MAX_CALIBRATION_SEGMENTS) { "Calibration segment count is invalid." }
+    return List(values.length()) { index ->
         val value = values.getJSONObject(index)
         require(value.getString("mode") == "blend") { "Only accepted blend segments can ship." }
-        require(value.getJSONObject("holdout").getBoolean("accepted")) {
+        val holdout = value.getJSONObject("holdout")
+        require(holdout.getBoolean("accepted")) {
             "Calibration segment failed its holdout."
         }
+        val sampleCount = holdout.get("sample_count")
+        require((sampleCount is Int || sampleCount is Long) &&
+            (sampleCount as Number).toLong() >= MINIMUM_HOLDOUT_SAMPLES
+        ) { "Calibration holdout requires at least $MINIMUM_HOLDOUT_SAMPLES samples." }
         val selector = value.getJSONObject("selector")
         val minimumLead = selector.getInt("minimum_lead_hours")
         val maximumLead = selector.getInt("maximum_lead_hours")
@@ -156,6 +170,7 @@ private fun parseSegments(values: JSONArray, modelIds: Set<String>): List<Calibr
             },
         )
     }
+}
 
 private fun JSONObject.weights(modelIds: Set<String>): Map<String, Double> {
     val names = keys().asSequence().sorted().toList()
@@ -175,9 +190,6 @@ private fun JSONObject.weights(modelIds: Set<String>): Map<String, Double> {
 
 private fun JSONArray.intValues(): List<Int> = List(length(), ::getInt)
 
-private fun CalibrationSegment.selectorKey(): String =
-    "$region|$variable|$minimumLeadHours|$maximumLeadHours|${months.sorted()}"
-
 private fun String.validatedChecksum(): String {
     require(CHECKSUM.matches(this)) { "Invalid SHA-256 checksum." }
     return this
@@ -189,6 +201,8 @@ private fun String.validatedModelId(): String {
 }
 
 private const val CALIBRATION_SCHEMA_VERSION = 2
+private const val MINIMUM_HOLDOUT_SAMPLES = 30
+private const val MAX_CALIBRATION_SEGMENTS = 1024
 private const val BEST_MATCH_MODEL_ID = "best_match"
 private const val WEIGHT_EPSILON = 1e-6
 private val CHECKSUM = Regex("[0-9a-f]{64}")

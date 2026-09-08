@@ -24,7 +24,7 @@ class RadarScreenTest {
     }
 
     @Test
-    fun radarAssetUsesWorldwideObservedFramesOnly() {
+    fun radarSeparatesObservedFramesFromModelForecast() {
         val asset = File(System.getProperty("user.dir"), "src/main/assets/radar.html")
         assertTrue("Missing radar asset: ${asset.absolutePath}", asset.isFile)
         val source = asset.readText()
@@ -32,13 +32,17 @@ class RadarScreenTest {
         assertTrue(source.contains("https://api.rainviewer.com/public/weather-maps.json"))
         assertTrue(source.contains("manifest.radar.past"))
         assertTrue(source.contains("/v2/coverage/0/"))
-        assertTrue(source.contains("height: 100vh"))
-        assertTrue(source.contains("#map { position: fixed"))
-        assertTrue(source.contains("style.height = Math.max(window.innerHeight, 1) + 'px'"))
+        assertTrue(source.contains("#map { flex: 1 1 auto; min-height: 0"))
+        assertTrue(source.contains("document.documentElement.style.height = height + 'px'"))
+        assertTrue(source.contains(".panel { flex: 0 0 auto"))
+        assertFalse(source.contains("getElementById('map').style.height ="))
         assertTrue(source.contains("L.map('map'"))
         assertTrue(source.contains("setView([latitude, longitude], 6)"))
         assertTrue(source.contains("https://tile.openstreetmap.org/{z}/{x}/{y}.png"))
         assertTrue(source.contains("RainViewer"))
+        assertTrue(source.contains("Forecast +12h"))
+        assertTrue(source.contains("radar-forecast.js"))
+        assertTrue(source.contains("https://api.open-meteo.com"))
         assertFalse(source.contains("radar.nowcast"))
         assertFalse(source.contains("satellite.infrared"))
         assertFalse(source.contains("czrad-z_max3d_fct_masked"))
@@ -70,7 +74,7 @@ class RadarScreenTest {
     }
 
     @Test
-    fun mapHubUsesOneClassicObservedRadarWithoutTargetGrid() {
+    fun mapHubUsesClassicRadarWithoutTargetWidgets() {
         val source = File(
             System.getProperty("user.dir"),
             "src/main/java/cz/majkey/pocasicesko/ui/MapHubScreen.kt",
@@ -83,5 +87,17 @@ class RadarScreenTest {
         assertFalse(source.contains("ForecastMap"))
         assertFalse(source.contains("LocalRainField("))
         assertFalse(source.contains("loadPrecipitationField"))
+    }
+
+    @Test
+    fun fullscreenKeepsTheRadarCallSiteAndBackExitsBeforeNavigation() {
+        val root = File(System.getProperty("user.dir"), "src/main/java/cz/majkey/pocasicesko/ui")
+        val app = File(root, "WeatherApp.kt").readText()
+        val hub = File(root, "MapHubScreen.kt").readText()
+        assertTrue(app.contains("BackHandler(enabled = destination == Destination.MAPS && radarFullscreen)"))
+        assertTrue(app.contains("if (!(destination == Destination.MAPS && radarFullscreen)) FloatingNavigation("))
+        assertTrue(hub.contains("if (!compact && !fullscreen) Text("))
+        assertTrue(hub.contains("R.string.radar_exit_fullscreen"))
+        assertEquals(1, "ChmiWebScreen(".toRegex(RegexOption.LITERAL).findAll(hub).count())
     }
 }

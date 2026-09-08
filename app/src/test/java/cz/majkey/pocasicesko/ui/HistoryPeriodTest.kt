@@ -30,7 +30,7 @@ class HistoryPeriodTest {
     fun presetsUseExactCalendarDaysIncludingLeapDay() {
         assertEquals(LocalDate.of(2024, 2, 15)..end, archive.periodRange(HistoryPeriod.LAST_30))
         assertEquals(30, archive.periodDays(HistoryPeriod.LAST_30).size)
-        assertEquals(45.0, requireNotNull(archive.rangeSummary(archive.periodRange(HistoryPeriod.LAST_30))).totalPrecipitationMm, 0.0)
+        assertEquals(45.0, requireNotNull(requireNotNull(archive.rangeSummary(archive.periodRange(HistoryPeriod.LAST_30))).totalPrecipitationMm), 0.0)
         assertEquals(365, archive.periodDays(HistoryPeriod.LAST_365).size)
         assertEquals(400, archive.periodDays(HistoryPeriod.ALL).size)
         assertEquals(400L, requireNotNull(archive.rangeSummary(archive.periodRange(HistoryPeriod.ALL))).calendarDayCount)
@@ -42,7 +42,7 @@ class HistoryPeriodTest {
         val summary = requireNotNull(partial.rangeSummary(partial.periodRange(HistoryPeriod.LAST_30)))
         assertEquals(2, summary.dayCount)
         assertEquals(30L, summary.calendarDayCount)
-        assertEquals(3.0, summary.totalPrecipitationMm, 0.0)
+        assertEquals(3.0, requireNotNull(summary.totalPrecipitationMm), 0.0)
     }
 
     @Test
@@ -67,13 +67,13 @@ class HistoryPeriodTest {
         assertTrue(forecast.contains("WeatherDetailAction(label = R.string.history_title)"))
         assertTrue(forecast.contains("initialHistory = openHistory"))
         assertTrue(details.contains("if (initialHistory) loadArchive()"))
-        assertTrue(details.contains("onClick = { onShare(archive) }"))
+        assertTrue(details.contains("onClick = { onShare(archive, question, range) }"))
     }
 
     @Test
     fun customRangesIncludeBothEndpointsAndDoNotTurnMissingRecordsIntoZeroRain() {
         val oneDay = end..end
-        assertEquals(1.5, requireNotNull(archive.rangeSummary(oneDay)).totalPrecipitationMm, 0.0)
+        assertEquals(1.5, requireNotNull(requireNotNull(archive.rangeSummary(oneDay)).totalPrecipitationMm), 0.0)
         assertEquals(1L, requireNotNull(archive.rangeSummary(oneDay)).calendarDayCount)
         val gap = archive.copy(days = listOf(archive.days.first(), archive.days.last()))
         val missingRange = end.minusDays(20)..end.minusDays(10)
@@ -83,7 +83,7 @@ class HistoryPeriodTest {
         val summary = requireNotNull(gap.rangeSummary(partialRange))
         assertEquals(1, summary.dayCount)
         assertEquals(21L, summary.calendarDayCount)
-        assertEquals(1.5, summary.totalPrecipitationMm, 0.0)
+        assertEquals(1.5, requireNotNull(summary.totalPrecipitationMm), 0.0)
     }
 
     @Test

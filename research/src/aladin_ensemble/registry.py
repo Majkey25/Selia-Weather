@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from math import isfinite
 from pathlib import Path
 
 from aladin_ensemble.types import ModelCandidate
@@ -19,6 +20,7 @@ class RequestBudget:
     date_count: int
     expected_http_requests: int
     provider_limit: int
+    expected_quota_units: float | None = None
 
     def __post_init__(self) -> None:
         if min(
@@ -31,26 +33,35 @@ class RequestBudget:
             self.provider_limit,
         ) < 0:
             raise ValueError("request budget values cannot be negative")
+        if self.expected_quota_units is not None and (
+            not isfinite(self.expected_quota_units) or self.expected_quota_units < 0
+        ):
+            raise ValueError("expected quota units must be finite and non-negative")
 
     def require_within_limit(self) -> None:
-        if self.expected_http_requests >= self.provider_limit:
+        usage = self.expected_quota_units
+        unit = "quota units"
+        if usage is None:
+            usage = self.expected_http_requests
+            unit = "HTTP requests"
+        if usage >= self.provider_limit:
             raise ValueError(
-                f"expected HTTP requests {self.expected_http_requests} reaches provider limit "
-                f"{self.provider_limit}"
+                f"expected {unit} {usage} reaches provider limit {self.provider_limit}"
             )
 
     def summary(self) -> str:
-        return "\n".join(
-            (
-                f"candidates: {self.candidate_count}",
-                f"locations: {self.location_count}",
-                f"runs: {self.run_count}",
-                f"variables: {self.variable_count}",
-                f"dates: {self.date_count}",
-                f"expected HTTP requests: {self.expected_http_requests}",
-                f"provider limit: {self.provider_limit}",
-            )
-        )
+        lines = [
+            f"candidates: {self.candidate_count}",
+            f"locations: {self.location_count}",
+            f"runs: {self.run_count}",
+            f"variables: {self.variable_count}",
+            f"dates: {self.date_count}",
+            f"expected HTTP requests: {self.expected_http_requests}",
+        ]
+        if self.expected_quota_units is not None:
+            lines.append(f"expected quota units: {self.expected_quota_units:.3f}")
+        lines.append(f"provider limit: {self.provider_limit}")
+        return "\n".join(lines)
 
 
 def estimate_http_request_budget(

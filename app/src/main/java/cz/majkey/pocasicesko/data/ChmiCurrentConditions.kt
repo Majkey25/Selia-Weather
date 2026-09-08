@@ -52,13 +52,7 @@ internal fun nearestCurrentStations(
             CurrentStation::stationId,
         ),
     )
-    val selected = ranked.take(count).toMutableList()
-    if (selected.isNotEmpty() && selected.none(CurrentStation::sunshine)) {
-        ranked.drop(count).firstOrNull(CurrentStation::sunshine)?.let { sunshine ->
-            selected[selected.lastIndex] = sunshine
-        }
-    }
-    return selected
+    return ranked.take(count)
 }
 
 internal fun parseCurrentStationObservation(
@@ -80,6 +74,7 @@ internal fun parseCurrentStationObservation(
         val element = row.getString(elementIndex)
         if (element !in CURRENT_ELEMENTS) continue
         val value = row.numberOrNull(valueIndex) ?: continue
+        if (element == "H" && value !in 0.0..100.0) continue
         val time = Instant.parse(row.getString(timeIndex))
         valuesByTime.getOrPut(time, ::mutableMapOf)[element] = value
     }
@@ -101,7 +96,7 @@ internal fun parseCurrentStationObservation(
         longitude = station.longitude,
         time = latest.key,
         temperature = requireNotNull(values["T"]),
-        humidity = requireNotNull(values["H"]).toInt().coerceIn(0, 100),
+        humidity = requireNotNull(values["H"]).toInt(),
         precipitation = requireNotNull(values["SRA10M"]),
         windSpeed = values["F"]?.times(3.6),
         windDirection = values["D"],
@@ -110,8 +105,8 @@ internal fun parseCurrentStationObservation(
 }
 
 private fun JSONArray.numberOrNull(index: Int): Double? = when (val value = opt(index)) {
-    is Number -> value.toDouble()
-    is String -> value.toDoubleOrNull()
+    is Number -> value.toDouble().takeIf(Double::isFinite)
+    is String -> value.toDoubleOrNull()?.takeIf(Double::isFinite)
     else -> null
 }
 

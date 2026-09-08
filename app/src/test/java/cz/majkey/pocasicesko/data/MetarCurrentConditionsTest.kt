@@ -89,6 +89,39 @@ class MetarCurrentConditionsTest {
     }
 
     @Test
+    fun preservesExplicitLocalWeatherBesideDocumentedNonlocalGroups() {
+        mapOf(
+            "-RA VCSH" to 61, "VCSH -RA" to 61, "-RA BR VCTS" to 61,
+            "-SN VCBLSN" to 71, "FG VCFG" to 45, "RA VCBLSA" to 63,
+            "RA VCBLDU" to 63, "RA VCPO" to 63, "RA VCSS" to 63, "RA VCDS" to 63,
+            "SHRA RERA" to 81, "-SHRA RETS" to 80, "-TSRA RESHRA" to 95,
+            "-RA RESN" to 61, "-SN REFZRA" to 71, "-RA REFZDZ" to 61,
+            "-RA REDZ" to 61, "-RA RESHSN" to 61, "-RA RETSRA" to 61,
+        ).forEach { (encoded, expected) ->
+            val report = JSONArray(METAR_JSON).getJSONObject(0).put("wxString", encoded)
+            val observation = parseMetarCurrentConditions(JSONArray().put(report).toString()).single()
+            assertEquals(encoded, expected, observation.weatherCode)
+            assertNull(encoded, observation.precipitation)
+        }
+    }
+
+    @Test
+    fun nonlocalGroupsNeverSupplyLocalWeatherOrBypassUnknownAndMixedPhaseGuards() {
+        listOf(
+            "VCSH RETS", "VCFG", "VCBLSN", "VCBLSA", "VCBLDU", "VCPO", "VCSS", "VCDS",
+            "REDZ", "RESN", "REFZRA", "REFZDZ", "RESHRA", "RESHSN", "RETSRA",
+            "-RA VCUNKNOWN", "-RA REUNKNOWN", "-RA +VCSH", "-RA VCSHRA",
+            "-RA RE-RA", "-RA REFG", "-RA UP VCSH", "RA SN VCSH",
+            "FZRA RA RETS", "-RASN VCSH", "-RA VCSH BR HZ",
+        ).forEach { encoded ->
+            val report = JSONArray(METAR_JSON).getJSONObject(0).put("wxString", encoded)
+            val observation = parseMetarCurrentConditions(JSONArray().put(report).toString()).single()
+            assertNull(encoded, observation.weatherCode)
+            assertNull(encoded, observation.precipitation)
+        }
+    }
+
+    @Test
     fun absentRecentVicinityUnknownAndMixedPhaseWeatherDoesNotBecomeRain() {
         listOf("", "VCSH", "VCTS", "RERA", "-RASN", "RA SN", "FZRA RA", "UP", "BR", "light drizzle").forEach { encoded ->
             val report = JSONArray(METAR_JSON).getJSONObject(0).put("wxString", encoded)

@@ -2,6 +2,12 @@
 
 Reviewed 5 September 2026. WeatherNext 3 is a candidate data source, not an active Selia Weather provider.
 
+## 8 September update: Open-Meteo access
+
+Open-Meteo now documents a keyless `google_weathernext2_ensemble` endpoint. This is **WeatherNext 2, not 3**: 64 members, a global 0.25-degree grid and native six-hour steps through 15 days. Open-Meteo currently ingests the 00/12 UTC runs. Hourly precipitation distributes each six-hour total across six intervals; it is not an independent hourly forecast. Cloud layers, weather codes and rain/snow partitions are derived by Open-Meteo. [API specification](https://open-meteo.com/en/docs/google-weathernext-api)
+
+This changes technical access, not the production decision below. Evaluate native six-hour intervals and treat the 64 members as one model family, not 64 independent providers. Downstream licensing, commercial access and a genuine holdout comparison still need to be resolved before adding this source to the app or public feed.
+
 ## Verified capabilities
 
 Google documents hourly initialization with 64 ensemble members. Station-trained temperature and dew point use a 0.05-degree grid, approximately 5 km. Gridded surface variables, including precipitation, use 0.1 degrees, approximately 10 km. Synoptic runs at 00, 06, 12, and 18 UTC extend to 15 days. Interim hourly runs extend to 48 hours. These are model-grid resolutions, not guarantees of field-scale accuracy. [Model guide](https://developers.google.com/weathernext/guides/models)

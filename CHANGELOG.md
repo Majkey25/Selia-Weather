@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.0-beta.23] - 2026-09-08
+
+- Preserve a strict majority of valid model weather codes when cloud or precipitation amounts are missing. Reject fractional and unsupported codes before counting; do not change precipitation amounts or probabilities.
+- Keep explicit local METAR weather alongside recognized vicinity or recent-weather groups. Nonlocal groups alone never become local rain, and unknown or mixed-phase groups still fail closed.
+- Keep fresh ČHMÚ temperature and rain-gauge observations when humidity is unavailable. Retain the gauge's original timestamp and do not substitute ten-minute totals into the forecast's fifteen-minute interval.
+
 ## [0.2.0-beta.22] - 2026-09-08
 
 - Add per-widget system, numeric, padded, ISO, readable and custom date formats, plus system, 12-hour and 24-hour clock formats. Validate custom patterns before saving and preserve existing widget defaults.

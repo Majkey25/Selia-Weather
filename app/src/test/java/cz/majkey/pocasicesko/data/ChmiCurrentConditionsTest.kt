@@ -124,9 +124,10 @@ class ChmiCurrentConditionsTest {
     @Test
     fun parserRejectsPayloadWithoutCompleteRequiredValues() {
         val station = CurrentStation("0-203-0-11775", "Station", 49.2, 17.7, 250.0, false)
-        val incomplete = STATION_JSON.replace(",\"H\",", ",\"unsupported\",")
-
-        assertEquals(null, parseCurrentStationObservation(incomplete, station))
+        listOf("T", "SRA10M").forEach { element ->
+            val incomplete = STATION_JSON.replace(",\"$element\",", ",\"unsupported\",")
+            assertEquals(null, parseCurrentStationObservation(incomplete, station))
+        }
     }
 
     @Test
@@ -134,12 +135,50 @@ class ChmiCurrentConditionsTest {
         val station = CurrentStation("0-203-0-11775", "Station", 49.2, 17.7, 250.0, false)
         listOf("\"NaN\"", "\"Infinity\"", "-1", "101", "null").forEach { value ->
             val invalid = STATION_JSON.replace(",64,", ",$value,").replace(",66,", ",$value,")
-            assertEquals(null, parseCurrentStationObservation(invalid, station))
+            val observation = requireNotNull(parseCurrentStationObservation(invalid, station))
+            assertEquals(null, observation.humidity)
+            assertEquals(Instant.parse("2026-08-29T09:00:00Z"), observation.time)
         }
         listOf(0, 100).forEach { value ->
             val valid = STATION_JSON.replace(",64,", ",$value,")
             assertEquals(value, requireNotNull(parseCurrentStationObservation(valid, station)).humidity)
         }
+    }
+
+    @Test
+    fun latestWetGaugeRemainsUsableWithoutHumidity() {
+        val station = CurrentStation("0-203-0-11775", "Station", 49.2, 17.7, 250.0, false)
+        val model = CurrentWeather(
+            time = "2026-08-29T11:05", temperature = 22.0, feelsLike = 22.0,
+            humidity = 50, precipitation = 0.0, weatherCode = 0, cloudCover = 0,
+            pressure = 1015.0, windSpeed = 5.0, windDirection = 270, windGusts = 8.0, isDay = true,
+        )
+        val wet = STATION_JSON.replace("\"SRA10M\",\"2026-08-29T09:00:00Z\",0.0", "\"SRA10M\",\"2026-08-29T09:00:00Z\",0.2")
+        listOf(
+            wet.replace("\"H\",\"2026-08-29T09:00:00Z\"", "\"unsupported\",\"2026-08-29T09:00:00Z\""),
+            wet.replace("64,\"\",5]", "64,\"\",2]"),
+            wet.replace("64,\"\",5]", "101,\"\",5]"),
+        ).forEach { json ->
+            val observation = requireNotNull(parseCurrentStationObservation(json, station))
+            assertEquals(Instant.parse("2026-08-29T09:00:00Z"), observation.time)
+            assertEquals(null, observation.humidity)
+            assertEquals(0.2, requireNotNull(observation.precipitation), 0.0)
+            val fused = fuseCurrentConditions(model,
+                CzechLocation("Point", REGION_ZLIN, 49.2, 17.7), listOf(observation),
+                Instant.parse("2026-08-29T09:05:00Z"))
+            assertEquals(61, fused.weatherCode)
+            assertEquals(50, fused.humidity)
+            assertEquals(0.0, fused.precipitation, 0.0)
+        }
+    }
+
+    @Test
+    fun missingLatestGaugeDoesNotBorrowOlderRainForNewTemperature() {
+        val station = CurrentStation("0-203-0-11775", "Station", 49.2, 17.7, 250.0, false)
+        val incomplete = STATION_JSON.replace("\"SRA10M\",\"2026-08-29T09:00:00Z\"", "\"unsupported\",\"2026-08-29T09:00:00Z\"")
+        val observation = requireNotNull(parseCurrentStationObservation(incomplete, station))
+        assertEquals(Instant.parse("2026-08-29T08:50:00Z"), observation.time)
+        assertEquals(20.1, requireNotNull(observation.temperature), 0.0)
     }
 
     @Test

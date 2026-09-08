@@ -1,6 +1,7 @@
 package cz.majkey.pocasicesko.notification
 
 import cz.majkey.pocasicesko.data.DailyWeather
+import cz.majkey.pocasicesko.data.hasPrecipitationEvidence
 import java.time.Instant
 import java.time.LocalTime
 import java.time.ZonedDateTime
@@ -31,7 +32,8 @@ internal fun dailyBriefingAdvice(day: DailyWeather): DailyBriefingAdvice {
     }
     return DailyBriefingAdvice(
         outfit = outfit,
-        umbrella = day.precipitationProbability >= 40 || day.precipitationSum >= 0.5,
+        umbrella = day.precipitationProbability >= 40 ||
+            hasPrecipitationEvidence(day.weatherCode, day.precipitationSum, day.rainSum, day.snowfallSum),
         sunProtection = (day.uvIndexMax ?: 0.0) >= 6.0,
     )
 }

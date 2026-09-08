@@ -946,6 +946,7 @@ def test_truth_filter_keeps_whole_hour_instants_and_hourly_precipitation_only() 
         "temperature_2m",
         15.0,
         "°C",
+        quality=0,
     )
     ten_minute_rain = Observation(
         "CHMI_STATION",
@@ -959,6 +960,7 @@ def test_truth_filter_keeps_whole_hour_instants_and_hourly_precipitation_only() 
         "mm",
         interval=timedelta(minutes=10),
         accumulation="interval",
+        quality=0,
     )
     hourly_rain = replace(ten_minute_rain, interval=timedelta(hours=1))
 

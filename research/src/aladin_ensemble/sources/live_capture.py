@@ -6,18 +6,24 @@ import argparse
 import hashlib
 import json
 import re
+from collections import defaultdict
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from math import isfinite
 from pathlib import Path
+from statistics import fmean, median
 from typing import Literal, cast
 from urllib.parse import parse_qs, urlencode, urlsplit
 
 from aladin_ensemble.align import station_distance_km
 from aladin_ensemble.metrics import circular_mean_absolute_error, mean_absolute_error
 from aladin_ensemble.registry import JsonValue
-from aladin_ensemble.sources.chmi_station import STATION_SOURCE, uses_standard_measurement_height
+from aladin_ensemble.sources.chmi_station import (
+    STATION_SOURCE,
+    chmi_truth_usable,
+    uses_standard_measurement_height,
+)
 from aladin_ensemble.sources.noaa_isd import ISD_SOURCE
 from aladin_ensemble.sources.official_runs import download_http_with_retry
 from aladin_ensemble.sources.open_meteo_runs import canonical_value
@@ -57,10 +63,46 @@ class CaptureError:
     truth_checksum: str | None
 
 
+def compare_capture_models(rows: tuple[CaptureError, ...]) -> dict[str, JsonValue]:
+    """Compare models and scalar baselines on the same complete set of captured hours."""
+    models = sorted({row.model_id for row in rows})
+    grouped: dict[tuple[str, str], list[CaptureError]] = defaultdict(list)
+    for row in rows:
+        if row.status == "paired":
+            grouped[row.variable, row.valid_time].append(row)
+    errors: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
+    actuals: dict[str, list[float]] = defaultdict(list)
+    for (variable, _), cases in sorted(grouped.items()):
+        if sorted(row.model_id for row in cases) != models:
+            continue
+        actual = {row.observed_value for row in cases}
+        if len(actual) != 1 or None in actual:
+            raise ValueError("Matched predictors disagree about truth")
+        truth = next(value for value in actual if value is not None)
+        values = [row.forecast_value for row in cases if row.forecast_value is not None]
+        if len(values) != len(models):
+            raise ValueError("Paired forecast is missing")
+        actuals[variable].append(truth)
+        for row in cases:
+            assert row.absolute_error is not None
+            errors[variable][row.model_id].append(row.absolute_error)
+        if variable != "wind_direction":
+            errors[variable]["arithmetic_mean"].append(abs(fmean(values) - truth))
+            errors[variable]["median"].append(abs(median(values) - truth))
+    return {variable: {
+        "matched_hours": len(actuals[variable]),
+        "nonzero_observation_hours": sum(value > 0 for value in actuals[variable]),
+        "observed_sum": sum(actuals[variable]) if variable == "precipitation" else None,
+        "mae": {model: fmean(values) for model, values in estimates.items()},
+    } for variable, estimates in errors.items()}
+
+
 def evaluate_capture(
     manifest_path: Path,
     observations: Sequence[Observation],
     truth_payloads: Mapping[str, bytes],
+    *,
+    allow_provisional_chmi: bool = False,
 ) -> tuple[CaptureError, ...]:
     """Pair parser-produced station observations; raw hashes prove linkage, not authenticity."""
     manifest_bytes = _read_bounded(manifest_path)
@@ -134,6 +176,10 @@ def evaluate_capture(
         candidates = indexed.get((station_id, valid_time, variable), [])
         height_element = HEIGHT_ELEMENTS.get(variable)
         compatible = [observation for observation in candidates if (
+            (observation.source != STATION_SOURCE or chmi_truth_usable(
+                observation, allow_provisional=allow_provisional_chmi,
+            ))
+            and
             observation.accumulation == ("interval" if record.interval_seconds else "instant")
             and observation.interval == (
                 timedelta(seconds=record.interval_seconds) if record.interval_seconds else None
@@ -292,9 +338,9 @@ def capture(
         "truth": None, "calibration_eligible": False,
     }
     body = (json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n").encode()
-    _write_immutable(output / "raw" / f"{checksum}.json", raw)
+    write_immutable(output / "raw" / f"{checksum}.json", raw)
     path = output / "captures" / f"{hashlib.sha256(body).hexdigest()}.json"
-    _write_immutable(path, body)
+    write_immutable(path, body)
     return path
 
 
@@ -309,7 +355,7 @@ def _utc(value: datetime) -> None:
         raise ValueError("capture time must be timezone-aware UTC")
 
 
-def _write_immutable(path: Path, body: bytes) -> None:
+def write_immutable(path: Path, body: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     try:
         with path.open("xb") as target:

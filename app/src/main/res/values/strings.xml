@@ -101,8 +101,8 @@
     <string name="sea_level">Sea level</string>
     <string name="precipitation_value">%1$s mm</string>
     <string name="at_a_glance">At a glance</string>
-    <string name="next_rain">Next rain</string>
-    <string name="no_rain_next_24h">No rain in the next 24 h</string>
+    <string name="next_rain">Next chance of precipitation</string>
+    <string name="no_rain_next_24h">No precipitation indicated in the available 24 h forecast</string>
     <string name="max_precipitation_probability">Maximum rain chance</string>
     <string name="uv_index">UV index</string>
     <string name="uv_index_max">Maximum UV</string>
@@ -343,16 +343,17 @@
     <string name="daily_briefing_umbrella">Take an umbrella.</string>
     <string name="daily_briefing_no_umbrella">No umbrella should be needed.</string>
     <string name="daily_briefing_sun_protection">Use sun protection.</string>
-    <string name="hourly_rain_unlikely">Rain is unlikely: %1$s expected this hour (%2$d%% chance).</string>
-    <string name="hourly_rain_possible">Rain is possible: %1$s expected this hour (%2$d%% chance).</string>
-    <string name="hourly_rain_likely">Rain is likely: %1$s expected this hour (%2$d%% chance).</string>
-    <string name="hourly_rain_heavy">Heavy rain is possible: %1$s expected this hour (%2$d%% chance).</string>
+    <string name="hourly_rain_unlikely">Rain is unlikely: %1$s expected in the reported interval (%2$d%% chance).</string>
+    <string name="hourly_source_precipitation_summary">Forecast: %1$s. %2$s in the reported interval (%3$d%% chance).</string>
+    <string name="hourly_rain_possible">Rain is possible: %1$s expected in the reported interval (%2$d%% chance).</string>
+    <string name="hourly_rain_likely">Rain is likely: %1$s expected in the reported interval (%2$d%% chance).</string>
+    <string name="hourly_rain_heavy">Heavy rain is possible: %1$s expected in the reported interval (%2$d%% chance).</string>
     <string name="hourly_dry_summary">%1$s. No measurable rain is expected (%2$d%% chance). Feels like %3$s with %4$s wind from %5$s.</string>
-    <string name="hourly_snow_summary">Snow is possible this hour: %1$s water equivalent (%2$d%% chance of precipitation).</string>
-    <string name="hourly_mixed_summary">Rain and snow are possible this hour: %1$s total water equivalent (%2$d%% chance of precipitation).</string>
-    <string name="hourly_freezing_summary">Freezing precipitation is possible. Surfaces may become slippery: %1$s expected this hour (%2$d%% chance).</string>
-    <string name="hourly_precipitation_summary">Precipitation is possible: %1$s expected this hour (%2$d%% chance).</string>
-    <string name="hourly_snowfall_summary">Expected snowfall: %1$s this hour.</string>
+    <string name="hourly_snow_summary">Snow is possible in the reported interval: %1$s water equivalent (%2$d%% chance of precipitation).</string>
+    <string name="hourly_mixed_summary">Rain and snow are possible in the reported interval: %1$s total water equivalent (%2$d%% chance of precipitation).</string>
+    <string name="hourly_freezing_summary">Freezing precipitation is possible. Surfaces may become slippery: %1$s expected in the reported interval (%2$d%% chance).</string>
+    <string name="hourly_precipitation_summary">Precipitation is possible: %1$s expected in the reported interval (%2$d%% chance).</string>
+    <string name="hourly_snowfall_summary">Expected snowfall: %1$s in the reported interval.</string>
     <string name="hourly_wind_summary">Wind is the main concern: %1$s.</string>
     <string name="hourly_gusts_summary">Gusts may reach %1$s.</string>
     <string name="hourly_visibility_summary">Visibility may fall to %1$s. Allow extra time when travelling.</string>
@@ -408,4 +409,6 @@
     <string name="legal_terms">Terms of use</string>
     <string name="legal_refunds">Refund policy</string>
     <string name="legal_cookies">Cookie policy</string>
+    <string name="precipitation_interval">Precipitation interval: %1$s</string>
+    <string name="precipitation_probability_note">Precipitation chance means more than 0.1 mm (~0.004 in) during this interval. Drizzle or trace amounts can occur at a low percentage. Temperature and conditions refer to the displayed timestamp.</string>
 </resources>

@@ -100,8 +100,8 @@
     <string name="sea_level">Nivel del mar</string>
     <string name="precipitation_value">%1$s mm</string>
     <string name="at_a_glance">Resumen</string>
-    <string name="next_rain">Próxima precipitación</string>
-    <string name="no_rain_next_24h">Sin precipitaciones en las próximas 24 h</string>
+    <string name="next_rain">Próxima posibilidad de precipitación</string>
+    <string name="no_rain_next_24h">El pronóstico disponible para 24 h no indica precipitaciones</string>
     <string name="max_precipitation_probability">Probabilidad máxima de precipitación</string>
     <string name="uv_index">Índice UV</string>
     <string name="uv_index_max">UV máximo</string>
@@ -342,16 +342,16 @@
     <string name="daily_briefing_umbrella">Lleva paraguas.</string>
     <string name="daily_briefing_no_umbrella">No debería hacer falta paraguas.</string>
     <string name="daily_briefing_sun_protection">Usa protección solar.</string>
-    <string name="hourly_rain_unlikely">La lluvia es poco probable: se esperan %1$s (%2$d%% de probabilidad).</string>
-    <string name="hourly_rain_possible">Puede llover: se esperan %1$s (%2$d%% de probabilidad).</string>
-    <string name="hourly_rain_likely">Es probable que llueva: se esperan %1$s (%2$d%% de probabilidad).</string>
-    <string name="hourly_rain_heavy">Puede llover con fuerza: se esperan %1$s (%2$d%% de probabilidad).</string>
+    <string name="hourly_rain_unlikely">La lluvia es poco probable: se esperan %1$s en el intervalo indicado (%2$d%% de probabilidad).</string>
+    <string name="hourly_rain_possible">Puede llover: se esperan %1$s en el intervalo indicado (%2$d%% de probabilidad).</string>
+    <string name="hourly_rain_likely">Es probable que llueva: se esperan %1$s en el intervalo indicado (%2$d%% de probabilidad).</string>
+    <string name="hourly_rain_heavy">Puede llover con fuerza: se esperan %1$s en el intervalo indicado (%2$d%% de probabilidad).</string>
     <string name="hourly_dry_summary">%1$s. No se espera lluvia medible (%2$d%% de probabilidad). Sensación de %3$s, con viento de %4$s desde %5$s.</string>
-    <string name="hourly_snow_summary">Puede nevar esta hora: %1$s de equivalente en agua (%2$d%% de probabilidad de precipitación).</string>
-    <string name="hourly_mixed_summary">Puede llover y nevar esta hora: %1$s de equivalente en agua en total (%2$d%% de probabilidad de precipitación).</string>
-    <string name="hourly_freezing_summary">Puede haber precipitación engelante y superficies resbaladizas: %1$s esta hora (%2$d%% de probabilidad).</string>
-    <string name="hourly_precipitation_summary">Puede haber precipitación: %1$s esta hora (%2$d%% de probabilidad).</string>
-    <string name="hourly_snowfall_summary">Nieve nueva prevista: %1$s esta hora.</string>
+    <string name="hourly_snow_summary">Puede nevar en el intervalo indicado: %1$s de equivalente en agua (%2$d%% de probabilidad de precipitación).</string>
+    <string name="hourly_mixed_summary">Puede llover y nevar en el intervalo indicado: %1$s de equivalente en agua en total (%2$d%% de probabilidad de precipitación).</string>
+    <string name="hourly_freezing_summary">Puede haber precipitación engelante y superficies resbaladizas: %1$s en el intervalo indicado (%2$d%% de probabilidad).</string>
+    <string name="hourly_precipitation_summary">Puede haber precipitación: %1$s en el intervalo indicado (%2$d%% de probabilidad).</string>
+    <string name="hourly_snowfall_summary">Nieve nueva prevista: %1$s en el intervalo indicado.</string>
     <string name="hourly_wind_summary">Presta especial atención al viento: %1$s.</string>
     <string name="hourly_gusts_summary">Las rachas pueden alcanzar %1$s.</string>
     <string name="hourly_visibility_summary">La visibilidad puede bajar a %1$s. Reserva más tiempo para viajar.</string>
@@ -402,4 +402,7 @@
     <string name="legal_terms">Condiciones de uso</string>
     <string name="legal_refunds">Política de reembolsos</string>
     <string name="legal_cookies">Política de cookies</string>
+    <string name="hourly_source_precipitation_summary">Pronóstico: %1$s. %2$s en el intervalo indicado (%3$d%% de probabilidad).</string>
+    <string name="precipitation_interval">Intervalo de precipitación: %1$s</string>
+    <string name="precipitation_probability_note">La probabilidad de precipitación se refiere a más de 0,1 mm (~0,004 in) durante este intervalo. Puede haber llovizna o cantidades mínimas incluso con un porcentaje bajo. La temperatura y las condiciones corresponden a la hora indicada.</string>
 </resources>

@@ -5,6 +5,7 @@ from datetime import date, datetime, timedelta
 from math import asin, cos, radians, sin, sqrt
 from typing import Literal
 
+from aladin_ensemble.sources.chmi_station import STATION_SOURCE, chmi_truth_usable
 from aladin_ensemble.sources.open_meteo_runs import canonical_value
 from aladin_ensemble.types import ForecastValue, Observation, SpatialObservation
 
@@ -182,6 +183,8 @@ def _index_observations(
 
 
 def _compatible_observation(variable: str, observation: Observation) -> bool:
+    if observation.source == STATION_SOURCE and not chmi_truth_usable(observation):
+        return False
     if variable == "precipitation":
         return observation.accumulation == "interval" and observation.interval == timedelta(hours=1)
     return observation.accumulation == "instant" and observation.interval is None

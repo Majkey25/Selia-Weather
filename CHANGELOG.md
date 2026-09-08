@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.0-beta.19] - 2026-09-08
+
+- Keep drizzle, trace rainfall and snowfall visible in hourly summaries, the next-precipitation summary and optional morning advice. Do not derive a higher rain probability from an amount or condition code.
+- Blend rain, showers and snowfall from the same model contributors as the total precipitation. Preserve unavailable components instead of borrowing another model's zero.
+- Label hourly precipitation intervals explicitly and explain the 0.1 mm probability threshold. Restrict the next-precipitation summary to the following 24 hours.
+- Reject suspect, missing, estimated and malformed ČHMÚ current measurements; retain usable provisional readings and their original timestamps. Variable wind reports are not fixed directions.
+- Require checked ČHMÚ observations for calibration and exclude censored trace amounts from numeric rainfall truth. Keep provisional replay separate from validated evidence.
+
 ## [0.2.0-beta.18] - 2026-09-08
 
 - Keep current conditions separate from the hourly forecast and daily summary. Remove sunshine-to-clear-sky guesses and prevent ten-minute station amounts from replacing fifteen-minute model totals.

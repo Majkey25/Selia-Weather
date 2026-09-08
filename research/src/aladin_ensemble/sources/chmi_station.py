@@ -85,6 +85,17 @@ STANDARD_MEASUREMENT_HEIGHTS = {"T": 2.0, "Td": 2.0, "D": 10.0, "F": 10.0}
 STANDARD_HEIGHT_RELATIVE_TOLERANCE = 0.1
 
 
+def chmi_truth_usable(observation: Observation, *, allow_provisional: bool = False) -> bool:
+    """Keep provider QC and censored trace amounts out of numerical training truth."""
+    if observation.source != STATION_SOURCE or observation.quality not in (
+        (0, 5) if allow_provisional else (0,)
+    ):
+        return False
+    # meta3: T is a trace, not zero; Z/5/7 identify alternative rain gauges.
+    flags = {None, "Z", "5", "7"} if observation.variable == "precipitation" else {None}
+    return observation.flag in flags
+
+
 class _JsonStream:
     def __init__(self, source: TextIO) -> None:
         self._source = source

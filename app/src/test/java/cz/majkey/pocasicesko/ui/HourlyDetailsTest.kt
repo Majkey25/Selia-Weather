@@ -2,6 +2,7 @@ package cz.majkey.pocasicesko.ui
 
 import cz.majkey.pocasicesko.data.HourlyWeather
 import java.io.File
+import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -10,6 +11,29 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class HourlyDetailsTest {
+    @Test
+    fun precipitationIntervalEndsAtTheSourceTimestamp() {
+        assertEquals("07:00–08:00", hourlyPrecipitationInterval("2026-09-09T08:00", Locale.ENGLISH))
+        assertEquals("8 Sep 2026, 23:00 – 9 Sep 2026, 00:00", hourlyPrecipitationInterval("2026-09-09T00:00", Locale.ENGLISH))
+        assertEquals("31 Dec 2026, 23:00 – 1 Jan 2027, 00:00", hourlyPrecipitationInterval("2027-01-01T00:00", Locale.ENGLISH))
+        assertNull(hourlyPrecipitationInterval("invalid", Locale.ENGLISH))
+    }
+
+    @Test
+    fun sourceDrizzleAndTraceAmountsNeverBecomeDryOrInventHigherProbability() {
+        val dry = hour(null, 7.0).copy(precipitation = 0.0, precipitationProbability = 0)
+        val drizzle = dry.copy(weatherCode = 51)
+        assertEquals(HourlyHighlight.RAIN, hourlyHighlight(drizzle))
+        assertEquals(HourlyRainLevel.FORECAST, hourlyRainLevel(drizzle))
+        assertEquals(0, drizzle.precipitationProbability)
+        assertEquals(HourlyRainLevel.FORECAST, hourlyRainLevel(dry.copy(precipitation = 0.03)))
+        assertEquals(HourlyHighlight.RAIN, hourlyHighlight(dry.copy(rain = 0.03)))
+        assertEquals(HourlyHighlight.SNOW, hourlyHighlight(dry.copy(weatherCode = 71)))
+        assertEquals(HourlyHighlight.FREEZING, hourlyHighlight(dry.copy(weatherCode = 56)))
+        assertEquals(HourlyHighlight.UV, hourlyHighlight(dry))
+        assertEquals(HourlyHighlight.UV, hourlyHighlight(dry.copy(precipitation = Double.NaN, snowfall = Double.POSITIVE_INFINITY)))
+    }
+
     @Test
     fun opensClosesAndSwitchesHours() {
         assertEquals("2026-08-30T12:00", toggleExpandedHour(null, "2026-08-30T12:00"))

@@ -42,6 +42,8 @@
 
 The base forecast uses Open-Meteo Best Match worldwide. The app also requests verified provider-family series and calculates a robust median on the device when at least three values are available. Provider seamless series use local high-resolution grids inside their domains and global output elsewhere. Czech locations additionally request CHMI ALADIN. Suspended providers are excluded.
 
+Hourly cloud layers use the same contributing models as the total-cloud median. Missing selected layers stay unknown. Provider-specific layer definitions are preserved; they are not forced into a geometric union formula.
+
 The app normally uses the diagnostic median or Best Match. Provider precipitation probability is preserved: agreement among deterministic models is not a calibrated probability. Learned weights require a validated production feed, individual model issue times and a matching regional holdout; the published feed is currently diagnostic. The research exporter rejects weights outside their evaluated region, season, or forecast lead. Weather details show the actual mode and contributors; no superior-accuracy claim is made.
 
 The evidence and limits are recorded in [Global model routing](docs/research/global-model-routing.md), [Worldwide ensemble validation](docs/research/worldwide-ensemble-validation.md), and the [313-case temperature replay](docs/research/2026-09-05-temperature-replay.md). That replay improves pooled error over Best Match but contains station-level failures and is not a new holdout.
@@ -71,6 +73,8 @@ The public application ID is `com.majkeylab.weatheraladin`. A network connection
 One stable widget layout adapts to compact, standard, wide, and tall sizes. Resize it horizontally or vertically. Each widget stores its own configuration, so two widgets can use different colours, fields, labels, and backgrounds.
 
 Choose App style to use the forecast's weather-aware gradient, or start from Minimal, Material, Pixel, or Cupertino. Adjust fonts, text scale, alignment, corner shape, content spacing, colours, and background opacity independently.
+
+Choose a date format for each widget: system default, `8.9.2026`, `08.09.2026`, ISO, a localized month name, or a custom Java date pattern. The editor previews the result and rejects invalid patterns. The clock can follow the system or use 12-hour or 24-hour time independently.
 
 Tap a colour swatch to open the HEX/RGB/opacity picker. Automatic text contrast handles opaque backgrounds; editing a text colour switches to manual control. Transparent or image backgrounds depend on your wallpaper and need a home-screen readability check.
 

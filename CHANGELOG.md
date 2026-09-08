@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0-beta.22] - 2026-09-08
+
+- Add per-widget system, numeric, padded, ISO, readable and custom date formats, plus system, 12-hour and 24-hour clock formats. Validate custom patterns before saving and preserve existing widget defaults.
+- Keep hourly cloud layers with the model contributors that determine the total-cloud median. Do not mix independent layer medians or unrelated Best Match fallback values.
+- Preserve missing layers as unknown and retain the complete provider cloud group when there are too few valid total-cloud contributors.
+- Preserve provider-specific cloud-layer definitions, current sky observations, precipitation and probabilities. No additional data requests or newly learned weights.
+
 ## [0.2.0-beta.21] - 2026-09-08
 
 - Show how many contributing models predict a nonzero precipitation amount and their amount range in expanded hourly details, including trace amounts.

@@ -1,6 +1,8 @@
 package cz.majkey.pocasicesko.widget
 
 import android.content.Context
+import android.content.res.Resources
+import android.content.res.Configuration
 import android.graphics.Color as AndroidColor
 import android.graphics.Typeface
 import android.text.format.DateFormat
@@ -87,6 +89,7 @@ internal fun WidgetEditorScreen(
 ) {
     var settings by rememberSaveable(stateSaver = WidgetSettingsSaver) { mutableStateOf(initial) }
     var previewSize by rememberSaveable { mutableStateOf(WidgetSize.WIDE) }
+    val locale = LocalConfiguration.current.locales[0]
     val displayedColors = settings.renderedTextColors()
     LaunchedEffect(pickedImageUri) {
         if (pickedImageUri != null) {
@@ -98,6 +101,9 @@ internal fun WidgetEditorScreen(
         settings.secondaryColor,
         settings.accentColor,
     ).plus(settings.editableBackgroundColors()).any { !isWidgetColor(it) }
+    val invalidDatePattern = remember(settings.dateFormat, settings.customDatePattern, locale) {
+        settings.dateFormat == WidgetDateFormat.CUSTOM && !isWidgetDatePattern(settings.customDatePattern, locale)
+    }
 
     Scaffold(
         bottomBar = {
@@ -112,7 +118,7 @@ internal fun WidgetEditorScreen(
                     fontSize = 12.sp,
                 )
                 Button(
-                    enabled = !invalidColors && !applying,
+                    enabled = !invalidColors && !invalidDatePattern && !applying,
                     onClick = { onApply(settings.normalized()) },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
                 ) { Text(stringResource(if (applying) R.string.widget_saving else R.string.widget_apply)) }
@@ -268,6 +274,57 @@ internal fun WidgetEditorScreen(
                 }
             }
             item {
+                EditorSection(stringResource(R.string.widget_date_time_format)) {
+                    Text(stringResource(R.string.widget_date_format), fontWeight = FontWeight.Medium)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        WidgetDateFormat.entries.forEach { format ->
+                            FilterChip(
+                                selected = settings.dateFormat == format,
+                                onClick = { settings = settings.copy(dateFormat = format) },
+                                label = {
+                                    Text(when (format) {
+                                        WidgetDateFormat.SYSTEM -> stringResource(R.string.widget_format_system)
+                                        WidgetDateFormat.CUSTOM -> stringResource(R.string.widget_date_custom)
+                                        else -> widgetDate(LocalDate.now(), locale, settings.copy(dateFormat = format))
+                                    })
+                                },
+                            )
+                        }
+                    }
+                    if (settings.dateFormat == WidgetDateFormat.CUSTOM) {
+                        OutlinedTextField(
+                            value = settings.customDatePattern,
+                            onValueChange = { settings = settings.copy(customDatePattern = it.take(MAX_WIDGET_DATE_PATTERN_LENGTH)) },
+                            label = { Text(stringResource(R.string.widget_date_pattern)) },
+                            placeholder = { Text("d.M.yyyy") },
+                            isError = invalidDatePattern,
+                            supportingText = {
+                                Text(if (invalidDatePattern) stringResource(R.string.widget_date_pattern_error)
+                                    else stringResource(R.string.widget_format_preview, widgetDate(LocalDate.now(), locale, settings)))
+                            },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Text(stringResource(R.string.widget_date_pattern_hint, MAX_WIDGET_DATE_PATTERN_LENGTH),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                    }
+                    Text(stringResource(R.string.widget_time_format), fontWeight = FontWeight.Medium)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        WidgetTimeFormat.entries.forEach { format ->
+                            FilterChip(
+                                selected = settings.timeFormat == format,
+                                onClick = { settings = settings.copy(timeFormat = format) },
+                                label = { Text(stringResource(when (format) {
+                                    WidgetTimeFormat.SYSTEM -> R.string.widget_format_system
+                                    WidgetTimeFormat.HOUR_12 -> R.string.widget_time_12
+                                    WidgetTimeFormat.HOUR_24 -> R.string.widget_time_24
+                                })) },
+                            )
+                        }
+                    }
+                }
+            }
+            item {
                 EditorSection(stringResource(R.string.widget_editor_content)) {
                     FieldToggle(R.string.widget_field_time, settings.showClock) { settings = settings.copy(showClock = it) }
                     FieldToggle(R.string.widget_field_date, settings.showDate) { settings = settings.copy(showDate = it) }
@@ -361,6 +418,10 @@ private fun WidgetPreview(settings: WidgetSettings, size: WidgetSize) {
     val configuration = LocalConfiguration.current
     val localized = remember(context, configuration.locales[0]) { AppLocale.localized(context) }
     val locale = localized.resources.configuration.locales[0]
+    val clockLocale = Resources.getSystem().configuration.locales[0]
+    val clockContext = remember(context, configuration, clockLocale) {
+        context.createConfigurationContext(Configuration(configuration).apply { setLocale(clockLocale) })
+    }
     val data = remember(localized, locale) { loadPreview(localized) }
     val normalized = settings.normalized().renderedTextColors()
     val previewHeight = when (size) {
@@ -455,8 +516,9 @@ private fun WidgetPreview(settings: WidgetSettings, size: WidgetSize) {
                             }
                         }
                         Column(horizontalAlignment = Alignment.End) {
-                            if (visibility.showClock) Text(widgetClock(LocalTime.now(), DateFormat.is24HourFormat(context)), color = primary, fontSize = 14.sp * scale, fontWeight = FontWeight.SemiBold)
-                            if (visibility.showDate) Text(widgetDate(LocalDate.now(), locale), color = secondary, fontSize = 10.sp * scale)
+                            if (visibility.showClock) Text(widgetClock(LocalTime.now(), DateFormat.is24HourFormat(clockContext), normalized.timeFormat,
+                                clockLocale), color = primary, fontSize = 14.sp * scale, fontWeight = FontWeight.SemiBold)
+                            if (visibility.showDate) Text(widgetDate(LocalDate.now(), locale, normalized), color = secondary, fontSize = 10.sp * scale)
                         }
                     }
                     if (visibility.showMetrics) {
@@ -537,6 +599,9 @@ internal val WidgetSettingsSaver = listSaver<WidgetSettings, Any>(
             settings.corners.name,
             settings.contentPaddingDp,
             settings.automaticTextColors,
+            settings.dateFormat.name,
+            settings.customDatePattern,
+            settings.timeFormat.name,
         )
     },
     restore = { values ->
@@ -574,6 +639,9 @@ internal val WidgetSettingsSaver = listSaver<WidgetSettings, Any>(
             contentPaddingDp = values.getOrNull(30) as? Int ?: DEFAULT_WIDGET_PADDING_DP,
             automaticTextColors = values.getOrNull(31) as? Boolean
                 ?: defaultAutomaticWidgetTextColors(values[3] as String, values[4] as String),
+            dateFormat = widgetDateFormat(values.getOrNull(32) as? String),
+            customDatePattern = values.getOrNull(33) as? String ?: "d.M.yyyy",
+            timeFormat = widgetTimeFormat(values.getOrNull(34) as? String),
         )
     },
 )

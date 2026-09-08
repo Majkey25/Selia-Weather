@@ -118,6 +118,7 @@ internal fun blendModelForecast(
             precipitationBlendedIndices.add(targetIndex)
             blendedAny = true
         }
+        blendedAny = blendCloudCover(source, target, suffixes, sourceIndex, targetIndex) || blendedAny
         blendedAny = blendWind(
             source,
             target,
@@ -210,6 +211,35 @@ private fun blendPrecipitation(
     listOf("rain", "showers", "snowfall").forEach { field ->
         val values = selected.mapNotNull { (suffix, _) ->
             source.optJSONArray("${field}_$suffix").numberOrNull(sourceIndex)?.takeIf { it >= 0.0 }
+        }
+        target.optJSONArray(field)?.put(
+            targetIndex,
+            values.takeIf { it.size == selected.size }?.average() ?: JSONObject.NULL,
+        )
+    }
+    return true
+}
+
+private fun blendCloudCover(
+    source: JSONObject,
+    target: JSONObject,
+    suffixes: List<String>,
+    sourceIndex: Int,
+    targetIndex: Int,
+): Boolean {
+    val ranked = suffixes.mapNotNull { suffix ->
+        source.optJSONArray("cloud_cover_$suffix").numberOrNull(sourceIndex)
+            ?.takeIf { it in 0.0..100.0 }?.let { suffix to it }
+    }.sortedWith(compareBy<Pair<String, Double>> { it.second }.thenBy { it.first })
+    if (ranked.size < MINIMUM_MODELS) return false
+    val total = target.optJSONArray("cloud_cover") ?: return false
+    val selected = ranked.subList((ranked.size - 1) / 2, ranked.size / 2 + 1)
+    total.put(targetIndex, selected.map { it.second }.average())
+    // Layer definitions differ by provider. Preserve the selected sources, not a union formula.
+    listOf("cloud_cover_low", "cloud_cover_mid", "cloud_cover_high").forEach { field ->
+        val values = selected.mapNotNull { (suffix, _) ->
+            source.optJSONArray("${field}_$suffix").numberOrNull(sourceIndex)
+                ?.takeIf { it in 0.0..100.0 }
         }
         target.optJSONArray(field)?.put(
             targetIndex,
@@ -460,10 +490,6 @@ private val CONTINUOUS_FIELDS = listOf(
     "temperature_2m",
     "relative_humidity_2m",
     "apparent_temperature",
-    "cloud_cover",
-    "cloud_cover_low",
-    "cloud_cover_mid",
-    "cloud_cover_high",
     "pressure_msl",
     "surface_pressure",
     "wind_gusts_10m",
@@ -472,10 +498,7 @@ private val CONTINUOUS_FIELDS = listOf(
 )
 // Keep current sky and interval aggregates at the provider's current validity time.
 // Hourly conditions are derived partly from the preceding hour's precipitation.
-private val CURRENT_FIELDS = CONTINUOUS_FIELDS - setOf(
-    "wind_gusts_10m",
-    "cloud_cover", "cloud_cover_low", "cloud_cover_mid", "cloud_cover_high",
-) + listOf(
+private val CURRENT_FIELDS = CONTINUOUS_FIELDS - "wind_gusts_10m" + listOf(
     "wind_speed_10m",
     "wind_direction_10m",
 )

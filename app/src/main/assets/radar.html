@@ -298,7 +298,8 @@
     function forecastIsFresh(cached) {
       var now = Date.now();
       return cached && cached.loadedAt <= now && now - cached.loadedAt < REFRESH_INTERVAL_MS &&
-        cached.frames.length === 13 && cached.frames[12].time >= now / 1000 + 12 * 3600;
+        cached.frames.length >= 13 && cached.frames.length <= 15 &&
+        cached.frames[cached.frames.length - 1].time >= now / 1000 + 12 * 3600;
     }
 
     function ensureForecastFresh() {
@@ -447,7 +448,7 @@
       document.getElementById('play').disabled = document.getElementById('slider').disabled = false;
       forecastExpiryTimer = setTimeout(ensureForecastFresh, Math.max(0, Math.min(
         cached.loadedAt + REFRESH_INTERVAL_MS - Date.now(),
-        frames[12].time * 1000 - Date.now() - 12 * 3600000
+        frames[frames.length - 1].time * 1000 - Date.now() - 12 * 3600000
       )) + 1);
       frameIndex = 0; showFrame(0);
     }

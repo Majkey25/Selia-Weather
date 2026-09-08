@@ -17,6 +17,7 @@ function runtime(response = manifest()) {
   const events = {};
   const layers = [];
   const timeouts = new Map();
+  const timeoutDelays = new Map();
   const intervals = new Map();
   let timerId = 0;
   const document = {
@@ -49,8 +50,8 @@ function runtime(response = manifest()) {
     document, URLSearchParams, AbortController, Date, console,
     window: { location: { search: '?lat=50&lon=14' }, innerHeight: 480,
       addEventListener(name, callback) { events[name] = callback; } },
-    setTimeout(callback) { timeouts.set(++timerId, callback); return timerId; },
-    clearTimeout(id) { timeouts.delete(id); },
+    setTimeout(callback, delay) { timeouts.set(++timerId, callback); timeoutDelays.set(timerId, delay); return timerId; },
+    clearTimeout(id) { timeouts.delete(id); timeoutDelays.delete(id); },
     setInterval(callback) { intervals.set(++timerId, callback); return timerId; },
     clearInterval(id) { intervals.delete(id); },
     requestAnimationFrame(callback) { callback(); },
@@ -62,7 +63,7 @@ function runtime(response = manifest()) {
   });
   vm.runInContext(readFileSync(join(__dirname, '../../main/assets/radar-forecast.js'), 'utf8'), context);
   vm.runInContext(script, context);
-  return { context, document, events, layers, timeouts, intervals, removed, node: id => document.getElementById(id) };
+  return { context, document, events, layers, timeouts, timeoutDelays, intervals, removed, node: id => document.getElementById(id) };
 }
 const settled = () => new Promise(resolve => setImmediate(resolve));
 
@@ -129,8 +130,8 @@ function forecastPayload(app, value = 1) {
   return app.context.RadarForecast.grid(50, 14, 6, 6).points.map((point, location_id) => ({
     location_id, latitude: point.lat, longitude: point.lon, utc_offset_seconds: 0,
     hourly_units: { time: 'unixtime', precipitation: 'mm' },
-    hourly: { time: Array.from({ length: 14 }, (_, i) => first + i * 3600),
-      precipitation: Array(14).fill(value) },
+    hourly: { time: Array.from({ length: 15 }, (_, i) => first + i * 3600),
+      precipitation: Array(15).fill(value) },
   }));
 }
 
@@ -172,13 +173,16 @@ test('model forecast loads one batch and reuses its bounded cache on mode switch
   await settled();
   let modelCalls = 0;
   app.context.fetch = async url => {
-    if (url.includes('open-meteo')) { modelCalls++; return { ok: true, json: async () => forecastPayload(app) }; }
+    if (url.includes('open-meteo')) {
+      assert.equal(new URL(url).searchParams.get('forecast_hours'), '15');
+      modelCalls++; return { ok: true, json: async () => forecastPayload(app) };
+    }
     return { ok: true, json: async () => manifest() };
   };
   app.context.setMode('forecast');
   await settled();
   assert.equal(modelCalls, 1);
-  assert.equal(app.context.frames.length, 13);
+  assert.equal(app.context.frames.length, 14);
   assert.ok(app.context.frames.every(frame => frame.type === 'forecast'));
   app.context.pendingLayer.events.load();
   assert.match(app.node('time').textContent, /\d\d:\d\d–\d\d:\d\d UTC/);
@@ -241,6 +245,10 @@ test('stale, reordered, negative and wrong-timezone forecast payloads fail close
     payload => { payload[0].location_id = 2; },
     payload => { payload[0].hourly.precipitation[1] = -1; },
     payload => { payload[0].utc_offset_seconds = 7200; },
+    payload => payload.forEach(point => { point.hourly.time.pop(); point.hourly.precipitation.pop(); }),
+    payload => payload.forEach(point => {
+      point.hourly.time.push(point.hourly.time.at(-1) + 3600); point.hourly.precipitation.push(1);
+    }),
     payload => payload.forEach(point => { point.hourly.time = point.hourly.time.map(time => time - 86400); }),
   ]) {
     const payload = forecastPayload(app);
@@ -267,7 +275,7 @@ test('forecast timeout fails closed and one later explicit retry can recover', a
   app.context.refreshMap();
   await settled();
   assert.equal(app.node('play').disabled, false);
-  assert.equal(app.context.frames.length, 13);
+  assert.equal(app.context.frames.length, 14);
 });
 
 test('resize and panning do not fetch a new model area or misplace a cached area', async () => {
@@ -382,6 +390,35 @@ test('insufficient remaining horizon expires even a recently loaded forecast and
   assert.equal(app.node('status').textContent, app.context.FORECAST_TEXT[3]);
 });
 
+test('forecast loaded at hh:59 survives the next hour boundary until its normal age expiry', async () => {
+  const app = runtime();
+  await settled();
+  const loadedAt = Date.UTC(2026, 8, 9, 9, 59);
+  let clock = loadedAt, calls = 0;
+  app.context.Date = class extends Date { static now() { return clock; } };
+  app.context.fetch = async () => {
+    calls++;
+    return { ok: true, json: async () => forecastPayload(app) };
+  };
+  app.context.setMode('forecast');
+  await settled();
+  app.context.pendingLayer.events.load();
+  const cached = app.context.forecastCache;
+  assert.equal(app.timeoutDelays.get(app.context.forecastExpiryTimer), 600001);
+  clock = Date.UTC(2026, 8, 9, 10, 0, 1);
+  app.context.showFrame(1);
+  assert.equal(app.context.forecastCache === cached, true);
+  assert.equal(app.node('play').disabled, false);
+  app.context.pendingLayer.events.load();
+  clock = loadedAt + 599999;
+  assert.equal(app.context.ensureForecastFresh(), true);
+  clock = loadedAt + 600001;
+  app.timeouts.get(app.context.forecastExpiryTimer)();
+  assert.equal(app.context.frames.length, 0);
+  assert.equal(app.node('play').disabled, true);
+  assert.equal(calls, 1, 'crossing an hour and age expiry must not request extra data');
+});
+
 test('bad host, stale frames and malformed paths never enable playback', async () => {
   for (const payload of [
     { ...manifest(), host: 'https://untrusted.example' },
@@ -449,11 +486,11 @@ test('forecast parser preserves hourly nulls and provides at least 12 hours ahea
   const payload = grid.points.map(point => ({
     latitude: point.lat, longitude: point.lon, utc_offset_seconds: 0,
     hourly_units: { time: 'unixtime', precipitation: 'mm' },
-    hourly: { time: Array.from({ length: 14 }, (_, i) => first + i * 3600),
-      precipitation: [0, null, ...Array(12).fill(1)] },
+    hourly: { time: Array.from({ length: 15 }, (_, i) => first + i * 3600),
+      precipitation: [0, null, ...Array(13).fill(1)] },
   }));
   const frames = app.context.RadarForecast.parse(payload, grid, now);
-  assert.equal(frames.length, 13);
+  assert.equal(frames.length, 14);
   assert.equal(frames[0].values[0], null);
   assert.ok(frames.at(-1).time >= now + 12 * 3600);
   payload[0].hourly_units.precipitation = 'inch';

@@ -1,11 +1,74 @@
 package cz.majkey.pocasicesko.data
 
+import java.net.SocketTimeoutException
+import java.util.concurrent.CancellationException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class WeatherRepositoryTest {
+    @Test
+    fun stageDiagnosticsMeasureMonotonicTimeWithoutLoggingResultsOrExceptionMessages() {
+        val lines = mutableListOf<String>()
+        var clock = 100L
+        val privateData = "https://example.test/?latitude=50.12345&longitude=14.98765 raw-weather-payload"
+        val result = loggedForecastStage(
+            ForecastFetchStage.BEST_MATCH,
+            monotonicMillis = { clock.also { clock += 25 } },
+            writeLog = { lines.add(it) },
+        ) { privateData }
+        assertEquals(privateData, result)
+        assertEquals("stage=BEST_MATCH elapsed_ms=25 outcome=ok error=- http_status=-", lines.single())
+        val timeout = SocketTimeoutException(privateData)
+        val caught = assertThrows(SocketTimeoutException::class.java) {
+            loggedForecastStage(
+                ForecastFetchStage.MODELS,
+                monotonicMillis = { clock.also { clock += 50 } },
+                writeLog = { lines.add(it) },
+            ) { throw timeout }
+        }
+        assertSame(timeout, caught)
+        assertEquals("stage=MODELS elapsed_ms=50 outcome=failed error=SocketTimeoutException http_status=-", lines.last())
+        assertFalse(lines.joinToString().contains(privateData))
+    }
+
+    @Test
+    fun stageDiagnosticsRecordKnownHttpStatusAndDoNotSwallowCancellation() {
+        val lines = mutableListOf<String>()
+        val httpError = WeatherHttpException(429)
+        assertSame(httpError, assertThrows(WeatherHttpException::class.java) {
+            loggedForecastStage(ForecastFetchStage.MODELS, { 0L }, { lines.add(it) }) { throw httpError }
+        })
+        assertEquals("stage=MODELS elapsed_ms=0 outcome=failed error=WeatherHttpException http_status=429", lines.last())
+        val cancelled = CancellationException("Private cancellation context")
+        assertSame(cancelled, assertThrows(CancellationException::class.java) {
+            loggedForecastStage(ForecastFetchStage.METAR, { 0L }, { lines.add(it) }) { throw cancelled }
+        })
+        assertEquals("stage=METAR elapsed_ms=0 outcome=cancelled error=CancellationException http_status=-", lines.last())
+    }
+
+    @Test
+    fun unavailableOptionalStagesAndBrokenLoggingPreserveResults() {
+        val lines = mutableListOf<String>()
+        assertEquals(null, loggedForecastStage<String?>(ForecastFetchStage.CALIBRATION, { 0L }, { lines.add(it) }) { null })
+        assertEquals("stage=CALIBRATION elapsed_ms=0 outcome=unavailable error=- http_status=-", lines.single())
+        assertEquals(emptyList<String>(), loggedForecastStage(ForecastFetchStage.CHMI, { 0L }, { lines.add(it) }) { emptyList<String>() })
+        assertTrue(lines.last().contains("outcome=unavailable"))
+        assertEquals(42, loggedForecastStage(ForecastFetchStage.BLEND, { 0L }, { error("Log failure") }) { 42 })
+        val cancelled = CancellationException()
+        assertSame(cancelled, assertThrows(CancellationException::class.java) {
+            loggedForecastStage(ForecastFetchStage.METAR, { 0L }, { error("Log failure") }) { throw cancelled }
+        })
+        val fatal = AssertionError("Private fatal context")
+        assertSame(fatal, assertThrows(AssertionError::class.java) {
+            loggedForecastStage(ForecastFetchStage.BLEND, { 0L }, { lines.add(it) }) { throw fatal }
+        })
+        assertEquals("stage=BLEND elapsed_ms=0 outcome=failed error=- http_status=-", lines.last())
+    }
+
     @Test
     fun requestsSevenPastDaysAndFourteenForecastDays() {
         val url = WeatherRepository.forecastUrl(CzechLocation("Praha", REGION_PRAGUE, 50.0755, 14.4378))

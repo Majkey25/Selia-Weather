@@ -404,5 +404,5 @@
     <string name="legal_cookies">Politique de cookies</string>
     <string name="hourly_source_precipitation_summary">Prévisions : %1$s. %2$s sur l’intervalle indiqué (%3$d%% de probabilité).</string>
     <string name="precipitation_interval">Intervalle de précipitations : %1$s</string>
-    <string name="precipitation_probability_note">La probabilité de précipitations concerne plus de 0,1 mm (~0,004 in) sur cet intervalle. De la bruine ou des traces peuvent survenir même avec un faible pourcentage. La température et les conditions correspondent à l’heure affichée.</string>
+    <string name="precipitation_probability_note">La probabilité vient d’une prévision d’ensemble distincte et concerne plus de 0,1 mm (~0,004 in) sur cet intervalle, pas chaque goutte. Elle peut différer de la quantité prévue. La température et les conditions correspondent à l’heure affichée.</string>
 </resources>

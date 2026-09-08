@@ -12,6 +12,11 @@ from typing import cast
 import pytest
 
 from aladin_ensemble.registry import JsonValue
+from aladin_ensemble.sources.chmi_station import (
+    ElementMetadata,
+    Station,
+    parse_station_observations,
+)
 from aladin_ensemble.sources.live_capture import capture, evaluate_capture, future_values
 from aladin_ensemble.sources.noaa_isd import parse_isd_observations
 from aladin_ensemble.types import ForecastPoint, Observation
@@ -266,3 +271,30 @@ def test_temperature_and_wind_require_standard_sensor_height(tmp_path: Path) -> 
             row for row in evaluate_capture(path, (normal,), truth) if row.variable == alias
         ]
         assert any(row.status == "paired" for row in accepted)
+
+
+@pytest.mark.parametrize("quality,provisional,paired", [
+    (0, False, True), (5, False, False), (5, True, True),
+    (1, True, False), (2, True, False), (3, True, False), (4, True, False), (None, True, False),
+])
+def test_chmi_capture_requires_checked_truth_unless_explicitly_diagnostic(
+    tmp_path: Path, quality: int | None, provisional: bool, paired: bool,
+) -> None:
+    raw = json.dumps({"datumVytvoreni": "2026-09-05T14:00:00Z", "data": {
+        "header": "STATION,ELEMENT,DT,VAL,FLAG,QUALITY",
+        "values": [[POINT.point_id, "T", "2026-09-05T13:00:00Z", 1.0, "", quality]],
+    }}).encode()
+    checksum = hashlib.sha256(raw).hexdigest()
+    station = Station(POINT.point_id, "Test station", POINT.latitude, POINT.longitude, 250.0)
+    key = ("10M", POINT.point_id, "T")
+    metadata: dict[tuple[str, str, str], ElementMetadata] = {
+        key: ElementMetadata(*key, "°C", 2.0, "10M"),
+    }
+    truth = tuple(parse_station_observations(
+        StringIO(raw.decode()), {POINT.point_id: station}, metadata, "10M", checksum,
+    ))
+    path = capture(POINT, MODELS, tmp_path, fetch=lambda _: payload(), now=lambda: CAPTURED)
+    rows = evaluate_capture(path, truth, {checksum: raw}, allow_provisional_chmi=provisional)
+    row = next(row for row in rows if row.variable == "temperature" and "T13:" in row.valid_time)
+    assert (row.status == "paired") is paired
+    assert row.absolute_error == (1.0 if paired else None)

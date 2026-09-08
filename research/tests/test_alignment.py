@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
 
 import pytest
@@ -49,6 +50,7 @@ def _observation(
         variable,
         value,
         "m/s" if variable == "wind_speed" else "mm",
+        quality=0,
     )
 
 
@@ -87,6 +89,7 @@ def test_alignment_maps_canonical_variable_and_keeps_requested_station() -> None
         "temperature_2m",
         19.0,
         "°C",
+        quality=0,
     )
     nearer = Observation(
         "CHMI_STATION",
@@ -98,6 +101,7 @@ def test_alignment_maps_canonical_variable_and_keeps_requested_station() -> None
         "temperature_2m",
         99.0,
         "°C",
+        quality=0,
     )
 
     aligned = align_station_forecasts((forecast,), (nearer, requested))
@@ -185,6 +189,7 @@ def test_station_precipitation_uses_hourly_interval_not_ten_minute_value() -> No
         "mm",
         interval=timedelta(minutes=10),
         accumulation="interval",
+        quality=0,
     )
     hourly = Observation(
         "CHMI_STATION",
@@ -198,6 +203,7 @@ def test_station_precipitation_uses_hourly_interval_not_ten_minute_value() -> No
         "mm",
         interval=timedelta(hours=1),
         accumulation="interval",
+        quality=0,
     )
 
     aligned = align_station_forecasts((forecast,), (ten_minute, hourly))
@@ -205,3 +211,21 @@ def test_station_precipitation_uses_hourly_interval_not_ten_minute_value() -> No
     assert len(aligned) == 1
     assert aligned[0].observation.interval == timedelta(hours=1)
     assert aligned[0].truth_value == 3.0
+
+
+@pytest.mark.parametrize("quality", [None, 1, 2, 3, 4, 5, 6])
+def test_unverified_chmi_values_cannot_be_training_truth(quality: int | None) -> None:
+    observation = replace(_observation(), quality=quality)
+    assert align_station_forecasts((_forecast(),), (observation,)) == ()
+
+
+@pytest.mark.parametrize("flag,expected", [(None, 1), ("Z", 1), ("T", 0), ("unknown", 0)])
+def test_trace_gauge_flags_do_not_become_numeric_zero_truth(
+    flag: str | None, expected: int,
+) -> None:
+    observation = replace(
+        _observation(variable="precipitation", value=0.0), quality=0, flag=flag,
+        interval=timedelta(hours=1), accumulation="interval",
+    )
+    aligned = align_station_forecasts((_forecast(variable="precipitation"),), (observation,))
+    assert len(aligned) == expected

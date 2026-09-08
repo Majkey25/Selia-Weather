@@ -17,7 +17,11 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 from aladin_ensemble.align import station_distance_km
 from aladin_ensemble.metrics import circular_mean_absolute_error, mean_absolute_error
 from aladin_ensemble.registry import JsonValue
-from aladin_ensemble.sources.chmi_station import STATION_SOURCE, uses_standard_measurement_height
+from aladin_ensemble.sources.chmi_station import (
+    STATION_SOURCE,
+    chmi_truth_usable,
+    uses_standard_measurement_height,
+)
 from aladin_ensemble.sources.noaa_isd import ISD_SOURCE
 from aladin_ensemble.sources.official_runs import download_http_with_retry
 from aladin_ensemble.sources.open_meteo_runs import canonical_value
@@ -61,6 +65,8 @@ def evaluate_capture(
     manifest_path: Path,
     observations: Sequence[Observation],
     truth_payloads: Mapping[str, bytes],
+    *,
+    allow_provisional_chmi: bool = False,
 ) -> tuple[CaptureError, ...]:
     """Pair parser-produced station observations; raw hashes prove linkage, not authenticity."""
     manifest_bytes = _read_bounded(manifest_path)
@@ -134,6 +140,10 @@ def evaluate_capture(
         candidates = indexed.get((station_id, valid_time, variable), [])
         height_element = HEIGHT_ELEMENTS.get(variable)
         compatible = [observation for observation in candidates if (
+            (observation.source != STATION_SOURCE or chmi_truth_usable(
+                observation, allow_provisional=allow_provisional_chmi,
+            ))
+            and
             observation.accumulation == ("interval" if record.interval_seconds else "instant")
             and observation.interval == (
                 timedelta(seconds=record.interval_seconds) if record.interval_seconds else None
@@ -292,9 +302,9 @@ def capture(
         "truth": None, "calibration_eligible": False,
     }
     body = (json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n").encode()
-    _write_immutable(output / "raw" / f"{checksum}.json", raw)
+    write_immutable(output / "raw" / f"{checksum}.json", raw)
     path = output / "captures" / f"{hashlib.sha256(body).hexdigest()}.json"
-    _write_immutable(path, body)
+    write_immutable(path, body)
     return path
 
 
@@ -309,7 +319,7 @@ def _utc(value: datetime) -> None:
         raise ValueError("capture time must be timezone-aware UTC")
 
 
-def _write_immutable(path: Path, body: bytes) -> None:
+def write_immutable(path: Path, body: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     try:
         with path.open("xb") as target:

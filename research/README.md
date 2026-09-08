@@ -2,6 +2,13 @@
 
 Locked research package for the verified Czech weather-model registry.
 
+As of 8 September 2026, ČHMÚ numerical calibration truth requires provider quality 0.
+Suspect, poor, estimated, missing and unknown-quality values cannot qualify a fit.
+Trace-gauge flags are censored quantities, not zero rainfall. Earlier ČHMÚ reports predate
+this check and must be rerun before any export. The prospective replay can explicitly
+include provisional quality 5 for a separately labelled descriptive comparison only.
+See [the frozen September replay](../docs/research/2026-09-08-prospective-replay.md).
+
 ## Prospective forecast capture
 
 The manual collector freezes raw provider forecasts before their valid time. Each manifest records

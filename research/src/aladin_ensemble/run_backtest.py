@@ -60,6 +60,7 @@ from aladin_ensemble.sources.chmi_download import (
 from aladin_ensemble.sources.chmi_station import (
     ElementMetadata,
     Station,
+    chmi_truth_usable,
     parse_element_metadata,
     parse_station_metadata,
     parse_station_observations,
@@ -842,7 +843,7 @@ def usable_truth_observation(
     cadence: str,
     config: BacktestConfig,
 ) -> bool:
-    if observation.value is None or not (
+    if not chmi_truth_usable(observation) or observation.value is None or not (
         config.train.contains(observation.valid_time.date())
         or config.holdout.contains(observation.valid_time.date())
     ):

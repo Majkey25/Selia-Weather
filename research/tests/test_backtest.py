@@ -41,6 +41,7 @@ def _rows() -> tuple[tuple[ForecastValue, ...], tuple[Observation, ...]]:
                 "temperature_2m",
                 truth,
                 "°C",
+                quality=0,
             )
         )
         for model_id, value in (

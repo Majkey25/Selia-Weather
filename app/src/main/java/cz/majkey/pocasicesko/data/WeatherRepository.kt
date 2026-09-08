@@ -370,7 +370,7 @@ class WeatherRepository(context: Context) {
 
         private const val MODEL_VARIABLES =
             "temperature_2m,relative_humidity_2m,dew_point_2m,apparent_temperature," +
-                "precipitation,rain,snowfall,weather_code,cloud_cover,cloud_cover_low," +
+                "precipitation,rain,showers,snowfall,weather_code,cloud_cover,cloud_cover_low," +
                 "cloud_cover_mid,cloud_cover_high,visibility,pressure_msl,surface_pressure," +
                 "wind_speed_10m,wind_direction_10m,wind_gusts_10m"
 

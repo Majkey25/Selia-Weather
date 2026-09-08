@@ -65,7 +65,9 @@ internal fun parseCurrentStationObservation(
     val elementIndex = fields.indexOf("ELEMENT")
     val timeIndex = fields.indexOf("DT")
     val valueIndex = fields.indexOf("VAL")
-    require(minOf(stationIndex, elementIndex, timeIndex, valueIndex) >= 0)
+    val flagIndex = fields.indexOf("FLAG")
+    val qualityIndex = fields.indexOf("QUALITY")
+    require(minOf(stationIndex, elementIndex, timeIndex, valueIndex, flagIndex, qualityIndex) >= 0)
     val valuesByTime = mutableMapOf<Instant, MutableMap<String, Double>>()
     val rows = table.getJSONArray("values")
     for (index in 0 until rows.length()) {
@@ -73,6 +75,14 @@ internal fun parseCurrentStationObservation(
         if (row.getString(stationIndex) != station.stationId) continue
         val element = row.getString(elementIndex)
         if (element !in CURRENT_ELEMENTS) continue
+        // CHMI meta4: 0 = good; 5 = unknown/provisional, allowed for NRT display only.
+        // Suspect, poor, estimated, missing, and unrecognized quality are not usable here.
+        // This policy does not qualify quality 5 as independent validation truth.
+        val quality = row.numberOrNull(qualityIndex)
+        if (quality != 0.0 && quality != 5.0) continue
+        val flag = row.opt(flagIndex) as? String ?: continue
+        // CHMI meta3: D/V is variable wind, not a numeric direction. SRA10M/Z is a backup gauge.
+        if (flag.isNotEmpty() && !(element == "SRA10M" && flag == "Z")) continue
         val value = row.numberOrNull(valueIndex) ?: continue
         if (element == "H" && value !in 0.0..100.0) continue
         val time = Instant.parse(row.getString(timeIndex))

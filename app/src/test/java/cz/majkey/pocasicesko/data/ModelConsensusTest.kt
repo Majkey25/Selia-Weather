@@ -22,6 +22,7 @@ class ModelConsensusTest {
         assertTrue(prague.contains("icon_seamless"))
         assertTrue(prague.contains("ecmwf_ifs025"))
         assertTrue(prague.contains("gfs_seamless"))
+        assertTrue(prague.contains("precipitation,rain,showers,snowfall"))
         assertFalse(newYork.contains("chmi_aladin_seamless"))
         assertTrue(newYork.contains("gem_seamless"))
         assertTrue(newYork.contains("&models=${forecastApiModelsFor(
@@ -164,6 +165,8 @@ class ModelConsensusTest {
             val models = JSONObject(MODELS).also { root ->
                 listOf("a", "b", "c").forEach { suffix ->
                     root.getJSONObject("hourly").remove("${field}_$suffix")
+                    // No ensemble total is selected, so the whole provider group remains valid.
+                    root.getJSONObject("hourly").remove("precipitation_$suffix")
                 }
             }.toString()
             listOf(
@@ -186,6 +189,95 @@ class ModelConsensusTest {
             }
         }
     }
+
+    @Test
+    fun precipitationComponentsFollowTheMedianTotalContributorNotIndependentMedians() {
+        val result = JSONObject(blendModelForecast(precipitationBase().toString(), precipitationModels(
+            listOf(0.05, 0.1, 0.2),
+            mapOf("rain" to listOf(0.05, 0.0, 0.0), "showers" to listOf(0.0, 0.1, 0.0),
+                "snowfall" to listOf(0.0, 0.0, 0.14)),
+        )).json)
+        val hourly = result.getJSONObject("hourly")
+        // Independent medians would incorrectly return zero for every component.
+        assertEquals(0.1, hourly.getJSONArray("precipitation").getDouble(0), 0.0)
+        assertEquals(0.0, hourly.getJSONArray("rain").getDouble(0), 0.0)
+        assertEquals(0.1, hourly.getJSONArray("showers").getDouble(0), 0.0)
+        assertEquals(0.0, hourly.getJSONArray("snowfall").getDouble(0), 0.0)
+        assertEquals(3, hourly.getJSONArray("precipitation_probability").getInt(0))
+        assertEquals(0.1, result.getJSONObject("daily").getJSONArray("precipitation_sum").getDouble(0), 0.0)
+        assertEquals(0.0, result.getJSONObject("current").getDouble("precipitation"), 0.0)
+    }
+
+    @Test
+    fun evenMedianUsesTheSameTwoSourcesForEveryKnownComponentWithoutSnowConversion() {
+        val result = JSONObject(blendModelForecast(precipitationBase().toString(), precipitationModels(
+            listOf(0.0, 0.1, 0.3, 2.0),
+            mapOf("rain" to listOf(0.0, 0.1, 0.0, 2.0), "showers" to listOf(0.0, 0.0, 0.1, 0.0),
+                "snowfall" to listOf(0.0, 0.0, 0.14, 0.0)),
+        )).json)
+        val hourly = result.getJSONObject("hourly")
+        assertEquals(0.2, hourly.getJSONArray("precipitation").getDouble(0), 1e-12)
+        assertEquals(0.05, hourly.getJSONArray("rain").getDouble(0), 1e-12)
+        assertEquals(0.05, hourly.getJSONArray("showers").getDouble(0), 1e-12)
+        assertEquals(0.07, hourly.getJSONArray("snowfall").getDouble(0), 1e-12)
+        assertEquals(0.07, result.getJSONObject("daily").getJSONArray("snowfall_sum").getDouble(0), 1e-12)
+    }
+
+    @Test
+    fun missingOrInvalidSelectedComponentStaysUnknownHourlyAndDaily() {
+        listOf<Double?>(null, -0.1).forEach { missing ->
+            val result = JSONObject(blendModelForecast(precipitationBase().toString(), precipitationModels(
+                listOf(0.0, 0.1, 0.3, 2.0),
+                mapOf("rain" to listOf(0.0, 0.1, missing, 2.0),
+                    "snowfall" to listOf(0.0, 0.0, missing, 0.0)),
+            )).json)
+            val hourly = result.getJSONObject("hourly")
+            assertEquals(0.2, hourly.getJSONArray("precipitation").getDouble(0), 1e-12)
+            assertTrue(hourly.getJSONArray("rain").isNull(0))
+            assertTrue(hourly.getJSONArray("showers").isNull(0))
+            assertTrue(hourly.getJSONArray("snowfall").isNull(0))
+            assertTrue(result.getJSONObject("daily").getJSONArray("rain_sum").isNull(0))
+            assertTrue(result.getJSONObject("daily").getJSONArray("snowfall_sum").isNull(0))
+            assertEquals(3, hourly.getJSONArray("precipitation_probability").getInt(0))
+        }
+    }
+
+    @Test
+    fun insufficientTotalContributorsKeepTheWholeProviderPrecipitationGroup() {
+        val base = precipitationBase().also { root ->
+            root.getJSONObject("hourly").getJSONArray("precipitation").put(0, 0.2)
+            root.getJSONObject("hourly").getJSONArray("rain").put(0, 0.2)
+        }
+        val models = JSONObject(precipitationModels(
+            listOf(1.0, 2.0, 3.0),
+            mapOf("rain" to listOf(1.0, 2.0, 3.0)),
+        )).also { it.getJSONObject("hourly").getJSONArray("precipitation_c").put(0, JSONObject.NULL) }
+        val hourly = JSONObject(blendModelForecast(base.toString(), models.toString()).json).getJSONObject("hourly")
+        assertEquals(0.2, hourly.getJSONArray("precipitation").getDouble(0), 0.0)
+        assertEquals(0.2, hourly.getJSONArray("rain").getDouble(0), 0.0)
+        assertEquals(0.0, hourly.getJSONArray("showers").getDouble(0), 0.0)
+    }
+
+    private fun precipitationBase(): JSONObject = JSONObject(BASE).also { root ->
+        listOf("rain", "showers", "snowfall").forEach { field ->
+            root.getJSONObject("hourly").put(field, JSONArray(listOf(0.0, 0.0)))
+        }
+        root.getJSONObject("hourly").getJSONArray("precipitation_probability").put(0, 3)
+        root.getJSONObject("daily").put("rain_sum", JSONArray(listOf(4.2)))
+            .put("snowfall_sum", JSONArray(listOf(4.2)))
+    }
+
+    private fun precipitationModels(totals: List<Double>, components: Map<String, List<Double?>>): String =
+        JSONObject(MODELS).also { root ->
+            val hourly = root.getJSONObject("hourly")
+            totals.forEachIndexed { index, total ->
+                val suffix = ('a' + index).toString()
+                hourly.put("precipitation_$suffix", JSONArray(listOf(total, 0.0)))
+                components.forEach { (field, values) ->
+                    hourly.put("${field}_$suffix", JSONArray(listOf(values[index], 0.0)))
+                }
+            }
+        }.toString()
 
     @Test
     fun precedingHourRainDoesNotOverwriteCurrentClearSky() {

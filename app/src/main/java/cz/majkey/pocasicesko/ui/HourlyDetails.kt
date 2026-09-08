@@ -20,12 +20,24 @@ import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.data.HourlyWeather
 import cz.majkey.pocasicesko.data.WeatherKind
 import cz.majkey.pocasicesko.data.conditionFor
+import cz.majkey.pocasicesko.data.hasPrecipitationEvidence
 import cz.majkey.pocasicesko.units.WeatherUnitFormatter
 import java.util.Locale
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 internal fun toggleExpandedHour(current: String?, clicked: String): String? {
     require(clicked.isNotBlank())
     return if (current == clicked) null else clicked
+}
+
+internal fun hourlyPrecipitationInterval(time: String, locale: Locale): String? {
+    val end = runCatching { LocalDateTime.parse(time) }.getOrNull() ?: return null
+    val start = runCatching { end.minusHours(1) }.getOrNull() ?: return null
+    val crossesDate = start.toLocalDate() != end.toLocalDate()
+    val format = DateTimeFormatter.ofPattern(if (crossesDate) "d MMM uuuu, HH:mm" else "HH:mm", locale)
+    val separator = if (crossesDate) " – " else "–"
+    return start.format(format) + separator + end.format(format)
 }
 
 internal enum class HourMetricKind {
@@ -99,6 +111,7 @@ internal fun hourlyApparentTemperature(hour: HourlyWeather): Double =
 
 internal enum class HourlyRainLevel {
     NONE,
+    FORECAST,
     UNLIKELY,
     POSSIBLE,
     LIKELY,
@@ -106,10 +119,12 @@ internal enum class HourlyRainLevel {
 }
 
 internal fun hourlyRainLevel(hour: HourlyWeather): HourlyRainLevel = when {
-    hour.precipitation >= 5.0 -> HourlyRainLevel.HEAVY
-    hour.precipitationProbability >= 70 || hour.precipitation >= 2.0 -> HourlyRainLevel.LIKELY
-    hour.precipitationProbability >= 40 || hour.precipitation >= 0.2 -> HourlyRainLevel.POSSIBLE
-    hour.precipitationProbability > 15 || hour.precipitation > 0.0 -> HourlyRainLevel.UNLIKELY
+    hour.precipitation.isFinite() && hour.precipitation >= 5.0 -> HourlyRainLevel.HEAVY
+    hasPrecipitationEvidence(hour.weatherCode, hour.precipitation, hour.rain, hour.showers, hour.snowfall) ->
+        HourlyRainLevel.FORECAST
+    hour.precipitationProbability >= 70 -> HourlyRainLevel.LIKELY
+    hour.precipitationProbability >= 40 -> HourlyRainLevel.POSSIBLE
+    hour.precipitationProbability > 15 -> HourlyRainLevel.UNLIKELY
     else -> HourlyRainLevel.NONE
 }
 
@@ -118,7 +133,7 @@ internal enum class HourlyHighlight {
 }
 
 internal fun hourlyHighlight(hour: HourlyWeather): HourlyHighlight = when {
-    hourlyRainLevel(hour) != HourlyRainLevel.NONE || (hour.snowfall ?: 0.0) > 0.0 -> when {
+    hourlyRainLevel(hour) != HourlyRainLevel.NONE -> when {
         hour.weatherCode in listOf(56, 57, 66, 67) -> HourlyHighlight.FREEZING
         (hour.snowfall ?: 0.0) > 0.0 && (hour.rain ?: 0.0) + (hour.showers ?: 0.0) > 0.0 ->
             HourlyHighlight.MIXED
@@ -271,6 +286,13 @@ internal fun ExpandedHourDetails(
         }
     }
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            stringResource(R.string.precipitation_interval,
+                hourlyPrecipitationInterval(hour.time, locale) ?: stringResource(R.string.unavailable)),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            color = Color(0xFFB9ECF5),
+        )
         Surface(
             color = Color(0x1A6DD3EA),
             shape = RoundedCornerShape(16.dp),
@@ -283,6 +305,11 @@ internal fun ExpandedHourDetails(
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
             )
         }
+        Text(
+            stringResource(R.string.precipitation_probability_note),
+            color = Color.White.copy(alpha = 0.62f),
+            fontSize = 11.sp,
+        )
         metrics.chunked(2).forEach { metricRow ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -333,6 +360,15 @@ private fun hourlyWeatherSummary(hour: HourlyWeather, units: WeatherUnitFormatte
         HourlyHighlight.RAIN, HourlyHighlight.CONDITIONS -> Unit
     }
     return when (hourlyRainLevel(hour)) {
+        HourlyRainLevel.FORECAST -> stringResource(
+            R.string.hourly_source_precipitation_summary,
+            stringResource(
+                if (hasPrecipitationEvidence(hour.weatherCode)) conditionFor(hour.weatherCode, hour.isDay).labelResource()
+                else R.string.precipitation,
+            ),
+            amount,
+            hour.precipitationProbability,
+        )
         HourlyRainLevel.NONE -> stringResource(
             R.string.hourly_dry_summary,
             stringResource(conditionFor(hour.weatherCode, hour.isDay).labelResource()),

@@ -4,6 +4,7 @@ import java.io.File
 import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class ChmiCurrentConditionsTest {
@@ -139,6 +140,55 @@ class ChmiCurrentConditionsTest {
             val valid = STATION_JSON.replace(",64,", ",$value,")
             assertEquals(value, requireNotNull(parseCurrentStationObservation(valid, station)).humidity)
         }
+    }
+
+    @Test
+    fun currentDisplayAcceptsGoodAndProvisionalQualityOnly() {
+        val station = CurrentStation("0-203-0-11775", "Station", 49.2, 17.7, 250.0, false)
+        listOf("0", "0.0", "5", "5.0", "\"5\"").forEach { quality ->
+            val json = STATION_JSON.replace(",\"\",5]", ",\"\",$quality]")
+            val observation = requireNotNull(parseCurrentStationObservation(json, station))
+            assertEquals(20.4, requireNotNull(observation.temperature), 0.0)
+        }
+        listOf("1", "2", "3", "4", "6", "-1", "5.5", "true", "null", "\"NaN\"", "\"unknown\"")
+            .forEach { quality ->
+                val json = STATION_JSON.replace(",\"\",5]", ",\"\",$quality]")
+                assertEquals(quality, null, parseCurrentStationObservation(json, station))
+            }
+    }
+
+    @Test
+    fun rejectedLatestQualityKeepsThePreviousCompleteObservationTimestamp() {
+        val station = CurrentStation("0-203-0-11775", "Station", 49.2, 17.7, 250.0, false)
+        val badLatest = STATION_JSON.replace("20.4,\"\",5]", "20.4,\"\",2]")
+        val observation = requireNotNull(parseCurrentStationObservation(badLatest, station))
+        assertEquals(Instant.parse("2026-08-29T08:50:00Z"), observation.time)
+        assertEquals(20.1, requireNotNull(observation.temperature), 0.0)
+    }
+
+    @Test
+    fun variableWindIsNotNorthAndBackupGaugeRemainsUsable() {
+        val station = CurrentStation("0-203-0-11775", "Station", 49.2, 17.7, 250.0, false)
+        val flagged = STATION_JSON
+            .replace("270,\"\",5]", "0,\"V\",5]")
+            .replace("0.0,\"\",5]", "0.0,\"Z\",5]")
+        val observation = requireNotNull(parseCurrentStationObservation(flagged, station))
+        assertEquals(null, observation.windDirection)
+        assertEquals(7.2, requireNotNull(observation.windSpeed), 0.0)
+        assertEquals(0.0, requireNotNull(observation.precipitation), 0.0)
+        val badWindQuality = STATION_JSON.replace("270,\"\",5]", "270,\"\",1]")
+        assertEquals(null, requireNotNull(parseCurrentStationObservation(badWindQuality, station)).windDirection)
+    }
+
+    @Test
+    fun missingQualityHeaderAndUnknownRequiredMeasurementFlagsFailClosed() {
+        val station = CurrentStation("0-203-0-11775", "Station", 49.2, 17.7, 250.0, false)
+        assertThrows(IllegalArgumentException::class.java) {
+            parseCurrentStationObservation(STATION_JSON.replace("FLAG,QUALITY", "FLAG,UNSUPPORTED"), station)
+        }
+        assertEquals(null, parseCurrentStationObservation(
+            STATION_JSON.replace(",\"\",5]", ",\"X\",5]"), station,
+        ))
     }
 
     companion object {

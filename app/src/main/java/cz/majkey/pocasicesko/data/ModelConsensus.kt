@@ -80,6 +80,7 @@ internal fun blendModelForecast(
     var calibrationVariable: String? = null
     var calibratedValueCount = 0
     var blendedAny = false
+    val precipitationBlendedIndices = mutableSetOf<Int>()
     for (targetIndex in 0 until targetTimes.length()) {
         val sourceIndex = sourceIndices[targetTimes.getString(targetIndex)] ?: continue
         val localTime = LocalDateTime.parse(targetTimes.getString(targetIndex))
@@ -112,6 +113,10 @@ internal fun blendModelForecast(
                 }
             }
         }
+        if (blendPrecipitation(source, target, suffixes, sourceIndex, targetIndex)) {
+            precipitationBlendedIndices.add(targetIndex)
+            blendedAny = true
+        }
         blendedAny = blendWind(
             source,
             target,
@@ -136,7 +141,7 @@ internal fun blendModelForecast(
         )
     }
     updateCurrent(root, target, targetTimes)
-    updateDaily(root, target, targetTimes)
+    updateDaily(root, target, targetTimes, precipitationBlendedIndices)
     val appliedWeights = firstCalibration?.weights.orEmpty()
     val contributorIds = firstCalibration?.weights?.keys?.toList() ?: diagnosticContributors
     val calibrated = firstCalibration != null
@@ -174,6 +179,36 @@ private fun currentTemperatureContributors(
         source.optJSONArray("temperature_2m_$suffix").numberOrNull(index)
             ?.let { value -> isValidModelValue("temperature_2m", value) } == true
     }
+}
+
+private fun blendPrecipitation(
+    source: JSONObject,
+    target: JSONObject,
+    suffixes: List<String>,
+    sourceIndex: Int,
+    targetIndex: Int,
+): Boolean {
+    val ranked = suffixes.mapNotNull { suffix ->
+        source.optJSONArray("precipitation_$suffix").numberOrNull(sourceIndex)
+            ?.takeIf { it >= 0.0 }?.let { suffix to it }
+    }.sortedWith(compareBy<Pair<String, Double>> { it.second }.thenBy { it.first })
+    if (ranked.size < MINIMUM_MODELS) return false
+    val total = target.optJSONArray("precipitation") ?: return false
+    val middle = ranked.size / 2
+    val selected = if (ranked.size % 2 == 1) listOf(ranked[middle]) else ranked.subList(middle - 1, middle + 1)
+    total.put(targetIndex, selected.map { it.second }.average())
+    // Keep each component with the source(s) that determine the median total.
+    // Snowfall stays in cm; missing partitions never borrow a different model's zero.
+    listOf("rain", "showers", "snowfall").forEach { field ->
+        val values = selected.mapNotNull { (suffix, _) ->
+            source.optJSONArray("${field}_$suffix").numberOrNull(sourceIndex)?.takeIf { it >= 0.0 }
+        }
+        target.optJSONArray(field)?.put(
+            targetIndex,
+            values.takeIf { it.size == selected.size }?.average() ?: JSONObject.NULL,
+        )
+    }
+    return true
 }
 
 private fun blendWind(
@@ -273,7 +308,7 @@ private fun updateCurrent(root: JSONObject, hourly: JSONObject, times: JSONArray
     }
 }
 
-private fun updateDaily(root: JSONObject, hourly: JSONObject, times: JSONArray) {
+private fun updateDaily(root: JSONObject, hourly: JSONObject, times: JSONArray, precipitationBlendedIndices: Set<Int>) {
     val daily = root.getJSONObject("daily")
     val days = daily.getJSONArray("time")
     for (dayIndex in 0 until days.length()) {
@@ -285,11 +320,12 @@ private fun updateDaily(root: JSONObject, hourly: JSONObject, times: JSONArray) 
         daily.putAt("apparent_temperature_max", dayIndex, hourly.values("apparent_temperature", indices).maxOrNull())
         daily.putAt("apparent_temperature_min", dayIndex, hourly.values("apparent_temperature", indices).minOrNull())
         listOf("precipitation", "rain", "snowfall").forEach { field ->
-            daily.putAt(
-                "${field}_sum",
-                dayIndex,
-                hourly.values(field, indices).takeIf { it.size == indices.size }?.sum(),
-            )
+            val sum = hourly.values(field, indices).takeIf { it.size == indices.size }?.sum()
+            if (field != "precipitation" && indices.any { it in precipitationBlendedIndices }) {
+                daily.optJSONArray("${field}_sum")?.put(dayIndex, sum ?: JSONObject.NULL)
+            } else {
+                daily.putAt("${field}_sum", dayIndex, sum)
+            }
         }
         daily.putAt(
             "precipitation_probability_max",
@@ -416,9 +452,6 @@ private val CONTINUOUS_FIELDS = listOf(
     "temperature_2m",
     "relative_humidity_2m",
     "apparent_temperature",
-    "precipitation",
-    "rain",
-    "snowfall",
     "cloud_cover",
     "cloud_cover_low",
     "cloud_cover_mid",
@@ -432,7 +465,7 @@ private val CONTINUOUS_FIELDS = listOf(
 // Keep current sky and interval aggregates at the provider's current validity time.
 // Hourly conditions are derived partly from the preceding hour's precipitation.
 private val CURRENT_FIELDS = CONTINUOUS_FIELDS - setOf(
-    "precipitation", "rain", "snowfall", "wind_gusts_10m",
+    "wind_gusts_10m",
     "cloud_cover", "cloud_cover_low", "cloud_cover_mid", "cloud_cover_high",
 ) + listOf(
     "wind_speed_10m",

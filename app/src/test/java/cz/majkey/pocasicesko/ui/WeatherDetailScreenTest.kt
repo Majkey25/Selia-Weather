@@ -2,6 +2,7 @@ package cz.majkey.pocasicesko.ui
 
 import cz.majkey.pocasicesko.data.HourlyWeather
 import java.io.File
+import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -9,6 +10,48 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class WeatherDetailScreenTest {
+    @Test
+    fun distinguishesAccumulationIntervalFromInstantConditionEvidence() {
+        val instant = hour("2026-09-09T08:00", 0, 0.0).copy(weatherCode = 51)
+        assertEquals("9 Sep 2026, 08:00", nextPrecipitationLabel(instant, Locale.ENGLISH))
+        assertEquals("07:00–08:00", nextPrecipitationLabel(instant.copy(precipitation = 0.03), Locale.ENGLISH))
+        assertEquals("07:00–08:00", nextPrecipitationLabel(instant.copy(precipitationProbability = 10), Locale.ENGLISH))
+        assertEquals("07:00–08:00", nextPrecipitationLabel(instant.copy(rain = 0.03), Locale.ENGLISH))
+        assertNull(nextPrecipitationLabel(instant.copy(time = "invalid"), Locale.ENGLISH))
+    }
+
+    @Test
+    fun nextPrecipitationIncludesDrizzleTraceAndLowProbability() {
+        val time = "2026-08-29T19:00"
+        val dry = hour(time, probability = 0, precipitation = 0.0)
+        listOf(
+            dry.copy(weatherCode = 51),
+            dry.copy(precipitation = 0.03),
+            dry.copy(rain = 0.03),
+            dry.copy(weatherCode = 71),
+            dry.copy(precipitationProbability = 10),
+        ).forEach { assertEquals(it, nextWetHour(listOf(it), "2026-08-29T18:30")) }
+        assertNull(nextWetHour(listOf(dry), time))
+    }
+
+    @Test
+    fun precipitationSummaryUsesFutureClockHoursNotTheNext24Rows() {
+        val oldRain = hour("2026-08-29T19:00", 100, 1.0)
+        val nextRain = hour("2026-08-29T20:00", 10, 0.03)
+        val boundary = hour("2026-08-30T19:30", 20, 0.1)
+        val tooLate = hour("2026-08-30T20:30", 90, 2.0)
+        val malformed = hour("not-a-time", 100, 3.0)
+        val hours = listOf(tooLate, boundary, malformed, oldRain, nextRain)
+
+        assertEquals(nextRain, nextWetHour(hours, "2026-08-29T19:30"))
+        assertEquals(20, maximumPrecipitationProbability(hours, "2026-08-29T19:30"))
+        assertEquals(boundary, nextWetHour(listOf(boundary), "2026-08-29T19:30"))
+        assertNull(nextWetHour(listOf(oldRain), oldRain.time))
+        assertNull(nextWetHour(listOf(oldRain, tooLate, malformed), "2026-08-29T19:30"))
+        assertNull(maximumPrecipitationProbability(hours, "invalid"))
+        assertNull(nextWetHour(hours, "invalid"))
+    }
+
     @Test
     fun findsNextWetHourAndMaximumProbabilityInNextDay() {
         val hourly = listOf(

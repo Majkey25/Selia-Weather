@@ -100,8 +100,8 @@
     <string name="sea_level">Meereshöhe</string>
     <string name="precipitation_value">%1$s mm</string>
     <string name="at_a_glance">Auf einen Blick</string>
-    <string name="next_rain">Nächster Niederschlag</string>
-    <string name="no_rain_next_24h">Kein Niederschlag in den nächsten 24 h</string>
+    <string name="next_rain">Nächste Niederschlagsmöglichkeit</string>
+    <string name="no_rain_next_24h">Kein Niederschlag in der verfügbaren 24-Stunden-Vorhersage angezeigt</string>
     <string name="max_precipitation_probability">Höchste Niederschlagswahrscheinlichkeit</string>
     <string name="uv_index">UV-Index</string>
     <string name="uv_index_max">Maximaler UV-Index</string>
@@ -342,16 +342,16 @@
     <string name="daily_briefing_umbrella">Einen Regenschirm mitnehmen.</string>
     <string name="daily_briefing_no_umbrella">Ein Regenschirm sollte nicht nötig sein.</string>
     <string name="daily_briefing_sun_protection">Sonnenschutz verwenden.</string>
-    <string name="hourly_rain_unlikely">Regen ist unwahrscheinlich: %1$s erwartet (%2$d%% Wahrscheinlichkeit).</string>
-    <string name="hourly_rain_possible">Regen ist möglich: %1$s erwartet (%2$d%% Wahrscheinlichkeit).</string>
-    <string name="hourly_rain_likely">Regen ist wahrscheinlich: %1$s erwartet (%2$d%% Wahrscheinlichkeit).</string>
-    <string name="hourly_rain_heavy">Starker Regen ist möglich: %1$s erwartet (%2$d%% Wahrscheinlichkeit).</string>
+    <string name="hourly_rain_unlikely">Regen ist unwahrscheinlich: %1$s im angegebenen Zeitraum erwartet (%2$d%% Wahrscheinlichkeit).</string>
+    <string name="hourly_rain_possible">Regen ist möglich: %1$s im angegebenen Zeitraum erwartet (%2$d%% Wahrscheinlichkeit).</string>
+    <string name="hourly_rain_likely">Regen ist wahrscheinlich: %1$s im angegebenen Zeitraum erwartet (%2$d%% Wahrscheinlichkeit).</string>
+    <string name="hourly_rain_heavy">Starker Regen ist möglich: %1$s im angegebenen Zeitraum erwartet (%2$d%% Wahrscheinlichkeit).</string>
     <string name="hourly_dry_summary">%1$s. Es wird kein messbarer Regen erwartet (%2$d%% Wahrscheinlichkeit). Gefühlt %3$s bei %4$s Wind aus %5$s.</string>
-    <string name="hourly_snow_summary">In dieser Stunde ist Schnee möglich: %1$s Wasseräquivalent (%2$d%% Niederschlagswahrscheinlichkeit).</string>
-    <string name="hourly_mixed_summary">In dieser Stunde sind Regen und Schnee möglich: insgesamt %1$s Wasseräquivalent (%2$d%% Niederschlagswahrscheinlichkeit).</string>
-    <string name="hourly_freezing_summary">Gefrierender Niederschlag ist möglich. Oberflächen können glatt werden: %1$s in dieser Stunde (%2$d%% Wahrscheinlichkeit).</string>
-    <string name="hourly_precipitation_summary">Niederschlag ist möglich: %1$s in dieser Stunde (%2$d%% Wahrscheinlichkeit).</string>
-    <string name="hourly_snowfall_summary">Erwarteter Neuschnee: %1$s in dieser Stunde.</string>
+    <string name="hourly_snow_summary">Im angegebenen Zeitraum ist Schnee möglich: %1$s Wasseräquivalent (%2$d%% Niederschlagswahrscheinlichkeit).</string>
+    <string name="hourly_mixed_summary">Im angegebenen Zeitraum sind Regen und Schnee möglich: insgesamt %1$s Wasseräquivalent (%2$d%% Niederschlagswahrscheinlichkeit).</string>
+    <string name="hourly_freezing_summary">Gefrierender Niederschlag ist möglich. Oberflächen können glatt werden: %1$s im angegebenen Zeitraum (%2$d%% Wahrscheinlichkeit).</string>
+    <string name="hourly_precipitation_summary">Niederschlag ist möglich: %1$s im angegebenen Zeitraum (%2$d%% Wahrscheinlichkeit).</string>
+    <string name="hourly_snowfall_summary">Erwarteter Neuschnee: %1$s im angegebenen Zeitraum.</string>
     <string name="hourly_wind_summary">Achten Sie besonders auf den Wind: %1$s.</string>
     <string name="hourly_gusts_summary">Böen können %1$s erreichen.</string>
     <string name="hourly_visibility_summary">Die Sichtweite kann auf %1$s sinken. Planen Sie mehr Zeit für die Fahrt ein.</string>
@@ -402,4 +402,7 @@
     <string name="legal_terms">Nutzungsbedingungen</string>
     <string name="legal_refunds">Erstattungsrichtlinie</string>
     <string name="legal_cookies">Cookie-Richtlinie</string>
+    <string name="hourly_source_precipitation_summary">Vorhersage: %1$s. %2$s im angegebenen Zeitraum (%3$d%% Wahrscheinlichkeit).</string>
+    <string name="precipitation_interval">Niederschlagszeitraum: %1$s</string>
+    <string name="precipitation_probability_note">Die Niederschlagswahrscheinlichkeit gilt für mehr als 0,1 mm (~0,004 in) in diesem Zeitraum. Nieselregen oder Spuren können auch bei niedrigen Prozentwerten auftreten. Temperatur und Wetterzustand gelten für den angezeigten Zeitpunkt.</string>
 </resources>

@@ -11,6 +11,14 @@ import org.junit.Test
 
 class DailyBriefingTest {
     @Test
+    fun doesNotRecommendNoUmbrellaForDrizzleOrTraceRain() {
+        assertTrue(dailyBriefingAdvice(day().copy(weatherCode = 51)).umbrella)
+        assertTrue(dailyBriefingAdvice(day(rain = 0.03)).umbrella)
+        assertTrue(dailyBriefingAdvice(day().copy(rainSum = 0.03)).umbrella)
+        assertFalse(dailyBriefingAdvice(day(uv = 7.0)).umbrella)
+    }
+
+    @Test
     fun recommendsWarmRainProtectionFromApparentTemperature() {
         val advice = dailyBriefingAdvice(
             day(apparentMin = 3.0, apparentMax = 8.0, probability = 70, rain = 2.0),

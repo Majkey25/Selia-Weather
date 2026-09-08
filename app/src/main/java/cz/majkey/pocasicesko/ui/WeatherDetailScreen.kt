@@ -92,6 +92,7 @@ import cz.majkey.pocasicesko.data.HistoricalDay
 import cz.majkey.pocasicesko.data.HistoryArchive
 import cz.majkey.pocasicesko.data.HistorySummary
 import cz.majkey.pocasicesko.data.HourlyWeather
+import cz.majkey.pocasicesko.data.hasPrecipitationEvidence
 import cz.majkey.pocasicesko.data.WeatherSnapshot
 import cz.majkey.pocasicesko.data.summary
 import cz.majkey.pocasicesko.data.inDateRange
@@ -1009,10 +1010,10 @@ private fun AtAGlanceSection(
     locale: java.util.Locale,
     referenceTime: String,
 ) {
-    val nextRain = nextWetHour(snapshot.hourly, referenceTime)?.time?.takeLast(5)
-        ?: stringResource(R.string.no_rain_next_24h)
     val maximumProbability = maximumPrecipitationProbability(snapshot.hourly, referenceTime)
         ?.let { "$it %" }
+    val nextRain = nextWetHour(snapshot.hourly, referenceTime)?.let { nextPrecipitationLabel(it, locale) }
+        ?: stringResource(if (maximumProbability == null) R.string.unavailable else R.string.no_rain_next_24h)
     DetailSection(stringResource(R.string.at_a_glance)) {
         Row(Modifier.fillMaxWidth()) {
             GlanceValue(stringResource(R.string.next_rain), nextRain, Modifier.weight(1f))
@@ -1055,17 +1056,32 @@ private fun GlanceValue(label: String, value: String, modifier: Modifier = Modif
 
 internal fun nextWetHour(hourly: List<HourlyWeather>, currentTime: String): HourlyWeather? =
     detailUpcomingHours(hourly, currentTime).firstOrNull { hour ->
-        hour.precipitation >= 0.1 || hour.precipitationProbability >= 50
+        hasPrecipitationEvidence(hour.weatherCode, hour.precipitation, hour.rain, hour.showers, hour.snowfall) ||
+            hour.precipitationProbability > 0
     }
+
+internal fun nextPrecipitationLabel(hour: HourlyWeather, locale: java.util.Locale): String? {
+    val accumulation = listOf(hour.precipitation, hour.rain, hour.showers, hour.snowfall)
+        .any { it != null && it.isFinite() && it > 0.0 }
+    if (accumulation || hour.precipitationProbability > 0) return hourlyPrecipitationInterval(hour.time, locale)
+    return runCatching {
+        LocalDateTime.parse(hour.time).format(DateTimeFormatter.ofPattern("d MMM uuuu, HH:mm", locale))
+    }.getOrNull()
+}
 
 internal fun maximumPrecipitationProbability(hourly: List<HourlyWeather>, currentTime: String): Int? =
     detailUpcomingHours(hourly, currentTime).maxOfOrNull(HourlyWeather::precipitationProbability)
 
 private fun detailUpcomingHours(hourly: List<HourlyWeather>, currentTime: String): List<HourlyWeather> {
-    val currentHour = currentTime.take(13)
+    val now = runCatching { LocalDateTime.parse(currentTime) }.getOrNull() ?: return emptyList()
+    val end = runCatching { now.plusHours(24) }.getOrNull() ?: return emptyList()
     return hourly.asSequence()
-        .dropWhile { it.time.take(13) < currentHour }
-        .take(24)
+        .mapNotNull { hour ->
+            val time = runCatching { LocalDateTime.parse(hour.time) }.getOrNull() ?: return@mapNotNull null
+            if (time > now && time <= end) time to hour else null
+        }
+        .sortedBy { it.first }
+        .map { it.second }
         .toList()
 }
 

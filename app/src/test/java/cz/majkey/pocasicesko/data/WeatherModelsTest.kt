@@ -1,9 +1,23 @@
 package cz.majkey.pocasicesko.data
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class WeatherModelsTest {
+    @Test
+    fun precipitationEvidencePreservesSourceCodesAndFiniteTraceAmounts() {
+        listOf(51, 53, 55, 56, 57, 61, 66, 71, 85, 95).forEach {
+            assertTrue(hasPrecipitationEvidence(it, 0.0))
+        }
+        assertTrue(hasPrecipitationEvidence(0, 0.03))
+        assertTrue(hasPrecipitationEvidence(0, 0.0, null, 0.01))
+        assertFalse(hasPrecipitationEvidence(0, 0.0, null, Double.NaN, Double.POSITIVE_INFINITY, -0.03))
+        assertFalse(hasPrecipitationEvidence(45, 0.0))
+        assertFalse(hasPrecipitationEvidence(-1))
+    }
+
     @Test
     fun selectsCurrentDayInsidePastAndFutureDays() {
         val past = day("2026-08-27")

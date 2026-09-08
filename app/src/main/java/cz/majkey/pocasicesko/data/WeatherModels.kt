@@ -154,6 +154,10 @@ data class WeatherCondition(
     val kind: WeatherKind,
 )
 
+internal fun hasPrecipitationEvidence(weatherCode: Int, vararg amounts: Double?): Boolean =
+    conditionFor(weatherCode).kind in setOf(WeatherKind.RAIN, WeatherKind.SNOW, WeatherKind.STORM) ||
+        amounts.any { it != null && it.isFinite() && it > 0.0 }
+
 fun conditionFor(code: Int, isDay: Boolean = true): WeatherCondition = when (code) {
     0 -> WeatherCondition(if (isDay) WeatherConditionKey.CLEAR_DAY else WeatherConditionKey.CLEAR_NIGHT, WeatherKind.CLEAR)
     1 -> WeatherCondition(

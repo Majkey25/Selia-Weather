@@ -688,7 +688,7 @@ private fun HistoryArchiveSection(
     onPeriod: (HistoryPeriod) -> Unit,
 ) {
     val unavailable = stringResource(R.string.unavailable)
-    DetailSection(stringResource(R.string.history_title)) {
+    Column {
         when (state) {
             HistoryUiState.Idle -> {
                 Text(
@@ -739,7 +739,6 @@ private fun HistoryArchiveSection(
                 val dateFormatter = remember(locale) {
                     DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale)
                 }
-                Text(archive.location.name, fontWeight = FontWeight.Medium, modifier = Modifier.padding(vertical = 6.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     HistoryPeriod.entries.forEach { option ->
                         FilterChip(

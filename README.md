@@ -29,6 +29,7 @@
 - Adds UV, freezing-level, boundary-layer, atmospheric-water, instability, showers, and ground details.
 - Shows worldwide observed precipitation through RainViewer for the available past two hours, with zoom, pan, animation, a timeline, and a radar-coverage mask. A separate sampled model map provides a 12-hour outlook where data are available; it is not future radar observation.
 - Shows a horizontal 24-hour outlook, a 14-day forecast, and an hourly detail for each day. A complete day normally has 24 hours.
+- Hourly precipitation is shown for the interval starting at the row label: 11:00 means 11:00–12:00. Amounts, probability and model spread use that interval's source data; temperature and sky conditions keep their displayed timestamp. Missing intervals remain unavailable.
 - Opens a five-year NASA POWER archive with 15 daily metrics. Select 30 days, 365 days, all data, or custom dates to calculate totals and coverage locally. After confirmation, Ask AI shares the full provenance-labelled CSV and your question with the compatible installed app you choose.
 - Searches places worldwide, stores favourites, can use your optional current location, and can save an exact named point on an interactive world map or by coordinate.
 - Uses nearby ČHMÚ stations in Czechia and METAR reports worldwide for available current measurements. Point-weather corrections require reports within 10 km and 30 minutes; nearby weather can still differ from the selected point. Ten-minute station totals do not replace model precipitation amounts or hourly forecasts.

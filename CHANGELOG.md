@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.0-beta.24] - 2026-09-12
+
+- Add inner spacing and wrapping to highlighted hourly rows, keeping text away from rounded edges and allowing the time column to grow with text size.
+- Show precipitation for the hour beginning at each displayed timestamp in daily details and the 24-hour chart. Read amounts, probability, components and model spread from the matching interval-ending source record; do not shift instantaneous temperature or conditions.
+- Keep missing, duplicate or invalid interval endpoints unavailable. Preserve source timestamps and cached forecast data.
+
 ## [0.2.0-beta.23] - 2026-09-08
 
 - Preserve a strict majority of valid model weather codes when cloud or precipitation amounts are missing. Reject fractional and unsupported codes before counting; do not change precipitation amounts or probabilities.

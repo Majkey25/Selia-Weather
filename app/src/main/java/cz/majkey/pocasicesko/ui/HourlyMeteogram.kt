@@ -32,6 +32,7 @@ internal fun HourlyMeteogram(
     columnWidth: Dp,
     accent: Color,
     modifier: Modifier = Modifier,
+    precipitationHours: List<HourlyWeather?> = hours,
 ) {
     Canvas(modifier.clearAndSetSemantics { }) {
         if (hours.isEmpty() || size.width <= 0f || size.height <= 0f) return@Canvas
@@ -40,6 +41,7 @@ internal fun HourlyMeteogram(
             width = size.width,
             height = size.height,
             columnWidth = columnWidth.toPx(),
+            precipitationHours = precipitationHours,
         )
         val columnWidthPx = columnWidth.toPx()
         val precipitationBaseline = size.height * 0.96f
@@ -92,21 +94,24 @@ internal fun calculateHourlyMeteogram(
     width: Float,
     height: Float,
     columnWidth: Float,
+    precipitationHours: List<HourlyWeather?> = hours,
 ): HourlyMeteogramGeometry {
     require(width.isFinite() && width > 0f)
     require(height.isFinite() && height > 0f)
     require(columnWidth.isFinite() && columnWidth > 0f)
+    require(precipitationHours.size == hours.size)
     if (hours.isEmpty()) return HourlyMeteogramGeometry(emptyList())
-    require(hours.all {
-        it.temperature.isFinite() && it.precipitation.isFinite() && it.precipitation >= 0.0 &&
-            it.precipitationProbability in 0..100
+    require(hours.all { it.temperature.isFinite() })
+    require(precipitationHours.all {
+        it == null || it.precipitation.isFinite() && it.precipitation >= 0.0 && it.precipitationProbability in 0..100
     })
 
     val minimumTemperature = hours.minOf(HourlyWeather::temperature)
     val temperatureRange = (hours.maxOf(HourlyWeather::temperature) - minimumTemperature).coerceAtLeast(1.0)
-    val maximumPrecipitation = hours.maxOf(HourlyWeather::precipitation).coerceAtLeast(0.1)
+    val maximumPrecipitation = (precipitationHours.mapNotNull { it?.precipitation }.maxOrNull() ?: 0.0).coerceAtLeast(0.1)
     return HourlyMeteogramGeometry(
         hours.mapIndexed { index, hour ->
+            val precipitation = precipitationHours[index]
             MeteogramHourGeometry(
                 centerX = columnWidth * index + columnWidth / 2f,
                 temperatureY = height * (
@@ -114,9 +119,9 @@ internal fun calculateHourlyMeteogram(
                         ((hour.temperature - minimumTemperature) / temperatureRange).toFloat() * 0.42f
                     ),
                 precipitationHeight = height * 0.30f *
-                    (hour.precipitation / maximumPrecipitation).toFloat().coerceIn(0f, 1f),
+                    ((precipitation?.precipitation ?: 0.0) / maximumPrecipitation).toFloat().coerceIn(0f, 1f),
                 precipitationAlpha = (
-                    0.30f + hour.precipitationProbability / 100f * 0.70f
+                    0.30f + (precipitation?.precipitationProbability ?: 0) / 100f * 0.70f
                     ).coerceIn(0.30f, 1f),
             )
         },

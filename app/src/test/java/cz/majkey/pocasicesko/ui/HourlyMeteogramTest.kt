@@ -10,6 +10,21 @@ import org.junit.Test
 
 class HourlyMeteogramTest {
     @Test
+    fun forwardRainBarsDoNotMoveTemperatureSamplesOrFillMissingIntervals() {
+        val hours = listOf(hour(0, precipitation = 100.0).copy(temperature = 10.0), hour(1))
+        val geometry = calculateHourlyMeteogram(hours, 136f, 112f, 68f,
+            precipitationHours = listOf(hour(1, precipitation = 2.0, probability = 80), null))
+        assertEquals(60.48f, geometry.hours[0].temperatureY, 0.001f)
+        assertEquals(13.44f, geometry.hours[1].temperatureY, 0.001f)
+        assertEquals(33.6f, geometry.hours[0].precipitationHeight, 0.001f)
+        assertEquals(0.86f, geometry.hours[0].precipitationAlpha, 0.001f)
+        assertEquals(0f, geometry.hours[1].precipitationHeight, 0.001f)
+        assertThrows(IllegalArgumentException::class.java) {
+            calculateHourlyMeteogram(hours, 136f, 112f, 68f, precipitationHours = emptyList())
+        }
+    }
+
+    @Test
     fun mapsTwentyFourHoursToColumnCentres() {
         val geometry = calculateHourlyMeteogram(
             hours = (0 until 24).map(::hour),

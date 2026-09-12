@@ -421,4 +421,5 @@
     <string name="widget_format_preview">Náhled: %1$s</string>
     <string name="widget_time_12">12hodinový</string>
     <string name="widget_time_24">24hodinový</string>
+    <string name="hourly_precipitation_unavailable">Údaje o srážkách pro tento interval nejsou dostupné.</string>
 </resources>

@@ -13,6 +13,65 @@ import org.junit.Test
 
 class HourlyDetailsTest {
     @Test
+    fun startingHourUsesFollowingSourceIntervalWithoutMovingInstantValues() {
+        val instant = hour(18.0, 7.0).copy(time = "2026-09-09T11:00", precipitation = 0.1)
+        val following = instant.copy(time = "2026-09-09T12:00", temperature = 28.0,
+            precipitation = 1.7, precipitationProbability = 80, rain = 1.5, showers = 0.2,
+            precipitationSpread = PrecipitationModelSpread(3, 2, 0.0, 2.1))
+        val selected = requireNotNull(hourlyPrecipitationByStart(listOf(instant, following))[instant.time])
+        assertEquals("11:00–12:00", hourlyPrecipitationInterval(selected.time, Locale.ENGLISH))
+        assertEquals(1.7, selected.precipitation, 0.0)
+        assertEquals(80, selected.precipitationProbability)
+        assertEquals(1.5, requireNotNull(selected.rain), 0.0)
+        assertEquals(0.2, requireNotNull(selected.showers), 0.0)
+        assertEquals(2, requireNotNull(selected.precipitationSpread).wetModelCount)
+        assertEquals(20.0, instant.temperature, 0.0)
+        assertEquals(0.1, instant.precipitation, 0.0)
+    }
+
+    @Test
+    fun startingIntervalsCrossMidnightAndDoNotFillGapsOrDuplicateEndpoints() {
+        val midnight = hour(null, null).copy(time = "2027-01-01T00:00")
+        val previous = midnight.copy(time = "2026-12-31T23:00")
+        val later = midnight.copy(time = "2027-01-01T03:00")
+        val sources = hourlyPrecipitationByStart(listOf(later, midnight, previous))
+        assertEquals(midnight, sources["2026-12-31T23:00"])
+        assertNull(sources["2027-01-01T00:00"])
+        assertNull(sources["2027-01-01T03:00"])
+        assertNull(hourlyPrecipitationByStart(listOf(previous, midnight, midnight.copy(time = "2027-01-01T00:00:00")))
+            ["2026-12-31T23:00"])
+        assertTrue(hourlyPrecipitationByStart(listOf(midnight.copy(time = "invalid"),
+            midnight.copy(time = "2027-01-01T00:30"))).isEmpty())
+    }
+
+    @Test
+    fun secondsPrecisionDisplayTimesFindTheSameEndingInterval() {
+        val instant = hour(null, null).copy(time = "2026-09-09T11:00:00")
+        val next = instant.copy(time = "2026-09-09T12:00:00", precipitation = 1.7)
+        assertEquals(next, hourlyPrecipitationByStart(listOf(instant, next))[instant.time])
+    }
+
+    @Test
+    fun shiftedPrecipitationDoesNotShiftInstantaneousWeatherCodes() {
+        val clear = hour(null, 7.0).copy(weatherCode = 0, precipitation = 0.0, precipitationProbability = 0)
+        assertEquals(HourlyHighlight.UV, hourlyHighlight(clear, clear.copy(weatherCode = 66)))
+        assertEquals(HourlyHighlight.RAIN, hourlyHighlight(clear.copy(weatherCode = 51), clear))
+    }
+
+    @Test
+    fun upcomingRainAndMissingComponentsDoNotBorrowPreviousHourData() {
+        val instant = hour(18.0, 7.0).copy(precipitation = 0.0, rain = 1.0, snowfall = 0.2)
+        val next = instant.copy(precipitation = 1.0, rain = null, snowfall = null, showers = 1.0)
+        assertFalse(HourMetricKind.RAIN in availableHourMetricKinds(instant, next))
+        assertFalse(HourMetricKind.SNOWFALL in availableHourMetricKinds(instant, next))
+        assertTrue(HourMetricKind.SHOWERS in availableHourMetricKinds(instant, next))
+        assertFalse(HourMetricKind.RAIN in availableHourMetricKinds(instant, null))
+        assertEquals(HourlyHighlight.RAIN, hourlyHighlight(instant, next))
+        val dryNext = next.copy(precipitation = 0.0, showers = 0.0, precipitationProbability = 0)
+        assertEquals(HourlyHighlight.UV, hourlyHighlight(instant, dryNext))
+    }
+
+    @Test
     fun modelSpreadDoesNotBecomeAProbabilityOrOverrideSourceConditions() {
         val dry = hour(null, 7.0).copy(precipitation = 0.0, precipitationProbability = 0)
         val withSpread = dry.copy(precipitationSpread = PrecipitationModelSpread(3, 1, 0.0, 0.3))
@@ -28,6 +87,9 @@ class HourlyDetailsTest {
         assertEquals("8 Sep 2026, 23:00 – 9 Sep 2026, 00:00", hourlyPrecipitationInterval("2026-09-09T00:00", Locale.ENGLISH))
         assertEquals("31 Dec 2026, 23:00 – 1 Jan 2027, 00:00", hourlyPrecipitationInterval("2027-01-01T00:00", Locale.ENGLISH))
         assertNull(hourlyPrecipitationInterval("invalid", Locale.ENGLISH))
+        assertEquals("11:00–12:00", hourlyStartingPrecipitationInterval("2026-09-09T11:00", Locale.ENGLISH))
+        assertEquals("31 Dec 2026, 23:00 – 1 Jan 2027, 00:00", hourlyStartingPrecipitationInterval("2026-12-31T23:00", Locale.ENGLISH))
+        assertNull(hourlyStartingPrecipitationInterval("invalid", Locale.ENGLISH))
     }
 
     @Test
@@ -178,7 +240,7 @@ class HourlyDetailsTest {
             "src/main/java/cz/majkey/pocasicesko/ui/HourlyDetails.kt",
         ).readText()
 
-        assertTrue(source.contains("hourlyWeatherSummary(hour, units)"))
+        assertTrue(source.contains("hourlyWeatherSummary(hour, units, precipitationHour)"))
         assertTrue(source.contains("R.string.hourly_dry_summary"))
         assertTrue(source.contains("conditionFor(hour.weatherCode, hour.isDay)"))
         assertTrue(source.contains("shape = RoundedCornerShape(16.dp)"))

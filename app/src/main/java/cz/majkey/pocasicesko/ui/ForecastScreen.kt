@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -59,6 +60,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
@@ -401,6 +403,7 @@ private fun WeatherHero(snapshot: WeatherSnapshot, accent: Color, units: Weather
 
 @Composable
 private fun HourlyGraphPanel(snapshot: WeatherSnapshot, accent: Color, units: WeatherUnitFormatter, localNow: LocalDateTime?) {
+    val precipitationByStart = remember(snapshot.hourly) { hourlyPrecipitationByStart(snapshot.hourly) }
     val currentHour = localNow?.toString()?.take(13) ?: snapshot.current.time.take(13)
     val hours = upcomingHours(snapshot.hourly, currentHour)
     val scrollState = rememberScrollState()
@@ -456,6 +459,7 @@ private fun HourlyGraphPanel(snapshot: WeatherSnapshot, accent: Color, units: We
                         Spacer(Modifier.height(5.dp))
                         HourlyMeteogram(
                             hours = hours,
+                            precipitationHours = hours.map { precipitationByStart[it.time] },
                             columnWidth = itemWidth,
                             accent = accent,
                             modifier = Modifier
@@ -476,6 +480,7 @@ private fun HourlyGraphPanel(snapshot: WeatherSnapshot, accent: Color, units: We
                         Spacer(Modifier.height(5.dp))
                         Row {
                             hours.forEach { hour ->
+                                val precipitationHour = precipitationByStart[hour.time]
                                 Column(
                                     modifier = Modifier
                                         .width(itemWidth)
@@ -483,18 +488,15 @@ private fun HourlyGraphPanel(snapshot: WeatherSnapshot, accent: Color, units: We
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                 ) {
                                     Text(
-                                        text = if (hour.precipitationProbability > 0 || hour.precipitation > 0.0) {
-                                            "${hour.precipitationProbability} %"
-                                        } else {
-                                            "–"
-                                        },
+                                        text = precipitationHour?.let { "${it.precipitationProbability} %" }
+                                            ?: stringResource(R.string.unavailable),
                                         color = Color(0xFF8EDCF0),
                                         fontSize = 10.sp,
                                         textAlign = TextAlign.Center,
                                     )
-                                    if (hour.precipitation > 0.0) {
+                                    if (precipitationHour != null && precipitationHour.precipitation > 0.0) {
                                         Text(
-                                            text = units.precipitation(hour.precipitation),
+                                            text = units.precipitation(precipitationHour.precipitation),
                                             color = Color(0xFF8EDCF0).copy(alpha = 0.65f),
                                             fontSize = 9.sp,
                                             lineHeight = 11.sp,
@@ -538,14 +540,10 @@ private fun HourlyGraphPanel(snapshot: WeatherSnapshot, accent: Color, units: We
                             } else {
                                 hour.time.substringAfter('T').take(5)
                             }
-                            val precipitationLabel = if (
-                                hour.precipitationProbability > 0 || hour.precipitation > 0.0
-                            ) {
-                                "${stringResource(R.string.precipitation)} " +
-                                    "${hour.precipitationProbability}%, ${units.precipitation(hour.precipitation)}"
-                            } else {
-                                "${stringResource(R.string.precipitation)} 0%"
-                            }
+                            val precipitationHour = precipitationByStart[hour.time]
+                            val precipitationLabel = "${stringResource(R.string.precipitation)} " +
+                                (precipitationHour?.let { "${it.precipitationProbability}%, ${units.precipitation(it.precipitation)}" }
+                                    ?: stringResource(R.string.unavailable))
                             val windLabel = "${stringResource(R.string.wind)} ${units.windSpeed(hour.windSpeed)}, " +
                                 stringResource(windDirectionResource(hour.windDirection))
                             val description = hourlyAccessibilityDescription(
@@ -768,6 +766,7 @@ private fun DayDetailSheet(
     onDismiss: () -> Unit,
 ) {
     if (days.isEmpty()) return
+    val precipitationByStart = remember(hourly) { hourlyPrecipitationByStart(hourly) }
     val locale = LocalConfiguration.current.locales[0]
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val pagerState = rememberPagerState(
@@ -850,6 +849,7 @@ private fun DayDetailSheet(
                         )
                     }
                     itemsIndexed(hours, key = { index, hour -> "${hour.time}-$index" }) { _, hour ->
+                        val precipitationHour = precipitationByStart[hour.time]
                         val currentHour = isCurrentForecastHour(hour.time, localNow)
                         val condition = conditionFor(hour.weatherCode, hour.isDay)
                         val conditionLabel = stringResource(condition.labelResource())
@@ -861,16 +861,18 @@ private fun DayDetailSheet(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .heightIn(min = 78.dp)
+                                .clip(RoundedCornerShape(12.dp))
                                 .background(if (currentHour) Color(0x1483D6E8) else Color.Transparent, RoundedCornerShape(12.dp))
                                 .clickable {
                                     expandedHourTime = toggleExpandedHour(expandedHourTime, hour.time)
                                 }
-                                .semantics { stateDescription = expansionState },
+                                .semantics { stateDescription = expansionState }
+                                .padding(horizontal = 12.dp, vertical = 12.dp),
                             verticalArrangement = Arrangement.Center,
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Column(Modifier.width(55.dp)) {
-                                    Text(hour.time.takeLast(5), fontWeight = FontWeight.SemiBold)
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.widthIn(min = 55.dp)) {
+                                    Text(hour.time.substringAfter('T').take(5), fontWeight = FontWeight.SemiBold)
                                     if (currentHour) Text(stringResource(R.string.now), color = Color(0xFF83D6E8), fontSize = 10.sp)
                                 }
                                 WeatherIcon(
@@ -886,8 +888,6 @@ private fun DayDetailSheet(
                                         .weight(1f)
                                         .padding(start = 12.dp),
                                     color = Color.White.copy(alpha = 0.72f),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
                                 )
                                 Text(
                                     units.temperature(hour.temperature),
@@ -906,7 +906,8 @@ private fun DayDetailSheet(
                             Text(
                                 "${stringResource(R.string.feels_like)} " +
                                     "${units.temperature(hourlyApparentTemperature(hour))} · " +
-                                    "${hour.precipitationProbability}% · ${units.precipitation(hour.precipitation)} · " +
+                                    (precipitationHour?.let { "${it.precipitationProbability}% · ${units.precipitation(it.precipitation)}" }
+                                        ?: "${stringResource(R.string.precipitation)} ${stringResource(R.string.unavailable)}") + " · " +
                                     "${units.windSpeed(hour.windSpeed)} " +
                                     stringResource(windDirectionResource(hour.windDirection)),
                                 modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
@@ -916,6 +917,7 @@ private fun DayDetailSheet(
                             if (expanded) {
                                 ExpandedHourDetails(
                                     hour = hour,
+                                    precipitationHour = precipitationHour,
                                     units = units,
                                     locale = locale,
                                     modifier = Modifier.padding(top = 12.dp, bottom = 8.dp),

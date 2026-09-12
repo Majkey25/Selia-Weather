@@ -417,4 +417,5 @@
     <string name="widget_format_preview">Aperçu : %1$s</string>
     <string name="widget_time_12">12 heures</string>
     <string name="widget_time_24">24 heures</string>
+    <string name="hourly_precipitation_unavailable">Les données de précipitations ne sont pas disponibles pour cet intervalle.</string>
 </resources>

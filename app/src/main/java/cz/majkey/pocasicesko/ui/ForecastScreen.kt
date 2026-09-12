@@ -480,30 +480,7 @@ private fun HourlyGraphPanel(snapshot: WeatherSnapshot, accent: Color, units: We
                         Spacer(Modifier.height(5.dp))
                         Row {
                             hours.forEach { hour ->
-                                val precipitationHour = precipitationByStart[hour.time]
-                                Column(
-                                    modifier = Modifier
-                                        .width(itemWidth)
-                                        .height(42.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                ) {
-                                    Text(
-                                        text = precipitationHour?.let { "${it.precipitationProbability} %" }
-                                            ?: stringResource(R.string.unavailable),
-                                        color = Color(0xFF8EDCF0),
-                                        fontSize = 10.sp,
-                                        textAlign = TextAlign.Center,
-                                    )
-                                    if (precipitationHour != null && precipitationHour.precipitation > 0.0) {
-                                        Text(
-                                            text = units.precipitation(precipitationHour.precipitation),
-                                            color = Color(0xFF8EDCF0).copy(alpha = 0.65f),
-                                            fontSize = 9.sp,
-                                            lineHeight = 11.sp,
-                                            textAlign = TextAlign.Center,
-                                        )
-                                    }
-                                }
+                                HourPrecipitationColumn(precipitationByStart[hour.time], units, Modifier.width(itemWidth))
                             }
                         }
                         Row {
@@ -563,6 +540,23 @@ private fun HourlyGraphPanel(snapshot: WeatherSnapshot, accent: Color, units: We
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+internal fun HourPrecipitationColumn(precipitationHour: HourlyWeather?, units: WeatherUnitFormatter, modifier: Modifier = Modifier) {
+    Column(modifier.heightIn(min = 42.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = precipitationHour?.let { "${it.precipitationProbability} %" } ?: stringResource(R.string.unavailable),
+            color = Color(0xFF8EDCF0), fontSize = 10.sp, lineHeight = 14.sp, textAlign = TextAlign.Center,
+        )
+        if (precipitationHour != null && precipitationHour.precipitation > 0.0) {
+            Text(
+                text = units.precipitation(precipitationHour.precipitation),
+                color = Color(0xFF8EDCF0).copy(alpha = 0.65f), fontSize = 9.sp, lineHeight = 11.sp,
+                textAlign = TextAlign.Center,
+            )
         }
     }
 }
@@ -659,7 +653,7 @@ private fun DailyForecastPanel(
 }
 
 @Composable
-private fun DailyRow(
+internal fun DailyRow(
     day: DailyWeather,
     today: Boolean,
     units: WeatherUnitFormatter,
@@ -668,96 +662,93 @@ private fun DailyRow(
     val condition = conditionFor(day.weatherCode)
     val conditionLabel = stringResource(condition.labelResource())
     val locale = LocalConfiguration.current.locales[0]
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
             .heightIn(min = 78.dp)
+            .clip(RoundedCornerShape(12.dp))
             .background(if (today) Color(0x1483D6E8) else Color.Transparent)
+            .clickable(onClick = onClick)
             .padding(horizontal = 15.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Column(Modifier.width(74.dp)) {
-            Text(
-                text = if (today) stringResource(R.string.today) else formatDay(day.date, locale),
-                fontSize = 14.sp,
-                fontWeight = if (today) FontWeight.SemiBold else FontWeight.Normal,
-            )
-            Text(
-                text = LocalDate.parse(day.date).format(DateTimeFormatter.ofPattern("d MMM", locale)),
-                color = Color.White.copy(alpha = 0.48f),
-                fontSize = 11.sp,
-            )
-        }
-        WeatherIcon(
-            kind = condition.kind,
-            isDay = true,
-            contentDescription = conditionLabel,
-            modifier = Modifier.size(27.dp),
-            tint = conditionAccent(condition.kind, true),
-        )
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(start = 11.dp, end = 8.dp),
-        ) {
-            Text(
-                text = conditionLabel,
-                fontSize = 14.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Rounded.WaterDrop,
-                    contentDescription = stringResource(R.string.precipitation),
-                    modifier = Modifier.size(12.dp),
-                    tint = Color(0xFF8EDCF0),
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = if (today) stringResource(R.string.today) else formatDay(day.date, locale),
+                    fontSize = 14.sp,
+                    fontWeight = if (today) FontWeight.SemiBold else FontWeight.Normal,
                 )
                 Text(
-                    text = " ${dailyPrecipitationSummary(day, units)} · " +
-                        units.windSpeed(day.windSpeedMax),
-                    color = Color(0xFF8EDCF0),
+                    text = LocalDate.parse(day.date).format(DateTimeFormatter.ofPattern("d MMM", locale)),
+                    color = Color.White.copy(alpha = 0.7f),
                     fontSize = 11.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = 16.sp,
                 )
             }
-            Text(
-                text = "${stringResource(R.string.feels_like)} " +
-                    "${units.temperature(day.apparentTemperatureMin ?: day.temperatureMin)} / " +
-                    units.temperature(day.apparentTemperatureMax ?: day.temperatureMax),
-                color = Color.White.copy(alpha = 0.46f),
-                fontSize = 9.sp,
-                maxLines = 1,
+            WeatherIcon(
+                kind = condition.kind,
+                isDay = true,
+                contentDescription = conditionLabel,
+                modifier = Modifier.size(27.dp),
+                tint = conditionAccent(condition.kind, true),
             )
-        }
-        Column(horizontalAlignment = Alignment.End) {
             Text(
-                text = units.temperature(day.temperatureMin),
-                color = Color.White.copy(alpha = 0.5f),
+                text = conditionLabel,
+                modifier = Modifier.weight(1.5f).padding(horizontal = 8.dp),
                 fontSize = 14.sp,
+                lineHeight = 20.sp,
             )
-            Text(
-                text = units.temperature(day.temperatureMax),
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = units.temperature(day.temperatureMin),
+                    color = Color.White.copy(alpha = 0.5f),
+                    fontSize = 14.sp,
+                )
+                Text(
+                    text = units.temperature(day.temperatureMax),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+            Icon(
+                Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                contentDescription = stringResource(R.string.open_hourly_detail),
+                modifier = Modifier
+                    .padding(start = 5.dp)
+                    .size(17.dp),
+                tint = Color.White.copy(alpha = 0.42f),
             )
         }
-        Icon(
-            Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-            contentDescription = stringResource(R.string.open_hourly_detail),
-            modifier = Modifier
-                .padding(start = 5.dp)
-                .size(17.dp),
-            tint = Color.White.copy(alpha = 0.42f),
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                Icons.Rounded.WaterDrop,
+                contentDescription = stringResource(R.string.precipitation),
+                modifier = Modifier.size(12.dp),
+                tint = Color(0xFF8EDCF0),
+            )
+            Text(
+                text = " ${dailyPrecipitationSummary(day, units)} · " + units.windSpeed(day.windSpeedMax),
+                color = Color(0xFF8EDCF0),
+                fontSize = 11.sp,
+                lineHeight = 16.sp,
+            )
+        }
+        Text(
+            text = "${stringResource(R.string.feels_like)} " +
+                "${units.temperature(day.apparentTemperatureMin ?: day.temperatureMin)} / " +
+                units.temperature(day.apparentTemperatureMax ?: day.temperatureMax),
+            modifier = Modifier.fillMaxWidth(),
+            color = Color.White.copy(alpha = 0.7f),
+            fontSize = 11.sp,
+            lineHeight = 16.sp,
         )
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DayDetailSheet(
+internal fun DayDetailSheet(
     days: List<DailyWeather>,
     hourly: List<HourlyWeather>,
     initialPage: Int,
@@ -863,57 +854,63 @@ private fun DayDetailSheet(
                                 .heightIn(min = 78.dp)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(if (currentHour) Color(0x1483D6E8) else Color.Transparent, RoundedCornerShape(12.dp))
-                                .clickable {
-                                    expandedHourTime = toggleExpandedHour(expandedHourTime, hour.time)
-                                }
-                                .semantics { stateDescription = expansionState }
                                 .padding(horizontal = 12.dp, vertical = 12.dp),
                             verticalArrangement = Arrangement.Center,
                         ) {
-                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                Column(Modifier.widthIn(min = 55.dp)) {
-                                    Text(hour.time.substringAfter('T').take(5), fontWeight = FontWeight.SemiBold)
-                                    if (currentHour) Text(stringResource(R.string.now), color = Color(0xFF83D6E8), fontSize = 10.sp)
+                            Column(
+                                Modifier.fillMaxWidth().heightIn(min = 56.dp)
+                                    .clickable { expandedHourTime = toggleExpandedHour(expandedHourTime, hour.time) }
+                                    .semantics { stateDescription = expansionState },
+                            ) {
+                                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                    Column(Modifier.widthIn(min = 55.dp).padding(end = 8.dp)) {
+                                        Text(hour.time.substringAfter('T').take(5), fontWeight = FontWeight.SemiBold)
+                                        if (currentHour) {
+                                            Text(stringResource(R.string.now), color = Color(0xFF83D6E8),
+                                                fontSize = 10.sp, lineHeight = 14.sp)
+                                        }
+                                    }
+                                    WeatherIcon(
+                                        kind = condition.kind,
+                                        isDay = hour.isDay,
+                                        contentDescription = conditionLabel,
+                                        modifier = Modifier.size(26.dp),
+                                        tint = conditionAccent(condition.kind, hour.isDay),
+                                    )
+                                    Text(
+                                        conditionLabel,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .padding(start = 12.dp),
+                                        color = Color.White.copy(alpha = 0.72f),
+                                    )
+                                    Text(
+                                        units.temperature(hour.temperature),
+                                        fontSize = 17.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                    Icon(
+                                        imageVector = if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                                        contentDescription = null,
+                                        modifier = Modifier
+                                            .padding(start = 4.dp)
+                                            .size(20.dp),
+                                        tint = Color.White.copy(alpha = 0.48f),
+                                    )
                                 }
-                                WeatherIcon(
-                                    kind = condition.kind,
-                                    isDay = hour.isDay,
-                                    contentDescription = conditionLabel,
-                                    modifier = Modifier.size(26.dp),
-                                    tint = conditionAccent(condition.kind, hour.isDay),
-                                )
                                 Text(
-                                    conditionLabel,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .padding(start = 12.dp),
-                                    color = Color.White.copy(alpha = 0.72f),
-                                )
-                                Text(
-                                    units.temperature(hour.temperature),
-                                    fontSize = 17.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                )
-                                Icon(
-                                    imageVector = if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .padding(start = 4.dp)
-                                        .size(20.dp),
-                                    tint = Color.White.copy(alpha = 0.48f),
+                                    "${stringResource(R.string.feels_like)} " +
+                                        "${units.temperature(hourlyApparentTemperature(hour))} · " +
+                                        (precipitationHour?.let { "${it.precipitationProbability}% · ${units.precipitation(it.precipitation)}" }
+                                            ?: "${stringResource(R.string.precipitation)} ${stringResource(R.string.unavailable)}") + " · " +
+                                        "${units.windSpeed(hour.windSpeed)} " +
+                                        stringResource(windDirectionResource(hour.windDirection)),
+                                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
+                                    color = Color(0xFF8EDCF0),
+                                    fontSize = 11.sp,
+                                    lineHeight = 16.sp,
                                 )
                             }
-                            Text(
-                                "${stringResource(R.string.feels_like)} " +
-                                    "${units.temperature(hourlyApparentTemperature(hour))} · " +
-                                    (precipitationHour?.let { "${it.precipitationProbability}% · ${units.precipitation(it.precipitation)}" }
-                                        ?: "${stringResource(R.string.precipitation)} ${stringResource(R.string.unavailable)}") + " · " +
-                                    "${units.windSpeed(hour.windSpeed)} " +
-                                    stringResource(windDirectionResource(hour.windDirection)),
-                                modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
-                                color = Color(0xFF8EDCF0),
-                                fontSize = 11.sp,
-                            )
                             if (expanded) {
                                 ExpandedHourDetails(
                                     hour = hour,

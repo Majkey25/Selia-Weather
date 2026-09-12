@@ -6,13 +6,25 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -180,6 +192,10 @@ internal fun ExpandedHourDetails(
     locale: Locale,
     modifier: Modifier = Modifier,
 ) {
+    var showPrecipitationHelp by rememberSaveable(hour.time) { mutableStateOf(false) }
+    val helpExpansionState = stringResource(
+        if (showPrecipitationHelp) R.string.hour_expanded else R.string.hour_collapsed,
+    )
     val metrics = availableHourMetricKinds(hour, precipitationHour).map { kind ->
         when (kind) {
             HourMetricKind.TEMPERATURE -> HourMetric(
@@ -323,6 +339,7 @@ internal fun ExpandedHourDetails(
                 text = hourlyWeatherSummary(hour, units, precipitationHour),
                 color = Color(0xFFB9ECF5),
                 fontSize = 12.sp,
+                lineHeight = 18.sp,
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
             )
@@ -339,13 +356,25 @@ internal fun ExpandedHourDetails(
                 ),
                 color = Color.White.copy(alpha = 0.82f),
                 fontSize = 12.sp,
+                lineHeight = 18.sp,
             )
         }
-        Text(
-            stringResource(R.string.precipitation_probability_note),
-            color = Color.White.copy(alpha = 0.62f),
-            fontSize = 11.sp,
-        )
+        TextButton(
+            onClick = { showPrecipitationHelp = !showPrecipitationHelp },
+            modifier = Modifier.semantics { stateDescription = helpExpansionState },
+        ) {
+            Icon(Icons.Rounded.Info, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(stringResource(R.string.precipitation_help), fontSize = 12.sp, lineHeight = 18.sp)
+        }
+        if (showPrecipitationHelp) {
+            Text(
+                stringResource(R.string.precipitation_probability_note),
+                color = Color.White.copy(alpha = 0.7f),
+                fontSize = 11.sp,
+                lineHeight = 16.sp,
+            )
+        }
         metrics.chunked(2).forEach { metricRow ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -442,13 +471,15 @@ private fun HourMetricValue(metric: HourMetric, modifier: Modifier) {
     Column(modifier.padding(vertical = 2.dp)) {
         Text(
             text = metric.label,
-            color = Color.White.copy(alpha = 0.48f),
+            color = Color.White.copy(alpha = 0.7f),
             fontSize = 10.sp,
+            lineHeight = 14.sp,
         )
         Text(
             text = metric.value,
             color = Color.White.copy(alpha = 0.88f),
             fontSize = 13.sp,
+            lineHeight = 18.sp,
             fontWeight = FontWeight.Medium,
         )
     }

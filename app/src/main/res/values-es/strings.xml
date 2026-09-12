@@ -418,4 +418,5 @@
     <string name="widget_time_12">12 horas</string>
     <string name="widget_time_24">24 horas</string>
     <string name="hourly_precipitation_unavailable">No hay datos de precipitación para este intervalo.</string>
+    <string name="precipitation_help">Sobre la precipitación</string>
 </resources>

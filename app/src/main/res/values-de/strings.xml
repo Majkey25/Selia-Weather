@@ -419,4 +419,6 @@
     <string name="widget_time_24">24 Stunden</string>
     <string name="hourly_precipitation_unavailable">Für diesen Zeitraum sind keine Niederschlagsdaten verfügbar.</string>
     <string name="precipitation_help">Über die Niederschlagsdaten</string>
+    <string name="advanced_details">Erweiterte Details</string>
+    <string name="hourly_model_disagreement">Lokaler Niederschlag ist nicht ausgeschlossen: %1$d von %2$d Modellen erwarten Niederschlag, bis zu %3$s. Diese Abweichung ist keine kalibrierte Regenwahrscheinlichkeit.</string>
 </resources>

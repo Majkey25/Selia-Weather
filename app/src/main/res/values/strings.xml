@@ -425,4 +425,6 @@
     <string name="widget_time_24">24-hour</string>
     <string name="hourly_precipitation_unavailable">Precipitation data is unavailable for this interval.</string>
     <string name="precipitation_help">About precipitation</string>
+    <string name="advanced_details">Advanced details</string>
+    <string name="hourly_model_disagreement">Local precipitation cannot be ruled out: %1$d of %2$d models show nonzero amounts, up to %3$s. This disagreement is not a calibrated rain probability.</string>
 </resources>

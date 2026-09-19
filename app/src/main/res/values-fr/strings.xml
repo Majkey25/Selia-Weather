@@ -419,4 +419,6 @@
     <string name="widget_time_24">24 heures</string>
     <string name="hourly_precipitation_unavailable">Les données de précipitations ne sont pas disponibles pour cet intervalle.</string>
     <string name="precipitation_help">À propos des précipitations</string>
+    <string name="advanced_details">Détails avancés</string>
+    <string name="hourly_model_disagreement">Des précipitations locales restent possibles : %1$d modèles sur %2$d prévoient des quantités non nulles, jusqu’à %3$s. Ce désaccord ne constitue pas une probabilité de pluie calibrée.</string>
 </resources>

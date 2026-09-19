@@ -13,7 +13,11 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.isDialog
+import androidx.compose.ui.test.swipeLeft
+import androidx.compose.ui.test.swipeRight
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
@@ -24,11 +28,16 @@ import androidx.test.platform.app.InstrumentationRegistry
 import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.data.DailyWeather
 import cz.majkey.pocasicesko.data.HourlyWeather
+import cz.majkey.pocasicesko.data.PrecipitationModelSpread
 import cz.majkey.pocasicesko.units.MeasurementSystem
 import cz.majkey.pocasicesko.units.WeatherUnitFormatter
 import java.time.LocalDateTime
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import java.util.Locale
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -39,6 +48,80 @@ class ForecastLayoutTest {
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
     private val day = DailyWeather("2026-09-12", 95, 22.0, 12.0, "06:00", "18:00", 123.4, 85, 123.0,
         apparentTemperatureMin = 9.0, apparentTemperatureMax = 23.0)
+
+    @Test
+    fun leftSwipeOpensFutureAndRightSwipeOpensPast() {
+        val days = listOf(day.copy(date = "2026-09-11"), day, day.copy(date = "2026-09-13"))
+        compose.setContent {
+            WeatherTheme { DayDetailSheet(days, listOf(hour(10)), 1, null, units, {}) }
+        }
+        compose.onNode(isDialog()).performTouchInput { swipeLeft() }
+        val dateFormat = DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL)
+            .withLocale(context.resources.configuration.locales[0])
+        compose.onNodeWithText(LocalDate.parse("2026-09-13").format(dateFormat)).assertIsDisplayed()
+        compose.onNode(isDialog()).performTouchInput { swipeRight() }
+        compose.onNode(isDialog()).performTouchInput { swipeRight() }
+        compose.onNodeWithText(LocalDate.parse("2026-09-11").format(dateFormat)).assertIsDisplayed()
+    }
+
+    @Test
+    fun selectedWeatherLabelFitsWithLargeText() {
+        compose.setContent {
+            TestSurface { FloatingNavigation(Destination.WEATHER, onDestination = {}, onAskAi = {}) }
+        }
+        assertTextFits(context.getString(R.string.nav_weather))
+    }
+
+    @Test
+    fun uvStaysVisibleAndAdvancedMetricsNeedAnExplicitTap() {
+        compose.setContent {
+            WeatherTheme {
+                ExpandedHourDetails(hour(10).copy(cape = 500.0), hour(11), units, Locale.ENGLISH)
+            }
+        }
+        compose.onNodeWithText(context.getString(R.string.uv_index)).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.cape)).assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.advanced_details)).performTouchInput { click() }
+        compose.onNodeWithText(context.getString(R.string.cape)).assertExists()
+    }
+
+    @Test
+    fun minorityRainIsHighlightedInsteadOfAConfidentDrySummary() {
+        compose.setContent {
+            WeatherTheme {
+                ExpandedHourDetails(hour(10), hour(11).copy(precipitationProbability = 0,
+                    precipitationSpread = PrecipitationModelSpread(9, 1, 0.0, 0.2)), units, Locale.ENGLISH)
+            }
+        }
+        compose.onNodeWithText(context.getString(R.string.hourly_model_disagreement, 1, 9, "0.2 mm")).assertIsDisplayed()
+    }
+
+    @Test
+    fun bottomActionsShareOneRowAndDispatchClicks() {
+        var selected: Destination? = null
+        var aiClicks = 0
+        compose.setContent {
+            WeatherTheme {
+                Box(Modifier.width(320.dp)) {
+                    FloatingNavigation(Destination.WEATHER, onDestination = { selected = it }, onAskAi = { aiClicks++ })
+                }
+            }
+        }
+        val weather = compose.onNodeWithContentDescription(context.getString(R.string.nav_weather))
+        val radar = compose.onNodeWithContentDescription(context.getString(R.string.nav_maps))
+        val ai = compose.onNodeWithContentDescription(context.getString(R.string.home_ask_ai))
+        val weatherBounds = weather.fetchSemanticsNode().boundsInRoot
+        val radarBounds = radar.fetchSemanticsNode().boundsInRoot
+        val aiBounds = ai.fetchSemanticsNode().boundsInRoot
+        assertEquals(weatherBounds.center.y, radarBounds.center.y, 1f)
+        assertEquals(radarBounds.center.y, aiBounds.center.y, 1f)
+        assertTrue(weatherBounds.right <= radarBounds.left)
+        assertTrue(radarBounds.right <= aiBounds.left)
+        radar.performTouchInput { click() }
+        assertEquals(Destination.MAPS, selected)
+        ai.performTouchInput { click() }
+        assertEquals(1, aiClicks)
+    }
 
     @Test
     fun dailyValuesFitAtLargeFontInNarrowWidth() {

@@ -79,6 +79,8 @@ class HourlyDetailsTest {
         assertEquals(dry.weatherCode, withSpread.weatherCode)
         assertEquals(HourlyRainLevel.NONE, hourlyRainLevel(withSpread))
         assertEquals(HourlyHighlight.UV, hourlyHighlight(withSpread))
+        assertEquals(HourlyHighlight.MODEL_DISAGREEMENT, hourlyHighlight(withSpread.copy(uvIndex = 0.0)))
+        assertEquals(HourlyHighlight.WIND, hourlyHighlight(withSpread.copy(windGusts = 100.0)))
     }
 
     @Test

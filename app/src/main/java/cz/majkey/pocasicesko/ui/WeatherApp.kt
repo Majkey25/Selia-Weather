@@ -34,10 +34,12 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ChatBubbleOutline
 import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.Map
 import androidx.compose.material.icons.rounded.MyLocation
@@ -53,6 +55,8 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -79,6 +83,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -104,6 +109,7 @@ import cz.majkey.pocasicesko.monetization.PremiumBillingController
 import cz.majkey.pocasicesko.notification.DailyBriefingScheduler
 import cz.majkey.pocasicesko.units.MeasurementSystem
 import cz.majkey.pocasicesko.units.MeasurementUnits
+import cz.majkey.pocasicesko.units.WeatherUnitFormatter
 import cz.majkey.pocasicesko.widget.WeatherWidgetProvider
 import cz.majkey.pocasicesko.widget.WidgetConfigActivity
 import cz.majkey.pocasicesko.R
@@ -119,7 +125,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private enum class Destination {
+internal enum class Destination {
     WEATHER,
     MAPS,
 }
@@ -169,6 +175,7 @@ fun WeatherApp(
         radarFullscreen = false
     }
     var location by remember { mutableStateOf(repository.lastLocation()) }
+    var showAiHistory by rememberSaveable(location.latitude, location.longitude) { mutableStateOf(false) }
     var reloadKey by remember { mutableIntStateOf(0) }
     var showLocationSearch by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
@@ -289,6 +296,7 @@ fun WeatherApp(
             if (!(destination == Destination.MAPS && radarFullscreen)) FloatingNavigation(
                 destination = destination,
                 modifier = Modifier.align(Alignment.BottomCenter),
+                onAskAi = if (snapshot != null) ({ showAiHistory = true }) else null,
                 onDestination = { selected ->
                     if (destination == Destination.MAPS && selected == Destination.WEATHER) {
                         adsController?.maybeShowInterstitial(entitlement) { destination = selected }
@@ -298,6 +306,19 @@ fun WeatherApp(
                     }
                 },
             )
+
+            if (showAiHistory && snapshot != null) {
+                val locale = LocalConfiguration.current.locales[0]
+                WeatherDetailSheet(
+                    snapshot = snapshot,
+                    location = location,
+                    units = remember(measurementSystem, locale) { WeatherUnitFormatter(measurementSystem, locale) },
+                    loadHistory = repository::fetchHistory,
+                    initialHistory = true,
+                    currentTime = rememberForecastLocalTime(snapshot.timezone, snapshot.utcOffsetSeconds),
+                    onDismiss = { showAiHistory = false },
+                )
+            }
 
             if (showLocationSearch) {
                 LocationSearchSheet(
@@ -431,39 +452,54 @@ private fun WeatherDestination(
 }
 
 @Composable
-private fun FloatingNavigation(
+internal fun FloatingNavigation(
     destination: Destination,
     modifier: Modifier = Modifier,
     onDestination: (Destination) -> Unit,
+    onAskAi: (() -> Unit)?,
 ) {
     Box(
         modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(bottom = 12.dp),
+            .padding(start = 8.dp, end = 8.dp, bottom = 12.dp),
         contentAlignment = Alignment.Center,
     ) {
         Row(
             modifier = Modifier
-                .width(246.dp)
+                .widthIn(max = 310.dp)
+                .fillMaxWidth()
                 .height(64.dp)
                 .padding(6.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             NavigationItem(
                 selected = destination == Destination.WEATHER,
                 label = stringResource(R.string.nav_weather),
                 icon = { Icon(Icons.Rounded.WbSunny, contentDescription = null) },
-                modifier = Modifier.weight(1f),
+                modifier = if (destination == Destination.WEATHER) Modifier.weight(1f) else Modifier.width(52.dp),
                 onClick = { onDestination(Destination.WEATHER) },
             )
             NavigationItem(
                 selected = destination == Destination.MAPS,
                 label = stringResource(R.string.nav_maps),
                 icon = { Icon(Icons.Rounded.Map, contentDescription = null) },
-                modifier = Modifier.weight(1f),
+                modifier = if (destination == Destination.MAPS) Modifier.weight(1f) else Modifier.width(52.dp),
                 onClick = { onDestination(Destination.MAPS) },
             )
+            if (onAskAi != null) {
+                FilledTonalIconButton(
+                    onClick = onAskAi,
+                    modifier = Modifier.size(52.dp),
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                        containerColor = Color(0xFF214E60),
+                        contentColor = Color.White,
+                    ),
+                ) {
+                    Icon(Icons.Rounded.ChatBubbleOutline, contentDescription = stringResource(R.string.home_ask_ai))
+                }
+            }
         }
     }
 }
@@ -494,7 +530,8 @@ private fun NavigationItem(
             icon()
             if (selected) {
                 Spacer(Modifier.width(7.dp))
-                Text(label, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                Text(label, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 20.sp,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }

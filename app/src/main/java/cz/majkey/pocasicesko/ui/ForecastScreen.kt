@@ -37,15 +37,12 @@ import androidx.compose.material.icons.rounded.Navigation
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.WaterDrop
-import androidx.compose.material.icons.rounded.ChatBubbleOutline
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ModalBottomSheet
@@ -101,7 +98,7 @@ import kotlinx.coroutines.isActive
 private const val HOURLY_OUTLOOK_COUNT = 24
 
 @Composable
-private fun rememberForecastLocalTime(timezone: String, utcOffsetSeconds: Int?): LocalDateTime? {
+internal fun rememberForecastLocalTime(timezone: String, utcOffsetSeconds: Int?): LocalDateTime? {
     val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
     val active = lifecycleState.isAtLeast(Lifecycle.State.RESUMED)
     val instant by produceState(initialValue = Instant.now(), key1 = timezone, key2 = utcOffsetSeconds, key3 = active) {
@@ -157,7 +154,7 @@ internal fun ForecastScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            contentPadding = PaddingValues(start = 18.dp, top = 16.dp, end = 18.dp, bottom = 154.dp),
+            contentPadding = PaddingValues(start = 18.dp, top = 16.dp, end = 18.dp, bottom = 100.dp),
             verticalArrangement = Arrangement.spacedBy(26.dp),
         ) {
             item {
@@ -201,14 +198,6 @@ internal fun ForecastScreen(
                 )
             }
         }
-        if (selectedDayIndex == null && !showDetails) {
-            AskAiAction(
-                Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 18.dp, bottom = 88.dp),
-            ) {
-                openHistory = true
-                showDetails = true
-            }
-        }
     }
     selectedDayIndex?.let { initialPage ->
         DayDetailSheet(
@@ -230,20 +219,6 @@ internal fun ForecastScreen(
             currentTime = localNow,
             onDismiss = { showDetails = false },
         )
-    }
-}
-
-@Composable
-private fun AskAiAction(modifier: Modifier, onClick: () -> Unit) {
-    FilledTonalIconButton(
-        onClick = onClick,
-        modifier = modifier.size(48.dp),
-        colors = IconButtonDefaults.filledTonalIconButtonColors(
-            containerColor = Color(0xFF214E60),
-            contentColor = Color.White,
-        ),
-    ) {
-        Icon(Icons.Rounded.ChatBubbleOutline, contentDescription = stringResource(R.string.home_ask_ai), modifier = Modifier.size(24.dp))
     }
 }
 
@@ -384,20 +359,6 @@ private fun WeatherHero(snapshot: WeatherSnapshot, accent: Color, units: Weather
             fontSize = 14.sp,
             modifier = Modifier.padding(top = 5.dp),
         )
-        Surface(
-            modifier = Modifier.padding(top = 14.dp),
-            color = accent.copy(alpha = 0.15f),
-            shape = RoundedCornerShape(16.dp),
-            border = BorderStroke(1.dp, accent.copy(alpha = 0.35f)),
-        ) {
-            Text(
-                stringResource(R.string.product_name),
-                color = accent,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-            )
-        }
     }
 }
 
@@ -431,10 +392,7 @@ private fun HourlyGraphPanel(snapshot: WeatherSnapshot, accent: Color, units: We
                                     } else {
                                         hour.time.substringAfter('T').take(5)
                                     },
-                                    modifier = Modifier.width(itemWidth).background(
-                                        if (isCurrentForecastHour(hour.time, localNow)) Color(0x2283D6E8) else Color.Transparent,
-                                        RoundedCornerShape(8.dp),
-                                    ),
+                                    modifier = Modifier.width(itemWidth),
                                     color = if (isCurrentForecastHour(hour.time, localNow)) Color(0xFF83D6E8) else Color.White.copy(alpha = 0.58f),
                                     fontSize = 12.sp,
                                     textAlign = TextAlign.Center,
@@ -779,7 +737,7 @@ internal fun DayDetailSheet(
             )
             HorizontalPager(
                 state = pagerState,
-                reverseLayout = true,
+                reverseLayout = false,
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),

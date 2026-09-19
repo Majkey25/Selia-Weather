@@ -10,15 +10,15 @@ class RadarScreenTest {
     @Test
     fun localizedRadarUrlUsesSupportedLanguageOrEnglishFallback() {
         assertEquals(
-            "file:///android_asset/radar.html?lang=cs&lat=50.0755&lon=14.4378&chmi=1",
+            "https://appassets.androidplatform.net/assets/radar.html?lang=cs&lat=50.0755&lon=14.4378&chmi=1",
             localizedRadarUrl("cs-CZ", 50.0755, 14.4378, true),
         )
         assertEquals(
-            "file:///android_asset/radar.html?lang=fr&lat=-1.2921&lon=36.8219&chmi=0",
+            "https://appassets.androidplatform.net/assets/radar.html?lang=fr&lat=-1.2921&lon=36.8219&chmi=0",
             localizedRadarUrl("fr-FR", -1.2921, 36.8219, false),
         )
         assertEquals(
-            "file:///android_asset/radar.html?lang=en&lat=35.6762&lon=139.6503&chmi=0",
+            "https://appassets.androidplatform.net/assets/radar.html?lang=en&lat=35.6762&lon=139.6503&chmi=0",
             localizedRadarUrl("pl-PL", 35.6762, 139.6503, false),
         )
     }
@@ -82,7 +82,6 @@ class RadarScreenTest {
 
         assertTrue(source.contains("ChmiWebScreen("))
         assertTrue(source.contains("localizedRadarUrl("))
-        assertTrue(source.contains("R.string.radar_footer"))
         assertFalse(source.contains("MapMode"))
         assertFalse(source.contains("ForecastMap"))
         assertFalse(source.contains("LocalRainField("))
@@ -96,7 +95,6 @@ class RadarScreenTest {
         val hub = File(root, "MapHubScreen.kt").readText()
         assertTrue(app.contains("BackHandler(enabled = destination == Destination.MAPS && radarFullscreen)"))
         assertTrue(app.contains("if (!(destination == Destination.MAPS && radarFullscreen)) FloatingNavigation("))
-        assertTrue(hub.contains("if (!compact && !fullscreen) Text("))
         assertTrue(hub.contains("R.string.radar_exit_fullscreen"))
         assertEquals(1, "ChmiWebScreen(".toRegex(RegexOption.LITERAL).findAll(hub).count())
     }

@@ -395,6 +395,8 @@
     <string name="history_temperature_coverage">Min. %1$d/%3$d dní · Max. %2$d/%3$d dní</string>
     <string name="history_dates_coverage">Dny v archivu: %1$d z %2$d</string>
     <string name="home_ask_ai">Zeptat se AI</string>
+    <string name="history_ai_intro">Zeptejte se na déšť, teplotu nebo sluneční svit v této lokalitě. Otázku a archiv počasí předáte AI aplikaci, kterou si vyberete.</string>
+    <string name="history_loading_archive">Připravuji archiv počasí…</string>
     <string name="history_choose_ai_title">Vyberte AI aplikaci</string>
     <string name="history_choose_ai_action">Vybrat aplikaci</string>
     <string name="history_choose_ai_message">Bude sdílen celý pětiletý archiv pro %1$s (%2$d denních záznamů), vaše otázka a vybrané období v UTC.\n\nVyberte ChatGPT, Gemini, Claude nebo Grok, pokud nainstalovaná aplikace přijímá soubory CSV. Pokud v nabídce chybí nebo přílohu neotevře, uložte CSV přes kompatibilní aplikaci pro sdílení a nahrajte jej do AI aplikace ručně.</string>

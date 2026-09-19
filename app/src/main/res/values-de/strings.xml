@@ -391,6 +391,8 @@
     <string name="history_temperature_coverage">Min. %1$d/%3$d Tage · Max. %2$d/%3$d Tage</string>
     <string name="history_dates_coverage">Tage im Archiv: %1$d von %2$d</string>
     <string name="home_ask_ai">KI fragen</string>
+    <string name="history_ai_intro">Fragen Sie nach Regen, Temperatur oder Sonnenschein an diesem Ort. Ihre Frage und das Wetterarchiv werden an die von Ihnen gewählte KI-App übergeben.</string>
+    <string name="history_loading_archive">Wetterarchiv wird vorbereitet…</string>
     <string name="history_choose_ai_title">KI-App auswählen</string>
     <string name="history_choose_ai_action">App auswählen</string>
     <string name="history_choose_ai_message">Das vollständige Fünfjahresarchiv für %1$s (%2$d Tageswerte), Ihre Frage und der gewählte UTC-Zeitraum werden geteilt.\n\nWählen Sie ChatGPT, Gemini, Claude oder Grok, wenn die installierte App CSV-Dateien annimmt. Fehlt sie in der Auswahl oder kann sie den Anhang nicht öffnen, speichern Sie die CSV über eine kompatible App und laden Sie sie manuell in Ihre KI-App hoch.</string>

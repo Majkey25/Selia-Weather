@@ -391,6 +391,8 @@
     <string name="history_temperature_coverage">Min. %1$d/%3$d jours · Max. %2$d/%3$d jours</string>
     <string name="history_dates_coverage">Jours dans les archives : %1$d sur %2$d</string>
     <string name="home_ask_ai">Demander à l’IA</string>
+    <string name="history_ai_intro">Posez une question sur la pluie, la température ou le soleil ici. Votre question et les archives météo seront partagées avec l’application IA de votre choix.</string>
+    <string name="history_loading_archive">Préparation des archives météo…</string>
     <string name="history_choose_ai_title">Choisir une app IA</string>
     <string name="history_choose_ai_action">Choisir une app</string>
     <string name="history_choose_ai_message">Les archives complètes sur cinq ans pour %1$s (%2$d relevés quotidiens), votre question et la période UTC choisie seront partagées.\n\nChoisissez ChatGPT, Gemini, Claude ou Grok si l’app installée accepte les fichiers CSV. Si elle est absente ou ne peut pas ouvrir la pièce jointe, enregistrez le CSV via une app de partage compatible, puis importez-le manuellement dans votre app IA.</string>

@@ -7,6 +7,7 @@ import android.graphics.Bitmap
 import android.webkit.CookieManager
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -36,23 +37,27 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.currentStateAsState
+import androidx.webkit.WebViewAssetLoader
 import cz.majkey.pocasicesko.BuildConfig
 import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.locale.normalizeLanguageTag
+import java.net.URLEncoder
 
-const val RADAR_APP_URL = "file:///android_asset/radar.html"
+const val RADAR_APP_URL = "https://appassets.androidplatform.net/assets/radar.html"
 
 internal fun localizedRadarUrl(
     languageTag: String?,
     latitude: Double,
     longitude: Double,
     chmiDetail: Boolean,
+    timezone: String? = null,
 ): String {
     require(latitude.isFinite() && latitude in -90.0..90.0)
     require(longitude.isFinite() && longitude in -180.0..180.0)
     val language = normalizeLanguageTag(languageTag).ifEmpty { "en" }
     return "$RADAR_APP_URL?lang=$language&lat=$latitude&lon=$longitude" +
-        "&chmi=${if (chmiDetail) 1 else 0}"
+        "&chmi=${if (chmiDetail) 1 else 0}" +
+        (timezone?.let { "&tz=${URLEncoder.encode(it, "UTF-8")}" } ?: "")
 }
 
 @Composable
@@ -74,11 +79,14 @@ fun ChmiWebScreen(url: String, modifier: Modifier = Modifier) {
             AndroidView(
                 factory = { viewContext ->
                     if (BuildConfig.DEBUG) WebView.setWebContentsDebuggingEnabled(true)
+                    val assets = WebViewAssetLoader.Builder()
+                        .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(viewContext))
+                        .build()
                     WebView(viewContext).apply web@{
                         webView = this
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = false
-                        settings.allowFileAccess = url.startsWith(ANDROID_ASSET_PREFIX)
+                        settings.allowFileAccess = false
                         settings.allowContentAccess = false
                         settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
                         settings.setSupportZoom(true)
@@ -91,6 +99,11 @@ fun ChmiWebScreen(url: String, modifier: Modifier = Modifier) {
                             setAcceptThirdPartyCookies(this@web, false)
                         }
                         webViewClient = object : WebViewClient() {
+                            override fun shouldInterceptRequest(
+                                view: WebView?,
+                                request: WebResourceRequest,
+                            ): WebResourceResponse? = assets.shouldInterceptRequest(request.url)
+
                             override fun onPageStarted(view: WebView?, pageUrl: String?, favicon: Bitmap?) {
                                 loading = true
                                 error = null
@@ -176,5 +189,3 @@ fun ChmiWebScreen(url: String, modifier: Modifier = Modifier) {
         }
     }
 }
-
-private const val ANDROID_ASSET_PREFIX = "file:///android_asset/"

@@ -398,6 +398,8 @@
     <string name="history_temperature_coverage">Min %1$d/%3$d days · Max %2$d/%3$d days</string>
     <string name="history_dates_coverage">Dates in archive: %1$d of %2$d</string>
     <string name="home_ask_ai">Ask AI</string>
+    <string name="history_ai_intro">Ask about rain, temperature or sunshine here. Your question and weather archive go to the AI app you choose.</string>
+    <string name="history_loading_archive">Preparing weather archive…</string>
     <string name="history_choose_ai_title">Choose an AI app</string>
     <string name="history_choose_ai_action">Choose app</string>
     <string name="history_choose_ai_message">The full five-year archive for %1$s (%2$d daily records), your question and the selected UTC period will be shared.\n\nChoose ChatGPT, Gemini, Claude or Grok if the installed app accepts CSV files. If it is missing from the chooser or cannot open the attachment, save the CSV through a compatible sharing app and upload it manually in your AI app.</string>

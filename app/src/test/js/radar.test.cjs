@@ -12,7 +12,7 @@ const manifest = () => ({ host: 'https://tilecache.rainviewer.com', radar: { pas
   { time: now - 600, path: '/v2/radar/fda4d81e26c8' },
 ] } });
 
-function runtime(response = manifest()) {
+function runtime(response = manifest(), search = '?lat=50&lon=14') {
   const nodes = new Map();
   const events = {};
   const layers = [];
@@ -48,17 +48,18 @@ function runtime(response = manifest()) {
   }
   const context = vm.createContext({
     document, URLSearchParams, AbortController, Date, console,
-    window: { location: { search: '?lat=50&lon=14' }, innerHeight: 480,
+    window: { location: { search }, innerHeight: 480,
       addEventListener(name, callback) { events[name] = callback; } },
     setTimeout(callback, delay) { timeouts.set(++timerId, callback); timeoutDelays.set(timerId, delay); return timerId; },
     clearTimeout(id) { timeouts.delete(id); timeoutDelays.delete(id); },
     setInterval(callback) { intervals.set(++timerId, callback); return timerId; },
     clearInterval(id) { intervals.delete(id); },
     requestAnimationFrame(callback) { callback(); },
+    ResizeObserver: class { constructor(callback) { events.mapResize = callback; } observe(element) { events.observedMap = element; } },
     fetch: async () => ({ ok: true, json: async () => response }),
     L: {
       map: () => map,
-      tileLayer: layer, imageOverlay: layer, rectangle: layer,
+      tileLayer: layer, imageOverlay: layer, rectangle: layer, circleMarker: layer,
     },
   });
   vm.runInContext(readFileSync(join(__dirname, '../../main/assets/radar-forecast.js'), 'utf8'), context);
@@ -495,4 +496,50 @@ test('forecast parser preserves hourly nulls and provides at least 12 hours ahea
   assert.ok(frames.at(-1).time >= now + 12 * 3600);
   payload[0].hourly_units.precipitation = 'inch';
   assert.throws(() => app.context.RadarForecast.parse(payload, grid, now));
+});
+
+test('forecast timeline exposes its whole range and mode changes clear the old range', async () => {
+  const app = runtime();
+  await settled();
+  app.context.fetch = async () => ({ ok: true, json: async () => forecastPayload(app) });
+  app.context.setMode('forecast');
+  await settled();
+  app.context.pendingLayer.events.load();
+  assert.notEqual(app.node('range-start').textContent, undefined);
+  assert.notEqual(app.node('range-end').textContent, undefined);
+  assert.notEqual(app.node('range-start').textContent, app.node('range-end').textContent);
+  app.context.fetch = async () => ({ ok: false, status: 503 });
+  app.context.setMode('observed');
+  await settled();
+  assert.equal(app.node('range-start').textContent, '—');
+  assert.equal(app.node('range-end').textContent, '—');
+});
+
+test('forecast labels distinguish a dry sample grid from missing values', async () => {
+  for (const [value, expected] of [[0, 'Below 0.1 mm at sampled forecast points'], [null, 'No forecast amounts available']]) {
+    const app = runtime();
+    await settled();
+    app.context.fetch = async () => ({ ok: true, json: async () => forecastPayload(app, value) });
+    app.context.setMode('forecast');
+    await settled();
+    app.context.pendingLayer.events.load();
+    assert.equal(app.node('frame-summary').textContent, expected);
+  }
+});
+
+test('radar timeline uses the selected location timezone and invalid zones fall back to UTC', () => {
+  const local = runtime(manifest(), '?lang=en&tz=Europe%2FPrague');
+  assert.match(local.context.formatTime(Date.UTC(2026, 8, 19, 11) / 1000), /13:00/);
+  const invalid = runtime(manifest(), '?tz=not-a-zone');
+  assert.match(invalid.context.formatTime(Date.UTC(2026, 8, 19, 11) / 1000), /11:00/);
+});
+
+test('panel layout changes invalidate the Leaflet viewport without requesting weather again', async () => {
+  const app = runtime();
+  await settled();
+  assert.equal(app.events.observedMap, app.node('map'));
+  const before = app.events.invalidations;
+  app.context.fetch = () => { throw new Error('Layout must not request weather'); };
+  app.events.mapResize();
+  assert.equal(app.events.invalidations, before + 1);
 });

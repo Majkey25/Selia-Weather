@@ -39,7 +39,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ChatBubbleOutline
 import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.Map
 import androidx.compose.material.icons.rounded.MyLocation
@@ -93,6 +92,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.painterResource
 import cz.majkey.pocasicesko.data.CzechLocation
 import cz.majkey.pocasicesko.data.DeviceLocationRepository
 import cz.majkey.pocasicesko.data.HistoryArchive
@@ -289,6 +289,7 @@ fun WeatherApp(
                         location = location,
                         padding = padding,
                         fullscreen = radarFullscreen,
+                        timezone = snapshot?.timezone,
                         onToggleFullscreen = { radarFullscreen = !radarFullscreen },
                     )
                 }
@@ -458,6 +459,7 @@ internal fun FloatingNavigation(
     onDestination: (Destination) -> Unit,
     onAskAi: (() -> Unit)?,
 ) {
+    val askAiLabel = stringResource(R.string.home_ask_ai)
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -491,13 +493,15 @@ internal fun FloatingNavigation(
             if (onAskAi != null) {
                 FilledTonalIconButton(
                     onClick = onAskAi,
-                    modifier = Modifier.size(52.dp),
+                    modifier = Modifier.size(52.dp).semantics {
+                        contentDescription = askAiLabel
+                    },
                     colors = IconButtonDefaults.filledTonalIconButtonColors(
                         containerColor = Color(0xFF214E60),
                         contentColor = Color.White,
                     ),
                 ) {
-                    Icon(Icons.Rounded.ChatBubbleOutline, contentDescription = stringResource(R.string.home_ask_ai))
+                    Icon(painterResource(R.drawable.ic_ai), contentDescription = null, modifier = Modifier.size(28.dp))
                 }
             }
         }

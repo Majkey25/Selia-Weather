@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="https://github.com/Majkey25/Selia-Weather/actions/workflows/android.yml"><img alt="Android CI" src="https://github.com/Majkey25/Selia-Weather/actions/workflows/android.yml/badge.svg"></a>
-  <a href="https://github.com/Majkey25/Selia-Weather/releases"><img alt="GitHub release" src="https://img.shields.io/github/v/release/Majkey25/Selia-Weather?include_prereleases"></a>
+  <a href="https://github.com/Majkey25/Selia-Weather/releases/latest"><img alt="Stable GitHub release" src="https://img.shields.io/github/v/release/Majkey25/Selia-Weather"></a>
   <img alt="Android 10 and later" src="https://img.shields.io/badge/Android-10%2B-3DDC84?logo=android&logoColor=white">
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-blue"></a>
 </p>
@@ -107,7 +107,7 @@ The app has no developer account or separate analytics SDK. It keeps the selecte
 
 ## Status
 
-The app uses the product identity Selia Weather and the short launcher label Weather. It keeps the public package `com.majkeylab.weatheraladin`, so existing Play installations update normally. GitHub prereleases are for testing. Published calibration remains diagnostic until its source, provenance and holdout checks pass. Google Play uses a separate private upload key and Play App Signing.
+The app uses the product identity Selia Weather and the short launcher label Weather. It keeps the public package `com.majkeylab.weatheraladin`, so existing Play installations update normally. The GitHub Latest link points to stable builds; prereleases remain available for testing. Published calibration remains diagnostic until its source, provenance and holdout checks pass. Google Play uses a separate private upload key and Play App Signing.
 
 ## Legal information
 

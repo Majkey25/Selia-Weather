@@ -27,7 +27,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Navigation
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
-import androidx.compose.material.icons.rounded.ChatBubbleOutline
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.CalendarToday
 import androidx.compose.material.icons.rounded.Thermostat
@@ -70,6 +69,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -197,7 +197,7 @@ internal fun WeatherDetailSheet(
     ) {
         Column(Modifier.fillMaxWidth().fillMaxHeight().navigationBarsPadding()) {
             SheetHeader(
-                title = stringResource(if (initialHistory) R.string.history_title else R.string.weather_details),
+                title = stringResource(if (initialHistory) R.string.home_ask_ai else R.string.weather_details),
                 onBack = onDismiss,
                 subtitle = location.name,
             )
@@ -208,6 +208,10 @@ internal fun WeatherDetailSheet(
                 verticalArrangement = Arrangement.spacedBy(if (initialHistory) 26.dp else 8.dp),
             ) {
                 if (initialHistory) {
+                    item {
+                        Text(stringResource(R.string.history_ai_intro), color = Color(0xFFB7CBD3),
+                            fontSize = 15.sp, lineHeight = 22.sp)
+                    }
                     item {
                         HistoryArchiveSection(
                             state = historyState,
@@ -491,7 +495,7 @@ internal fun WeatherDetailSheet(
     pendingShare?.let { share ->
         AlertDialog(
             onDismissRequest = { pendingShare = null },
-            icon = { Icon(Icons.Rounded.ChatBubbleOutline, contentDescription = null) },
+            icon = { Icon(painterResource(R.drawable.ic_ai), contentDescription = null) },
             title = { Text(stringResource(R.string.history_choose_ai_title)) },
             text = {
                 Text(
@@ -712,13 +716,15 @@ private fun HistoryArchiveSection(
                     Text(stringResource(R.string.history_load))
                 }
             }
-            HistoryUiState.Loading -> Box(
+            HistoryUiState.Loading -> Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(96.dp),
-                contentAlignment = Alignment.Center,
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 CircularProgressIndicator(color = Color(0xFF83D6E8), modifier = Modifier.size(32.dp))
+                Text(stringResource(R.string.history_loading_archive))
             }
             HistoryUiState.Error -> Row(
                 modifier = Modifier
@@ -782,9 +788,9 @@ private fun HistoryArchiveSection(
                         contentColor = Color(0xFF0D151C),
                     ),
                 ) {
-                    Icon(Icons.Rounded.ChatBubbleOutline, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Icon(painterResource(R.drawable.ic_ai), contentDescription = null, modifier = Modifier.size(24.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.history_ask_chatgpt))
+                    Text(stringResource(R.string.history_choose_ai_action))
                 }
                 Text(
                     stringResource(R.string.history_ai_share_note, archive.days.size),
@@ -799,12 +805,10 @@ private fun HistoryArchiveSection(
                         modifier = Modifier.padding(top = 8.dp),
                     )
                 }
-                Text(
-                    stringResource(R.string.history_source_note),
-                    color = Color.White.copy(alpha = 0.62f),
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(top = 5.dp, bottom = 8.dp),
-                )
+                DetailSection(stringResource(R.string.detail_group_sources), collapsible = true) {
+                    Text(stringResource(R.string.history_source_note), color = Color(0xFFB7CBD3),
+                        fontSize = 13.sp, lineHeight = 20.sp)
+                }
                 Text(
                     stringResource(R.string.history_dates_coverage, summary?.dayCount ?: 0, ChronoUnit.DAYS.between(range.start, range.endInclusive) + 1),
                     color = Color.White.copy(alpha = 0.62f),

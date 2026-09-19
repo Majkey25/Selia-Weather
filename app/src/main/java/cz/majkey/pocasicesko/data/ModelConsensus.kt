@@ -136,7 +136,7 @@ internal fun blendModelForecast(
     }
     if (!blendedAny) {
         return ModelBlendResult(
-            bestMatchJson,
+            root.toString(),
             ForecastCalculationMode.BEST_MATCH,
             diagnosticContributors,
             ForecastFallbackReason.INSUFFICIENT_CONTRIBUTORS,
@@ -198,7 +198,7 @@ private fun blendPrecipitation(
     val total = target.optJSONArray("precipitation") ?: return false
     val middle = ranked.size / 2
     val selected = if (ranked.size % 2 == 1) listOf(ranked[middle]) else ranked.subList(middle - 1, middle + 1)
-    total.put(targetIndex, selected.map { it.second }.average())
+    val median = selected.map { it.second }.average()
     if (ranked.size <= MAX_FORECAST_MODEL_IDS) {
         target.getJSONArray(PRECIPITATION_SPREAD_KEY).put(targetIndex, JSONObject()
             .put("model_count", ranked.size)
@@ -206,6 +206,9 @@ private fun blendPrecipitation(
             .put("minimum_mm", ranked.first().second)
             .put("maximum_mm", ranked.last().second))
     }
+    // An unvalidated dry median cannot disprove the regionally selected wet forecast.
+    if (median == 0.0 && (total.numberOrNull(targetIndex) ?: 0.0) > 0.0) return false
+    total.put(targetIndex, median)
     // Keep each component with the source(s) that determine the median total.
     // Snowfall stays in cm; missing partitions never borrow a different model's zero.
     listOf("rain", "showers", "snowfall").forEach { field ->
@@ -337,6 +340,7 @@ private fun deriveWeatherCode(
     cloudCover: Int,
     fallbackCode: Int?,
 ): Int {
+    if (fallbackCode != null && hasPrecipitationEvidence(fallbackCode)) return fallbackCode
     // Missing codes cannot disprove a provider's snow, freezing rain, fog, or storm forecast.
     if (codes.size < MINIMUM_MODELS && fallbackCode != null && fallbackCode !in 0..3) return fallbackCode
     return when {

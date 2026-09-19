@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -78,6 +80,7 @@ internal enum class HourMetricKind {
     DEW_POINT,
     WET_BULB,
     PRECIPITATION,
+    PRECIPITATION_PROBABILITY,
     RAIN,
     SHOWERS,
     SNOWFALL,
@@ -161,7 +164,7 @@ internal fun hourlyRainLevel(hour: HourlyWeather, weatherCode: Int = hour.weathe
 }
 
 internal enum class HourlyHighlight {
-    RAIN, SNOW, MIXED, FREEZING, PRECIPITATION, WIND, VISIBILITY, FEELS_LIKE, UV, CONDITIONS,
+    RAIN, SNOW, MIXED, FREEZING, PRECIPITATION, MODEL_DISAGREEMENT, WIND, VISIBILITY, FEELS_LIKE, UV, CONDITIONS,
 }
 
 internal fun hourlyHighlight(hour: HourlyWeather, precipitationHour: HourlyWeather = hour): HourlyHighlight = when {
@@ -181,6 +184,7 @@ internal fun hourlyHighlight(hour: HourlyWeather, precipitationHour: HourlyWeath
     hour.apparentTemperature?.let { it <= 0.0 || it >= 30.0 || kotlin.math.abs(it - hour.temperature) >= 5.0 } == true ->
         HourlyHighlight.FEELS_LIKE
     hour.isDay && (hour.uvIndex ?: 0.0) >= 3.0 -> HourlyHighlight.UV
+    (precipitationHour.precipitationSpread?.wetModelCount ?: 0) > 0 -> HourlyHighlight.MODEL_DISAGREEMENT
     else -> HourlyHighlight.CONDITIONS
 }
 
@@ -193,10 +197,13 @@ internal fun ExpandedHourDetails(
     modifier: Modifier = Modifier,
 ) {
     var showPrecipitationHelp by rememberSaveable(hour.time) { mutableStateOf(false) }
+    var showAdvanced by rememberSaveable(hour.time) { mutableStateOf(false) }
     val helpExpansionState = stringResource(
         if (showPrecipitationHelp) R.string.hour_expanded else R.string.hour_collapsed,
     )
-    val metrics = availableHourMetricKinds(hour, precipitationHour).map { kind ->
+    val advancedState = stringResource(if (showAdvanced) R.string.hour_expanded else R.string.hour_collapsed)
+    val kinds = BASIC_HOUR_METRICS + availableHourMetricKinds(hour, precipitationHour).filterNot { it in BASIC_HOUR_METRICS }
+    val metrics = kinds.map { kind ->
         when (kind) {
             HourMetricKind.TEMPERATURE -> HourMetric(
                 stringResource(R.string.temperature),
@@ -217,6 +224,10 @@ internal fun ExpandedHourDetails(
             HourMetricKind.PRECIPITATION -> HourMetric(
                 stringResource(R.string.precipitation),
                 precipitationHour?.let { units.precipitation(it.precipitation) } ?: stringResource(R.string.unavailable),
+            )
+            HourMetricKind.PRECIPITATION_PROBABILITY -> HourMetric(
+                stringResource(R.string.precipitation_probability),
+                precipitationHour?.let { "${it.precipitationProbability} %" } ?: stringResource(R.string.unavailable),
             )
             HourMetricKind.RAIN -> HourMetric(
                 stringResource(R.string.rain),
@@ -246,7 +257,7 @@ internal fun ExpandedHourDetails(
             )
             HourMetricKind.WIND_GUSTS -> HourMetric(
                 stringResource(R.string.wind_gusts),
-                units.windSpeed(requireNotNull(hour.windGusts)),
+                hour.windGusts?.let(units::windSpeed) ?: stringResource(R.string.unavailable),
             )
             HourMetricKind.PRESSURE -> HourMetric(
                 stringResource(R.string.pressure),
@@ -270,11 +281,11 @@ internal fun ExpandedHourDetails(
             )
             HourMetricKind.UV -> HourMetric(
                 stringResource(R.string.uv_index),
-                String.format(locale, "%.1f", requireNotNull(hour.uvIndex)),
+                hour.uvIndex?.let { String.format(locale, "%.1f", it) } ?: stringResource(R.string.unavailable),
             )
             HourMetricKind.VISIBILITY -> HourMetric(
                 stringResource(R.string.visibility),
-                units.visibility(requireNotNull(hour.visibilityMeters)),
+                hour.visibilityMeters?.let(units::visibility) ?: stringResource(R.string.unavailable),
             )
             HourMetricKind.FREEZING_LEVEL -> HourMetric(
                 stringResource(R.string.freezing_level),
@@ -375,16 +386,17 @@ internal fun ExpandedHourDetails(
                 lineHeight = 16.sp,
             )
         }
-        metrics.chunked(2).forEach { metricRow ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+        HourMetricGrid(metrics.take(BASIC_HOUR_METRICS.size))
+        if (metrics.size > BASIC_HOUR_METRICS.size) {
+            TextButton(
+                onClick = { showAdvanced = !showAdvanced },
+                modifier = Modifier.semantics { stateDescription = advancedState },
             ) {
-                metricRow.forEach { metric ->
-                    HourMetricValue(metric, Modifier.weight(1f))
-                }
-                if (metricRow.size == 1) Spacer(Modifier.weight(1f))
+                Icon(if (showAdvanced) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, contentDescription = null)
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.advanced_details))
             }
+            if (showAdvanced) HourMetricGrid(metrics.drop(BASIC_HOUR_METRICS.size))
         }
     }
 }
@@ -395,6 +407,11 @@ private fun hourlyWeatherSummary(hour: HourlyWeather, units: WeatherUnitFormatte
     val amount = units.precipitation(precipitationHour.precipitation)
     val highlight = hourlyHighlight(hour, precipitationHour)
     when (highlight) {
+        HourlyHighlight.MODEL_DISAGREEMENT -> {
+            val spread = requireNotNull(precipitationHour.precipitationSpread)
+            return stringResource(R.string.hourly_model_disagreement, spread.wetModelCount,
+                spread.modelCount, units.precipitation(spread.maximumMm))
+        }
         HourlyHighlight.SNOW, HourlyHighlight.MIXED, HourlyHighlight.FREEZING, HourlyHighlight.PRECIPITATION -> {
             val resource = when (highlight) {
                 HourlyHighlight.SNOW -> R.string.hourly_snow_summary
@@ -465,6 +482,24 @@ private fun hourlyWeatherSummary(hour: HourlyWeather, units: WeatherUnitFormatte
         )
     }
 }
+
+@Composable
+private fun HourMetricGrid(metrics: List<HourMetric>) {
+    metrics.chunked(2).forEach { metricRow ->
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            metricRow.forEach { metric -> HourMetricValue(metric, Modifier.weight(1f)) }
+            if (metricRow.size == 1) Spacer(Modifier.weight(1f))
+        }
+    }
+}
+
+private val BASIC_HOUR_METRICS = listOf(
+    HourMetricKind.TEMPERATURE, HourMetricKind.FEELS_LIKE,
+    HourMetricKind.PRECIPITATION, HourMetricKind.PRECIPITATION_PROBABILITY,
+    HourMetricKind.UV, HourMetricKind.HUMIDITY,
+    HourMetricKind.WIND, HourMetricKind.WIND_GUSTS,
+    HourMetricKind.PRESSURE, HourMetricKind.VISIBILITY,
+)
 
 @Composable
 private fun HourMetricValue(metric: HourMetric, modifier: Modifier) {

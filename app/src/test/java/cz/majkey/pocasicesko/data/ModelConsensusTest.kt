@@ -10,6 +10,61 @@ import java.time.Instant
 
 class ModelConsensusTest {
     @Test
+    fun dryMedianCannotEraseRegionalRainWhileMinorityEvidenceRemainsVisible() {
+        val base = precipitationBase().also {
+            it.getJSONObject("hourly").getJSONArray("precipitation").put(0, 0.3)
+            it.getJSONObject("hourly").getJSONArray("rain").put(0, 0.3)
+            it.getJSONObject("hourly").getJSONArray("weather_code").put(0, 51)
+        }
+        val models = JSONObject(precipitationModels(List(9) { if (it == 0) 0.4 else 0.0 }, emptyMap())).also {
+            repeat(9) { index ->
+                it.getJSONObject("hourly").put("temperature_2m_${'a' + index}", JSONArray(listOf(20.0, 20.0)))
+            }
+        }.toString()
+        val hourly = JSONObject(blendModelForecast(base.toString(), models).json).getJSONObject("hourly")
+        assertEquals(0.3, hourly.getJSONArray("precipitation").getDouble(0), 0.0)
+        assertEquals(0.3, hourly.getJSONArray("rain").getDouble(0), 0.0)
+        assertEquals(51, hourly.getJSONArray("weather_code").getInt(0))
+        assertEquals(3, hourly.getJSONArray("precipitation_probability").getInt(0))
+        assertEquals(1, hourly.getJSONArray(PRECIPITATION_SPREAD_KEY).getJSONObject(0).getInt("wet_model_count"))
+        assertEquals(9, hourly.getJSONArray(PRECIPITATION_SPREAD_KEY).getJSONObject(0).getInt("model_count"))
+    }
+
+    @Test
+    fun guardedPrecipitationOnlyInputsKeepDiagnosticsAndProviderComponents() {
+        val base = precipitationBase().also {
+            it.getJSONObject("hourly").getJSONArray("precipitation").put(0, 0.3)
+            it.getJSONObject("hourly").getJSONArray("rain").put(0, 0.2)
+            it.getJSONObject("hourly").getJSONArray("showers").put(0, 0.1)
+        }
+        val source = JSONObject().put("time", JSONArray(listOf("2026-08-29T19:00")))
+        listOf("a", "b", "c").forEach {
+            source.put("temperature_2m_$it", JSONArray().put(JSONObject.NULL))
+            source.put("precipitation_$it", JSONArray().put(if (it == "a") 0.4 else 0.0))
+        }
+        val result = JSONObject(blendModelForecast(base.toString(), JSONObject().put("hourly", source).toString()).json)
+        val hourly = result.getJSONObject("hourly")
+        assertEquals(1, hourly.getJSONArray(PRECIPITATION_SPREAD_KEY).getJSONObject(0).getInt("wet_model_count"))
+        assertEquals(0.3, hourly.getJSONArray("precipitation").getDouble(0), 0.0)
+        assertEquals(0.2, hourly.getJSONArray("rain").getDouble(0), 0.0)
+        assertEquals(0.1, hourly.getJSONArray("showers").getDouble(0), 0.0)
+        assertEquals(0.0, hourly.getJSONArray("snowfall").getDouble(0), 0.0)
+        assertEquals(base.getJSONObject("daily").toString(), result.getJSONObject("daily").toString())
+        assertEquals(base.getJSONObject("current").toString(), result.getJSONObject("current").toString())
+    }
+
+    @Test
+    fun dryModelConsensusCannotEraseRegionalTraceDrizzleCode() {
+        val base = precipitationBase().also {
+            it.getJSONObject("hourly").getJSONArray("weather_code").put(0, 51)
+        }
+        val hourly = JSONObject(blendModelForecast(base.toString(),
+            precipitationModels(listOf(0.0, 0.0, 0.0), emptyMap())).json).getJSONObject("hourly")
+        assertEquals(51, hourly.getJSONArray("weather_code").getInt(0))
+        assertEquals(0.0, hourly.getJSONArray("precipitation").getDouble(0), 0.0)
+    }
+
+    @Test
     fun selectsLocationSpecificModelInputs() {
         val prague = WeatherRepository.modelForecastUrl(
             CzechLocation("Praha", REGION_PRAGUE, 50.0755, 14.4378, "CZ"),

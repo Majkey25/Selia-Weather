@@ -46,11 +46,11 @@ class ForecastDayTest {
     }
 
     @Test
-    fun dayPagerKeepsRightSwipeForNextDay() {
+    fun dayPagerUsesLeftSwipeForNextDay() {
         val source = File(System.getProperty("user.dir"), "src/main/java/cz/majkey/pocasicesko/ui/ForecastScreen.kt")
             .readText()
 
-        assertTrue(source.contains("reverseLayout = true"))
+        assertTrue(source.contains("reverseLayout = false"))
     }
 
     @Test

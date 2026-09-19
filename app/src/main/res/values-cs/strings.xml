@@ -423,4 +423,6 @@
     <string name="widget_time_24">24hodinový</string>
     <string name="hourly_precipitation_unavailable">Údaje o srážkách pro tento interval nejsou dostupné.</string>
     <string name="precipitation_help">O údajích o srážkách</string>
+    <string name="advanced_details">Pokročilé údaje</string>
+    <string name="hourly_model_disagreement">Místní srážky nelze vyloučit: %1$d z %2$d modelů předpovídá nenulové množství, až %3$s. Neshoda modelů není kalibrovanou pravděpodobností deště.</string>
 </resources>

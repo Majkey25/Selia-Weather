@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notification_channel_blocked">Désactivé dans les paramètres Android</string>
+    <string name="notifications">Notifications</string>
+    <string name="notification_settings_summary">Alertes pour le dernier lieu sélectionné. Android peut retarder leur réception.</string>
+    <string name="notification_permission_summary">Android bloque les notifications. Vos préférences sont enregistrées.</string>
+    <string name="notification_enable">Activer les notifications</string>
+    <string name="notification_channel_settings">Paramètres Android pour %1$s</string>
+    <string name="notification_rain">Pluie et parapluie</string>
+    <string name="notification_cold">Froid</string>
+    <string name="notification_drop">Baisse de température</string>
+    <string name="notification_heat">Chaleur</string>
+    <string name="notification_wind">Vent fort</string>
+    <string name="notification_uv">Protection UV</string>
+    <string name="notification_official">Alertes officielles</string>
+    <string name="notification_rain_summary">Conseil de parapluie en cas de pluie ou de neige possible.</string>
+    <string name="notification_cold_summary">La température prévue atteint votre seuil de froid.</string>
+    <string name="notification_drop_summary">La température prévue baisse en six heures.</string>
+    <string name="notification_heat_summary">La température prévue atteint votre seuil de chaleur.</string>
+    <string name="notification_wind_summary">Le vent ou les rafales prévues atteignent votre seuil.</string>
+    <string name="notification_uv_summary">Conseils UV lorsque la prévision de cet indice est disponible.</string>
+    <string name="notification_official_summary">Alertes des services officiels pris en charge pour ce lieu. La couverture dépend du pays.</string>
+    <string name="notification_at_or_below">Au maximum %1$s</string>
+    <string name="notification_at_or_above">Au minimum %1$s</string>
+    <string name="notification_drop_threshold">Baisse minimale de %1$s en six heures</string>
+    <string name="notification_uv_threshold">Indice UV minimal de %1$d</string>
+    <string name="notification_look_ahead">Conseils pour les %1$d prochaines h</string>
+    <string name="notification_location_title">%1$s · %2$s</string>
+    <string name="notification_rain_advice">Pluie ou neige possible pendant une heure à partir de %1$s. Prenez un parapluie ou un vêtement imperméable.</string>
+    <string name="notification_cold_advice">Vers %1$s : %2$s prévus. Prenez un vêtement chaud.</string>
+    <string name="notification_drop_advice">Pour %1$s : une baisse de près de %2$s est prévue en six heures. Prenez une couche supplémentaire.</string>
+    <string name="notification_heat_advice">Vers %1$s : %2$s prévus. Prenez de l’eau et cherchez de l’ombre.</string>
+    <string name="notification_wind_advice">Vers %1$s : vent ou rafales proches de %2$s prévus. Fixez les objets mobiles.</string>
+    <string name="notification_uv_advice">Vers %1$s : indice UV %2$d prévu. Utilisez une protection solaire.</string>
+</resources>

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5,user-scalable=yes">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src https://api.rainviewer.com https://api.open-meteo.com; img-src data: https://tile.openstreetmap.org https://tilecache.rainviewer.com; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; base-uri 'none'; object-src 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src https://api.rainviewer.com https://maps.dwd.de; img-src data: https://tile.openstreetmap.org https://tilecache.rainviewer.com https://maps.dwd.de; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; base-uri 'none'; object-src 'none'">
   <title>Radar</title>
   <link rel="stylesheet" href="leaflet-1.9.4.css">
   <style>
@@ -40,8 +40,7 @@
     .range { display: flex; justify-content: space-between; color: #b6c9d2; font-size: 11px; padding: 0 60px 6px; }
     #frame-summary { color: #b6c9d2; font-size: 12px; line-height: 18px; margin: 4px 0; }
     .radar-frame { transition: opacity 350ms linear; }
-    #scale { display: flex; gap: 4px; font-size: 10px; margin-top: 3px; }
-    #scale span { flex: 1; border-top: 3px solid; text-align: center; padding-top: 2px; }
+    #scale { max-width: 100%; margin-top: 6px; background: white; }
     [hidden] { display: none !important; }
     @media (max-height: 400px) { .panel { padding: 6px 12px; } #frame-summary { display: none; } }
     @media (prefers-reduced-motion: reduce) { .radar-frame { transition: none; } }
@@ -72,7 +71,7 @@
       <button id="zoom-out" type="button" aria-label="Zoom out" onclick="map.zoomOut()">−</button>
       <button id="zoom-in" type="button" aria-label="Zoom in" onclick="map.zoomIn()">+</button>
       <div id="legend" class="legend" hidden></div>
-      <div id="scale" hidden><span style="border-color:#57d7e0">0.1</span><span style="border-color:#2d9ddd">0.5</span><span style="border-color:#4169e1">2</span><span style="border-color:#a168e3">5</span><span style="border-color:#da5092">10+ mm</span></div>
+      <img id="scale" hidden alt="DWD precipitation legend, mm">
     </div>
   </div>
   <script src="leaflet-1.9.4.js"></script>
@@ -109,16 +108,16 @@
     var MAX_FRAME_AGE_SECONDS = 3600;
     var mode = 'observed';
     var pendingLayer = null, preloadLayer = null, retiredLayer = null;
-    var transitionTimer = null, tileTimeout = null, forecastExpiryTimer = null;
-    var forecastArea = null, forecastOutline = null, forecastCache = null;
-    var lastForecastRequest = 0, forecastRetryAt = 0;
+    var transitionTimer = null, tileTimeout = null, panTimeout = null, forecastExpiryTimer = null;
+    var forecastCache = null, forecastModels = { eu: null, global: null };
+    var forecastRetryAt = 0, forecastRefreshPending = false, forecastRefreshFailed = false;
     var statusMessage = '';
     var FORECAST_TEXTS = {
-      en: ['Observed', 'Forecast +12h', 'Loading model forecast…', 'Model forecast unavailable. Try again later.', 'Update this area', 'Sampled/interpolated model forecast', 'grid spacing', 'mm in the shown hour · gray = missing data', 'Wait before updating this area.'],
-      cs: ['Pozorování', 'Předpověď +12 h', 'Načítám modelovou předpověď…', 'Modelová předpověď není dostupná. Zkuste to později.', 'Aktualizovat oblast', 'Vzorkovaná/interpolovaná modelová předpověď', 'rozestup vzorků', 'mm za zobrazenou hodinu · šedá = chybějící data', 'Před aktualizací oblasti chvíli počkejte.'],
-      de: ['Beobachtet', 'Prognose +12 h', 'Modellprognose wird geladen…', 'Modellprognose nicht verfügbar. Später erneut versuchen.', 'Gebiet aktualisieren', 'Abgetastete/interpolierte Modellprognose', 'Abtastabstand', 'mm in der gezeigten Stunde · grau = fehlende Daten', 'Vor der Aktualisierung kurz warten.'],
-      es: ['Observado', 'Pronóstico +12 h', 'Cargando pronóstico del modelo…', 'Pronóstico no disponible. Inténtalo más tarde.', 'Actualizar zona', 'Pronóstico del modelo muestreado/interpolado', 'distancia de muestreo', 'mm en la hora indicada · gris = sin datos', 'Espera antes de actualizar la zona.'],
-      fr: ['Observé', 'Prévision +12 h', 'Chargement des prévisions…', 'Prévisions indisponibles. Réessayez plus tard.', 'Actualiser la zone', 'Prévision du modèle échantillonnée/interpolée', 'espacement', 'mm pendant cette heure · gris = données manquantes', 'Attendez avant de mettre à jour la zone.']
+      en: ['Observed', 'Forecast +12h', 'Loading model forecast…', 'Model forecast unavailable. Try again later.', 'Refresh forecast', 'Model precipitation', 'mm / 1 h', 'mm / 6 h', 'Provider is busy. Try again later.', 'Colors show precipitation totals for the displayed interval. Clear areas are below the legend threshold.'],
+      cs: ['Pozorování', 'Předpověď +12 h', 'Načítám modelovou předpověď…', 'Modelová předpověď není dostupná. Zkuste to později.', 'Obnovit předpověď', 'Modelové srážky', 'mm / 1 h', 'mm / 6 h', 'Poskytovatel je přetížený. Zkuste to později.', 'Barvy znázorňují úhrn srážek za zobrazený interval. Průhledné oblasti jsou pod prahem legendy.'],
+      de: ['Beobachtet', 'Prognose +12 h', 'Modellprognose wird geladen…', 'Modellprognose nicht verfügbar. Später erneut versuchen.', 'Prognose aktualisieren', 'Modellniederschlag', 'mm / 1 h', 'mm / 6 h', 'Anbieter ausgelastet. Später erneut versuchen.', 'Farben zeigen die Niederschlagsmenge im angezeigten Zeitraum. Transparente Gebiete liegen unter dem Schwellenwert der Legende.'],
+      es: ['Observado', 'Pronóstico +12 h', 'Cargando pronóstico del modelo…', 'Pronóstico no disponible. Inténtalo más tarde.', 'Actualizar pronóstico', 'Precipitación del modelo', 'mm / 1 h', 'mm / 6 h', 'Proveedor ocupado. Inténtalo más tarde.', 'Los colores indican la precipitación acumulada del intervalo mostrado. Las zonas transparentes están por debajo del umbral de la leyenda.'],
+      fr: ['Observé', 'Prévision +12 h', 'Chargement des prévisions…', 'Prévisions indisponibles. Réessayez plus tard.', 'Actualiser les prévisions', 'Précipitations du modèle', 'mm / 1 h', 'mm / 6 h', 'Fournisseur occupé. Réessayez plus tard.', 'Les couleurs indiquent le cumul sur la période affichée. Les zones transparentes sont sous le seuil de la légende.']
     };
     var FORECAST_TEXT = FORECAST_TEXTS[language];
     var DETAIL_TEXTS = {
@@ -129,18 +128,11 @@
       fr: ['Détails du radar', 'Dézoomer', 'Zoomer']
     };
     var FORECAST_EXPIRED = {
-      en: 'Forecast expired. Update this area.',
-      cs: 'Předpověď už není aktuální. Aktualizujte oblast.',
-      de: 'Prognose abgelaufen. Gebiet aktualisieren.',
-      es: 'El pronóstico ha caducado. Actualiza esta zona.',
-      fr: 'Prévisions expirées. Actualisez cette zone.'
-    };
-    var FORECAST_AREA_UNAVAILABLE = {
-      en: 'Forecast area not loaded here. Update this area.',
-      cs: 'Pro toto místo není oblast předpovědi načtená. Aktualizujte oblast.',
-      de: 'Für diesen Ort ist keine Prognose geladen. Gebiet aktualisieren.',
-      es: 'No hay pronóstico cargado para este lugar. Actualiza esta zona.',
-      fr: 'Aucune prévision chargée pour ce lieu. Actualisez cette zone.'
+      en: 'Forecast expired. Refresh forecast.',
+      cs: 'Předpověď už není aktuální. Obnovte ji.',
+      de: 'Prognose abgelaufen. Prognose aktualisieren.',
+      es: 'El pronóstico ha caducado. Actualízalo.',
+      fr: 'Prévisions expirées. Actualisez-les.'
     };
     var CONTROL_TEXTS = {
       en: ['Refresh radar', 'Observed radar timeline'],
@@ -148,13 +140,6 @@
       de: ['Radar aktualisieren', 'Zeitleiste des Beobachtungsradars'],
       es: ['Actualizar radar', 'Línea temporal del radar observado'],
       fr: ['Actualiser le radar', 'Chronologie du radar observé']
-    };
-    var SUMMARY_TEXTS = {
-      en: ['Below 0.1 mm at sampled forecast points', 'No forecast amounts available', 'Sampled hourly precipitation', 'Some forecast amounts are missing'],
-      cs: ['Ve vzorkovaných bodech méně než 0,1 mm', 'Údaje o srážkách nejsou dostupné', 'Vzorkované hodinové srážky', 'Část údajů o srážkách chybí'],
-      de: ['Unter 0,1 mm an den Abtastpunkten', 'Keine Niederschlagsmengen verfügbar', 'Abgetasteter stündlicher Niederschlag', 'Einige Niederschlagsmengen fehlen'],
-      es: ['Menos de 0,1 mm en los puntos muestreados', 'No hay cantidades de precipitación disponibles', 'Precipitación horaria muestreada', 'Faltan algunas cantidades de precipitación'],
-      fr: ['Moins de 0,1 mm aux points échantillonnés', 'Quantités de précipitations indisponibles', 'Précipitations horaires échantillonnées', 'Certaines quantités de précipitations manquent']
     };
 
     document.documentElement.lang = language;
@@ -189,7 +174,9 @@
     var map = L.map('map', { maxZoom: 11, minZoom: 2, zoomControl: false }).setView([latitude, longitude], 6);
     L.circleMarker([latitude, longitude], { radius: 5, color: '#ffffff', weight: 2,
       fillColor: '#145f79', fillOpacity: 1, interactive: false }).addTo(map);
-    map.on('moveend', renderStatus);
+    map.on('moveend', function() {
+      if (mode === 'forecast' && !document.hidden) loadForecast();
+    });
     window.addEventListener('resize', function() {
       sizeViewport();
       map.invalidateSize(false);
@@ -214,25 +201,16 @@
       renderStatus();
     }
 
-    function forecastCenterLoaded() {
-      var center = map.getCenter();
-      var middle = (forecastArea.west + forecastArea.east) / 2;
-      var lon = middle + ((center.lng - middle + 180) % 360 + 360) % 360 - 180;
-      return center.lat >= forecastArea.south && center.lat <= forecastArea.north &&
-        lon >= forecastArea.west && lon <= forecastArea.east;
-    }
-
     function renderStatus() {
-      var message = mode === 'forecast' && frames.length && forecastArea && !forecastCenterLoaded() ?
-        FORECAST_AREA_UNAVAILABLE[language] : statusMessage;
       var status = document.getElementById('status');
-      status.textContent = message;
-      status.hidden = !message;
+      status.textContent = statusMessage;
+      status.hidden = !statusMessage;
     }
 
     function clearRadarLayer() {
       clearTimeout(forecastExpiryTimer); forecastExpiryTimer = null;
       clearTimeout(tileTimeout); tileTimeout = null;
+      clearTimeout(panTimeout); panTimeout = null;
       clearTimeout(transitionTimer); transitionTimer = null;
       [pendingLayer, preloadLayer, retiredLayer].forEach(function(layer) { if (layer) map.removeLayer(layer); });
       pendingLayer = preloadLayer = retiredLayer = null;
@@ -274,9 +252,14 @@
     function newFrameLayer(index) {
       var frame = frames[index], layer;
       if (frame.type === 'forecast') {
-        if (!frame.image) frame.image = RadarForecast.image(frame);
-        layer = L.imageOverlay(frame.image, [[forecastArea.south, forecastArea.west],
-          [forecastArea.north, forecastArea.east]], { opacity: 0, className: 'radar-frame' });
+        var source = RadarForecast.sources[frame.key];
+        layer = L.tileLayer.wms(RadarForecast.endpoint, {
+          layers: 'dwd:' + source.layer, styles: source.style, format: 'image/png', transparent: true,
+          version: '1.1.1', time: new Date(frame.time * 1000).toISOString(), dim_reference_time: frame.reference,
+          minZoom: 2, maxZoom: 11, tileSize: 256, keepBuffer: 0, updateWhenIdle: true,
+          opacity: 0, className: 'radar-frame',
+          attribution: '<a href="https://www.dwd.de/copyright">Deutscher Wetterdienst · CC BY 4.0</a>'
+        });
       } else {
         layer = L.tileLayer(radarTileUrl(frame), {
           minZoom: 2, maxZoom: 11, maxNativeZoom: 7, tileSize: 512, zoomOffset: -1,
@@ -288,13 +271,24 @@
       layer.ready = false;
       layer.failed = false;
       layer.on('loading', function() {
-        layer.failed = false; layer.ready = false;
+        // Leaflet can retain failed tiles during another load; a new layer clears failure.
+        layer.ready = false;
         if (radarLayer === layer || pendingLayer === layer) setStatus(loadingText());
+        if (radarLayer === layer) {
+          clearTimeout(panTimeout);
+          panTimeout = setTimeout(function() {
+            if (radarLayer !== layer || layer.ready) return;
+            layer.failed = true; stopPlay(); setStatus(unavailableText());
+          }, REQUEST_TIMEOUT_MS);
+        }
       });
       layer.on('load', function() {
         layer.ready = !layer.failed;
         if (pendingLayer === layer && layer.ready) commitFrame(layer);
-        else if (radarLayer === layer) setStatus(layer.failed ? unavailableText() : '');
+        else if (radarLayer === layer) {
+          clearTimeout(panTimeout); panTimeout = null;
+          setStatus(layer.failed ? unavailableText() : '');
+        }
       });
       function failed() {
         layer.failed = true;
@@ -318,26 +312,32 @@
     function forecastIsFresh(cached) {
       var now = Date.now();
       return cached && cached.loadedAt <= now && now - cached.loadedAt < REFRESH_INTERVAL_MS &&
-        cached.frames.length >= 13 && cached.frames.length <= 15 &&
+        now / 1000 - cached.run <= 12 * 3600 && cached.frames.length >= 3 && cached.frames.length <= 15 &&
         cached.frames[cached.frames.length - 1].time >= now / 1000 + 12 * 3600;
     }
 
     function ensureForecastFresh() {
-      if (mode !== 'forecast' || !frames.length) return true;
+      if (mode !== 'forecast') return true;
+      if (!frames.length) {
+        if (forecastRefreshPending && !document.hidden) loadForecast();
+        return !activeRequest;
+      }
       if (forecastIsFresh(forecastCache) && frames === forecastCache.frames) return true;
       stopPlay(); clearRadarLayer(); frames = []; forecastCache = null;
-      if (forecastOutline) { map.removeLayer(forecastOutline); forecastOutline = null; }
       document.getElementById('play').disabled = document.getElementById('slider').disabled = true;
       document.getElementById('time').textContent = '—';
       updateTimeline();
-      document.getElementById('source').textContent = 'Open-Meteo';
+      document.getElementById('source').textContent = 'Deutscher Wetterdienst';
       setStatus(FORECAST_EXPIRED[language]);
+      forecastRefreshPending = true;
+      if (!document.hidden) loadForecast();
       return false;
     }
 
     function commitFrame(layer) {
       if (pendingLayer !== layer || !ensureForecastFresh()) return;
       clearTimeout(tileTimeout); tileTimeout = null;
+      clearTimeout(panTimeout); panTimeout = null;
       clearTimeout(transitionTimer);
       if (retiredLayer) map.removeLayer(retiredLayer);
       retiredLayer = radarLayer;
@@ -352,21 +352,15 @@
         }, 350);
       }
       var frame = frames[frameIndex];
-      var label = frame.type === 'forecast' ?
-        new Date((frame.time - 3600) * 1000).toLocaleDateString(language, { weekday: 'short', timeZone: timezone }) + ' ' +
-        formatTime(frame.time - 3600, false) + '–' + formatTime(frame.time) : formatTime(frame.time);
+      var label = frame.type === 'forecast' ? forecastIntervalLabel(frame) : formatTime(frame.time);
       document.getElementById('time').textContent = label;
       document.getElementById('slider').value = frameIndex;
       document.getElementById('slider').setAttribute('aria-valuetext', label);
       var summary = document.getElementById('frame-summary');
       summary.hidden = frame.type !== 'forecast';
       if (frame.type === 'forecast') {
-        var values = frame.values.filter(Number.isFinite);
-        var words = SUMMARY_TEXTS[language];
-        summary.textContent = !values.length ? words[1] : values.length !== frame.values.length ? words[3] :
-          Math.max.apply(null, values) < 0.1 ? words[0] : words[2] + ': ' +
-            Math.min.apply(null, values).toLocaleString(language, { maximumFractionDigits: 1 }) + '–' +
-            Math.max.apply(null, values).toLocaleString(language, { maximumFractionDigits: 1 }) + ' mm';
+        summary.textContent = RadarForecast.sources[frame.key].model + ' · ' + FORECAST_TEXT[5] +
+          ' · ' + FORECAST_TEXT[frame.hours === 1 ? 6 : 7];
       }
       setStatus('');
       if (preloadLayer) map.removeLayer(preloadLayer);
@@ -375,6 +369,15 @@
         preloadLayer = newFrameLayer((frameIndex + 1) % frames.length);
         preloadLayer.addTo(map);
       }
+    }
+
+    function forecastIntervalLabel(frame) {
+      var start = frame.time - frame.hours * 3600;
+      var day = function(time) {
+        return new Date(time * 1000).toLocaleDateString(language, { weekday: 'short', timeZone: timezone });
+      };
+      return day(start) + ' ' + formatTime(start, false) + '–' +
+        (day(start) !== day(frame.time) ? day(frame.time) + ' ' : '') + formatTime(frame.time);
     }
 
     function showFrame(index) {
@@ -403,12 +406,13 @@
       if (activeRequest) activeRequest.abort();
       activeRequest = null;
       stopPlay(); clearRadarLayer();
+      forecastRefreshPending = false;
       mode = next;
       frames = [];
       updateTimeline();
       document.getElementById('play').disabled = document.getElementById('slider').disabled = true;
       document.getElementById('time').textContent = '—';
-      document.getElementById('source').textContent = mode === 'forecast' ? 'Open-Meteo · ' + FORECAST_TEXT[1] : 'RainViewer · ' + FORECAST_TEXT[0];
+      document.getElementById('source').textContent = mode === 'forecast' ? 'Deutscher Wetterdienst' : 'RainViewer · ' + FORECAST_TEXT[0];
       document.getElementById('map').setAttribute('aria-label', mode === 'forecast' ? FORECAST_TEXT[1] : TEXT.map);
       document.getElementById('legend').textContent = '';
       ['observed', 'forecast'].forEach(function(name) {
@@ -417,50 +421,69 @@
       });
       document.getElementById('coverage').hidden = mode === 'forecast';
       document.getElementById('legend').hidden = mode !== 'forecast';
-      document.getElementById('scale').hidden = mode !== 'forecast';
+      document.getElementById('scale').hidden = true;
       document.getElementById('retry').setAttribute('aria-label', mode === 'forecast' ? FORECAST_TEXT[4] : CONTROL_TEXTS[language][0]);
       document.getElementById('slider').setAttribute('aria-label', mode === 'forecast' ? FORECAST_TEXT[1] : CONTROL_TEXTS[language][1]);
       if (coverageLayer) map.removeLayer(coverageLayer);
-      if (forecastOutline) { map.removeLayer(forecastOutline); forecastOutline = null; }
       refreshMap();
     }
 
-    function refreshMap() { if (mode === 'forecast') loadForecast(); else loadRadar(); }
+    function refreshMap() { if (mode === 'forecast') loadForecast(true); else loadRadar(); }
 
-    function loadForecast() {
-      if (activeRequest) return;
-      var center = map.getCenter();
-      if (map.getZoom() < 8) map.setView(center, 8, { animate: false });
+    function selectedForecast() {
       var bounds = map.getBounds();
-      var area = RadarForecast.grid(center.lat, center.lng, bounds.getEast() - bounds.getWest(), bounds.getNorth() - bounds.getSouth());
-      var key = [center.lat.toFixed(1), center.lng.toFixed(1), area.east - area.west, area.north - area.south].join(':');
-      if (forecastIsFresh(forecastCache) && forecastCache.key === key) {
-        installForecast(forecastCache); return;
+      var europe = forecastIsFresh(forecastModels.eu) ? forecastModels.eu : null;
+      var key = RadarForecast.sourceFor({ west: bounds.getWest(), east: bounds.getEast(),
+        south: bounds.getSouth(), north: bounds.getNorth() }, europe && europe.bounds);
+      return forecastIsFresh(forecastModels[key]) ? forecastModels[key] : null;
+    }
+
+    function loadForecast(retryTiles) {
+      if (activeRequest) return;
+      forecastRefreshPending = false;
+      var cached = selectedForecast();
+      if (cached) {
+        if (retryTiles || forecastCache !== cached || !frames.length) installForecast(cached);
+        return;
       }
-      if (Date.now() < forecastRetryAt || Date.now() - lastForecastRequest < 60000) {
-        setStatus(FORECAST_TEXT[8]); return;
-      }
-      lastForecastRequest = Date.now();
-      var token = ++requestToken;
       stopPlay(); clearRadarLayer(); frames = [];
       updateTimeline();
       document.getElementById('play').disabled = document.getElementById('slider').disabled = true;
       document.getElementById('time').textContent = '—';
-      document.getElementById('source').textContent = 'Open-Meteo · ' + FORECAST_TEXT[1];
+      document.getElementById('source').textContent = 'Deutscher Wetterdienst';
+      document.getElementById('scale').hidden = true;
+      if (Date.now() < forecastRetryAt) {
+        setStatus(FORECAST_TEXT[8]); return;
+      }
+      if (forecastRefreshFailed && !retryTiles) {
+        setStatus(FORECAST_TEXT[3]); return;
+      }
+      forecastRefreshFailed = false;
+      var token = ++requestToken;
       setStatus(FORECAST_TEXT[2]);
       var controller = new AbortController(); activeRequest = controller;
       var timeout = setTimeout(function() { controller.abort(); }, REQUEST_TIMEOUT_MS);
-      fetch(RadarForecast.url(area), { signal: controller.signal }).then(function(response) {
-        if (response.status === 429) forecastRetryAt = Date.now() + REFRESH_INTERVAL_MS;
-        if (!response.ok) throw new Error('HTTP ' + response.status);
-        return response.json();
-      }).then(function(payload) {
+      Promise.all(['eu', 'global'].map(function(key) {
+        return fetch(RadarForecast.capabilitiesUrl(key), { signal: controller.signal }).then(function(response) {
+          if (response.status === 429) forecastRetryAt = Date.now() + REFRESH_INTERVAL_MS;
+          if (!response.ok) throw new Error('HTTP ' + response.status);
+          return RadarForecast.read(response);
+        }).then(function(xml) {
+          var parsed = RadarForecast.parse(xml, key, Date.now() / 1000);
+          parsed.loadedAt = Date.now();
+          return parsed;
+        }).catch(function() { return null; });
+      })).then(function(models) {
         if (token !== requestToken || mode !== 'forecast') return;
-        var parsed = RadarForecast.parse(payload, area, Date.now() / 1000);
-        forecastCache = { key: key, area: area, frames: parsed, loadedAt: Date.now() };
-        installForecast(forecastCache);
+        forecastModels = { eu: models[0], global: models[1] };
+        var selected = selectedForecast();
+        if (!selected) throw new Error('Forecast unavailable');
+        installForecast(selected);
       }).catch(function() {
-        if (token === requestToken && mode === 'forecast') setStatus(FORECAST_TEXT[3]);
+        if (token === requestToken && mode === 'forecast') {
+          forecastRefreshFailed = true;
+          setStatus(FORECAST_TEXT[3]);
+        }
       }).finally(function() {
         clearTimeout(timeout);
         if (token === requestToken) activeRequest = null;
@@ -469,18 +492,20 @@
 
     function installForecast(cached) {
       clearRadarLayer();
-      frames = cached.frames; forecastArea = cached.area;
-      document.getElementById('source').textContent = 'Open-Meteo · ' + FORECAST_TEXT[1];
-      document.getElementById('legend').textContent = FORECAST_TEXT[5] + ' · ~' + forecastArea.spacingKm + ' km ' +
-        FORECAST_TEXT[6] + '. ' + FORECAST_TEXT[7];
-      if (forecastOutline) map.removeLayer(forecastOutline);
-      forecastOutline = L.rectangle([[forecastArea.south, forecastArea.west], [forecastArea.north, forecastArea.east]],
-        { color: '#99b3c5', weight: 1, dashArray: '4 4', fill: false, interactive: false }).addTo(map);
+      frames = cached.frames; forecastCache = cached;
+      forecastRefreshFailed = false;
+      var source = RadarForecast.sources[cached.key];
+      document.getElementById('source').textContent = 'Deutscher Wetterdienst · ' + source.model + ' · CC BY 4.0';
+      document.getElementById('legend').textContent = FORECAST_TEXT[9];
+      document.getElementById('scale').src = RadarForecast.legendUrl(cached.key);
+      document.getElementById('scale').alt = source.model + ' · ' + FORECAST_TEXT[source.hours === 1 ? 6 : 7];
+      document.getElementById('scale').hidden = false;
       document.getElementById('slider').max = frames.length - 1;
       updateTimeline();
       document.getElementById('play').disabled = document.getElementById('slider').disabled = false;
       forecastExpiryTimer = setTimeout(ensureForecastFresh, Math.max(0, Math.min(
         cached.loadedAt + REFRESH_INTERVAL_MS - Date.now(),
+        (cached.run + 12 * 3600) * 1000 - Date.now(),
         frames[frames.length - 1].time * 1000 - Date.now() - 12 * 3600000
       )) + 1);
       frameIndex = 0; showFrame(0);
@@ -499,7 +524,7 @@
           ' ' + formatTime(time, false);
       }
       document.getElementById('range-start').textContent = frames.length ?
-        endpoint(frames[0].time - (mode === 'forecast' ? 3600 : 0)) : '—';
+        endpoint(frames[0].time - (mode === 'forecast' ? frames[0].hours * 3600 : 0)) : '—';
       document.getElementById('range-end').textContent = frames.length ? endpoint(frames[frames.length - 1].time) : '—';
       if (!frames.length) document.getElementById('frame-summary').hidden = true;
     }

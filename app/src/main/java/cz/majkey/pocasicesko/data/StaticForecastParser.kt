@@ -24,8 +24,8 @@ internal object StaticForecastParser {
         }
         val runId = run.getString("run_id")
         require(RUN_ID.matches(runId)) { "Invalid manifest run ID." }
-        val generatedAt = Instant.parse(run.getString("generated_at"))
-        val expiresAt = Instant.parse(run.getString("expires_at"))
+        val generatedAt = parseWeatherInstant(run.getString("generated_at"))
+        val expiresAt = parseWeatherInstant(run.getString("expires_at"))
         require(expiresAt.isAfter(generatedAt)) { "Manifest expiry must follow generation." }
         val sourcesJson = root.getJSONArray("sources")
         val sources = List(sourcesJson.length()) { index ->
@@ -112,8 +112,8 @@ internal object StaticForecastParser {
             require(tileY == expectedTileY && tileX == expectedTileX) {
                 "Tile coordinates do not match a forecast row."
             }
-            val runTime = Instant.parse(row.getString("run_time"))
-            val validTime = Instant.parse(row.getString("valid_time"))
+            val runTime = parseWeatherInstant(row.getString("run_time"))
+            val validTime = parseWeatherInstant(row.getString("valid_time"))
             require(!validTime.isBefore(runTime)) { "Tile validity precedes its model run." }
             val variable = row.getString("variable")
             val unit = row.getString("unit")

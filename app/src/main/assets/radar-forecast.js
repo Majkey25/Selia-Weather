@@ -1,100 +1,103 @@
-/* Open-Meteo hourly precipitation is the preceding-hour sum, not observed radar.
- * https://open-meteo.com/en/docs. Sampling/interpolation does not add model resolution. */
+/* Official DWD WMS precipitation totals. Values describe the preceding 1 / 6 hours.
+ * https://www.dwd.de/geodienste · https://www.dwd.de/copyright */
 var RadarForecast = (function() {
-  var SIZE = 7;
-  function mercator(lat) { return Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)); }
-  function latitude(y) { return (2 * Math.atan(Math.exp(y)) - Math.PI / 2) * 180 / Math.PI; }
-  function longitude(lon) { return ((lon + 180) % 360 + 360) % 360 - 180; }
+  var endpoint = 'https://maps.dwd.de/geoserver/wms';
+  var sources = {
+    eu: { layer: 'Icon-eu_reg00625_fd_sl_TOTPREC01H', model: 'ICON-EU', hours: 1,
+      style: 'icon-eu_reg00625_fd_sl_totprec01h_lawa' },
+    global: { layer: 'Icon_reg025_fd_sl_TOTPREC06H', model: 'ICON', hours: 6,
+      style: 'icon_reg025_fd_sl_totprec06h_wmc_isoarea' }
+  };
 
-  function grid(lat, lon, width, height) {
-    if (![lat, lon, width, height].every(Number.isFinite) || width <= 0 || height <= 0) {
-      throw new Error('Invalid forecast area');
+  function capabilitiesUrl(key) {
+    return 'https://maps.dwd.de/geoserver/dwd/' + sources[key].layer +
+      '/wms?service=WMS&version=1.3.0&request=GetCapabilities';
+  }
+
+  function read(response) {
+    var reader = response.body.getReader(), decoder = new TextDecoder('utf-8', { fatal: true });
+    var size = 0, text = '';
+    function next() {
+      return reader.read().then(function(chunk) {
+        if (chunk.done) return text + decoder.decode();
+        size += chunk.value.byteLength;
+        if (size > 131072) return reader.cancel().then(function() { throw new Error('Forecast metadata too large'); });
+        text += decoder.decode(chunk.value, { stream: true });
+        return next();
+      });
     }
-    lat = Math.max(-80, Math.min(80, lat));
-    width = Math.max(1, Math.min(12, width));
-    height = Math.max(1, Math.min(12, height));
-    var south = Math.max(-85, lat - height / 2), north = Math.min(85, lat + height / 2);
-    var west = lon - width / 2, east = lon + width / 2;
-    var top = mercator(north), bottom = mercator(south);
-    var points = [];
-    for (var row = 0; row < SIZE; row++) {
-      for (var column = 0; column < SIZE; column++) {
-        points.push({ lat: latitude(top + (bottom - top) * row / (SIZE - 1)),
-          lon: longitude(west + width * column / (SIZE - 1)) });
+    return next();
+  }
+
+  function parse(xml, key, now) {
+    if (typeof xml !== 'string' || xml.length > 131072 || /<!DOCTYPE|<!ENTITY/i.test(xml)) {
+      throw new Error('Invalid forecast metadata');
+    }
+    var source = sources[key], doc = new DOMParser().parseFromString(xml, 'application/xml');
+    function tags(name) { return Array.from(doc.getElementsByTagNameNS('*', name)); }
+    if (tags('parsererror').length || !tags('Name').some(function(node) {
+      return node.textContent === source.layer || node.textContent === 'dwd:' + source.layer;
+    }) || !tags('Name').some(function(node) { return node.textContent === source.style; })) {
+      throw new Error('Unexpected forecast layer');
+    }
+    function dimension(name) {
+      var nodes = tags('Dimension').filter(function(node) { return node.getAttribute('name') === name; });
+      if (nodes.length !== 1 || nodes[0].getAttribute('units') !== 'ISO8601') {
+        throw new Error('Invalid forecast dimension');
       }
+      return nodes[0];
     }
-    return { points: points, south: south, north: north, west: west, east: east,
-      spacingKm: Math.round(Math.max(height * 111, width * 111 * Math.cos(lat * Math.PI / 180)) / (SIZE - 1)) };
-  }
+    var reference = dimension('REFERENCE_TIME');
+    var run = Date.parse(reference.getAttribute('default')) / 1000;
+    if (!Number.isFinite(run) || run > now || now - run > 12 * 3600 ||
+        !reference.textContent.split(',').some(function(value) { return Date.parse(value) / 1000 === run; })) {
+      throw new Error('Stale forecast run');
+    }
+    var range = dimension('time').textContent.trim().split('/');
+    var start = Date.parse(range[0]) / 1000, end = Date.parse(range[1]) / 1000;
+    var period = /^PT([1-6])H$/.exec(range[2]);
+    if (range.length !== 3 || !period || !Number.isFinite(start) || !Number.isFinite(end) ||
+        end <= start || end - start > 14 * 86400 || source.hours % Number(period[1]) !== 0) {
+      throw new Error('Invalid forecast time range');
+    }
+    var box = tags('BoundingBox').find(function(node) { return node.getAttribute('CRS') === 'EPSG:4326'; });
+    if (!box || ['minx', 'miny', 'maxx', 'maxy'].some(function(name) {
+      return box.getAttribute(name) === null || !box.getAttribute(name).trim();
+    })) throw new Error('Missing forecast bounds');
+    var bounds = { south: Number(box.getAttribute('minx')), west: Number(box.getAttribute('miny')),
+      north: Number(box.getAttribute('maxx')), east: Number(box.getAttribute('maxy')) };
+    if (!Object.values(bounds).every(Number.isFinite) || bounds.south >= bounds.north ||
+        bounds.west >= bounds.east || bounds.south < -90 || bounds.north > 90 ||
+        bounds.west < -180 || bounds.east > 180) throw new Error('Invalid forecast bounds');
 
-  function url(area) {
-    return 'https://api.open-meteo.com/v1/forecast?' + new URLSearchParams({
-      latitude: area.points.map(function(point) { return point.lat.toFixed(5); }).join(','),
-      longitude: area.points.map(function(point) { return point.lon.toFixed(5); }).join(','),
-      hourly: 'precipitation', forecast_hours: '15', timezone: 'GMT', timeformat: 'unixtime',
-      precipitation_unit: 'mm', cell_selection: 'nearest'
-    }).toString();
-  }
-
-  function parse(payload, area, now) {
-    if (!Array.isArray(payload) || payload.length !== SIZE * SIZE) throw new Error('Incomplete forecast area');
-    var times = payload[0] && payload[0].hourly && payload[0].hourly.time;
-    if (!Array.isArray(times) || times.length !== 15 || !times.every(function(time, index) {
-      return Number.isInteger(time) && time % 3600 === 0 && (!index || time === times[index - 1] + 3600);
-    }) || Math.abs(times[0] - Math.floor(now / 3600) * 3600) > 3600) throw new Error('Invalid forecast times');
-    payload.forEach(function(point, index) {
-      var requested = area.points[index];
-      if (!point || point.utc_offset_seconds !== 0 || !point.hourly_units ||
-          point.hourly_units.precipitation !== 'mm' || point.hourly_units.time !== 'unixtime' ||
-          !Number.isFinite(point.latitude) || !Number.isFinite(point.longitude) ||
-          Math.abs(point.latitude - requested.lat) > 1 ||
-          Math.abs(longitude(point.longitude - requested.lon)) * Math.cos(requested.lat * Math.PI / 180) > 1 ||
-          (point.location_id !== undefined && point.location_id !== index) || !point.hourly ||
-          !Array.isArray(point.hourly.time) || point.hourly.time.length !== times.length ||
-          !point.hourly.time.every(function(time, i) { return time === times[i]; }) ||
-          !Array.isArray(point.hourly.precipitation) || point.hourly.precipitation.length !== times.length ||
-          !point.hourly.precipitation.every(function(value) {
-            return value === null || (Number.isFinite(value) && value >= 0 && value <= 1000);
-          })) throw new Error('Invalid forecast point');
-    });
-    var frames = [];
-    times.forEach(function(time, index) {
-      if (time > now) frames.push({ type: 'forecast', time: time,
-        values: payload.map(function(point) { return point.hourly.precipitation[index]; }) });
-    });
-    if (frames.length < 13 || frames[frames.length - 1].time < now + 12 * 3600) {
+    // Global capabilities merge runs at PT3H, but a selected run serves 6-hour totals at 00/06/12/18 UTC.
+    var step = source.hours * 3600, frames = [];
+    for (var time = Math.ceil(now / step) * step; time <= end && frames.length < 15; time += step) {
+      if (time <= now || time < start || time < run + step || (time - start) % (Number(period[1]) * 3600)) continue;
+      frames.push({ type: 'forecast', time: time, hours: source.hours, key: key,
+        reference: new Date(run * 1000).toISOString() });
+      if (time >= now + 12 * 3600 + 600) break;
+    }
+    if (frames.length < 3 || frames[0].time > now + step || frames[frames.length - 1].time < now + 12 * 3600 + 600) {
       throw new Error('Forecast does not cover the next 12 hours');
     }
-    return frames;
+    return { key: key, bounds: bounds, frames: frames, run: run };
   }
 
-  function image(frame) {
-    var canvas = document.createElement('canvas');
-    canvas.width = canvas.height = 128;
-    var context = canvas.getContext('2d'), pixels = context.createImageData(128, 128);
-    for (var y = 0; y < 128; y++) {
-      for (var x = 0; x < 128; x++) {
-        var gx = x / 127 * (SIZE - 1), gy = y / 127 * (SIZE - 1);
-        var left = Math.min(SIZE - 2, Math.floor(gx)), top = Math.min(SIZE - 2, Math.floor(gy));
-        var fx = gx - left, fy = gy - top;
-        var values = [frame.values[top * SIZE + left], frame.values[top * SIZE + left + 1],
-          frame.values[(top + 1) * SIZE + left], frame.values[(top + 1) * SIZE + left + 1]];
-        var i = (y * 128 + x) * 4;
-        if (values.some(function(value) { return value === null; })) {
-          pixels.data[i] = pixels.data[i + 1] = pixels.data[i + 2] = 160;
-          pixels.data[i + 3] = (x + y) % 12 < 3 ? 160 : 50;
-        } else {
-          var rain = values[0] * (1 - fx) * (1 - fy) + values[1] * fx * (1 - fy) +
-            values[2] * (1 - fx) * fy + values[3] * fx * fy;
-          var color = rain >= 10 ? [218, 80, 146] : rain >= 5 ? [161, 104, 227] :
-            rain >= 2 ? [65, 105, 225] : rain >= 0.5 ? [45, 157, 221] : [87, 215, 224];
-          pixels.data[i] = color[0]; pixels.data[i + 1] = color[1]; pixels.data[i + 2] = color[2];
-          pixels.data[i + 3] = rain < 0.1 ? 0 : Math.min(220, 70 + Math.log1p(rain) * 55);
-        }
-      }
-    }
-    context.putImageData(pixels, 0, 0);
-    return canvas.toDataURL('image/png');
+  function sourceFor(bounds, europe) {
+    var width = bounds.east - bounds.west;
+    var west = ((bounds.west + 180) % 360 + 360) % 360 - 180;
+    return europe && Object.values(bounds).every(Number.isFinite) && width > 0 && width < 360 &&
+      bounds.south >= europe.south && bounds.north <= europe.north &&
+      west >= europe.west && west + width <= europe.east ? 'eu' : 'global';
   }
-  return { grid: grid, url: url, parse: parse, image: image };
+
+  function legendUrl(key) {
+    return endpoint + '?' + new URLSearchParams({ service: 'WMS', version: '1.1.1',
+      request: 'GetLegendGraphic', format: 'image/png', layer: 'dwd:' + sources[key].layer,
+      style: sources[key].style }).toString();
+  }
+
+  return { endpoint: endpoint, sources: sources, capabilitiesUrl: capabilitiesUrl, read: read,
+    parse: parse, sourceFor: sourceFor, legendUrl: legendUrl };
 })();

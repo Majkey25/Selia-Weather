@@ -192,7 +192,7 @@
     <string name="language_spanish">Espagnol</string>
     <string name="language_french">Français</string>
     <string name="about">À propos</string>
-    <string name="weather_data_attribution">Données météo par Open-Meteo</string>
+    <string name="weather_data_attribution">Données météo et sources</string>
     <string name="support_this_app">Soutenir cette application → Buy Me a Coffee</string>
     <string name="support_note">Le soutien est facultatif. Il ne débloque aucune fonctionnalité et ne donne aucune priorité.</string>
     <string name="support_unavailable">Aucune application n’est disponible pour ouvrir ce lien.</string>

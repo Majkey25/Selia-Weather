@@ -85,7 +85,7 @@ internal fun parseCurrentStationObservation(
         if (flag.isNotEmpty() && !(element == "SRA10M" && flag == "Z")) continue
         val value = row.numberOrNull(valueIndex) ?: continue
         if (element == "H" && value !in 0.0..100.0) continue
-        val time = Instant.parse(row.getString(timeIndex))
+        val time = parseWeatherInstant(row.getString(timeIndex))
         valuesByTime.getOrPut(time, ::mutableMapOf)[element] = value
     }
     val complete = valuesByTime.entries

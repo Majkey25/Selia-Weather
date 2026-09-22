@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="warnings_title">Weather warnings</string>
+    <string name="warnings_not_checked">Check official warnings</string>
+    <string name="warnings_none_short">No current warnings</string>
+    <string name="warnings_unavailable_short">Could not verify warnings</string>
+    <string name="warnings_unsupported_short">Not supported here yet</string>
+    <string name="warnings_none">No current official warnings for this location.</string>
+    <string name="warnings_unavailable">Official warnings could not be verified for this location. Check the official source.</string>
+    <string name="warnings_unsupported">Official warnings for this location are not supported in the app yet. Open the official source directory.</string>
+    <string name="warnings_loading">Checking official warnings…</string>
+    <string name="warnings_official_sources">Official sources</string>
+    <string name="warnings_checked">Checked %1$s</string>
+    <string name="warnings_refresh">Refresh warnings</string>
+    <string name="warnings_open_source">Open official source</string>
+    <string name="warnings_open_warning">Open official warning</string>
+    <string name="warnings_show_details">Show warning details</string>
+    <string name="warnings_hide_details">Hide warning details</string>
+    <string name="warnings_issuer_advice">Advice from the issuing authority</string>
+    <string name="warnings_from">From %1$s</string>
+    <string name="warnings_until">Until %1$s</string>
+    <string name="warnings_severity_unknown">Severity not specified</string>
+    <string name="warnings_severity_minor">Minor</string>
+    <string name="warnings_severity_moderate">Moderate</string>
+    <string name="warnings_severity_severe">Severe</string>
+    <string name="warnings_severity_extreme">Extreme</string>
+    <plurals name="warnings_count">
+        <item quantity="one">%d current warning</item>
+        <item quantity="other">%d current warnings</item>
+    </plurals>
+</resources>

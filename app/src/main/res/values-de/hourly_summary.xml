@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hour_summary_uncertain">Niederschlag ist möglich, die Vorhersagen unterscheiden sich aber.</string>
+    <string name="hour_summary_freezing">Vorsicht vor gefrierendem Niederschlag und Glätte.</string>
+    <string name="hour_summary_storm">Gewitter sind möglich.</string>
+    <string name="hour_summary_snow">Schnee ist möglich.</string>
+    <string name="hour_summary_mixed">Regen und Schnee sind möglich.</string>
+    <string name="hour_summary_heavy">Starker Regen ist möglich.</string>
+    <string name="hour_summary_rain">Regen ist möglich.</string>
+    <string name="hour_summary_precipitation">Niederschlag ist möglich.</string>
+    <string name="hour_summary_water_equivalent">%1$s Wasseräquivalent</string>
+    <string name="hour_summary_amount_chance">Geschätzt %1$s, Niederschlagswahrscheinlichkeit %2$d%%.</string>
+    <string name="hour_summary_amount">Geschätzt %1$s.</string>
+    <string name="hour_summary_chance">Niederschlagswahrscheinlichkeit %1$d%%.</string>
+    <string name="hour_summary_feels_like">Gefühlt %1$s, Lufttemperatur %2$s.</string>
+    <string name="hour_summary_conditions">%1$s. Gefühlt %2$s.</string>
+    <string name="hour_summary_temperature">%1$s. Lufttemperatur %2$s.</string>
+</resources>

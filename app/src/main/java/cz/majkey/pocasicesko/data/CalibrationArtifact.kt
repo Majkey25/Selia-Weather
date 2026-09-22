@@ -62,8 +62,8 @@ internal fun parseCalibrationArtifact(json: String, nowEpochSeconds: Long): Cali
     val root = JSONObject(json)
     val schemaVersion = root.getInt("schema_version")
     require(schemaVersion == CALIBRATION_SCHEMA_VERSION) { "Unsupported calibration schema." }
-    val generatedAt = Instant.parse(root.getString("generated_at"))
-    val expiresAt = Instant.parse(root.getString("expires_at"))
+    val generatedAt = parseWeatherInstant(root.getString("generated_at"))
+    val expiresAt = parseWeatherInstant(root.getString("expires_at"))
     val now = Instant.ofEpochSecond(nowEpochSeconds)
     require(!now.isBefore(generatedAt) && now.isBefore(expiresAt)) {
         "Calibration artifact is outside its validity window."

@@ -42,7 +42,7 @@ class RadarScreenTest {
         assertTrue(source.contains("RainViewer"))
         assertTrue(source.contains("Forecast +12h"))
         assertTrue(source.contains("radar-forecast.js"))
-        assertTrue(source.contains("https://api.open-meteo.com"))
+        assertTrue(source.contains("https://maps.dwd.de"))
         assertFalse(source.contains("radar.nowcast"))
         assertFalse(source.contains("satellite.infrared"))
         assertFalse(source.contains("czrad-z_max3d_fct_masked"))

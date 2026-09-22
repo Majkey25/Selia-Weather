@@ -45,6 +45,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -78,6 +79,7 @@ import cz.majkey.pocasicesko.data.HistoryArchive
 import cz.majkey.pocasicesko.data.HourlyWeather
 import cz.majkey.pocasicesko.data.WeatherKind
 import cz.majkey.pocasicesko.data.WeatherSnapshot
+import cz.majkey.pocasicesko.data.WeatherWarningsResult
 import cz.majkey.pocasicesko.data.conditionFor
 import cz.majkey.pocasicesko.units.MeasurementSystem
 import cz.majkey.pocasicesko.units.WeatherUnitFormatter
@@ -138,6 +140,8 @@ internal fun ForecastScreen(
     onSearch: () -> Unit,
     onRefresh: () -> Unit,
     onSettings: () -> Unit,
+    warnings: WeatherWarningsResult?,
+    onWarnings: () -> Unit,
 ) {
     val condition = conditionFor(snapshot.current.weatherCode, snapshot.current.isDay)
     val accent = conditionAccent(condition.kind, snapshot.current.isDay)
@@ -171,11 +175,20 @@ internal fun ForecastScreen(
             item {
                 WeatherHero(snapshot = snapshot, accent = accent, units = units, currentDate = currentDate)
             }
+            item { WarningsAction(warnings, onWarnings) }
             item {
                 HourlyGraphPanel(snapshot = snapshot, accent = accent, units = units, localNow = localNow)
             }
             item {
                 CurrentMetrics(snapshot = snapshot, accent = accent, units = units, localNow = localNow)
+            }
+            item {
+                DailyForecastPanel(
+                    days = snapshot.daily.drop(currentDayIndex),
+                    units = units,
+                    currentDate = currentDate,
+                    onDayClick = { selectedDayIndex = currentDayIndex + it },
+                )
             }
             item {
                 WeatherDetailAction {
@@ -188,14 +201,6 @@ internal fun ForecastScreen(
                     openHistory = true
                     showDetails = true
                 }
-            }
-            item {
-                DailyForecastPanel(
-                    days = snapshot.daily.drop(currentDayIndex),
-                    units = units,
-                    currentDate = currentDate,
-                    onDayClick = { selectedDayIndex = currentDayIndex + it },
-                )
             }
         }
     }
@@ -580,29 +585,43 @@ private fun CurrentMetrics(snapshot: WeatherSnapshot, accent: Color, units: Weat
 }
 
 @Composable
-private fun DailyForecastPanel(
+internal fun DailyForecastPanel(
     days: List<DailyWeather>,
     units: WeatherUnitFormatter,
     currentDate: String?,
     onDayClick: (Int) -> Unit,
 ) {
+    var expanded by rememberSaveable(days.firstOrNull()?.date) { mutableStateOf(false) }
+    val shownDays = if (expanded) days else days.take(4)
+    val expansionState = stringResource(if (expanded) R.string.hour_expanded else R.string.hour_collapsed)
     Column {
         SectionTitle(stringResource(R.string.days_14))
         Spacer(Modifier.height(12.dp))
         WeatherPanel {
             Column {
-                days.forEachIndexed { index, day ->
+                shownDays.forEachIndexed { index, day ->
                     DailyRow(
                         day = day,
                         today = day.date == currentDate,
                         units = units,
                         onClick = { onDayClick(index) },
                     )
-                    if (index != days.lastIndex) {
+                    if (index != shownDays.lastIndex) {
                         HorizontalDivider(
                             modifier = Modifier.padding(horizontal = 15.dp),
                             color = Color.White.copy(alpha = 0.07f),
                         )
+                    }
+                }
+                if (days.size > 4) {
+                    TextButton(
+                        onClick = { expanded = !expanded },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                            .semantics { stateDescription = expansionState },
+                    ) {
+                        Text(if (expanded) stringResource(R.string.forecast_collapse)
+                            else stringResource(R.string.forecast_expand, days.size))
+                        Icon(if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, contentDescription = null)
                     }
                 }
             }
@@ -858,7 +877,7 @@ internal fun DayDetailSheet(
                                 }
                                 Text(
                                     "${stringResource(R.string.feels_like)} " +
-                                        "${units.temperature(hourlyApparentTemperature(hour))} · " +
+                                        "${hour.apparentTemperature?.takeIf(Double::isFinite)?.let(units::temperature) ?: stringResource(R.string.unavailable)} · " +
                                         (precipitationHour?.let { "${it.precipitationProbability}% · ${units.precipitation(it.precipitation)}" }
                                             ?: "${stringResource(R.string.precipitation)} ${stringResource(R.string.unavailable)}") + " · " +
                                         "${units.windSpeed(hour.windSpeed)} " +

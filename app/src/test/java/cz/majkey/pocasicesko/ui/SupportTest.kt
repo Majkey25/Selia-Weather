@@ -11,6 +11,6 @@ class SupportTest {
 
     @Test
     fun usesRequiredWeatherDataAttributionPage() {
-        assertEquals("https://open-meteo.com/", OPEN_METEO_URL)
+        assertEquals("https://majkey25.github.io/Selia-Weather/terms.html#data-sources", WEATHER_DATA_URL)
     }
 }

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notification_channel_blocked">Vypnuto v nastavení Androidu</string>
+    <string name="notifications">Oznámení</string>
+    <string name="notification_settings_summary">Upozornění pro poslední vybrané místo. Android může doručení zpozdit.</string>
+    <string name="notification_permission_summary">Android blokuje oznámení. Vaše nastavení upozornění je uložené.</string>
+    <string name="notification_enable">Povolit oznámení</string>
+    <string name="notification_channel_settings">Nastavení Androidu pro %1$s</string>
+    <string name="notification_rain">Déšť a deštník</string>
+    <string name="notification_cold">Chlad</string>
+    <string name="notification_drop">Pokles teploty</string>
+    <string name="notification_heat">Horko</string>
+    <string name="notification_wind">Silný vítr</string>
+    <string name="notification_uv">Ochrana před UV</string>
+    <string name="notification_official">Oficiální výstrahy</string>
+    <string name="notification_rain_summary">Doporučení deštníku při možnosti deště nebo sněžení.</string>
+    <string name="notification_cold_summary">Předpovídaná teplota dosáhne nastavené hranice chladu.</string>
+    <string name="notification_drop_summary">Předpovídaná teplota klesne během šesti hodin.</string>
+    <string name="notification_heat_summary">Předpovídaná teplota dosáhne nastavené hranice horka.</string>
+    <string name="notification_wind_summary">Předpovídaný vítr nebo nárazy dosáhnou nastavené hranice.</string>
+    <string name="notification_uv_summary">Doporučení ochrany, pokud je dostupná předpověď UV indexu.</string>
+    <string name="notification_official_summary">Výstrahy podporovaných oficiálních služeb pro toto místo. Pokrytí závisí na zemi.</string>
+    <string name="notification_at_or_below">Nejvýše %1$s</string>
+    <string name="notification_at_or_above">Nejméně %1$s</string>
+    <string name="notification_drop_threshold">Pokles alespoň o %1$s během šesti hodin</string>
+    <string name="notification_uv_threshold">UV index alespoň %1$d</string>
+    <string name="notification_look_ahead">Rady na příštích %1$d h</string>
+    <string name="notification_location_title">%1$s · %2$s</string>
+    <string name="notification_rain_advice">Během hodiny od %1$s může pršet nebo sněžit. Vezměte si deštník nebo nepromokavou vrstvu.</string>
+    <string name="notification_cold_advice">Kolem %1$s se očekává %2$s. Vezměte si teplou vrstvu.</string>
+    <string name="notification_drop_advice">Do %1$s se během šesti hodin očekává ochlazení přibližně o %2$s. Vezměte si vrstvu navíc.</string>
+    <string name="notification_heat_advice">Kolem %1$s se očekává %2$s. Vezměte si vodu a vyhledejte stín.</string>
+    <string name="notification_wind_advice">Kolem %1$s se očekává vítr nebo nárazy okolo %2$s. Zajistěte volné předměty.</string>
+    <string name="notification_uv_advice">Kolem %1$s se očekává UV index %2$d. Použijte ochranu před sluncem.</string>
+</resources>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hour_summary_uncertain">Srážky jsou možné, předpovědi se ale liší.</string>
+    <string name="hour_summary_freezing">Pozor na mrznoucí srážky a kluzké povrchy.</string>
+    <string name="hour_summary_storm">Mohou přijít bouřky.</string>
+    <string name="hour_summary_snow">Může sněžit.</string>
+    <string name="hour_summary_mixed">Může pršet i sněžit.</string>
+    <string name="hour_summary_heavy">Může silně pršet.</string>
+    <string name="hour_summary_rain">Může pršet.</string>
+    <string name="hour_summary_precipitation">Mohou se objevit srážky.</string>
+    <string name="hour_summary_water_equivalent">%1$s vodního ekvivalentu</string>
+    <string name="hour_summary_amount_chance">Odhad %1$s, šance srážek %2$d%%.</string>
+    <string name="hour_summary_amount">Odhad %1$s.</string>
+    <string name="hour_summary_chance">Šance srážek %1$d%%.</string>
+    <string name="hour_summary_feels_like">Pocitově %1$s, teplota vzduchu %2$s.</string>
+    <string name="hour_summary_conditions">%1$s. Pocitově %2$s.</string>
+    <string name="hour_summary_temperature">%1$s. Teplota vzduchu %2$s.</string>
+</resources>

@@ -9,6 +9,15 @@ import org.junit.Test
 
 class WeatherParserTest {
     @Test
+    fun preservesHourlyTotalCloudCoverWithoutInventingMissingValues() {
+        val root = JSONObject(VALID_FORECAST)
+        root.getJSONObject("hourly").put("cloud_cover", JSONArray().put(85).put(JSONObject.NULL))
+        val parsed = WeatherParser.parseForecast(root.toString(), 123L)
+        assertEquals(85, parsed.hourly[0].cloudCover)
+        assertEquals(null, parsed.hourly[1].cloudCover)
+    }
+
+    @Test
     fun optionalPrecipitationSpreadPreservesLegacyForecastsAndRawHourAlignment() {
         val legacy = WeatherParser.parseForecast(VALID_FORECAST, 123L)
         assertEquals(null, legacy.hourly[0].precipitationSpread)

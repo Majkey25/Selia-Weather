@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="warnings_title">Alertes météo</string>
+    <string name="warnings_not_checked">Consulter les alertes officielles</string>
+    <string name="warnings_none_short">Aucune alerte en cours</string>
+    <string name="warnings_unavailable_short">Alertes non vérifiées</string>
+    <string name="warnings_unsupported_short">Pas encore disponible ici</string>
+    <string name="warnings_none">Aucune alerte officielle en cours pour ce lieu.</string>
+    <string name="warnings_unavailable">Les alertes officielles pour ce lieu n’ont pas pu être vérifiées. Consultez la source officielle.</string>
+    <string name="warnings_unsupported">L’application ne prend pas encore en charge les alertes officielles pour ce lieu. Ouvrez le répertoire des sources officielles.</string>
+    <string name="warnings_loading">Vérification des alertes officielles…</string>
+    <string name="warnings_official_sources">Sources officielles</string>
+    <string name="warnings_checked">Vérifié le %1$s</string>
+    <string name="warnings_refresh">Actualiser les alertes</string>
+    <string name="warnings_open_source">Ouvrir la source officielle</string>
+    <string name="warnings_open_warning">Ouvrir l’alerte officielle</string>
+    <string name="warnings_show_details">Afficher les détails de l’alerte</string>
+    <string name="warnings_hide_details">Masquer les détails de l’alerte</string>
+    <string name="warnings_issuer_advice">Conseils de l’autorité émettrice</string>
+    <string name="warnings_from">À partir du %1$s</string>
+    <string name="warnings_until">Jusqu’au %1$s</string>
+    <string name="warnings_severity_unknown">Gravité non précisée</string>
+    <string name="warnings_severity_minor">Mineure</string>
+    <string name="warnings_severity_moderate">Modérée</string>
+    <string name="warnings_severity_severe">Grave</string>
+    <string name="warnings_severity_extreme">Extrême</string>
+    <plurals name="warnings_count">
+        <item quantity="one">%d alerte en cours</item>
+        <item quantity="many">%d alertes en cours</item>
+        <item quantity="other">%d alertes en cours</item>
+    </plurals>
+</resources>

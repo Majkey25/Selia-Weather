@@ -1,0 +1,4 @@
+<resources>
+    <string name="forecast_expand">Show all %1$d days</string>
+    <string name="forecast_collapse">Show fewer days</string>
+</resources>

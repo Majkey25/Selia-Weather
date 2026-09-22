@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hour_summary_uncertain">Puede haber precipitaciones, pero las previsiones difieren.</string>
+    <string name="hour_summary_freezing">Atención a las precipitaciones heladas y superficies resbaladizas.</string>
+    <string name="hour_summary_storm">Puede haber tormentas.</string>
+    <string name="hour_summary_snow">Puede nevar.</string>
+    <string name="hour_summary_mixed">Puede llover y nevar.</string>
+    <string name="hour_summary_heavy">Puede llover con intensidad.</string>
+    <string name="hour_summary_rain">Puede llover.</string>
+    <string name="hour_summary_precipitation">Puede haber precipitaciones.</string>
+    <string name="hour_summary_water_equivalent">%1$s de equivalente en agua</string>
+    <string name="hour_summary_amount_chance">Estimación de %1$s, probabilidad de precipitación del %2$d%%.</string>
+    <string name="hour_summary_amount">Estimación de %1$s.</string>
+    <string name="hour_summary_chance">Probabilidad de precipitación del %1$d%%.</string>
+    <string name="hour_summary_feels_like">Sensación de %1$s, temperatura del aire de %2$s.</string>
+    <string name="hour_summary_conditions">%1$s. Sensación de %2$s.</string>
+    <string name="hour_summary_temperature">%1$s. Temperatura del aire de %2$s.</string>
+</resources>

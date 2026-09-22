@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hour_summary_uncertain">Precipitation is possible, but forecasts differ.</string>
+    <string name="hour_summary_freezing">Watch for freezing precipitation and slippery surfaces.</string>
+    <string name="hour_summary_storm">Thunderstorms are possible.</string>
+    <string name="hour_summary_snow">Snow is possible.</string>
+    <string name="hour_summary_mixed">Rain and snow are possible.</string>
+    <string name="hour_summary_heavy">Heavy rain is possible.</string>
+    <string name="hour_summary_rain">Rain is possible.</string>
+    <string name="hour_summary_precipitation">Precipitation is possible.</string>
+    <string name="hour_summary_water_equivalent">%1$s water equivalent</string>
+    <string name="hour_summary_amount_chance">Estimate %1$s, precipitation chance %2$d%%.</string>
+    <string name="hour_summary_amount">Estimate %1$s.</string>
+    <string name="hour_summary_chance">Precipitation chance %1$d%%.</string>
+    <string name="hour_summary_feels_like">Feels like %1$s, air temperature %2$s.</string>
+    <string name="hour_summary_conditions">%1$s. Feels like %2$s.</string>
+    <string name="hour_summary_temperature">%1$s. Air temperature %2$s.</string>
+</resources>

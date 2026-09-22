@@ -192,7 +192,7 @@
     <string name="language_spanish">Španělština</string>
     <string name="language_french">Francouzština</string>
     <string name="about">O aplikaci</string>
-    <string name="weather_data_attribution">Data o počasí poskytuje Open-Meteo</string>
+    <string name="weather_data_attribution">Data o počasí a zdroje</string>
     <string name="support_this_app">Podpořit tuto aplikaci → Buy Me a Coffee</string>
     <string name="support_note">Podpora je dobrovolná. Neodemkne žádné funkce ani nepřináší žádnou prioritu.</string>
     <string name="support_unavailable">Pro otevření tohoto odkazu není k dispozici žádná aplikace.</string>

@@ -71,6 +71,7 @@ object WeatherParser {
                         cloudCoverLow = hourlyJson.optionalIntAt("cloud_cover_low", index),
                         cloudCoverMid = hourlyJson.optionalIntAt("cloud_cover_mid", index),
                         cloudCoverHigh = hourlyJson.optionalIntAt("cloud_cover_high", index),
+                        cloudCover = hourlyJson.optionalIntAt("cloud_cover", index)?.takeIf { it in 0..100 },
                         visibilityMeters = hourlyJson.optionalDoubleAt("visibility", index),
                         surfacePressure = hourlyJson.optionalDoubleAt("surface_pressure", index),
                         windGusts = hourlyJson.optionalDoubleAt("wind_gusts_10m", index),

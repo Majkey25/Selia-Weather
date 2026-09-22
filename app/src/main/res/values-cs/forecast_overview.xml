@@ -1,0 +1,4 @@
+<resources>
+    <string name="forecast_expand">Zobrazit všech %1$d dní</string>
+    <string name="forecast_collapse">Zobrazit méně dní</string>
+</resources>

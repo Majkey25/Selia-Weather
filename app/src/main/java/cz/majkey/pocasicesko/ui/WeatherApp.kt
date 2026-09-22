@@ -2,6 +2,7 @@ package cz.majkey.pocasicesko.ui
 
 import android.Manifest
 import android.app.Activity
+import android.app.NotificationManager
 import android.appwidget.AppWidgetManager
 import android.content.ActivityNotFoundException
 import android.content.ComponentName
@@ -12,6 +13,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.BackHandler
 import androidx.activity.result.contract.ActivityResultContracts
@@ -100,6 +102,8 @@ import cz.majkey.pocasicesko.data.LocationPermissionException
 import cz.majkey.pocasicesko.data.SystemLocationDisabledException
 import cz.majkey.pocasicesko.data.WeatherRepository
 import cz.majkey.pocasicesko.data.WeatherSnapshot
+import cz.majkey.pocasicesko.data.WeatherWarningsRepository
+import cz.majkey.pocasicesko.data.WeatherWarningsResult
 import cz.majkey.pocasicesko.data.conditionFor
 import cz.majkey.pocasicesko.locale.AppLocale
 import cz.majkey.pocasicesko.monetization.AdsController
@@ -107,6 +111,10 @@ import cz.majkey.pocasicesko.monetization.BillingMessage
 import cz.majkey.pocasicesko.monetization.EntitlementState
 import cz.majkey.pocasicesko.monetization.PremiumBillingController
 import cz.majkey.pocasicesko.notification.DailyBriefingScheduler
+import cz.majkey.pocasicesko.notification.WeatherAlertScheduler
+import cz.majkey.pocasicesko.notification.WeatherAlertSettings
+import cz.majkey.pocasicesko.notification.WeatherAlerts
+import cz.majkey.pocasicesko.notification.OfficialWarningNotifications
 import cz.majkey.pocasicesko.units.MeasurementSystem
 import cz.majkey.pocasicesko.units.MeasurementUnits
 import cz.majkey.pocasicesko.units.WeatherUnitFormatter
@@ -117,6 +125,10 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
+import java.time.Instant
+import java.time.Duration
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
@@ -166,6 +178,7 @@ fun WeatherApp(
     premiumBillingController: PremiumBillingController?,
     paymentsEnabled: Boolean,
     onLanguage: (String) -> Unit,
+    initialWarnings: Boolean = false,
 ) {
     val context = LocalContext.current
     val deviceLocationRepository = remember { DeviceLocationRepository(context) }
@@ -179,6 +192,21 @@ fun WeatherApp(
     var reloadKey by remember { mutableIntStateOf(0) }
     var showLocationSearch by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
+    var showNotificationSettings by rememberSaveable { mutableStateOf(false) }
+    var showWarnings by rememberSaveable { mutableStateOf(initialWarnings) }
+    val warningsRepository = remember { WeatherWarningsRepository(context.applicationContext) }
+    val warningsLifecycle = LocalLifecycleOwner.current.lifecycle
+    var warnings by remember(location) { mutableStateOf<WeatherWarningsResult?>(null) }
+    var warningsRefreshing by remember(location) { mutableStateOf(false) }
+    var warningsReloadKey by remember { mutableIntStateOf(0) }
+    var alertSettings by remember { mutableStateOf(WeatherAlertSettings.load(context)) }
+    var notificationsAllowed by remember { mutableStateOf(WeatherAlertScheduler.notificationsAllowed(context)) }
+    var requestedAlertsPermission by rememberSaveable { mutableStateOf(false) }
+    var notificationChannelsVersion by remember { mutableIntStateOf(0) }
+    val blockedChannels = remember(notificationChannelsVersion) {
+        context.getSystemService(NotificationManager::class.java).notificationChannels
+            .filter { it.importance == NotificationManager.IMPORTANCE_NONE }.map { it.id }.toSet()
+    }
     var widgetIds by remember { mutableStateOf(emptyList<Int>()) }
     var measurementSystem by remember { mutableStateOf(MeasurementUnits.current(context)) }
     var dailyBriefingEnabled by remember {
@@ -206,6 +234,12 @@ fun WeatherApp(
             DailyBriefingScheduler.setEnabled(context, true)
             dailyBriefingEnabled = true
         }
+        notificationsAllowed = WeatherAlertScheduler.notificationsAllowed(context)
+        WeatherAlertScheduler.sync(context)
+    }
+    val alertPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        notificationsAllowed = WeatherAlertScheduler.notificationsAllowed(context)
+        WeatherAlertScheduler.sync(context)
     }
 
     fun setDailyBriefing(enabled: Boolean) {
@@ -225,12 +259,27 @@ fun WeatherApp(
 
     LaunchedEffect(Unit) {
         DailyBriefingScheduler.schedule(context)
+        WeatherAlertScheduler.sync(context)
+    }
+
+    fun openSystemNotifications(channel: String? = null) {
+        val intent = Intent(if (channel == null) Settings.ACTION_APP_NOTIFICATION_SETTINGS else Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+            .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+        if (channel != null) intent.putExtra(Settings.EXTRA_CHANNEL_ID, channel)
+        try {
+            context.startActivity(intent)
+        } catch (_: ActivityNotFoundException) {
+            Toast.makeText(context, supportUnavailable, Toast.LENGTH_LONG).show()
+        }
     }
 
     DisposableEffect(context) {
         val lifecycle = (context.findActivity() as? LifecycleOwner)?.lifecycle
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
+                notificationChannelsVersion++
+                notificationsAllowed = WeatherAlertScheduler.notificationsAllowed(context)
+                WeatherAlertScheduler.sync(context)
                 widgetIds = AppWidgetManager.getInstance(context).getAppWidgetIds(
                     ComponentName(context, WeatherWidgetProvider::class.java),
                 ).sorted()
@@ -256,12 +305,31 @@ fun WeatherApp(
         try {
             val fresh = repository.fetchForecast(location)
             state = WeatherUiState.Content(fresh, fromCache = false, refreshing = false)
+            WeatherAlerts.evaluateAndNotify(context, location, fresh)
         } catch (error: Exception) {
             if (error is CancellationException) throw error
             val message = if (error is java.io.IOException) serverError else forecastLoadFailed
             state = cached?.let {
                 WeatherUiState.Content(it, fromCache = true, refreshing = false, refreshError = message)
             } ?: WeatherUiState.Error(message)
+        }
+    }
+
+    LaunchedEffect(location, reloadKey, warningsReloadKey, warningsLifecycle) {
+        warningsLifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (isActive) {
+                warningsRefreshing = true
+                try {
+                    val result = warningsRepository.fetch(location, AppLocale.languageTag(context))
+                    warnings = result
+                    OfficialWarningNotifications.publish(context, location, result)
+                } finally {
+                    warningsRefreshing = false
+                }
+                val expiry = warnings?.warnings?.mapNotNull { it.expires }?.minOrNull()
+                val untilExpiry = expiry?.let { Duration.between(Instant.now(), it).seconds.coerceIn(1, 300) * 1000 } ?: 300_000L
+                delay(untilExpiry)
+            }
         }
     }
 
@@ -283,6 +351,8 @@ fun WeatherApp(
                         onSearch = { showLocationSearch = true },
                         onRetry = { reloadKey++ },
                         onSettings = { showSettings = true },
+                        warnings = warnings,
+                        onWarnings = { showWarnings = true; warningsReloadKey++ },
                     )
 
                     Destination.MAPS -> MapHubScreen(
@@ -334,11 +404,45 @@ fun WeatherApp(
                     },
                 )
             }
+            if (showWarnings) {
+                WeatherWarningsSheet(location, warnings, warningsRefreshing,
+                    onRefresh = { warningsReloadKey++ },
+                    onOpenSource = { url ->
+                        if (Uri.parse(url).scheme == "https") {
+                            try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                            catch (_: ActivityNotFoundException) { Toast.makeText(context, supportUnavailable, Toast.LENGTH_LONG).show() }
+                        }
+                    },
+                    onDismiss = { showWarnings = false }, timezone = snapshot?.timezone)
+            }
+            if (showNotificationSettings) {
+                NotificationSettingsSheet(
+                    settings = alertSettings,
+                    measurementSystem = measurementSystem,
+                    dailyBriefingEnabled = dailyBriefingEnabled,
+                    notificationsAllowed = notificationsAllowed,
+                    blockedChannels = blockedChannels,
+                    onSettingsChange = { selected ->
+                        alertSettings = selected.normalized()
+                        alertSettings.save(context)
+                        WeatherAlertScheduler.sync(context)
+                    },
+                    onDailyBriefingChange = ::setDailyBriefing,
+                    onRequestPermission = {
+                        if (Build.VERSION.SDK_INT >= 33 && !requestedAlertsPermission &&
+                            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                            requestedAlertsPermission = true
+                            alertPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        } else openSystemNotifications()
+                    },
+                    onChannelSettings = ::openSystemNotifications,
+                    onDismiss = { showNotificationSettings = false; showSettings = true },
+                )
+            }
             if (showSettings) {
                 SettingsSheet(
                     selectedTag = AppLocale.selectedTag(context),
                     selectedMeasurementSystem = measurementSystem,
-                    dailyBriefingEnabled = dailyBriefingEnabled,
                     entitlement = entitlement,
                     premiumOffers = premiumOffers,
                     billingMessage = billingMessage,
@@ -351,7 +455,10 @@ fun WeatherApp(
                         measurementSystem = selected
                         WeatherWidgetProvider.updateAll(context)
                     },
-                    onDailyBriefingChange = ::setDailyBriefing,
+                    onNotifications = {
+                        showSettings = false
+                        showNotificationSettings = true
+                    },
                     onAddWidget = {
                         val manager = AppWidgetManager.getInstance(context)
                         val requested = manager.isRequestPinAppWidgetSupported && manager.requestPinAppWidget(
@@ -418,6 +525,8 @@ private fun WeatherDestination(
     onSearch: () -> Unit,
     onRetry: () -> Unit,
     onSettings: () -> Unit,
+    warnings: WeatherWarningsResult?,
+    onWarnings: () -> Unit,
 ) {
     when (state) {
         WeatherUiState.Loading -> Box(
@@ -434,6 +543,8 @@ private fun WeatherDestination(
             padding = padding,
             onRetry = onRetry,
             onSettings = onSettings,
+            warnings = warnings,
+            onWarnings = onWarnings,
         )
 
         is WeatherUiState.Content -> ForecastScreen(
@@ -448,6 +559,8 @@ private fun WeatherDestination(
             onSearch = onSearch,
             onRefresh = onRetry,
             onSettings = onSettings,
+            warnings = warnings,
+            onWarnings = onWarnings,
         )
     }
 }
@@ -585,6 +698,8 @@ private fun ErrorState(
     padding: PaddingValues,
     onRetry: () -> Unit,
     onSettings: () -> Unit,
+    warnings: WeatherWarningsResult?,
+    onWarnings: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -604,6 +719,7 @@ private fun ErrorState(
             TextButton(onClick = onSettings) { Text(stringResource(R.string.settings)) }
             TextButton(onClick = onRetry) { Text(stringResource(R.string.retry)) }
         }
+        WarningsAction(warnings, onWarnings)
     }
 }
 

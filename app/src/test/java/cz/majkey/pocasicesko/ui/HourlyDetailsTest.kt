@@ -1,9 +1,13 @@
 package cz.majkey.pocasicesko.ui
 
+import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.data.HourlyWeather
 import cz.majkey.pocasicesko.data.PrecipitationModelSpread
+import cz.majkey.pocasicesko.units.MeasurementSystem
+import cz.majkey.pocasicesko.units.WeatherUnitFormatter
 import java.io.File
 import java.util.Locale
+import javax.xml.parsers.DocumentBuilderFactory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -134,14 +138,26 @@ class HourlyDetailsTest {
 
         assertTrue(HourMetricKind.FEELS_LIKE in kinds)
         assertTrue(HourMetricKind.PRECIPITATION in kinds)
+        assertTrue(HourMetricKind.PRECIPITATION_PROBABILITY in kinds)
         assertTrue(HourMetricKind.HUMIDITY in kinds)
         assertTrue(HourMetricKind.PRESSURE in kinds)
         assertFalse(HourMetricKind.UV in kinds)
         assertFalse(HourMetricKind.VISIBILITY in kinds)
+        assertFalse(HourMetricKind.CLOUD_COVER in kinds)
+        assertTrue(HourMetricKind.CLOUD_COVER in availableHourMetricKinds(hour(null, null).copy(cloudCover = 0)))
 
-        assertTrue(HourMetricKind.FEELS_LIKE in availableHourMetricKinds(
+        assertFalse(HourMetricKind.FEELS_LIKE in availableHourMetricKinds(
             hour(apparentTemperature = null, uvIndex = null),
         ))
+    }
+
+    @Test
+    fun evaporationUsesTheSameStartingIntervalAsPrecipitation() {
+        val instant = hour(18.0, null).copy(et0 = 0.2)
+        val next = instant.copy(et0 = null)
+        assertFalse(HourMetricKind.ET0 in availableHourMetricKinds(instant, next))
+        assertFalse(HourMetricKind.ET0 in availableHourMetricKinds(instant, null))
+        assertTrue(HourMetricKind.ET0 in availableHourMetricKinds(next, instant))
     }
 
     @Test
@@ -168,27 +184,31 @@ class HourlyDetailsTest {
                 dewPoint = 12.0,
                 wetBulbTemperature = 15.0,
                 rain = 0.2,
+                showers = 0.1,
                 snowfall = 0.3,
+                snowDepthWaterEquivalent = 0.0,
                 surfacePressure = 990.0,
+                cloudCover = 60,
+                cloudCoverLow = 10,
+                cloudCoverMid = 20,
+                cloudCoverHigh = 30,
+                visibilityMeters = 10_000.0,
+                windGusts = 20.0,
                 cape = 400.0,
+                vapourPressureDeficit = 0.4,
+                surfaceTemperature = 15.0,
+                et0 = 0.2,
                 freezingLevelHeightMeters = 2_100.0,
+                boundaryLayerHeightMeters = 1_000.0,
+                integratedWaterVapour = 10.0,
+                liftedIndex = 2.0,
+                convectiveInhibition = 100.0,
                 soilTemperature0Cm = 14.0,
                 soilMoisture0To1Cm = 0.2,
             ),
         )
 
-        listOf(
-            HourMetricKind.TEMPERATURE,
-            HourMetricKind.DEW_POINT,
-            HourMetricKind.WET_BULB,
-            HourMetricKind.RAIN,
-            HourMetricKind.SNOWFALL,
-            HourMetricKind.SURFACE_PRESSURE,
-            HourMetricKind.CAPE,
-            HourMetricKind.FREEZING_LEVEL,
-            HourMetricKind.SOIL_TEMPERATURE,
-            HourMetricKind.SOIL_MOISTURE,
-        ).forEach { assertTrue(it in kinds) }
+        assertEquals(HourMetricKind.entries.toSet(), kinds.toSet())
     }
 
     @Test
@@ -222,7 +242,7 @@ class HourlyDetailsTest {
         ).readText()
 
         assertTrue(source.contains("ExpandedHourDetails("))
-        assertTrue(source.contains("hourlyApparentTemperature(hour)"))
+        assertTrue(source.contains("hour.apparentTemperature?.takeIf(Double::isFinite)"))
         assertTrue(source.contains("stateDescription"))
         assertTrue(source.contains(".heightIn(min = 78.dp)"))
         assertFalse(source.contains(".height(78.dp)"))
@@ -242,10 +262,96 @@ class HourlyDetailsTest {
             "src/main/java/cz/majkey/pocasicesko/ui/HourlyDetails.kt",
         ).readText()
 
-        assertTrue(source.contains("hourlyWeatherSummary(hour, units, precipitationHour)"))
-        assertTrue(source.contains("R.string.hourly_dry_summary"))
+        assertFalse(source.contains("R.string.hourly_model_disagreement"))
+        assertFalse(source.contains("R.string.hourly_source_precipitation_summary"))
         assertTrue(source.contains("conditionFor(hour.weatherCode, hour.isDay)"))
         assertTrue(source.contains("shape = RoundedCornerShape(16.dp)"))
+        assertTrue(source.substringAfter("if (showPrecipitationHelp) {")
+            .contains("R.string.hourly_precipitation_models"))
+    }
+
+    @Test
+    fun summaryKeepsOneWetModelUncertainWithoutInventingProbability() {
+        val dry = hour(18.0, null).copy(precipitation = 0.0, precipitationProbability = 0,
+            precipitationSpread = PrecipitationModelSpread(3, 1, 0.0, 0.3))
+        assertEquals("Srážky jsou možné, předpovědi se ale liší.", summary(dry, language = "cs"))
+        assertEquals("Mohou se objevit srážky. Odhad <0,1 mm.",
+            summary(dry.copy(precipitation = 0.03), language = "cs"))
+        assertEquals(0, dry.precipitationProbability)
+    }
+
+    @Test
+    fun summaryUsesFollowingIntervalAmountsAndUnmodifiedProviderChance() {
+        val instant = hour(18.0, null).copy(precipitation = 0.0, precipitationProbability = 0)
+        val following = instant.copy(time = "2026-08-30T13:00", rain = 0.6,
+            precipitation = 0.6, precipitationProbability = 60)
+        val selected = hourlyPrecipitationByStart(listOf(instant, following))[instant.time]
+        assertEquals("Může pršet. Odhad 0,6 mm, šance srážek 60%.", summary(instant, selected, "cs"))
+        assertEquals("Rain is possible. Estimate 0.6 mm, precipitation chance 60%.", summary(instant, selected))
+    }
+
+    @Test
+    fun summariesDistinguishSnowWaterEquivalentFreezingAndStorms() {
+        val wet = hour(18.0, null).copy(precipitation = 1.0, precipitationProbability = 80)
+        assertEquals("Snow is possible. Estimate 0.7 cm, precipitation chance 80%.",
+            summary(wet.copy(weatherCode = 73, snowfall = 0.7)))
+        assertEquals("Snow is possible. Estimate 1.0 mm water equivalent, precipitation chance 80%.",
+            summary(wet.copy(weatherCode = 73)))
+        assertTrue(summary(wet.copy(snowfall = 0.4, rain = 0.5)).startsWith("Rain and snow are possible."))
+        assertTrue(summary(wet.copy(weatherCode = 66)).startsWith("Watch for freezing precipitation"))
+        assertTrue(summary(wet.copy(weatherCode = 95)).startsWith("Thunderstorms are possible."))
+        assertTrue(summary(wet.copy(rain = 6.0, precipitation = 6.0)).startsWith("Heavy rain is possible."))
+        assertTrue(summary(wet.copy(precipitation = 6.0)).startsWith("Precipitation is possible."))
+        assertTrue(summary(wet.copy(rain = 1.0), system = MeasurementSystem.IMPERIAL).contains("0.04 in"))
+    }
+
+    @Test
+    fun missingIntervalStillExplainsInstantWeatherWithoutClaimingItIsDry() {
+        val dry = hour(null, null).copy(weatherCode = 0, precipitation = 0.0, precipitationProbability = 0)
+        assertEquals("Clear. Air temperature 20°.", summary(dry))
+        assertEquals("Clear. Feels like 18°.", summary(dry.copy(apparentTemperature = 18.0)))
+        assertEquals("Clear. Air temperature 20°. Precipitation data is unavailable for this interval.", summary(dry, null))
+        assertTrue(summary(dry.copy(windGusts = 70.0), null).contains("Gusts may reach 70 km/h."))
+        assertTrue(summary(dry.copy(uvIndex = 7.0)).startsWith("UV index 7.0."))
+        assertTrue(summary(dry.copy(apparentTemperature = -2.0)).startsWith("Feels like -2°"))
+        assertTrue(summary(dry.copy(visibilityMeters = 500.0)).contains("0.5 km"))
+    }
+
+    @Test
+    fun summaryResourcesFormatInEverySupportedLanguage() {
+        val wet = hour(18.0, null).copy(rain = 0.6, precipitation = 0.6, precipitationProbability = 60)
+        listOf("en", "cs", "de", "es", "fr").forEach { language ->
+            val summary = summary(wet, language = language)
+            assertTrue(summary, summary.contains("60%"))
+            assertFalse(summary, summary.contains("%1"))
+            assertTrue(summary, summary.length < 140)
+        }
+    }
+
+    private fun summary(
+        hour: HourlyWeather,
+        precipitationHour: HourlyWeather? = hour,
+        language: String = "en",
+        system: MeasurementSystem = MeasurementSystem.METRIC,
+    ): String {
+        val strings = buildMap<Int, String> {
+            listOf("values", "values-$language").forEach { directory ->
+                listOf("strings.xml", "hourly_summary.xml").forEach { filename ->
+                    val file = File(System.getProperty("user.dir"), "src/main/res/$directory/$filename")
+                    if (file.exists()) {
+                        val nodes = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file)
+                            .getElementsByTagName("string")
+                        repeat(nodes.length) { index ->
+                            val node = nodes.item(index)
+                            val name = node.attributes.getNamedItem("name").nodeValue
+                            put(R.string::class.java.getField(name).getInt(null), node.textContent)
+                        }
+                    }
+                }
+            }
+        }
+        val locale = Locale.forLanguageTag(language)
+        return hourlyWeatherSummary(hour, WeatherUnitFormatter(system, locale), precipitationHour, locale, strings::getValue)
     }
 
     private fun hour(

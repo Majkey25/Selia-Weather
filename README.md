@@ -27,8 +27,10 @@
 
 - Shows current and apparent temperature, dew point, wet-bulb temperature, precipitation, cloud layers, visibility, pressure, wind, sun, and Moon details.
 - Adds UV, freezing-level, boundary-layer, atmospheric-water, instability, showers, and ground details.
-- Shows worldwide observed precipitation through RainViewer for the available past two hours, with zoom, pan, animation, a timeline, and a radar-coverage mask. A separate sampled model map provides a 12-hour outlook where data are available; it is not future radar observation.
-- Shows a horizontal 24-hour outlook, a 14-day forecast, and an hourly detail for each day. A complete day normally has 24 hours.
+- Shows observed precipitation through RainViewer where radar coverage exists. The future map uses official DWD forecast grids: hourly ICON-EU totals in Europe and six-hour ICON totals elsewhere, with at least a 12-hour outlook when available. Forecast totals are not observed future radar.
+- Shows a horizontal 24-hour outlook and a four-day preview expandable to the full 14-day forecast. Weather details and history sit below the daily overview. Each day opens its hourly details and a short weather summary.
+- Supports independent Android notification categories for rain advice, cold, temperature drops, heat, wind, UV and official warnings. Thresholds are configurable; background delivery is best effort.
+- Matches official warnings to Czech locations through ČÚZK/ČHMÚ and US locations through NWS point queries. UK and other unsupported feeds are explicitly marked unavailable, with links to official sources. The app does not replace emergency-alert systems.
 - Hourly precipitation is shown for the interval starting at the row label: 11:00 means 11:00–12:00. Amounts, probability and model spread use that interval's source data; temperature and sky conditions keep their displayed timestamp. Missing intervals remain unavailable.
 - Opens a five-year NASA POWER archive with 15 daily metrics. Select 30 days, 365 days, all data, or custom dates to calculate totals and coverage locally. After confirmation, Ask AI shares the full provenance-labelled CSV and your question with the compatible installed app you choose.
 - Searches places worldwide, stores favourites, can use your optional current location, and can save an exact named point on an interactive world map or by coordinate.

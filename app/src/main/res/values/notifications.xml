@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notifications">Notifications</string>
+    <string name="notification_settings_summary">Alerts for the last selected place. Android may delay delivery.</string>
+    <string name="notification_channel_blocked">Disabled in Android settings</string>
+    <string name="notification_permission_summary">Android notifications are blocked. Your alert preferences are saved.</string>
+    <string name="notification_enable">Enable notifications</string>
+    <string name="notification_channel_settings">Android settings for %1$s</string>
+    <string name="notification_rain">Rain and umbrella</string>
+    <string name="notification_cold">Cold weather</string>
+    <string name="notification_drop">Temperature drop</string>
+    <string name="notification_heat">Heat</string>
+    <string name="notification_wind">Strong wind</string>
+    <string name="notification_uv">UV protection</string>
+    <string name="notification_official">Official warnings</string>
+    <string name="notification_rain_summary">Umbrella advice when future rain or snow is possible.</string>
+    <string name="notification_cold_summary">Forecast temperature reaches your cold threshold.</string>
+    <string name="notification_drop_summary">Forecast temperature falls within six hours.</string>
+    <string name="notification_heat_summary">Forecast temperature reaches your heat threshold.</string>
+    <string name="notification_wind_summary">Forecast wind speed or gusts reach your threshold.</string>
+    <string name="notification_uv_summary">UV advice when a forecast UV index is available.</string>
+    <string name="notification_official_summary">Warnings from supported official services for this location. Coverage varies by country.</string>
+    <string name="notification_at_or_below">At or below %1$s</string>
+    <string name="notification_at_or_above">At or above %1$s</string>
+    <string name="notification_drop_threshold">Drop of at least %1$s within six hours</string>
+    <string name="notification_uv_threshold">UV index at least %1$d</string>
+    <string name="notification_look_ahead">Forecast advice for the next %1$d h</string>
+    <string name="notification_location_title">%1$s · %2$s</string>
+    <string name="notification_rain_advice">Rain or snow is possible during the hour starting %1$s. Bring an umbrella or waterproof layer.</string>
+    <string name="notification_cold_advice">Around %1$s: %2$s expected. Take a warm layer.</string>
+    <string name="notification_drop_advice">By %1$s: a drop of about %2$s is forecast within six hours. Take an extra layer.</string>
+    <string name="notification_heat_advice">Around %1$s: %2$s expected. Bring water and seek shade.</string>
+    <string name="notification_wind_advice">Around %1$s: wind or gusts near %2$s expected. Secure loose items.</string>
+    <string name="notification_uv_advice">Around %1$s: UV index %2$d expected. Use sun protection.</string>
+</resources>

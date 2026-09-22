@@ -40,14 +40,23 @@ function runtime(response = manifest(), search = '?lat=50&lon=14') {
     on(name, callback) { events[name] = callback; return this; },
     getCenter() { return { lat: 50, lng: 14 }; }, getZoom() { return 6; },
     getBounds() { return { getEast: () => 17, getWest: () => 11, getNorth: () => 53, getSouth: () => 47 }; } };
-  function layer(url) {
-    const result = { url, events: {}, on(name, fn) { this.events[name] = fn; return this; },
+  function layer(url, options) {
+    const result = { url, options, events: {}, on(name, fn) { this.events[name] = fn; return this; },
       addTo() { return this; }, setOpacity(value) { this.opacity = value; return this; } };
     layers.push(result);
     return result;
   }
+  layer.wms = layer;
   const context = vm.createContext({
-    document, URLSearchParams, AbortController, Date, console,
+    document, URLSearchParams, AbortController, TextDecoder, Date, console,
+    // Browser XML parsing is covered by live browser QA; these are WMS DOM fixtures.
+    DOMParser: class { parseFromString(value) {
+      const fixture = JSON.parse(value);
+      return { getElementsByTagNameNS(_namespace, name) {
+        return (fixture[name] || []).map(node => ({ textContent: node.text || '',
+          getAttribute: key => node[key] ?? null }));
+      } };
+    } },
     window: { location: { search }, innerHeight: 480,
       addEventListener(name, callback) { events[name] = callback; } },
     setTimeout(callback, delay) { timeouts.set(++timerId, callback); timeoutDelays.set(timerId, delay); return timerId; },
@@ -67,6 +76,22 @@ function runtime(response = manifest(), search = '?lat=50&lon=14') {
   return { context, document, events, layers, timeouts, timeoutDelays, intervals, removed, node: id => document.getElementById(id) };
 }
 const settled = () => new Promise(resolve => setImmediate(resolve));
+
+test('forecast intervals identify both days when an accumulation crosses midnight', () => {
+  const app = runtime(manifest(), '?lang=en&tz=America%2FNew_York');
+  const overnight = Date.parse('2026-09-23T06:00:00Z') / 1000;
+  assert.match(app.context.forecastIntervalLabel({ time: overnight, hours: 6 }), /Tue 20:00–Wed 02:00/);
+  assert.match(app.context.forecastIntervalLabel({ time: overnight + 21600, hours: 6 }), /^Wed 02:00–08:00/);
+});
+
+test('forecast provider uses official WMS grids instead of sampled point interpolation', () => {
+  const app = runtime();
+  assert.equal(app.context.RadarForecast.endpoint, 'https://maps.dwd.de/geoserver/wms');
+  assert.equal(app.context.RadarForecast.sources.eu.hours, 1);
+  assert.equal(app.context.RadarForecast.sources.global.hours, 6);
+  assert.equal(app.context.RadarForecast.grid, undefined);
+  assert.doesNotMatch(html, /api\.open-meteo\.com/);
+});
 
 test('radar controls are outside the flex map with stable status space and 48px hit areas', () => {
   assert.match(html, /#map\s*\{[^}]*flex:\s*1[^}]*min-height:\s*0/);
@@ -126,15 +151,33 @@ test('live manifest enables timeline and a failed tile stays visibly failed afte
   assert.equal(app.node('status').hidden, true, 'retired layer cannot change current status');
 });
 
-function forecastPayload(app, value = 1) {
-  const first = Math.floor(app.context.Date.now() / 3600000) * 3600;
-  return app.context.RadarForecast.grid(50, 14, 6, 6).points.map((point, location_id) => ({
-    location_id, latitude: point.lat, longitude: point.lon, utc_offset_seconds: 0,
-    hourly_units: { time: 'unixtime', precipitation: 'mm' },
-    hourly: { time: Array.from({ length: 15 }, (_, i) => first + i * 3600),
-      precipitation: Array(15).fill(value) },
-  }));
+function forecastPayload(app, key = 'eu') {
+  const run = Math.floor(app.context.Date.now() / 21600000) * 21600000;
+  const iso = milliseconds => new Date(milliseconds).toISOString();
+  const source = app.context.RadarForecast.sources[key];
+  return JSON.stringify({
+    Name: [{ text: source.layer }, { text: source.style }],
+    Dimension: [
+      { name: 'time', units: 'ISO8601', text: `${iso(run - 86400000)}/${iso(run + 3 * 86400000)}/PT${key === 'eu' ? 1 : 3}H` },
+      { name: 'REFERENCE_TIME', units: 'ISO8601', default: iso(run), text: iso(run) },
+    ],
+    BoundingBox: [{ CRS: 'EPSG:4326', minx: key === 'eu' ? '29.46875' : '-90',
+      miny: key === 'eu' ? '-23.53125' : '-180', maxx: key === 'eu' ? '70.53125' : '90',
+      maxy: key === 'eu' ? '62.53125' : '180' }],
+  });
 }
+
+function forecastResponse(app, url) {
+  return new Response(forecastPayload(app, url.includes('Icon-eu_') ? 'eu' : 'global'));
+}
+
+test('forecast metadata downloads stop above 128 KiB and decode valid UTF-8', async () => {
+  const app = runtime();
+  const read = app.context.RadarForecast.read;
+  assert.equal(typeof read, 'function');
+  assert.equal(await read(new Response('Niederschläge')), 'Niederschläge');
+  await assert.rejects(read(new Response('x'.repeat(131073))), /too large/);
+});
 
 test('observed transition keeps the old frame until replacement tiles load', async () => {
   const app = runtime();
@@ -169,47 +212,51 @@ test('failed replacement and hung tiles retain the last successful frame', async
   assert.equal(app.context.pendingLayer, null);
 });
 
-test('model forecast loads one batch and reuses its bounded cache on mode switch', async () => {
+test('model forecast loads two metadata documents and reuses bounded caches on mode switch', async () => {
   const app = runtime();
   await settled();
   let modelCalls = 0;
   app.context.fetch = async url => {
-    if (url.includes('open-meteo')) {
-      assert.equal(new URL(url).searchParams.get('forecast_hours'), '15');
-      modelCalls++; return { ok: true, json: async () => forecastPayload(app) };
+    if (url.includes('maps.dwd.de')) {
+      assert.equal(new URL(url).searchParams.get('request'), 'GetCapabilities');
+      modelCalls++; return forecastResponse(app, url);
     }
     return { ok: true, json: async () => manifest() };
   };
   app.context.setMode('forecast');
   await settled();
-  assert.equal(modelCalls, 1);
-  assert.equal(app.context.frames.length, 14);
+  assert.equal(modelCalls, 2);
+  assert.ok(app.context.frames.length >= 13);
   assert.ok(app.context.frames.every(frame => frame.type === 'forecast'));
   app.context.pendingLayer.events.load();
   assert.match(app.node('time').textContent, /\d\d:\d\d–\d\d:\d\d UTC/);
-  assert.match(app.node('legend').textContent, /Sampled\/interpolated/);
+  assert.match(app.node('legend').textContent, /precipitation totals/);
+  assert.match(app.node('scale').src, /GetLegendGraphic/);
+  assert.equal(app.context.radarLayer.options.layers, 'dwd:Icon-eu_reg00625_fd_sl_TOTPREC01H');
+  assert.equal(app.context.radarLayer.options.dim_reference_time, app.context.frames[0].reference);
+  assert.match(app.node('frame-summary').textContent, /ICON-EU.*mm \/ 1 h/);
   assert.equal(app.node('coverage').hidden, true);
   app.context.setMode('observed');
   await settled();
   app.context.setMode('forecast');
   await settled();
-  assert.equal(modelCalls, 1);
+  assert.equal(modelCalls, 2);
 });
 
 test('forecast cancellation ignores late responses after switching back to observed', async () => {
   const app = runtime();
   await settled();
-  let finish, signal;
+  const finishes = [], signals = [];
   app.context.fetch = (url, options) => {
-    if (!url.includes('open-meteo')) return Promise.resolve({ ok: true, json: async () => manifest() });
-    signal = options.signal;
-    return new Promise(resolve => { finish = resolve; });
+    if (!url.includes('maps.dwd.de')) return Promise.resolve({ ok: true, json: async () => manifest() });
+    signals.push(options.signal);
+    return new Promise(resolve => { finishes.push(() => resolve(forecastResponse(app, url))); });
   };
   app.context.setMode('forecast');
   app.context.setMode('observed');
-  finish({ ok: true, json: async () => forecastPayload(app) });
+  finishes.forEach(finish => finish());
   await settled();
-  assert.equal(signal.aborted, true);
+  assert.ok(signals.every(signal => signal.aborted));
   assert.equal(app.context.mode, 'observed');
   assert.ok(app.context.frames.every(frame => !frame.type));
   assert.match(app.node('source').textContent, /RainViewer/);
@@ -220,42 +267,44 @@ test('429 forecast requests do not retry on refresh or mode switches', async () 
   await settled();
   let modelCalls = 0;
   app.context.fetch = async url => {
-    if (!url.includes('open-meteo')) return { ok: true, json: async () => manifest() };
+    if (!url.includes('maps.dwd.de')) return { ok: true, json: async () => manifest() };
     modelCalls++; return { ok: false, status: 429 };
   };
   app.context.setMode('forecast');
   await settled();
   assert.equal(app.node('play').disabled, true);
   app.context.refreshMap();
-  assert.equal(modelCalls, 1);
+  assert.equal(modelCalls, 2);
   const later = Date.now() + 61000;
   app.context.Date = class extends Date { static now() { return later; } };
   app.context.setMode('observed');
   await settled();
   app.context.setMode('forecast');
-  assert.equal(modelCalls, 1);
+  assert.equal(modelCalls, 2);
   assert.equal(app.context.frames.length, 0);
   assert.equal(app.node('slider').disabled, true);
 });
 
-test('stale, reordered, negative and wrong-timezone forecast payloads fail closed', () => {
+test('stale runs, invalid layers, dimensions, bounds and short horizons fail closed', () => {
   const app = runtime();
-  const area = app.context.RadarForecast.grid(50, 14, 6, 6);
   for (const corrupt of [
-    payload => { payload[0].hourly.time[1] += 60; },
-    payload => { payload[0].location_id = 2; },
-    payload => { payload[0].hourly.precipitation[1] = -1; },
-    payload => { payload[0].utc_offset_seconds = 7200; },
-    payload => payload.forEach(point => { point.hourly.time.pop(); point.hourly.precipitation.pop(); }),
-    payload => payload.forEach(point => {
-      point.hourly.time.push(point.hourly.time.at(-1) + 3600); point.hourly.precipitation.push(1);
-    }),
-    payload => payload.forEach(point => { point.hourly.time = point.hourly.time.map(time => time - 86400); }),
+    payload => { payload.Name[0].text = 'untrusted'; },
+    payload => { payload.Dimension[0].units = 'hours'; },
+    payload => { payload.Dimension[0].text = 'invalid'; },
+    payload => { payload.Dimension[1].default = new Date((now - 86400) * 1000).toISOString(); },
+    payload => { payload.Dimension[1].default = new Date((now + 3600) * 1000).toISOString(); },
+    payload => { payload.Dimension[1].text = ''; },
+    payload => { payload.Dimension[0].text = payload.Dimension[0].text.replace(/\/[^/]+\/PT/, `/${new Date((now + 3600) * 1000).toISOString()}/PT`); },
+    payload => { payload.BoundingBox[0].minx = 'NaN'; },
+    payload => { payload.BoundingBox[0].maxx = '-90'; },
+    payload => { payload.parsererror = [{ text: 'Bad XML' }]; },
   ]) {
-    const payload = forecastPayload(app);
+    const payload = JSON.parse(forecastPayload(app));
     corrupt(payload);
-    assert.throws(() => app.context.RadarForecast.parse(payload, area, now));
+    assert.throws(() => app.context.RadarForecast.parse(JSON.stringify(payload), 'eu', now));
   }
+  assert.throws(() => app.context.RadarForecast.parse('x'.repeat(131073), 'eu', now));
+  assert.throws(() => app.context.RadarForecast.parse('<!DOCTYPE x>', 'eu', now));
 });
 
 test('forecast timeout fails closed and one later explicit retry can recover', async () => {
@@ -272,80 +321,84 @@ test('forecast timeout fails closed and one later explicit retry can recover', a
   assert.equal(app.node('status').textContent, app.context.FORECAST_TEXT[3]);
   const later = Date.now() + 61000;
   app.context.Date = class extends Date { static now() { return later; } };
-  app.context.fetch = async () => ({ ok: true, json: async () => forecastPayload(app) });
+  app.context.fetch = async url => forecastResponse(app, url);
   app.context.refreshMap();
   await settled();
   assert.equal(app.node('play').disabled, false);
-  assert.equal(app.context.frames.length, 14);
+  assert.ok(app.context.frames.length >= 13);
 });
 
-test('resize and panning do not fetch a new model area or misplace a cached area', async () => {
+test('panning switches Europe to global and back immediately without requesting point forecasts', async () => {
   const app = runtime();
   await settled();
   let calls = 0;
-  app.context.fetch = async () => { calls++; return { ok: true, json: async () => forecastPayload(app) }; };
+  app.context.fetch = async url => { calls++; return forecastResponse(app, url); };
   app.context.setMode('forecast');
   await settled();
-  const original = app.context.forecastArea;
-  app.context.map.getCenter = () => ({ lat: 35, lng: 140 });
+  app.context.pendingLayer.events.load();
+  const europe = app.context.forecastCache;
+  const originalBounds = app.context.map.getBounds;
+  app.context.map.getBounds = () => ({ getEast: () => 145, getWest: () => 135, getNorth: () => 40, getSouth: () => 30 });
   app.events.resize();
-  assert.equal(calls, 1);
-  assert.equal(app.context.forecastArea, original);
-  app.context.refreshMap();
-  assert.equal(calls, 1, 'explicit area refresh is throttled for 60 seconds');
-  assert.equal(app.context.forecastArea, original);
-});
-
-test('unloaded forecast area warning survives playback and clears only inside loaded bounds', async () => {
-  const app = runtime();
-  await settled();
-  let calls = 0;
-  app.context.fetch = async () => { calls++; return { ok: true, json: async () => forecastPayload(app) }; };
-  app.context.setMode('forecast');
-  await settled();
-  app.context.pendingLayer.events.load();
-  app.context.map.getCenter = () => ({ lat: 35, lng: 140 });
   app.events.moveend();
-  const warning = app.context.FORECAST_AREA_UNAVAILABLE[app.context.language];
-  assert.equal(app.node('status').textContent, warning);
-  assert.equal(app.node('status').hidden, false);
-  app.context.togglePlay();
-  [...app.intervals.values()][0]();
+  assert.equal(calls, 2);
+  assert.equal(app.context.forecastCache.key, 'global');
+  assert.equal(app.context.pendingLayer.options.layers, 'dwd:Icon_reg025_fd_sl_TOTPREC06H');
   app.context.pendingLayer.events.load();
-  assert.equal(app.node('status').textContent, warning);
-  assert.equal(calls, 1);
-  app.context.map.getCenter = () => ({ lat: 50, lng: 14 });
+  assert.match(app.node('frame-summary').textContent, /ICON.*mm \/ 6 h/);
+  app.context.map.getBounds = originalBounds;
   app.events.moveend();
+  assert.equal(app.context.forecastCache, europe);
+  app.context.pendingLayer.events.load();
+  const displayed = app.context.radarLayer;
+  app.events.moveend();
+  assert.equal(app.context.radarLayer, displayed, 'panning within the same model retains selected time');
   assert.equal(app.node('status').hidden, true);
-  assert.equal(calls, 1);
+  assert.equal(calls, 2);
+  app.context.refreshMap();
+  assert.notEqual(app.context.pendingLayer, displayed, 'manual refresh retries tiles immediately');
+  assert.equal(calls, 2);
 });
 
-test('loaded forecast bounds recognize equivalent longitudes across the antimeridian', async () => {
+test('regional selection uses the full viewport and wraps equivalent longitudes', async () => {
   const app = runtime();
   await settled();
-  app.context.fetch = async () => ({ ok: true, json: async () => forecastPayload(app) });
+  const provider = app.context.RadarForecast;
+  const europe = provider.parse(forecastPayload(app), 'eu', now).bounds;
+  assert.equal(provider.sourceFor({ west: 11, east: 17, south: 47, north: 53 }, europe), 'eu');
+  assert.equal(provider.sourceFor({ west: 371, east: 377, south: 47, north: 53 }, europe), 'eu');
+  assert.equal(provider.sourceFor({ west: 11, east: 70, south: 47, north: 53 }, europe), 'global');
+  assert.equal(provider.sourceFor({ west: -180, east: 180, south: 47, north: 53 }, europe), 'global');
+  assert.equal(provider.sourceFor({ west: 175, east: 190, south: 0, north: 10 }, europe), 'global');
+});
+
+test('panning outside available regional coverage fails closed during provider backoff', async () => {
+  const app = runtime();
+  await settled();
+  app.context.fetch = async url => url.includes('Icon-eu_') ? forecastResponse(app, url) : { ok: false, status: 429 };
   app.context.setMode('forecast');
   await settled();
   app.context.pendingLayer.events.load();
-  app.context.forecastArea = app.context.RadarForecast.grid(10, 179, 6, 6);
-  for (const longitude of [179, -179, 181, 541]) {
-    app.context.map.getCenter = () => ({ lat: 10, lng: longitude });
-    app.events.moveend();
-    assert.equal(app.node('status').hidden, true, String(longitude));
-  }
-  for (const center of [{ lat: 10, lng: -170 }, { lat: 20, lng: 179 }]) {
-    app.context.map.getCenter = () => center;
-    app.events.moveend();
-    assert.equal(app.node('status').hidden, false);
-  }
+  const originalBounds = app.context.map.getBounds;
+  app.context.map.getBounds = () => ({ getEast: () => 145, getWest: () => 135, getNorth: () => 40, getSouth: () => 30 });
+  app.events.moveend();
+  assert.equal(app.context.frames.length, 0);
+  assert.equal(app.context.radarLayer, null);
+  assert.equal(app.node('play').disabled, true);
+  assert.equal(app.node('time').textContent, '—');
+  assert.equal(app.node('status').textContent, app.context.FORECAST_TEXT[8]);
+  app.context.map.getBounds = originalBounds;
+  app.events.moveend();
+  assert.equal(app.context.forecastCache.key, 'eu');
+  assert.notEqual(app.context.pendingLayer, null);
 });
 
-test('expired forecast stops on resume, online, play, seek, playback tick, pending commit and idle expiry', async () => {
+test('visible expired forecast refreshes once on resume, online, play, seek, tick, commit and idle expiry', async () => {
   for (const action of ['resume', 'online', 'play', 'seek', 'tick', 'commit', 'idle']) {
     const app = runtime();
     await settled();
     let calls = 0;
-    app.context.fetch = async () => { calls++; return { ok: true, json: async () => forecastPayload(app) }; };
+    app.context.fetch = async url => { calls++; return forecastResponse(app, url); };
     app.context.setMode('forecast');
     await settled();
     if (action !== 'commit') app.context.pendingLayer.events.load();
@@ -365,30 +418,45 @@ test('expired forecast stops on resume, online, play, seek, playback tick, pendi
     assert.equal(app.node('play').disabled, true, action);
     assert.equal(app.node('slider').disabled, true, action);
     assert.equal(app.node('time').textContent, '—', action);
-    assert.equal(app.node('status').textContent, app.context.FORECAST_EXPIRED[app.context.language], action);
-    assert.equal(calls, 1, 'expiration never reloads a panned area implicitly');
+    assert.equal(app.node('status').textContent, app.context.FORECAST_TEXT[2], action);
+    assert.equal(calls, 4, 'expiration starts exactly one two-document refresh');
+    app.context.ensureForecastFresh();
+    assert.equal(calls, 4, 'pending refresh is not duplicated');
+    await settled();
+    app.context.pendingLayer.events.load();
+    assert.equal(app.node('status').textContent, '', action);
+    assert.notEqual(app.context.radarLayer, null, action);
   }
 });
 
 test('insufficient remaining horizon expires even a recently loaded forecast and failed refresh stays empty', async () => {
   const app = runtime();
   await settled();
-  app.context.fetch = async () => ({ ok: true, json: async () => forecastPayload(app) });
+  app.context.fetch = async url => forecastResponse(app, url);
   app.context.setMode('forecast');
   await settled();
   const later = app.context.frames.at(-1).time * 1000 - 12 * 3600000 + 1;
   app.context.Date = class extends Date { static now() { return later; } };
   app.context.forecastCache.loadedAt = later;
+  let calls = 0;
+  app.context.fetch = async () => { calls++; return { ok: false, status: 503 }; };
   app.context.showFrame(1);
   assert.equal(app.context.frames.length, 0);
   assert.equal(app.node('play').disabled, true);
-  app.context.fetch = async () => ({ ok: false, status: 503 });
-  app.context.lastForecastRequest = later - 60001;
-  app.context.refreshMap();
   await settled();
   assert.equal(app.context.frames.length, 0);
   assert.equal(app.node('play').disabled, true);
   assert.equal(app.node('status').textContent, app.context.FORECAST_TEXT[3]);
+  app.context.ensureForecastFresh();
+  app.events.online();
+  app.events.moveend();
+  assert.equal(calls, 2, 'a failed automatic refresh has no immediate retry loop');
+  assert.equal(app.context.forecastExpiryTimer, null);
+  app.context.fetch = async url => forecastResponse(app, url);
+  app.context.refreshMap();
+  await settled();
+  app.context.pendingLayer.events.load();
+  assert.equal(app.node('status').textContent, '', 'explicit refresh can recover without a cooldown');
 });
 
 test('forecast loaded at hh:59 survives the next hour boundary until its normal age expiry', async () => {
@@ -397,9 +465,9 @@ test('forecast loaded at hh:59 survives the next hour boundary until its normal 
   const loadedAt = Date.UTC(2026, 8, 9, 9, 59);
   let clock = loadedAt, calls = 0;
   app.context.Date = class extends Date { static now() { return clock; } };
-  app.context.fetch = async () => {
+  app.context.fetch = async url => {
     calls++;
-    return { ok: true, json: async () => forecastPayload(app) };
+    return forecastResponse(app, url);
   };
   app.context.setMode('forecast');
   await settled();
@@ -417,7 +485,77 @@ test('forecast loaded at hh:59 survives the next hour boundary until its normal 
   app.timeouts.get(app.context.forecastExpiryTimer)();
   assert.equal(app.context.frames.length, 0);
   assert.equal(app.node('play').disabled, true);
-  assert.equal(calls, 1, 'crossing an hour and age expiry must not request extra data');
+  assert.equal(calls, 4, 'the hour boundary keeps the cache; age expiry refreshes it once');
+  await settled();
+  assert.notEqual(app.context.pendingLayer, null);
+});
+
+test('hidden forecast expiry defers its single automatic refresh until visible again', async () => {
+  const app = runtime();
+  await settled();
+  let calls = 0;
+  app.context.fetch = async url => { calls++; return forecastResponse(app, url); };
+  app.context.setMode('forecast');
+  await settled();
+  app.context.pendingLayer.events.load();
+  app.document.hidden = true;
+  app.events.visibilitychange();
+  const expiredAt = Date.now() + 600001;
+  app.context.Date = class extends Date { static now() { return expiredAt; } };
+  app.timeouts.get(app.context.forecastExpiryTimer)();
+  assert.equal(app.context.frames.length, 0);
+  assert.equal(app.context.forecastExpiryTimer, null);
+  app.events.online();
+  assert.equal(calls, 2, 'no provider polling while hidden');
+  app.document.hidden = false;
+  app.events.visibilitychange();
+  assert.equal(calls, 4);
+  await settled();
+  app.context.pendingLayer.events.load();
+  assert.equal(app.node('status').textContent, '');
+});
+
+test('model run age schedules expiry before the metadata cache TTL', async () => {
+  const app = runtime();
+  await settled();
+  let clock = Date.UTC(2026, 8, 22, 23, 59), calls = 0;
+  app.context.Date = class extends Date { static now() { return clock; } };
+  app.context.fetch = async url => {
+    calls++;
+    const payload = JSON.parse(forecastPayload(app, url.includes('Icon-eu_') ? 'eu' : 'global'));
+    payload.Dimension[1].default = payload.Dimension[1].text = '2026-09-22T12:00:00.000Z';
+    return new Response(JSON.stringify(payload));
+  };
+  app.context.setMode('forecast');
+  await settled();
+  app.context.pendingLayer.events.load();
+  assert.equal(app.timeoutDelays.get(app.context.forecastExpiryTimer), 60001);
+  clock += 60001;
+  app.timeouts.get(app.context.forecastExpiryTimer)();
+  await settled();
+  assert.equal(calls, 4);
+  assert.equal(app.context.frames.length, 0, 'a still-old provider run fails closed after refresh');
+  assert.equal(app.context.forecastExpiryTimer, null);
+  assert.equal(app.node('status').textContent, app.context.FORECAST_TEXT[3]);
+});
+
+test('loading new tiles cannot erase a retained tile error on the same layer', async () => {
+  const app = runtime();
+  await settled();
+  const layer = app.context.pendingLayer;
+  layer.events.load();
+  layer.events.loading();
+  layer.events.tileerror();
+  layer.events.load();
+  assert.equal(layer.failed, true);
+  layer.events.loading();
+  layer.events.load();
+  assert.equal(layer.failed, true);
+  assert.equal(layer.ready, false);
+  assert.equal(app.node('status').textContent, app.context.TEXT.unavailable);
+  app.context.showFrame(app.context.frameIndex);
+  app.context.pendingLayer.events.load();
+  assert.equal(app.node('status').textContent, '');
 });
 
 test('bad host, stale frames and malformed paths never enable playback', async () => {
@@ -469,39 +607,23 @@ test('hung request aborts and exits loading with disabled controls', async () =>
   assert.equal(app.timeouts.size, 0);
 });
 
-test('forecast grid crosses the dateline locally and spaces rows in Web Mercator', () => {
+test('global frames use six-hour totals and every model covers at least the next 12 hours', () => {
   const app = runtime();
-  const grid = app.context.RadarForecast.grid(70, 179, 12, 12);
-  assert.equal(grid.points.length, 49);
-  assert.ok(grid.points.every(point => point.lon >= -180 && point.lon <= 180));
-  assert.ok(grid.east - grid.west <= 12);
-  const middle = grid.points[24].lat;
-  assert.ok(middle > (grid.south + grid.north) / 2);
-  assert.ok(grid.north <= 85);
-});
-
-test('forecast parser preserves hourly nulls and provides at least 12 hours ahead', () => {
-  const app = runtime();
-  const grid = app.context.RadarForecast.grid(50, 14, 6, 6);
-  const first = Math.floor(now / 3600) * 3600;
-  const payload = grid.points.map(point => ({
-    latitude: point.lat, longitude: point.lon, utc_offset_seconds: 0,
-    hourly_units: { time: 'unixtime', precipitation: 'mm' },
-    hourly: { time: Array.from({ length: 15 }, (_, i) => first + i * 3600),
-      precipitation: [0, null, ...Array(13).fill(1)] },
-  }));
-  const frames = app.context.RadarForecast.parse(payload, grid, now);
-  assert.equal(frames.length, 14);
-  assert.equal(frames[0].values[0], null);
-  assert.ok(frames.at(-1).time >= now + 12 * 3600);
-  payload[0].hourly_units.precipitation = 'inch';
-  assert.throws(() => app.context.RadarForecast.parse(payload, grid, now));
+  for (const key of ['eu', 'global']) {
+    const parsed = app.context.RadarForecast.parse(forecastPayload(app, key), key, now);
+    const step = key === 'eu' ? 3600 : 21600;
+    assert.ok(parsed.frames.length >= 3 && parsed.frames.length <= 15);
+    assert.ok(parsed.frames[0].time > now && parsed.frames[0].time <= now + step);
+    assert.ok(parsed.frames.at(-1).time >= now + 12 * 3600 + 600);
+    assert.ok(parsed.frames.every((frame, index) => frame.hours * 3600 === step &&
+      frame.time % step === 0 && (!index || frame.time === parsed.frames[index - 1].time + step)));
+  }
 });
 
 test('forecast timeline exposes its whole range and mode changes clear the old range', async () => {
   const app = runtime();
   await settled();
-  app.context.fetch = async () => ({ ok: true, json: async () => forecastPayload(app) });
+  app.context.fetch = async url => forecastResponse(app, url);
   app.context.setMode('forecast');
   await settled();
   app.context.pendingLayer.events.load();
@@ -515,16 +637,36 @@ test('forecast timeline exposes its whole range and mode changes clear the old r
   assert.equal(app.node('range-end').textContent, '—');
 });
 
-test('forecast labels distinguish a dry sample grid from missing values', async () => {
-  for (const [value, expected] of [[0, 'Below 0.1 mm at sampled forecast points'], [null, 'No forecast amounts available']]) {
-    const app = runtime();
-    await settled();
-    app.context.fetch = async () => ({ ok: true, json: async () => forecastPayload(app, value) });
-    app.context.setMode('forecast');
-    await settled();
-    app.context.pendingLayer.events.load();
-    assert.equal(app.node('frame-summary').textContent, expected);
-  }
+test('successful model metadata never reports tile failures as a dry forecast', async () => {
+  const app = runtime();
+  await settled();
+  app.context.fetch = async url => forecastResponse(app, url);
+  app.context.setMode('forecast');
+  await settled();
+  const layer = app.context.pendingLayer;
+  layer.events.tileerror();
+  layer.events.load();
+  assert.equal(app.context.radarLayer, null);
+  assert.equal(app.node('status').textContent, app.context.FORECAST_TEXT[3]);
+  assert.equal(app.node('time').textContent, '—');
+});
+
+test('a displayed forecast that hangs while panning leaves loading with an explicit failure', async () => {
+  const app = runtime();
+  await settled();
+  app.context.fetch = async url => forecastResponse(app, url);
+  app.context.setMode('forecast');
+  await settled();
+  const layer = app.context.pendingLayer;
+  layer.events.load();
+  layer.events.loading();
+  const timeout = [...app.timeouts].find(([id]) => app.timeoutDelays.get(id) === app.context.REQUEST_TIMEOUT_MS);
+  assert.ok(timeout, 'visible panned tiles need a deadline');
+  timeout[1]();
+  layer.events.load();
+  assert.equal(app.node('status').textContent, app.context.FORECAST_TEXT[3]);
+  app.context.refreshMap();
+  assert.notEqual(app.context.pendingLayer, layer);
 });
 
 test('radar timeline uses the selected location timezone and invalid zones fall back to UTC', () => {

@@ -6,11 +6,11 @@ import androidx.annotation.StringRes
 import cz.majkey.pocasicesko.R
 
 internal const val SUPPORT_URL = "https://www.buymeacoffee.com/majkey"
-internal const val OPEN_METEO_URL = "https://open-meteo.com/"
+internal const val WEATHER_DATA_URL = "https://majkey25.github.io/Selia-Weather/terms.html#data-sources"
 
 internal fun supportIntent(): Intent = Intent(Intent.ACTION_VIEW, Uri.parse(SUPPORT_URL))
 
-internal fun weatherDataIntent(): Intent = Intent(Intent.ACTION_VIEW, Uri.parse(OPEN_METEO_URL))
+internal fun weatherDataIntent(): Intent = Intent(Intent.ACTION_VIEW, Uri.parse(WEATHER_DATA_URL))
 
 enum class LegalPage(@param:StringRes val labelResource: Int, val path: String) {
     PRIVACY(R.string.legal_privacy, ""),

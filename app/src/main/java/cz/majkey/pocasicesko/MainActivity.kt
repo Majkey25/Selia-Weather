@@ -12,6 +12,7 @@ import cz.majkey.pocasicesko.locale.AppLocale
 import cz.majkey.pocasicesko.monetization.AdsController
 import cz.majkey.pocasicesko.monetization.PremiumBillingController
 import cz.majkey.pocasicesko.ui.WeatherApp
+import cz.majkey.pocasicesko.notification.OfficialWarningNotifications
 
 class MainActivity : ComponentActivity() {
     private var adsController: AdsController? = null
@@ -37,6 +38,7 @@ class MainActivity : ComponentActivity() {
                 premiumBillingController = premiumBillingController,
                 paymentsEnabled = BuildConfig.PAYMENTS_ENABLED,
                 onLanguage = { tag -> AppLocale.set(this, tag) },
+                initialWarnings = intent.getBooleanExtra(OfficialWarningNotifications.EXTRA_SHOW_WARNINGS, false),
             )
         }
         premiumBillingController?.start()

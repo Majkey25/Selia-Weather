@@ -26,6 +26,13 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 
 internal object DailyBriefingScheduler {
+    fun ensureChannel(context: Context) {
+        context.getSystemService(NotificationManager::class.java).createNotificationChannel(
+            NotificationChannel(CHANNEL_ID, AppLocale.localized(context).getString(R.string.daily_briefing_channel),
+                NotificationManager.IMPORTANCE_DEFAULT),
+        )
+    }
+
     fun isEnabled(context: Context): Boolean = preferences(context).getBoolean(
         KEY_ENABLED,
         DEFAULT_DAILY_BRIEFING_ENABLED,
@@ -109,7 +116,7 @@ class DailyBriefingReceiver : BroadcastReceiver() {
         val today = LocalDate.now(ZoneId.of(snapshot.timezone)).toString()
         val day = snapshot.daily.firstOrNull { it.date == today } ?: return false
         val localized = AppLocale.localized(context)
-        createChannel(localized)
+        DailyBriefingScheduler.ensureChannel(localized)
         NotificationManagerCompat.from(context).notify(
             DailyBriefingScheduler.NOTIFICATION_ID,
             notification(localized, location.name, day).build(),
@@ -157,16 +164,6 @@ class DailyBriefingReceiver : BroadcastReceiver() {
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
     }
 
-    private fun createChannel(context: Context) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        context.getSystemService(NotificationManager::class.java).createNotificationChannel(
-            NotificationChannel(
-                CHANNEL_ID,
-                context.getString(R.string.daily_briefing_channel),
-                NotificationManager.IMPORTANCE_DEFAULT,
-            ),
-        )
-    }
 }
 
 private fun OutfitLevel.resource(): Int = when (this) {

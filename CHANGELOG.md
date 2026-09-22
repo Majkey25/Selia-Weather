@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.0] - 2026-09-23
+
+- Replace sampled future-map interpolation with official DWD precipitation grids: hourly ICON-EU in Europe and six-hour ICON elsewhere. Keep observed radar separate, preload animation frames, refresh expired runs, and show explicit tile failures.
+- Show four days initially, with an option to expand the full forecast. Move weather details and history below the daily overview.
+- Use shorter hourly summaries for rain, snow, wind, visibility and UV. Keep technical model disagreement inside the precipitation explanation. Add total cloud cover and preserve unavailable feels-like values.
+- Add configurable rain, cold, temperature-drop, heat, wind and UV advice with separate Android notification channels. Keep morning briefing optional.
+- Add official ČHMÚ warnings matched through ČÚZK administrative areas and NWS point warnings in the US. Unsupported sources remain explicit; the app is not an emergency-alert service.
+- Fix offset timestamp parsing on Android 10 for station observations, warning feeds and calibration data. Preserve forecast validation gates; no new accuracy claim or unvalidated model weights.
+
 ## [0.2.0-beta.24] - 2026-09-12
 
 - Add inner spacing and wrapping to highlighted hourly rows, keeping text away from rounded edges and allowing the time column to grow with text size.

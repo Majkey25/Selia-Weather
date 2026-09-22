@@ -100,6 +100,7 @@ data class HourlyWeather(
     val soilMoisture0To1Cm: Double? = null,
     val showers: Double? = null,
     val precipitationSpread: PrecipitationModelSpread? = null,
+    val cloudCover: Int? = null,
 )
 
 data class DailyWeather(

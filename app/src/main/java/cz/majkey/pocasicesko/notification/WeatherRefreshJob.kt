@@ -9,6 +9,9 @@ import android.content.ComponentName
 import android.content.Context
 import android.util.Log
 import cz.majkey.pocasicesko.data.WeatherRepository
+import cz.majkey.pocasicesko.data.WeatherWarningsRepository
+import cz.majkey.pocasicesko.locale.AppLocale
+import kotlinx.coroutines.runBlocking
 import cz.majkey.pocasicesko.widget.WeatherWidgetProvider
 import java.time.LocalDate
 import java.util.concurrent.ArrayBlockingQueue
@@ -53,7 +56,7 @@ internal object WeatherRefreshScheduler {
     private fun preferences(context: Context) = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
 }
 
-class WeatherRefreshJob : JobService() {
+open class WeatherRefreshJob : JobService() {
     private val worker = ThreadPoolExecutor(
         1, 1, 0L, TimeUnit.MILLISECONDS, ArrayBlockingQueue(1), ThreadPoolExecutor.DiscardOldestPolicy(),
     )
@@ -64,20 +67,34 @@ class WeatherRefreshJob : JobService() {
         val briefingDay = WeatherRefreshScheduler.pendingBriefing(this)
         val hasWidgets = AppWidgetManager.getInstance(this)
             .getAppWidgetIds(ComponentName(this, WeatherWidgetProvider::class.java)).isNotEmpty()
-        if (!hasWidgets && briefingDay == null) return false
+        val checkAlerts = WeatherAlertScheduler.enabled(this)
+        val settings = WeatherAlertSettings.load(this)
+        val checkForecast = hasWidgets || briefingDay != null || (checkAlerts && WeatherAlertCategory.entries.any {
+            it != WeatherAlertCategory.OFFICIAL && settings.isEnabled(it) && WeatherAlerts.canPost(this, it.channelId)
+        })
+        if (!hasWidgets && briefingDay == null && !checkAlerts) return false
         val run = ++generation
         task = worker.submit {
             var retry = false
             try {
-                val repository = WeatherRepository(applicationContext)
-                val location = repository.lastLocation()
-                repository.fetchForecastBlocking(location)
-                if (run == generation && !Thread.currentThread().isInterrupted) {
-                    if (location != repository.lastLocation()) {
-                        retry = true
-                    } else WeatherRefreshScheduler.pendingBriefing(this)?.let { day ->
-                        if (DailyBriefingReceiver().showBriefing(this)) {
-                            WeatherRefreshScheduler.deliveredBriefing(this, day)
+                if (checkForecast) {
+                    val repository = WeatherRepository(applicationContext)
+                    val location = repository.lastLocation()
+                    val cached = repository.cachedForecast(location)
+                    val snapshot = if (params.jobId == WeatherAlertScheduler.JOB_ID && cached != null &&
+                        System.currentTimeMillis() - cached.updatedAtEpochMillis in 0 until TimeUnit.HOURS.toMillis(1)) {
+                        cached
+                    } else repository.fetchForecastBlocking(location)
+                    if (run == generation && !Thread.currentThread().isInterrupted) {
+                        if (location != repository.lastLocation()) {
+                            retry = true
+                        } else {
+                            if (checkAlerts) WeatherAlerts.evaluateAndNotify(this, location, snapshot)
+                            WeatherRefreshScheduler.pendingBriefing(this)?.let { day ->
+                                if (DailyBriefingReceiver().showBriefing(this)) {
+                                    WeatherRefreshScheduler.deliveredBriefing(this, day)
+                                }
+                            }
                         }
                     }
                 }
@@ -87,6 +104,20 @@ class WeatherRefreshJob : JobService() {
                     retry = true
                 }
             } finally {
+                // Warning checks must still run when the independent forecast provider is down.
+                if (checkAlerts && run == generation && !Thread.currentThread().isInterrupted &&
+                    WeatherAlertSettings.load(this).officialWarningsEnabled) {
+                    try {
+                        val repository = WeatherRepository(applicationContext)
+                        val location = repository.lastLocation()
+                        val result = runBlocking { WeatherWarningsRepository(applicationContext).fetch(location, AppLocale.languageTag(this@WeatherRefreshJob)) }
+                        if (run == generation && !Thread.currentThread().isInterrupted && location == repository.lastLocation()) {
+                            OfficialWarningNotifications.publish(this, location, result)
+                        }
+                    } catch (error: Exception) {
+                        if (run == generation && !Thread.currentThread().isInterrupted) Log.w("WeatherWarnings", "Warning check failed", error)
+                    }
+                }
                 if (run == generation && !Thread.currentThread().isInterrupted) jobFinished(params, retry)
             }
         }
@@ -108,3 +139,6 @@ class WeatherRefreshJob : JobService() {
 }
 
 internal fun isPendingBriefingForToday(day: String?, today: LocalDate): Boolean = day == today.toString()
+
+// Android can run two job IDs in one service concurrently. A separate component isolates their lifecycle state.
+class WeatherAlertJob : WeatherRefreshJob()

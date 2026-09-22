@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="warnings_title">Avisos meteorológicos</string>
+    <string name="warnings_not_checked">Consultar avisos oficiales</string>
+    <string name="warnings_none_short">Sin avisos vigentes</string>
+    <string name="warnings_unavailable_short">No se pudieron verificar los avisos</string>
+    <string name="warnings_unsupported_short">Aún no disponible aquí</string>
+    <string name="warnings_none">No hay avisos oficiales vigentes para esta ubicación.</string>
+    <string name="warnings_unavailable">No se pudieron verificar los avisos oficiales para esta ubicación. Consulte la fuente oficial.</string>
+    <string name="warnings_unsupported">La aplicación aún no admite avisos oficiales para esta ubicación. Abra el directorio de fuentes oficiales.</string>
+    <string name="warnings_loading">Consultando avisos oficiales…</string>
+    <string name="warnings_official_sources">Fuentes oficiales</string>
+    <string name="warnings_checked">Comprobado: %1$s</string>
+    <string name="warnings_refresh">Actualizar avisos</string>
+    <string name="warnings_open_source">Abrir fuente oficial</string>
+    <string name="warnings_open_warning">Abrir aviso oficial</string>
+    <string name="warnings_show_details">Mostrar detalles del aviso</string>
+    <string name="warnings_hide_details">Ocultar detalles del aviso</string>
+    <string name="warnings_issuer_advice">Recomendaciones de la autoridad emisora</string>
+    <string name="warnings_from">Desde %1$s</string>
+    <string name="warnings_until">Hasta %1$s</string>
+    <string name="warnings_severity_unknown">Gravedad no indicada</string>
+    <string name="warnings_severity_minor">Leve</string>
+    <string name="warnings_severity_moderate">Moderada</string>
+    <string name="warnings_severity_severe">Grave</string>
+    <string name="warnings_severity_extreme">Extrema</string>
+    <plurals name="warnings_count">
+        <item quantity="one">%d aviso vigente</item>
+        <item quantity="many">%d avisos vigentes</item>
+        <item quantity="other">%d avisos vigentes</item>
+    </plurals>
+</resources>

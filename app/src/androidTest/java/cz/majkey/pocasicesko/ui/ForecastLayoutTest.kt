@@ -2,8 +2,11 @@ package cz.majkey.pocasicesko.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
@@ -29,6 +32,8 @@ import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.data.DailyWeather
 import cz.majkey.pocasicesko.data.HourlyWeather
 import cz.majkey.pocasicesko.data.PrecipitationModelSpread
+import cz.majkey.pocasicesko.notification.WeatherAlertCategory
+import cz.majkey.pocasicesko.notification.WeatherAlertSettings
 import cz.majkey.pocasicesko.units.MeasurementSystem
 import cz.majkey.pocasicesko.units.WeatherUnitFormatter
 import java.time.LocalDateTime
@@ -48,6 +53,61 @@ class ForecastLayoutTest {
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
     private val day = DailyWeather("2026-09-12", 95, 22.0, 12.0, "06:00", "18:00", 123.4, 85, 123.0,
         apparentTemperatureMin = 9.0, apparentTemperatureMax = 23.0)
+
+    @Test
+    fun notificationCategoriesToggleIndependentlyAndShowSystemBlocking() {
+        val settings = mutableStateOf(WeatherAlertSettings())
+        var openedChannel: String? = null
+        var permissionRequests = 0
+        compose.setContent {
+            WeatherTheme {
+                NotificationSettingsSheet(settings.value, MeasurementSystem.METRIC,
+                    dailyBriefingEnabled = false, notificationsAllowed = false,
+                    onSettingsChange = { settings.value = it }, onDailyBriefingChange = {},
+                    onRequestPermission = { permissionRequests++ },
+                    onChannelSettings = { openedChannel = it }, onDismiss = {},
+                    blockedChannels = setOf(WeatherAlertCategory.RAIN.channelId))
+            }
+        }
+        compose.onNodeWithText(context.getString(R.string.notification_enable)).performTouchInput { click() }
+        assertEquals(1, permissionRequests)
+        compose.onNodeWithText(context.getString(R.string.notification_channel_blocked), substring = true)
+            .performScrollTo().assertIsDisplayed()
+        val rainLabel = context.getString(WeatherAlertCategory.RAIN.labelResource)
+        compose.onNodeWithContentDescription(context.getString(R.string.notification_channel_settings, rainLabel))
+            .performScrollTo().performTouchInput { click() }
+        assertEquals(WeatherAlertCategory.RAIN.channelId, openedChannel)
+        assertTrue(settings.value.rainEnabled)
+        compose.onNodeWithText(rainLabel).performTouchInput { click() }
+        assertFalse(settings.value.rainEnabled)
+        assertTrue(settings.value.officialWarningsEnabled)
+        val coldLabel = context.getString(WeatherAlertCategory.COLD.labelResource)
+        compose.onNodeWithText(coldLabel).performScrollTo().performTouchInput { click() }
+        assertTrue(settings.value.coldEnabled)
+        compose.onNodeWithText(context.getString(R.string.notification_at_or_below, units.temperature(5.0)))
+            .performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun dailyOverviewStartsWithFourDaysAndExpandsWithoutChangingDayIndices() {
+        val days = (0..13).map { day.copy(date = LocalDate.parse(day.date).plusDays(it.toLong()).toString()) }
+        var selected = -1
+        compose.setContent {
+            WeatherTheme {
+                Box(Modifier.width(320.dp).verticalScroll(rememberScrollState())) {
+                    DailyForecastPanel(days, units, day.date, onDayClick = { selected = it })
+                }
+            }
+        }
+        val format = DateTimeFormatter.ofPattern("d MMM", context.resources.configuration.locales[0])
+        val fifth = LocalDate.parse(days[4].date).format(format)
+        compose.onNodeWithText(fifth).assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.forecast_expand, 14)).performScrollTo().performTouchInput { click() }
+        compose.onNodeWithText(fifth).performScrollTo().performTouchInput { click() }
+        assertEquals(4, selected)
+        compose.onNodeWithText(context.getString(R.string.forecast_collapse)).performScrollTo().performTouchInput { click() }
+        compose.onNodeWithText(fifth).assertDoesNotExist()
+    }
 
     @Test
     fun leftSwipeOpensFutureAndRightSwipeOpensPast() {
@@ -93,7 +153,7 @@ class ForecastLayoutTest {
                     precipitationSpread = PrecipitationModelSpread(9, 1, 0.0, 0.2)), units, Locale.ENGLISH)
             }
         }
-        compose.onNodeWithText(context.getString(R.string.hourly_model_disagreement, 1, 9, "0.2 mm")).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.hour_summary_uncertain)).assertIsDisplayed()
     }
 
     @Test

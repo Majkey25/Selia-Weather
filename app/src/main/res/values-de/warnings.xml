@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="warnings_title">Wetterwarnungen</string>
+    <string name="warnings_not_checked">Amtliche Warnungen prüfen</string>
+    <string name="warnings_none_short">Keine aktuellen Warnungen</string>
+    <string name="warnings_unavailable_short">Warnungen nicht verifizierbar</string>
+    <string name="warnings_unsupported_short">Hier noch nicht unterstützt</string>
+    <string name="warnings_none">Für diesen Ort liegen derzeit keine amtlichen Warnungen vor.</string>
+    <string name="warnings_unavailable">Amtliche Warnungen für diesen Ort konnten nicht verifiziert werden. Prüfen Sie die amtliche Quelle.</string>
+    <string name="warnings_unsupported">Die App unterstützt amtliche Warnungen für diesen Ort noch nicht. Öffnen Sie das Verzeichnis amtlicher Quellen.</string>
+    <string name="warnings_loading">Amtliche Warnungen werden geprüft…</string>
+    <string name="warnings_official_sources">Amtliche Quellen</string>
+    <string name="warnings_checked">Geprüft: %1$s</string>
+    <string name="warnings_refresh">Warnungen aktualisieren</string>
+    <string name="warnings_open_source">Amtliche Quelle öffnen</string>
+    <string name="warnings_open_warning">Amtliche Warnung öffnen</string>
+    <string name="warnings_show_details">Warndetails anzeigen</string>
+    <string name="warnings_hide_details">Warndetails ausblenden</string>
+    <string name="warnings_issuer_advice">Empfehlungen der herausgebenden Behörde</string>
+    <string name="warnings_from">Ab %1$s</string>
+    <string name="warnings_until">Bis %1$s</string>
+    <string name="warnings_severity_unknown">Schweregrad nicht angegeben</string>
+    <string name="warnings_severity_minor">Gering</string>
+    <string name="warnings_severity_moderate">Mäßig</string>
+    <string name="warnings_severity_severe">Schwer</string>
+    <string name="warnings_severity_extreme">Extrem</string>
+    <plurals name="warnings_count">
+        <item quantity="one">%d aktuelle Warnung</item>
+        <item quantity="other">%d aktuelle Warnungen</item>
+    </plurals>
+</resources>

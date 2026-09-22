@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notification_channel_blocked">In den Android-Einstellungen deaktiviert</string>
+    <string name="notifications">Benachrichtigungen</string>
+    <string name="notification_settings_summary">Hinweise für den zuletzt gewählten Ort. Android kann die Zustellung verzögern.</string>
+    <string name="notification_permission_summary">Android blockiert Benachrichtigungen. Ihre Einstellungen bleiben gespeichert.</string>
+    <string name="notification_enable">Benachrichtigungen erlauben</string>
+    <string name="notification_channel_settings">Android-Einstellungen für %1$s</string>
+    <string name="notification_rain">Regen und Regenschirm</string>
+    <string name="notification_cold">Kälte</string>
+    <string name="notification_drop">Temperaturabfall</string>
+    <string name="notification_heat">Hitze</string>
+    <string name="notification_wind">Starker Wind</string>
+    <string name="notification_uv">UV-Schutz</string>
+    <string name="notification_official">Amtliche Warnungen</string>
+    <string name="notification_rain_summary">Regenschirmhinweis bei möglichem Regen oder Schnee.</string>
+    <string name="notification_cold_summary">Die vorhergesagte Temperatur erreicht Ihre Kältegrenze.</string>
+    <string name="notification_drop_summary">Die vorhergesagte Temperatur fällt innerhalb von sechs Stunden.</string>
+    <string name="notification_heat_summary">Die vorhergesagte Temperatur erreicht Ihre Hitzegrenze.</string>
+    <string name="notification_wind_summary">Wind oder Böen erreichen Ihren Grenzwert.</string>
+    <string name="notification_uv_summary">UV-Hinweise bei verfügbarem vorhergesagtem UV-Index.</string>
+    <string name="notification_official_summary">Warnungen unterstützter amtlicher Dienste für diesen Ort. Die Abdeckung hängt vom Land ab.</string>
+    <string name="notification_at_or_below">Höchstens %1$s</string>
+    <string name="notification_at_or_above">Mindestens %1$s</string>
+    <string name="notification_drop_threshold">Abfall um mindestens %1$s innerhalb von sechs Stunden</string>
+    <string name="notification_uv_threshold">UV-Index mindestens %1$d</string>
+    <string name="notification_look_ahead">Prognosehinweise für die nächsten %1$d Std.</string>
+    <string name="notification_location_title">%1$s · %2$s</string>
+    <string name="notification_rain_advice">In der Stunde ab %1$s sind Regen oder Schnee möglich. Regenschirm oder wetterfeste Kleidung mitnehmen.</string>
+    <string name="notification_cold_advice">Gegen %1$s werden %2$s erwartet. Warme Kleidung mitnehmen.</string>
+    <string name="notification_drop_advice">Bis %1$s wird innerhalb von sechs Stunden ein Abfall um etwa %2$s erwartet. Eine zusätzliche Schicht mitnehmen.</string>
+    <string name="notification_heat_advice">Gegen %1$s werden %2$s erwartet. Wasser mitnehmen und Schatten suchen.</string>
+    <string name="notification_wind_advice">Gegen %1$s werden Wind oder Böen um %2$s erwartet. Lose Gegenstände sichern.</string>
+    <string name="notification_uv_advice">Gegen %1$s wird UV-Index %2$d erwartet. Sonnenschutz verwenden.</string>
+</resources>

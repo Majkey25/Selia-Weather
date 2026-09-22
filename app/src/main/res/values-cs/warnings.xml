@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="warnings_title">Výstrahy počasí</string>
+    <string name="warnings_not_checked">Ověřit oficiální výstrahy</string>
+    <string name="warnings_none_short">Bez aktuálních výstrah</string>
+    <string name="warnings_unavailable_short">Výstrahy se nepodařilo ověřit</string>
+    <string name="warnings_unsupported_short">Pro toto místo zatím bez podpory</string>
+    <string name="warnings_none">Pro toto místo nejsou aktuálně vydány oficiální výstrahy.</string>
+    <string name="warnings_unavailable">Oficiální výstrahy pro toto místo se nepodařilo ověřit. Zkontrolujte oficiální zdroj.</string>
+    <string name="warnings_unsupported">Aplikace zatím nepodporuje oficiální výstrahy pro toto místo. Otevřete přehled oficiálních zdrojů.</string>
+    <string name="warnings_loading">Ověřování oficiálních výstrah…</string>
+    <string name="warnings_official_sources">Oficiální zdroje</string>
+    <string name="warnings_checked">Ověřeno %1$s</string>
+    <string name="warnings_refresh">Obnovit výstrahy</string>
+    <string name="warnings_open_source">Otevřít oficiální zdroj</string>
+    <string name="warnings_open_warning">Otevřít oficiální výstrahu</string>
+    <string name="warnings_show_details">Zobrazit podrobnosti výstrahy</string>
+    <string name="warnings_hide_details">Skrýt podrobnosti výstrahy</string>
+    <string name="warnings_issuer_advice">Doporučení vydávající instituce</string>
+    <string name="warnings_from">Od %1$s</string>
+    <string name="warnings_until">Do %1$s</string>
+    <string name="warnings_severity_unknown">Závažnost neuvedena</string>
+    <string name="warnings_severity_minor">Nízká závažnost</string>
+    <string name="warnings_severity_moderate">Střední závažnost</string>
+    <string name="warnings_severity_severe">Vysoká závažnost</string>
+    <string name="warnings_severity_extreme">Extrémní závažnost</string>
+    <plurals name="warnings_count">
+        <item quantity="one">%d aktuální výstraha</item>
+        <item quantity="few">%d aktuální výstrahy</item>
+        <item quantity="many">%d aktuálních výstrah</item>
+        <item quantity="other">%d aktuálních výstrah</item>
+    </plurals>
+</resources>

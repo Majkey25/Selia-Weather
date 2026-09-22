@@ -73,9 +73,11 @@ class WeatherChromeTest {
         assertTrue(settings.contains("selected = system == selectedMeasurementSystem"))
         assertTrue(settings.contains("selected = language.tag == selectedTag"))
         assertTrue(settings.contains("role = Role.RadioButton"))
-        assertTrue(settings.contains(".toggleable(value = dailyBriefingEnabled, role = Role.Switch"))
-        val briefingSwitch = settings.substringAfter("checked = dailyBriefingEnabled").substringBefore("modifier = Modifier")
-        assertTrue(briefingSwitch.contains("onCheckedChange = null"))
+        assertTrue(settings.contains("onNotifications"))
+        val notifications = source("NotificationSettingsSheet.kt")
+        assertTrue(notifications.contains("enabled = dailyBriefingEnabled"))
+        assertTrue(notifications.contains(".toggleable(value = enabled, role = Role.Switch"))
+        assertTrue(notifications.contains("Switch(checked = enabled, onCheckedChange = null)"))
     }
 
     private fun source(name: String): String = File(

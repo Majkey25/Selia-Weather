@@ -5,7 +5,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,7 +24,6 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -51,7 +49,6 @@ import cz.majkey.pocasicesko.units.MeasurementSystem
 fun SettingsSheet(
     selectedTag: String,
     selectedMeasurementSystem: MeasurementSystem,
-    dailyBriefingEnabled: Boolean,
     entitlement: EntitlementState,
     premiumOffers: List<PremiumOffer>,
     billingMessage: BillingMessage,
@@ -60,7 +57,7 @@ fun SettingsSheet(
     widgetIds: List<Int>,
     onLanguage: (String) -> Unit,
     onMeasurementSystem: (MeasurementSystem) -> Unit,
-    onDailyBriefingChange: (Boolean) -> Unit,
+    onNotifications: () -> Unit,
     onAddWidget: () -> Unit,
     onEditWidget: (Int) -> Unit,
     onWeatherDataAttribution: () -> Unit,
@@ -137,17 +134,11 @@ fun SettingsSheet(
                 )
             }
             ListItem(
-                headlineContent = { Text(stringResource(R.string.daily_briefing)) },
-                supportingContent = { Text(stringResource(R.string.daily_briefing_summary)) },
-                trailingContent = {
-                    Switch(
-                        checked = dailyBriefingEnabled,
-                        onCheckedChange = null,
-                    )
-                },
+                headlineContent = { Text(stringResource(R.string.notifications)) },
+                supportingContent = { Text(stringResource(R.string.notification_settings_summary)) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .toggleable(value = dailyBriefingEnabled, role = Role.Switch, onValueChange = onDailyBriefingChange),
+                    .clickable(onClick = onNotifications),
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             )
             Text(

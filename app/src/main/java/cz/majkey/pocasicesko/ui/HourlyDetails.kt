@@ -24,6 +24,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -90,6 +91,7 @@ internal enum class HourMetricKind {
     WIND_GUSTS,
     PRESSURE,
     SURFACE_PRESSURE,
+    CLOUD_COVER,
     LOW_CLOUDS,
     MIDDLE_CLOUDS,
     HIGH_CLOUDS,
@@ -110,10 +112,11 @@ internal enum class HourMetricKind {
 
 internal fun availableHourMetricKinds(hour: HourlyWeather, precipitationHour: HourlyWeather? = hour): List<HourMetricKind> = buildList {
     add(HourMetricKind.TEMPERATURE)
-    add(HourMetricKind.FEELS_LIKE)
+    if (hour.apparentTemperature != null) add(HourMetricKind.FEELS_LIKE)
     if (hour.dewPoint != null) add(HourMetricKind.DEW_POINT)
     if (hour.wetBulbTemperature != null) add(HourMetricKind.WET_BULB)
     add(HourMetricKind.PRECIPITATION)
+    if (precipitationHour != null) add(HourMetricKind.PRECIPITATION_PROBABILITY)
     if (precipitationHour?.rain != null) add(HourMetricKind.RAIN)
     if (precipitationHour?.showers != null) add(HourMetricKind.SHOWERS)
     if (precipitationHour?.snowfall != null) add(HourMetricKind.SNOWFALL)
@@ -123,6 +126,7 @@ internal fun availableHourMetricKinds(hour: HourlyWeather, precipitationHour: Ho
     if (hour.windGusts != null) add(HourMetricKind.WIND_GUSTS)
     add(HourMetricKind.PRESSURE)
     if (hour.surfacePressure != null) add(HourMetricKind.SURFACE_PRESSURE)
+    if (hour.cloudCover != null) add(HourMetricKind.CLOUD_COVER)
     if (hour.cloudCoverLow != null) add(HourMetricKind.LOW_CLOUDS)
     if (hour.cloudCoverMid != null) add(HourMetricKind.MIDDLE_CLOUDS)
     if (hour.cloudCoverHigh != null) add(HourMetricKind.HIGH_CLOUDS)
@@ -136,7 +140,7 @@ internal fun availableHourMetricKinds(hour: HourlyWeather, precipitationHour: Ho
     if (hour.cape != null) add(HourMetricKind.CAPE)
     if (hour.vapourPressureDeficit != null) add(HourMetricKind.VAPOUR_PRESSURE_DEFICIT)
     if (hour.surfaceTemperature != null) add(HourMetricKind.SURFACE_TEMPERATURE)
-    if (hour.et0 != null) add(HourMetricKind.ET0)
+    if (precipitationHour?.et0 != null) add(HourMetricKind.ET0)
     if (hour.soilTemperature0Cm != null) add(HourMetricKind.SOIL_TEMPERATURE)
     if (hour.soilMoisture0To1Cm != null) add(HourMetricKind.SOIL_MOISTURE)
 }
@@ -167,8 +171,8 @@ internal enum class HourlyHighlight {
     RAIN, SNOW, MIXED, FREEZING, PRECIPITATION, MODEL_DISAGREEMENT, WIND, VISIBILITY, FEELS_LIKE, UV, CONDITIONS,
 }
 
-internal fun hourlyHighlight(hour: HourlyWeather, precipitationHour: HourlyWeather = hour): HourlyHighlight = when {
-    hourlyRainLevel(precipitationHour, hour.weatherCode) != HourlyRainLevel.NONE -> when {
+internal fun hourlyHighlight(hour: HourlyWeather, precipitationHour: HourlyWeather? = hour): HourlyHighlight = when {
+    precipitationHour != null && hourlyRainLevel(precipitationHour, hour.weatherCode) != HourlyRainLevel.NONE -> when {
         hour.weatherCode in listOf(56, 57, 66, 67) -> HourlyHighlight.FREEZING
         (precipitationHour.snowfall ?: 0.0) > 0.0 && (precipitationHour.rain ?: 0.0) + (precipitationHour.showers ?: 0.0) > 0.0 ->
             HourlyHighlight.MIXED
@@ -184,7 +188,7 @@ internal fun hourlyHighlight(hour: HourlyWeather, precipitationHour: HourlyWeath
     hour.apparentTemperature?.let { it <= 0.0 || it >= 30.0 || kotlin.math.abs(it - hour.temperature) >= 5.0 } == true ->
         HourlyHighlight.FEELS_LIKE
     hour.isDay && (hour.uvIndex ?: 0.0) >= 3.0 -> HourlyHighlight.UV
-    (precipitationHour.precipitationSpread?.wetModelCount ?: 0) > 0 -> HourlyHighlight.MODEL_DISAGREEMENT
+    (precipitationHour?.precipitationSpread?.wetModelCount ?: 0) > 0 -> HourlyHighlight.MODEL_DISAGREEMENT
     else -> HourlyHighlight.CONDITIONS
 }
 
@@ -196,6 +200,7 @@ internal fun ExpandedHourDetails(
     locale: Locale,
     modifier: Modifier = Modifier,
 ) {
+    val resources = LocalContext.current.resources
     var showPrecipitationHelp by rememberSaveable(hour.time) { mutableStateOf(false) }
     var showAdvanced by rememberSaveable(hour.time) { mutableStateOf(false) }
     val helpExpansionState = stringResource(
@@ -211,7 +216,7 @@ internal fun ExpandedHourDetails(
             )
             HourMetricKind.FEELS_LIKE -> HourMetric(
                 stringResource(R.string.feels_like),
-                units.temperature(hourlyApparentTemperature(hour)),
+                hour.apparentTemperature?.let(units::temperature) ?: stringResource(R.string.unavailable),
             )
             HourMetricKind.DEW_POINT -> HourMetric(
                 stringResource(R.string.dew_point),
@@ -267,6 +272,10 @@ internal fun ExpandedHourDetails(
                 stringResource(R.string.surface_pressure),
                 units.pressure(requireNotNull(hour.surfacePressure)),
             )
+            HourMetricKind.CLOUD_COVER -> HourMetric(
+                stringResource(R.string.cloud_cover),
+                "${requireNotNull(hour.cloudCover)} %",
+            )
             HourMetricKind.LOW_CLOUDS -> HourMetric(
                 stringResource(R.string.low_clouds),
                 "${requireNotNull(hour.cloudCoverLow)} %",
@@ -321,7 +330,7 @@ internal fun ExpandedHourDetails(
             )
             HourMetricKind.ET0 -> HourMetric(
                 stringResource(R.string.et0_evapotranspiration),
-                units.precipitation(requireNotNull(hour.et0)),
+                units.precipitation(requireNotNull(precipitationHour?.et0)),
             )
             HourMetricKind.SOIL_TEMPERATURE -> HourMetric(
                 stringResource(R.string.soil_temperature),
@@ -347,27 +356,12 @@ internal fun ExpandedHourDetails(
             shape = RoundedCornerShape(16.dp),
         ) {
             Text(
-                text = hourlyWeatherSummary(hour, units, precipitationHour),
+                text = hourlyWeatherSummary(hour, units, precipitationHour, locale, resources::getString),
                 color = Color(0xFFB9ECF5),
                 fontSize = 12.sp,
                 lineHeight = 18.sp,
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            )
-        }
-        precipitationHour?.precipitationSpread?.let { spread ->
-            val minimum = units.precipitation(spread.minimumMm)
-            val maximum = units.precipitation(spread.maximumMm)
-            Text(
-                stringResource(
-                    R.string.hourly_precipitation_models,
-                    spread.wetModelCount,
-                    spread.modelCount,
-                    if (minimum == maximum) minimum else "$minimum – $maximum",
-                ),
-                color = Color.White.copy(alpha = 0.82f),
-                fontSize = 12.sp,
-                lineHeight = 18.sp,
             )
         }
         TextButton(
@@ -379,6 +373,17 @@ internal fun ExpandedHourDetails(
             Text(stringResource(R.string.precipitation_help), fontSize = 12.sp, lineHeight = 18.sp)
         }
         if (showPrecipitationHelp) {
+            precipitationHour?.precipitationSpread?.let { spread ->
+                val minimum = units.precipitation(spread.minimumMm)
+                val maximum = units.precipitation(spread.maximumMm)
+                Text(
+                    stringResource(R.string.hourly_precipitation_models, spread.wetModelCount,
+                        spread.modelCount, if (minimum == maximum) minimum else "$minimum – $maximum"),
+                    color = Color.White.copy(alpha = 0.82f),
+                    fontSize = 12.sp,
+                    lineHeight = 18.sp,
+                )
+            }
             Text(
                 stringResource(R.string.precipitation_probability_note),
                 color = Color.White.copy(alpha = 0.7f),
@@ -401,86 +406,73 @@ internal fun ExpandedHourDetails(
     }
 }
 
-@Composable
-private fun hourlyWeatherSummary(hour: HourlyWeather, units: WeatherUnitFormatter, precipitationHour: HourlyWeather?): String {
-    if (precipitationHour == null) return stringResource(R.string.hourly_precipitation_unavailable)
-    val amount = units.precipitation(precipitationHour.precipitation)
+internal fun hourlyWeatherSummary(
+    hour: HourlyWeather,
+    units: WeatherUnitFormatter,
+    precipitationHour: HourlyWeather?,
+    locale: Locale,
+    resourceText: (Int) -> String,
+): String {
+    fun text(resource: Int, vararg arguments: Any): String =
+        String.format(locale, resourceText(resource), *arguments)
+
     val highlight = hourlyHighlight(hour, precipitationHour)
-    when (highlight) {
-        HourlyHighlight.MODEL_DISAGREEMENT -> {
-            val spread = requireNotNull(precipitationHour.precipitationSpread)
-            return stringResource(R.string.hourly_model_disagreement, spread.wetModelCount,
-                spread.modelCount, units.precipitation(spread.maximumMm))
-        }
-        HourlyHighlight.SNOW, HourlyHighlight.MIXED, HourlyHighlight.FREEZING, HourlyHighlight.PRECIPITATION -> {
-            val resource = when (highlight) {
-                HourlyHighlight.SNOW -> R.string.hourly_snow_summary
-                HourlyHighlight.MIXED -> R.string.hourly_mixed_summary
-                HourlyHighlight.FREEZING -> R.string.hourly_freezing_summary
-                else -> R.string.hourly_precipitation_summary
+    val summary = when (highlight) {
+        HourlyHighlight.MODEL_DISAGREEMENT -> text(R.string.hour_summary_uncertain)
+        HourlyHighlight.RAIN, HourlyHighlight.SNOW, HourlyHighlight.MIXED,
+        HourlyHighlight.FREEZING, HourlyHighlight.PRECIPITATION -> {
+            val precipitation = requireNotNull(precipitationHour)
+            val resource = when {
+                highlight == HourlyHighlight.FREEZING -> R.string.hour_summary_freezing
+                hour.weatherCode in 95..99 -> R.string.hour_summary_storm
+                highlight == HourlyHighlight.SNOW -> R.string.hour_summary_snow
+                highlight == HourlyHighlight.MIXED -> R.string.hour_summary_mixed
+                highlight == HourlyHighlight.RAIN && hourlyRainLevel(precipitation, hour.weatherCode) == HourlyRainLevel.HEAVY ->
+                    R.string.hour_summary_heavy
+                highlight == HourlyHighlight.RAIN -> R.string.hour_summary_rain
+                else -> R.string.hour_summary_precipitation
             }
-            val summary = stringResource(resource, amount, precipitationHour.precipitationProbability)
-            return if ((precipitationHour.snowfall ?: 0.0) > 0.0) {
-                summary + " " + stringResource(R.string.hourly_snowfall_summary, units.snowfall(requireNotNull(precipitationHour.snowfall)))
-            } else summary
+            val snow = precipitation.snowfall?.takeIf { it.isFinite() && it > 0.0 }
+            val amount = if (highlight == HourlyHighlight.SNOW && snow != null) {
+                units.snowfall(snow)
+            } else precipitation.precipitation.takeIf { it.isFinite() && it > 0.0 }?.let {
+                val formatted = units.precipitation(it)
+                if (highlight in listOf(HourlyHighlight.SNOW, HourlyHighlight.MIXED)) {
+                    text(R.string.hour_summary_water_equivalent, formatted)
+                } else formatted
+            }
+            val chance = precipitation.precipitationProbability.takeIf { it in 1..100 }
+            val detail = when {
+                amount != null && chance != null -> text(R.string.hour_summary_amount_chance, amount, chance)
+                amount != null -> text(R.string.hour_summary_amount, amount)
+                chance != null -> text(R.string.hour_summary_chance, chance)
+                else -> ""
+            }
+            listOf(text(resource), detail).filter(String::isNotEmpty).joinToString(" ")
         }
         HourlyHighlight.WIND -> {
-            val wind = stringResource(R.string.hourly_wind_summary, units.windSpeed(hour.windSpeed))
-            return hour.windGusts?.let {
-                wind + " " + stringResource(R.string.hourly_gusts_summary, units.windSpeed(it))
+            val wind = text(R.string.hourly_wind_summary, units.windSpeed(hour.windSpeed))
+            hour.windGusts?.let {
+                wind + " " + text(R.string.hourly_gusts_summary, units.windSpeed(it))
             } ?: wind
         }
-        HourlyHighlight.VISIBILITY -> return stringResource(
+        HourlyHighlight.VISIBILITY -> text(
             R.string.hourly_visibility_summary,
             units.visibility(requireNotNull(hour.visibilityMeters)),
         )
-        HourlyHighlight.FEELS_LIKE -> return stringResource(
-            R.string.hourly_feels_like_summary,
+        HourlyHighlight.FEELS_LIKE -> text(
+            R.string.hour_summary_feels_like,
             units.temperature(requireNotNull(hour.apparentTemperature)),
             units.temperature(hour.temperature),
         )
-        HourlyHighlight.UV -> return stringResource(R.string.hourly_uv_summary, requireNotNull(hour.uvIndex))
-        HourlyHighlight.RAIN, HourlyHighlight.CONDITIONS -> Unit
-    }
-    return when (hourlyRainLevel(precipitationHour, hour.weatherCode)) {
-        HourlyRainLevel.FORECAST -> stringResource(
-            R.string.hourly_source_precipitation_summary,
-            stringResource(
-                if (hasPrecipitationEvidence(hour.weatherCode)) conditionFor(hour.weatherCode, hour.isDay).labelResource()
-                else R.string.precipitation,
-            ),
-            amount,
-            precipitationHour.precipitationProbability,
-        )
-        HourlyRainLevel.NONE -> stringResource(
-            R.string.hourly_dry_summary,
-            stringResource(conditionFor(hour.weatherCode, hour.isDay).labelResource()),
-            precipitationHour.precipitationProbability,
+        HourlyHighlight.UV -> text(R.string.hourly_uv_summary, requireNotNull(hour.uvIndex))
+        HourlyHighlight.CONDITIONS -> text(
+            if (hour.apparentTemperature != null) R.string.hour_summary_conditions else R.string.hour_summary_temperature,
+            text(conditionFor(hour.weatherCode, hour.isDay).labelResource()),
             units.temperature(hourlyApparentTemperature(hour)),
-            units.windSpeed(hour.windSpeed),
-            stringResource(windDirectionResource(hour.windDirection)),
-        )
-        HourlyRainLevel.UNLIKELY -> stringResource(
-            R.string.hourly_rain_unlikely,
-            amount,
-            precipitationHour.precipitationProbability,
-        )
-        HourlyRainLevel.POSSIBLE -> stringResource(
-            R.string.hourly_rain_possible,
-            amount,
-            precipitationHour.precipitationProbability,
-        )
-        HourlyRainLevel.LIKELY -> stringResource(
-            R.string.hourly_rain_likely,
-            amount,
-            precipitationHour.precipitationProbability,
-        )
-        HourlyRainLevel.HEAVY -> stringResource(
-            R.string.hourly_rain_heavy,
-            amount,
-            precipitationHour.precipitationProbability,
         )
     }
+    return if (precipitationHour == null) summary + " " + text(R.string.hourly_precipitation_unavailable) else summary
 }
 
 @Composable

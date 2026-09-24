@@ -3,7 +3,7 @@
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@android:color/transparent">
+    android:background="@drawable/widget_day">
 
     <ImageView
         android:id="@+id/widget_background_image"
@@ -82,21 +82,10 @@
                     android:textColor="#FFFFFFFF"
                     android:textSize="34sp"
                     android:textStyle="bold" />
-            </LinearLayout>
-
-            <ImageView
-                android:id="@+id/widget_icon"
-                android:layout_width="30dp"
-                android:layout_height="30dp"
-                android:layout_marginHorizontal="8dp"
-                android:contentDescription="@string/weather_icon"
-                android:src="@drawable/ic_weather_clear" />
-
             <LinearLayout
                 android:id="@+id/widget_details"
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
                 android:orientation="vertical">
 
                 <TextView
@@ -127,6 +116,15 @@
                     android:textColor="#AFFFFFFF"
                     android:textSize="11sp" />
             </LinearLayout>
+            </LinearLayout>
+
+            <ImageView
+                android:id="@+id/widget_icon"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:layout_marginHorizontal="8dp"
+                android:contentDescription="@string/weather_icon"
+                android:src="@drawable/ic_weather_clear" />
 
             <LinearLayout
                 android:layout_width="wrap_content"

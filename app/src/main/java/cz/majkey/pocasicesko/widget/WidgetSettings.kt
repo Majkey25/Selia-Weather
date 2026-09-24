@@ -4,14 +4,12 @@ import android.content.Context
 import android.content.SharedPreferences
 import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.astro.MoonPhaseKey
-import cz.majkey.pocasicesko.data.WeatherKind
 import cz.majkey.pocasicesko.data.WeatherRepository
 import cz.majkey.pocasicesko.ui.labelResource
 import cz.majkey.pocasicesko.units.WeatherUnitFormatter
 import kotlin.math.roundToInt
 import java.time.Instant
 import java.time.LocalDate
-import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -62,7 +60,7 @@ enum class WidgetTimeFormat {
 }
 
 data class WidgetSettings(
-    val backgroundMode: WidgetBackgroundMode = WidgetBackgroundMode.AUTOMATIC,
+    val backgroundMode: WidgetBackgroundMode = WidgetBackgroundMode.APP_STYLE,
     val backgroundStart: String = "#0C1922",
     val backgroundEnd: String = "#28758D",
     val primaryColor: String = "#FFFFFFFF",
@@ -153,18 +151,6 @@ internal data class WidgetDataAvailability(
     val humidityAvailable: Boolean,
     val hasUpdatedAt: Boolean,
 )
-internal data class WidgetPreviewBackgroundKey(
-    val mode: WidgetBackgroundMode,
-    val start: String,
-    val end: String,
-    val opacity: Int,
-    val imageUri: String,
-    val kind: WeatherKind,
-    val isDay: Boolean,
-    val width: Int = MAX_BACKGROUND_WIDTH,
-    val height: Int = MAX_BACKGROUND_HEIGHT,
-    val corners: WidgetCorners = WidgetCorners.ROUND,
-)
 internal data class WidgetAdvancedData(
     val dewPoint: String?,
     val pressure: String?,
@@ -230,7 +216,7 @@ internal fun normalizedWidgetColor(value: String, fallback: String): String {
 internal fun widgetBackgroundMode(value: String?, legacyTheme: String?): WidgetBackgroundMode =
     value?.let { backgroundModeOrNull(it) ?: WidgetBackgroundMode.AUTOMATIC }
         ?: legacyTheme?.let(::legacyBackgroundMode)
-        ?: WidgetBackgroundMode.AUTOMATIC
+        ?: WidgetBackgroundMode.APP_STYLE
 
 internal fun widgetAlignment(value: String?): WidgetAlignment = runCatching {
     WidgetAlignment.valueOf(value.orEmpty())
@@ -463,27 +449,6 @@ internal fun widgetDataAvailability(
     hasUpdatedAt = updatedAt > 0L,
 )
 
-internal fun widgetPreviewBackgroundKey(
-    settings: WidgetSettings,
-    kind: WeatherKind,
-    isDay: Boolean,
-    widthDp: Int = MAX_BACKGROUND_WIDTH,
-    heightDp: Int = MAX_BACKGROUND_HEIGHT,
-): WidgetPreviewBackgroundKey = settings.normalized().let {
-    WidgetPreviewBackgroundKey(
-        mode = it.backgroundMode,
-        start = it.backgroundStart,
-        end = it.backgroundEnd,
-        opacity = it.opacity,
-        imageUri = it.imageUri,
-        kind = kind,
-        isDay = isDay,
-        width = widthDp,
-        height = heightDp,
-        corners = it.corners,
-    )
-}
-
 internal fun widgetAdvancedText(settings: WidgetSettings, data: WidgetAdvancedData): String = listOfNotNull(
     data.dewPoint.takeIf { settings.showDewPoint },
     data.pressure.takeIf { settings.showPressure },
@@ -668,10 +633,6 @@ internal fun widgetClockPattern(format: WidgetTimeFormat, is24Hour: Boolean): St
     WidgetTimeFormat.HOUR_12 -> "h:mm a"
     WidgetTimeFormat.HOUR_24 -> "HH:mm"
 }
-
-internal fun widgetClock(time: LocalTime, is24Hour: Boolean, format: WidgetTimeFormat = WidgetTimeFormat.SYSTEM,
-    locale: Locale = Locale.getDefault()): String =
-    time.format(DateTimeFormatter.ofPattern(widgetClockPattern(format, is24Hour), locale))
 
 internal fun widgetPreferenceKey(appWidgetId: Int, name: String): String =
     "widget_settings_${appWidgetId}_$name"

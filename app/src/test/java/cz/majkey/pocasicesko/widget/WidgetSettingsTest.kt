@@ -8,7 +8,6 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
-import java.time.LocalTime
 import java.time.ZoneOffset
 import java.util.Locale
 import androidx.compose.runtime.saveable.SaverScope
@@ -61,11 +60,8 @@ class WidgetSettingsTest {
 
     @Test
     fun clockOverrideUsesSameFormatsForNativeSystemSlotsAndPreview() {
-        val time = LocalTime.of(13, 5)
-        assertEquals("1:05 PM", widgetClock(time, true, WidgetTimeFormat.HOUR_12, Locale.US))
-        assertEquals("13:05", widgetClock(time, false, WidgetTimeFormat.HOUR_24, Locale.US))
-        assertEquals("1:05", widgetClock(time, false, WidgetTimeFormat.SYSTEM, Locale.US))
-        assertEquals("13:05", widgetClock(time, true, WidgetTimeFormat.SYSTEM, Locale.US))
+        assertEquals("h:mm", widgetClockPattern(WidgetTimeFormat.SYSTEM, false))
+        assertEquals("HH:mm", widgetClockPattern(WidgetTimeFormat.SYSTEM, true))
         assertEquals("h:mm a", widgetClockPattern(WidgetTimeFormat.HOUR_12, true))
         assertEquals("h:mm a", widgetClockPattern(WidgetTimeFormat.HOUR_12, false))
         assertEquals("HH:mm", widgetClockPattern(WidgetTimeFormat.HOUR_24, true))
@@ -93,7 +89,7 @@ class WidgetSettingsTest {
     fun defaultsProvideTheFullSafeTemplate() {
         val settings = WidgetSettings()
 
-        assertEquals(WidgetBackgroundMode.AUTOMATIC, settings.backgroundMode)
+        assertEquals(WidgetBackgroundMode.APP_STYLE, settings.backgroundMode)
         assertEquals("#0C1922", settings.backgroundStart)
         assertEquals("#28758D", settings.backgroundEnd)
         assertEquals("#FFFFFFFF", settings.primaryColor)
@@ -276,13 +272,10 @@ class WidgetSettingsTest {
     }
 
     @Test
-    fun formatsWidgetDateWithTheSelectedLocaleAndClockLikeTheHost() {
+    fun formatsWidgetDateWithTheSelectedLocale() {
         val date = LocalDate.of(2026, 8, 25)
-        val time = LocalTime.of(13, 5)
 
         assertNotEquals(widgetDate(date, Locale.US), widgetDate(date, Locale.FRANCE))
-        assertEquals("13:05", widgetClock(time, is24Hour = true))
-        assertEquals("1:05", widgetClock(time, is24Hour = false))
     }
 
     @Test
@@ -299,15 +292,6 @@ class WidgetSettingsTest {
             WidgetDataAvailability(false, false, false, false, true),
             widgetDataAvailability(listOf("12:00", "13:00", ""), listOf("10", "11", "12"), 101, -1f, 101, 1L),
         )
-    }
-
-    @Test
-    fun decodesPreviewBackgroundOnlyForBackgroundInputs() {
-        val settings = WidgetSettings(opacity = 60)
-        val key = widgetPreviewBackgroundKey(settings, WeatherKind.CLOUDY, isDay = true)
-
-        assertEquals(key, widgetPreviewBackgroundKey(settings.copy(showClock = false, textScale = 140), WeatherKind.CLOUDY, true))
-        assertNotEquals(key, widgetPreviewBackgroundKey(settings.copy(opacity = 61), WeatherKind.CLOUDY, true))
     }
 
     @Test
@@ -467,14 +451,16 @@ class WidgetSettingsTest {
     }
 
     @Test
-    fun appStyleIsExplicitAndLegacyGeometryDefaultsRemainStable() {
+    fun appStyleIsDefaultAndStoredBackgroundChoicesRemainStable() {
         val current = WidgetSettings(customLabel = "My field", imageUri = "content://example/photo")
         val preset = widgetPresetSettings(WidgetPreset.APP_STYLE, current)
         assertEquals(WidgetBackgroundMode.APP_STYLE, preset.backgroundMode)
         assertEquals(WidgetFontStyle.MATERIAL, preset.fontStyle)
         assertEquals("My field", preset.customLabel)
         assertEquals(current.imageUri, preset.imageUri)
-        assertEquals(WidgetBackgroundMode.AUTOMATIC, widgetBackgroundMode(null, null))
+        assertEquals(WidgetBackgroundMode.APP_STYLE, widgetBackgroundMode(null, null))
+        assertEquals(WidgetBackgroundMode.AUTOMATIC, widgetBackgroundMode("AUTOMATIC", null))
+        assertEquals(WidgetBackgroundMode.DARK, widgetBackgroundMode(null, "DARK"))
         assertEquals(WidgetCorners.ROUND, widgetCorners(null))
         assertEquals(WidgetCorners.ROUND, widgetCorners("future-shape"))
         assertEquals(0, current.copy(contentPaddingDp = -5).normalized().contentPaddingDp)
@@ -502,14 +488,6 @@ class WidgetSettingsTest {
         assertEquals(1, settings.copy(backgroundMode = WidgetBackgroundMode.SOLID).editableBackgroundColors().size)
         assertEquals(2, settings.copy(backgroundMode = WidgetBackgroundMode.GRADIENT).editableBackgroundColors().size)
         assertEquals(2, settings.copy(backgroundMode = WidgetBackgroundMode.CUSTOM_IMAGE).editableBackgroundColors().size)
-        assertNotEquals(
-            widgetPreviewBackgroundKey(settings, WeatherKind.CLEAR, true, 320, 180),
-            widgetPreviewBackgroundKey(settings, WeatherKind.CLEAR, true, 180, 320),
-        )
-        assertNotEquals(
-            widgetPreviewBackgroundKey(settings.copy(corners = WidgetCorners.ROUND), WeatherKind.CLEAR, true),
-            widgetPreviewBackgroundKey(settings.copy(corners = WidgetCorners.SQUARE), WeatherKind.CLEAR, true),
-        )
     }
 
     @Test

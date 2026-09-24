@@ -133,8 +133,11 @@ def test_operational_validator_rejects_any_partial_model() -> None:
         validate_operational_values(values[:-1], (point,), (0,))
 
 
+@pytest.mark.parametrize("last_amount", [5.0, 2.9847412109375, 0.0])
 def test_operational_model_outputs_interval_precipitation(
     monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    last_amount: float,
 ) -> None:
     run_time = datetime(2026, 8, 29, 0, tzinfo=UTC)
     point = GeoPoint(50.0, 14.0)
@@ -154,7 +157,7 @@ def test_operational_model_outputs_interval_precipitation(
         del points, point_index
         variable, lead_text = path.stem.rsplit("-", 1)
         lead = int(lead_text)
-        precipitation = {0: 0.0, 6: 3.0, 12: 5.0}
+        precipitation = {0: 0.0, 6: 3.0, 12: last_amount}
         return (
             SampledMessage(
                 run_time=run_time,
@@ -196,7 +199,10 @@ def test_operational_model_outputs_interval_precipitation(
     )
 
     precipitation = [value.value for value in values if value.variable == "precipitation"]
-    assert precipitation == [0.0, 3.0, 2.0]
+    assert precipitation == ([0.0, 3.0, 2.0] if last_amount == 5.0 else [None, None, None])
+    assert len(values) == len(leads) * len(operational_feed.CANONICAL_FIELDS)
+    assert all(value.value is not None for value in values if value.variable != "precipitation")
+    assert ("Discarding noaa_gfs precipitation" in caplog.text) == (last_amount < 3.0)
     assert ("precipitation", 0) not in requests
 
 

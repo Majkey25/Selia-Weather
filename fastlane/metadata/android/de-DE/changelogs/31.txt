@@ -1,0 +1,1 @@
+Flüssigeres Verschieben der Radar-Zeitleiste mit weniger verworfenen Ladevorgängen und zuverlässiger Fortsetzung. Wetterwarnungen stehen unter den Wetterdetails. Übersichtlicheres Widget mit originalgetreuer Vorschau; neue Widgets nutzen den App-Farbverlauf. Neue Store-Bilder. Ungültige Niederschlagsdaten bleiben unbekannt, andere nutzbare Modelldaten erhalten.

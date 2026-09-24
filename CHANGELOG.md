@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.1] - 2026-09-24
+
+- Coalesce rapid radar timeline changes instead of starting tile loads for every crossed position. Keep the selected frame through background/resume and prevent superseded frames from moving the slider.
+- Move Weather warnings directly below View all weather details, before Weather history.
+- Give the widget temperature more room, use accurate preview sizes, and render the editor preview through the same native RemoteViews as the widget. New widgets start with the app-style gradient; saved customizations remain unchanged.
+- Refresh Play screenshot artwork using real app screens and public Prague history data.
+- Quarantine invalid cumulative rainfall from an affected model/run without discarding valid fields from other sources. Keep missing rainfall distinct from zero and retain all production calibration gates.
+- Add a research-only forward-validation comparison of location-specific and regional model weights. It is not a new untouched accuracy validation and does not activate runtime weights.
+
 ## [0.3.0] - 2026-09-23
 
 - Replace sampled future-map interpolation with official DWD precipitation grids: hourly ICON-EU in Europe and six-hour ICON elsewhere. Keep observed radar separate, preload animation frames, refresh expired runs, and show explicit tile failures.

@@ -1,0 +1,6 @@
+Public Prague: 50.0755, 14.4378
+Forecast fetched: 1790249462621
+NASA POWER version: v2.10.0
+Archive accessed: 1790248897000
+Archive days: 1826, 2021-09-23 to 2026-09-22
+Actual app composables. System status/navigation bars cropped; app pixels unchanged. No AI recipient opened.

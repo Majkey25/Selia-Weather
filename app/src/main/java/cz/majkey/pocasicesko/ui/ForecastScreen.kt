@@ -175,7 +175,6 @@ internal fun ForecastScreen(
             item {
                 WeatherHero(snapshot = snapshot, accent = accent, units = units, currentDate = currentDate)
             }
-            item { WarningsAction(warnings, onWarnings) }
             item {
                 HourlyGraphPanel(snapshot = snapshot, accent = accent, units = units, localNow = localNow)
             }
@@ -196,6 +195,7 @@ internal fun ForecastScreen(
                     showDetails = true
                 }
             }
+            item { WarningsAction(warnings, onWarnings) }
             item {
                 WeatherDetailAction(label = R.string.history_title) {
                     openHistory = true

@@ -1,16 +1,21 @@
 from __future__ import annotations
 
 import importlib
+import logging
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from math import cos, isclose, isfinite, radians, sin
 from numbers import Real
 from pathlib import Path
 from typing import BinaryIO, Protocol, cast
 
 from aladin_ensemble.types import ForecastValue
+
+
+class PrecipitationDecreaseError(ValueError):
+    """An otherwise valid accumulation series contains an invalid decrease."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -339,11 +344,25 @@ def to_forecast_values(
     variable: str,
     canonical_unit: str,
     elevation_by_point: Mapping[GeoPoint, float],
+    missing_on_precipitation_decrease: bool = False,
 ) -> tuple[ForecastValue, ...]:
     if not messages or not model_id or not variable or not canonical_unit:
         raise ValueError("forecast conversion metadata is required")
+    missing = False
     if variable == "precipitation":
-        messages = _precipitation_intervals(messages, canonical_unit)
+        try:
+            messages = _precipitation_intervals(messages, canonical_unit)
+        except PrecipitationDecreaseError as error:
+            if not missing_on_precipitation_decrease:
+                raise
+            logging.getLogger(__name__).warning(
+                "Discarding %s precipitation for this run: %s", model_id, error,
+            )
+            # The source decrease is unverified: quarantine the series, never invent dry weather.
+            missing = True
+            first = min(messages, key=lambda message: message.end_step_hours)
+            if first.start_step_hours == 0 and first.end_step_hours > 0:
+                messages = (replace(first, valid_time=first.run_time, end_step_hours=0), *messages)
     rows: list[ForecastValue] = []
     for message in messages:
         for point in message.values:
@@ -360,7 +379,9 @@ def to_forecast_values(
                     longitude=point.longitude,
                     elevation_m=elevation,
                     variable=variable,
-                    value=convert_grib_unit(point.value, message.unit, canonical_unit),
+                    value=None if missing else convert_grib_unit(
+                        point.value, message.unit, canonical_unit,
+                    ),
                     unit=canonical_unit,
                 )
             )
@@ -376,6 +397,11 @@ def _precipitation_intervals(
     ordered = tuple(sorted(messages, key=lambda message: message.end_step_hours))
     if any(message.step_type != "accum" for message in ordered):
         raise ValueError("precipitation GRIB messages must use accumulated steps")
+    if len({message.end_step_hours for message in ordered}) != len(ordered) or any(
+        message.valid_time != message.run_time + timedelta(hours=message.end_step_hours)
+        for message in ordered
+    ):
+        raise ValueError("precipitation GRIB lead metadata is invalid")
     coordinates = tuple((point.latitude, point.longitude) for point in ordered[0].values)
     if any(
         message.run_time != ordered[0].run_time
@@ -425,7 +451,7 @@ def _precipitation_intervals(
         )
         if invalid is not None:
             point = message.values[invalid]
-            raise ValueError(
+            raise PrecipitationDecreaseError(
                 "cumulative precipitation decreased "
                 f"at ({point.latitude}, {point.longitude}), run={message.run_time.isoformat()}, "
                 f"lead={previous_end}->{message.end_step_hours}h: "

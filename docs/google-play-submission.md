@@ -44,4 +44,4 @@ The location disclosure covers Open-Meteo forecasts, NASA POWER archives, Aviati
 
 ## Assets
 
-`en-US` owns the icon, feature graphic, and phone screenshots. The `cs-CZ`, `de-DE`, `es-ES`, and `fr-FR` listings contain localised text only and omit image directories. Google Play inherits the default English assets for those listings, which avoids mismatched screenshots or feature graphics.
+`en-US` owns the default icon, feature graphic, and six phone screenshots. `cs-CZ` has its own Czech feature graphic and six phone screenshots. The `de-DE`, `es-ES`, and `fr-FR` listings omit image directories and inherit the default English assets. The fresh 2026-09-24 poster order, capture provenance, and verification are recorded in [the store artwork manifest](store/2026-09-24/manifest.md).

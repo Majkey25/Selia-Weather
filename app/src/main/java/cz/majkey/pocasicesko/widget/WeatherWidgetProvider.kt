@@ -194,14 +194,22 @@ class WeatherWidgetProvider : AppWidgetProvider() {
         }
 
         private fun render(context: Context, manager: AppWidgetManager, appWidgetId: Int) {
+            manager.updateAppWidget(appWidgetId, createViews(context, appWidgetId, manager.getAppWidgetOptions(appWidgetId)))
+        }
+
+        internal fun createViews(
+            context: Context,
+            appWidgetId: Int,
+            options: Bundle,
+            previewSettings: WidgetSettings? = null,
+        ): RemoteViews {
             val localizedContext = AppLocale.localized(context)
             val unitFormatter = WeatherUnitFormatter(
                 MeasurementUnits.current(context),
                 localizedContext.resources.configuration.locales[0],
             )
             val weather = localizedContext.getSharedPreferences(WeatherRepository.PREFERENCES_NAME, Context.MODE_PRIVATE)
-            val settings = loadSettings(localizedContext, appWidgetId).renderedTextColors()
-            val options = manager.getAppWidgetOptions(appWidgetId)
+            val settings = (previewSettings ?: loadSettings(localizedContext, appWidgetId)).normalized().renderedTextColors()
             val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, COMPACT_WIDTH_DP)
             val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, COMPACT_HEIGHT_DP)
             val hostSize = widgetHostSize(
@@ -414,7 +422,7 @@ class WeatherWidgetProvider : AppWidgetProvider() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
             views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
-            manager.updateAppWidget(appWidgetId, views)
+            return views
         }
 
         private fun fallbackViews(context: Context): RemoteViews = RemoteViews(
@@ -808,13 +816,15 @@ internal fun widgetTemperatureFit(
             val remaining = (hostWidthDp - padding * 2) * metrics.density -
                 kotlin.math.ceil(maxOf(if (visible.showClock) clockWidth else 0f, if (visible.showDate) dateWidth else 0f)) -
                 (if (visible.showIcon) 46f * metrics.density else 0f) - 2f
-            remaining / if (visible.showCondition || visible.showRange) 2 else 1
+            remaining
         },
         measure = ::measure,
         availableHeight = { visible, padding ->
             val contentWidth = (hostWidthDp - padding * 2) * metrics.density
             var reserved = if (visible.showLabel) lineHeight(11f * scale) else 0f
             if (visible.showLocation) reserved += lineHeight(12f * scale)
+            if (visible.showCondition) reserved += lineHeight(12f * scale)
+            if (visible.showRange) reserved += lineHeight(11f * scale) + 2f * metrics.density
             if (visible.showHourly) reserved += lineHeight(11f * scale) + lineHeight(14f * scale) + 14f * metrics.density
             if (visible.showUpdatedAt) reserved += lineHeight(9f * scale)
             val shownMetrics = listOf(visible.showPrecipitation, visible.showWind, visible.showHumidity)

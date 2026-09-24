@@ -1,38 +1,30 @@
 package cz.majkey.pocasicesko.widget
 
-import android.content.Context
-import android.content.res.Resources
-import android.content.res.Configuration
-import android.graphics.Color as AndroidColor
-import android.graphics.Typeface
-import android.text.format.DateFormat
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import android.appwidget.AppWidgetManager
+import android.os.Bundle
+import android.view.View
+import android.widget.FrameLayout
+import android.widget.RemoteViews
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.LocalTextStyle
-import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
@@ -54,26 +46,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import cz.majkey.pocasicesko.R
-import cz.majkey.pocasicesko.data.WeatherKind
-import cz.majkey.pocasicesko.data.WeatherRepository
-import cz.majkey.pocasicesko.locale.AppLocale
-import cz.majkey.pocasicesko.ui.WeatherIcon
-import cz.majkey.pocasicesko.units.MeasurementUnits
-import cz.majkey.pocasicesko.units.WeatherUnitFormatter
 import java.time.LocalDate
-import java.time.LocalTime
-import java.time.ZoneId
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -416,145 +396,42 @@ private fun PreviewSizeSelector(selected: WidgetSize, onSelect: (WidgetSize) -> 
 private fun WidgetPreview(settings: WidgetSettings, size: WidgetSize) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val configuration = LocalConfiguration.current
-    val localized = remember(context, configuration.locales[0]) { AppLocale.localized(context) }
-    val locale = localized.resources.configuration.locales[0]
-    val clockLocale = Resources.getSystem().configuration.locales[0]
-    val clockContext = remember(context, configuration, clockLocale) {
-        context.createConfigurationContext(Configuration(configuration).apply { setLocale(clockLocale) })
-    }
-    val data = remember(localized, locale) { loadPreview(localized) }
-    val normalized = settings.normalized().renderedTextColors()
     val previewHeight = when (size) {
-        WidgetSize.COMPACT -> 96.dp
-        WidgetSize.STANDARD -> 132.dp
-        WidgetSize.TALL -> 160.dp
+        WidgetSize.COMPACT -> 64.dp
+        WidgetSize.STANDARD -> 112.dp
+        WidgetSize.TALL -> 184.dp
         WidgetSize.WIDE -> 174.dp
     }
-    val previewWidthDp = (configuration.screenWidthDp - 40).coerceAtLeast(1)
-    val backgroundKey = widgetPreviewBackgroundKey(normalized, data.kind, data.isDay, previewWidthDp, previewHeight.value.roundToInt())
-    val image by produceState<android.graphics.Bitmap?>(
-        initialValue = null,
-        backgroundKey,
-    ) {
+    val previewWidthDp = minOf((configuration.screenWidthDp - 40).coerceAtLeast(1), when (size) {
+        WidgetSize.COMPACT -> 152
+        WidgetSize.STANDARD -> 250
+        WidgetSize.TALL -> 168
+        WidgetSize.WIDE -> Int.MAX_VALUE
+    })
+    val views by produceState<RemoteViews?>(null, context, settings, configuration, previewWidthDp, previewHeight) {
         value = withContext(Dispatchers.IO) {
-            WidgetBackground.previewBitmap(context, normalized, data.kind, data.isDay, previewWidthDp, previewHeight.value.roundToInt())
-        }
-    }
-    val backgroundAlpha = widgetBackgroundAlpha(normalized, 255) / 255f
-    val availability = widgetDataAvailability(
-        data.hourlyTimes,
-        data.hourlyTemperatures,
-        data.precipitationProbability,
-        data.windSpeed,
-        data.humidityPercent,
-        data.updatedAt,
-    )
-    val advancedText = widgetAdvancedText(normalized, data.advanced)
-    val configuredVisibility = widgetContentVisibility(
-        settings = normalized,
-        size = size,
-        availability = availability,
-        heightDp = previewHeight.value.roundToInt(),
-        advancedText = advancedText,
-    )
-    val temperatureFit = widgetTemperatureFit(
-        localized, normalized, configuredVisibility, previewWidthDp, data.temperature, previewHeight.value.roundToInt(),
-        listOf(data.precipitation, data.wind, data.humidity), advancedText,
-    )
-    val visibility = temperatureFit.visibility
-    val primary = androidx.compose.ui.graphics.Color(AndroidColor.parseColor(normalized.primaryColor))
-    val secondary = androidx.compose.ui.graphics.Color(AndroidColor.parseColor(normalized.secondaryColor))
-    val accent = androidx.compose.ui.graphics.Color(AndroidColor.parseColor(normalized.accentColor))
-    val scale = normalized.textScale / 100f
-    val fontFamily = remember(normalized.fontStyle) {
-        FontFamily(Typeface.create(widgetPreviewFontName(normalized.fontStyle), Typeface.NORMAL))
-    }
-    val textAlignment = when (normalized.alignment) {
-        WidgetAlignment.LEFT -> TextAlign.Start
-        WidgetAlignment.CENTER -> TextAlign.Center
-        WidgetAlignment.RIGHT -> TextAlign.End
-    }
-    ProvideTextStyle(LocalTextStyle.current.copy(fontFamily = fontFamily, textAlign = textAlignment)) {
-        Box(
-            modifier = Modifier.fillMaxWidth().height(previewHeight)
-                .clip(androidx.compose.foundation.shape.RoundedCornerShape(normalized.corners.radiusDp.dp))
-                .border(1.dp, accent.copy(alpha = 0.32f), androidx.compose.foundation.shape.RoundedCornerShape(normalized.corners.radiusDp.dp))
-        ) {
-            if (image != null) Image(
-                bitmap = image!!.asImageBitmap(),
-                contentDescription = null,
-                contentScale = ContentScale.FillBounds,
-                alpha = backgroundAlpha,
-                modifier = Modifier.matchParentSize(),
-            )
-            Row(Modifier.fillMaxSize()) {
-                Column(
-                    modifier = Modifier.fillMaxHeight().fillMaxWidth().padding(temperatureFit.contentPaddingDp.dp),
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().weight(1f),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            if (visibility.showLabel) Text(normalized.customLabel, Modifier.fillMaxWidth(), color = secondary, fontSize = 11.sp * scale)
-                            if (visibility.showLocation) Text(data.city, Modifier.fillMaxWidth(), color = secondary, fontSize = 12.sp * scale, fontWeight = FontWeight.SemiBold)
-                            if (visibility.showTemperature) Text(data.temperature, Modifier.fillMaxWidth(), color = primary, fontSize = temperatureFit.textSizeSp.sp, lineHeight = (temperatureFit.textSizeSp * 1.18f).sp, fontWeight = FontWeight.SemiBold)
-                        }
-                    if (visibility.showIcon) {
-                            WeatherIcon(
-                                kind = data.kind,
-                                isDay = data.isDay,
-                                contentDescription = data.condition,
-                                modifier = Modifier.padding(horizontal = 8.dp).size(30.dp),
-                                tint = primary,
-                            )
-                        }
-                        if (visibility.showCondition || visibility.showRange) {
-                            Column(Modifier.weight(1f)) {
-                                if (visibility.showCondition) Text(data.condition, Modifier.fillMaxWidth(), color = primary, fontSize = 12.sp * scale, fontWeight = FontWeight.SemiBold)
-                                if (visibility.showRange) Text(data.range, Modifier.fillMaxWidth(), color = secondary, fontSize = 11.sp * scale)
-                            }
-                        }
-                        Column(horizontalAlignment = Alignment.End) {
-                            if (visibility.showClock) Text(widgetClock(LocalTime.now(), DateFormat.is24HourFormat(clockContext), normalized.timeFormat,
-                                clockLocale), color = primary, fontSize = 14.sp * scale, fontWeight = FontWeight.SemiBold)
-                            if (visibility.showDate) Text(widgetDate(LocalDate.now(), locale, normalized), color = secondary, fontSize = 10.sp * scale)
-                        }
-                    }
-                    if (visibility.showMetrics) {
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            if (visibility.showPrecipitation) Text(data.precipitation, Modifier.weight(1f), color = secondary, fontSize = 10.sp * scale)
-                            if (visibility.showWind) Text(data.wind, Modifier.weight(1f), color = secondary, fontSize = 10.sp * scale, textAlign = TextAlign.Center)
-                            if (visibility.showHumidity) Text(data.humidity, Modifier.weight(1f), color = secondary, fontSize = 10.sp * scale, textAlign = TextAlign.End)
-                        }
-                    }
-                    if (visibility.showAdvanced) {
-                        Text(advancedText, Modifier.fillMaxWidth(), color = secondary, fontSize = 10.sp * scale, maxLines = 2)
-                    }
-                    if (visibility.showHourly) {
-                        Spacer(Modifier.height(5.dp))
-                        Box(Modifier.fillMaxWidth().height(1.dp).background(accent))
-                        Spacer(Modifier.height(5.dp))
-                        Row(Modifier.fillMaxWidth()) {
-                            repeat(3) { index ->
-                                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(data.hourlyTimes[index], color = secondary, fontSize = 11.sp * scale)
-                                    Text(data.hourlyTemperatures[index], color = primary, fontSize = 14.sp * scale, fontWeight = FontWeight.SemiBold)
-                                }
-                            }
-                        }
-                    }
-                    if (visibility.showUpdatedAt) Text(
-                        widgetUpdatedAt(data.updatedAt, ZoneId.systemDefault(), locale),
-                        modifier = Modifier.fillMaxWidth(),
-                        color = secondary,
-                        fontSize = 9.sp * scale,
-                        textAlign = textAlignment,
-                    )
-                }
+            val options = Bundle().apply {
+                putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, previewWidthDp)
+                putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, previewWidthDp)
+                putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, previewHeight.value.roundToInt())
+                putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, previewHeight.value.roundToInt())
             }
+            WeatherWidgetProvider.createViews(context, AppWidgetManager.INVALID_APPWIDGET_ID, options, settings)
         }
     }
+    AndroidView(
+        modifier = Modifier.fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally)
+            .width(previewWidthDp.dp).height(previewHeight),
+        factory = { FrameLayout(it) },
+        update = { host ->
+            views?.let { remoteViews ->
+                host.removeAllViews()
+                val widget = remoteViews.apply(context, host)
+                widget.findViewById<View>(R.id.widget_root).setOnClickListener(null)
+                host.addView(widget, FrameLayout.LayoutParams(-1, -1))
+            }
+        },
+    )
 }
 
 internal fun widgetPreviewFontName(fontStyle: WidgetFontStyle): String = when (fontStyle) {
@@ -645,63 +522,6 @@ internal val WidgetSettingsSaver = listSaver<WidgetSettings, Any>(
         )
     },
 )
-
-private data class WidgetPreviewData(
-    val city: String,
-    val temperature: String,
-    val condition: String,
-    val kind: WeatherKind,
-    val isDay: Boolean,
-    val range: String,
-    val hourlyTimes: List<String>,
-    val hourlyTemperatures: List<String>,
-    val precipitation: String,
-    val precipitationProbability: Int,
-    val wind: String,
-    val windSpeed: Float,
-    val humidity: String,
-    val humidityPercent: Int,
-    val advanced: WidgetAdvancedData,
-    val updatedAt: Long,
-)
-
-private fun loadPreview(context: Context): WidgetPreviewData {
-    val preferences = context.getSharedPreferences(WeatherRepository.PREFERENCES_NAME, Context.MODE_PRIVATE)
-    val unitFormatter = WeatherUnitFormatter(MeasurementUnits.current(context), context.resources.configuration.locales[0])
-    val temperature = preferences.getFloat(WeatherRepository.KEY_WIDGET_TEMPERATURE, Float.NaN)
-    val kind = runCatching {
-        WeatherKind.valueOf(preferences.getString(WeatherRepository.KEY_WIDGET_KIND, "UNKNOWN").orEmpty())
-    }.getOrDefault(WeatherKind.UNKNOWN)
-    val high = preferences.getFloat(WeatherRepository.KEY_WIDGET_HIGH, Float.NaN)
-    val low = preferences.getFloat(WeatherRepository.KEY_WIDGET_LOW, Float.NaN)
-    val hourlyTimes = preferences.getString(WeatherRepository.KEY_WIDGET_HOURLY_TIMES, null)?.split('|').orEmpty()
-    val hourlyTemperatures = preferences.getString(WeatherRepository.KEY_WIDGET_HOURLY_TEMPERATURES, null)?.split('|').orEmpty()
-    val precipitation = preferences.getInt(WeatherRepository.KEY_WIDGET_PRECIPITATION_PROBABILITY, -1)
-    val wind = preferences.getFloat(WeatherRepository.KEY_WIDGET_WIND_SPEED, Float.NaN)
-    val humidity = preferences.getInt(WeatherRepository.KEY_WIDGET_HUMIDITY, -1)
-    return WidgetPreviewData(
-        city = preferences.getString(WeatherRepository.KEY_WIDGET_CITY, null) ?: context.getString(R.string.widget_placeholder_city),
-        temperature = if (temperature.isNaN()) context.getString(R.string.widget_placeholder_temperature)
-        else unitFormatter.temperature(temperature.toDouble()),
-        condition = context.widgetConditionLabel(preferences.getString(WeatherRepository.KEY_WIDGET_CONDITION_KEY, null), kind),
-        kind = kind,
-        isDay = preferences.getBoolean(WeatherRepository.KEY_WIDGET_IS_DAY, true),
-        range = if (high.isNaN() || low.isNaN()) context.getString(R.string.widget_placeholder_range)
-        else "${unitFormatter.temperature(high.toDouble())} / ${unitFormatter.temperature(low.toDouble())}",
-        hourlyTimes = hourlyTimes,
-        hourlyTemperatures = hourlyTemperatures.map { value ->
-            value.toDoubleOrNull()?.let(unitFormatter::temperature).orEmpty()
-        },
-        precipitation = if (precipitation < 0) "--" else "${context.getString(R.string.precipitation)} $precipitation%",
-        precipitationProbability = precipitation,
-        wind = if (wind.isNaN()) "--" else "${context.getString(R.string.wind)} ${unitFormatter.windSpeed(wind.toDouble())}",
-        windSpeed = wind,
-        humidity = if (humidity < 0) "--" else "${context.getString(R.string.humidity)} $humidity%",
-        humidityPercent = humidity,
-        advanced = preferences.widgetAdvancedData(context, unitFormatter),
-        updatedAt = preferences.getLong(WeatherRepository.KEY_WIDGET_UPDATED_AT, 0L),
-    )
-}
 
 private fun WidgetBackgroundMode.labelResource(): Int = when (this) {
     WidgetBackgroundMode.APP_STYLE -> R.string.widget_app_style

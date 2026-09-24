@@ -1,0 +1,1 @@
+Smoother radar timeline scrolling with fewer discarded tile loads and reliable resume. Weather warnings moved below full weather details. Improved widget layout and an accurate native preview, with app-style gradients for new widgets. Refreshed store screenshots. Invalid upstream rainfall stays unknown while other usable model data is retained.

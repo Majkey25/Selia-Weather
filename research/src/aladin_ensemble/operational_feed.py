@@ -275,6 +275,7 @@ def load_sampled_model_values(
                 variable=variable,
                 canonical_unit=unit,
                 elevation_by_point=elevations,
+                missing_on_precipitation_decrease=True,
             )
         )
     return tuple(rows)
@@ -338,6 +339,7 @@ def _load_chmi(
         variable="precipitation",
         canonical_unit="mm",
         elevation_by_point=elevations,
+        missing_on_precipitation_decrease=True,
     ) + to_wind_component_values(
         speed,
         direction,

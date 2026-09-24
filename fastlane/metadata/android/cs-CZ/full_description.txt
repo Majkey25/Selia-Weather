@@ -1,10 +1,12 @@
-Selia Weather je přehledné počasí pro celý svět bez účtu, s pozorovaným radarem, regionálním výběrem modelů a vlastním widgetem. Tato verze neobsahuje reklamy ani Premium.
+Selia Weather spojuje předpověď pro celý svět, radar, vlastní widget a pětiletý archiv počasí. Bez účtu, reklam a nákupu Premium.
+
+Zeptejte se AI na historii počasí. Procházejte denní odhady NASA POWER, vyberte období a spočítejte úhrn srážek s údajem o pokrytí daty. Po potvrzení můžete sdílet celý pětiletý CSV archiv a svou otázku do kompatibilní nainstalované AI aplikace. Podpora souboru závisí na příjemci, případně lze CSV nahrát ručně. Archiv obsahuje modelové a satelitní odhady pro oblast, nikoli měření čidla přímo ve vybraném bodě.
 
 Předpověď používá Open-Meteo Best Match a diagnostický výpočet z více modelů až na 14 dní. V Česku opravují aktuální stav čerstvá měření ČHMÚ. Jinde mohou blízké čerstvé METAR zprávy opravit dostupnou teplotu, vlhkost, rosný bod, tlak, dohlednost, oblačnost a vítr. Budoucí hodiny zůstávají modelovou předpovědí.
 
 Vyhledávejte místa po celém světě, ukládejte oblíbené lokality, vyberte přesný bod na světové mapě nebo zadejte souřadnice. Volitelně lze použít aktuální polohu. Poslední úspěšná předpověď zůstane k dispozici offline.
 
-Radar používá celosvětová pozorování RainViewer, přiblížení, posun, animaci, časovou osu a masku pokrytí. Hodinový detail srozumitelně popisuje pravděpodobnost i množství budoucích srážek.
+Radar používá dostupná pozorování RainViewer, přiblížení, posun, animaci, časovou osu a masku pokrytí. Přepněte na samostatnou mapu modelové předpovědi srážek DWD pro příštích 12 hodin. Jde o výstup modelu, nikoli o pozorovaný budoucí radar. Ovládání je pod mapou a režim celé obrazovky poskytuje více místa. Hodinový detail srozumitelně popisuje pravděpodobnost i množství budoucích srážek.
 
 Vlastní widget se přizpůsobí malé, široké i vysoké velikosti. Každý widget může mít vlastní barvy, průhlednost, gradient nebo obrázek, velikost textu, zarovnání, vlastní popisek a vybraná data. Pokud vybraný obrázek přestane být dostupný, widget dál funguje s nastaveným barevným pozadím.
 

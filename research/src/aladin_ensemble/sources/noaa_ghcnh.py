@@ -222,6 +222,10 @@ def _atomic_write(path: Path, body: bytes) -> None:
         temporary_path = Path(temporary.name)
     try:
         temporary_path.write_bytes(body)
-        temporary_path.replace(path)
+        try:
+            # Publish a complete immutable cache file; a concurrent first writer wins.
+            path.hardlink_to(temporary_path)
+        except FileExistsError:
+            pass
     finally:
         temporary_path.unlink(missing_ok=True)

@@ -16,11 +16,11 @@
 <p align="center">
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/01-weather.png" width="240" alt="Selia Weather forecast">
   &nbsp;&nbsp;
-  <img src="docs/assets/ask-ai-history.png" width="240" alt="Five-year weather archive with an Ask AI CSV action">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/06-ask-ai.png" width="240" alt="Share the five-year archive with your chosen AI app">
   &nbsp;&nbsp;
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/03-radar.png" width="240" alt="Observed precipitation radar">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/03-forecast-map.png" width="240" alt="Future precipitation from the DWD model">
   &nbsp;&nbsp;
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/05-widget-editor.png" width="240" alt="Weather widget editor">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/02-widget.png" width="240" alt="Weather widget editor with a native preview">
 </p>
 
 ## What it does

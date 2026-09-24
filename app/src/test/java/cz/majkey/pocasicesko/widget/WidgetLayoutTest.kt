@@ -76,9 +76,8 @@ class WidgetLayoutTest {
             assertEquals(family.textContent, widgetPreviewFontName(font))
         }
         val preview = File(root, "java/cz/majkey/pocasicesko/widget/WidgetEditorScreen.kt").readText()
-        assertTrue(preview.contains("heightDp = previewHeight.value.roundToInt()"))
-        assertTrue(preview.contains("textAlign = textAlignment"))
-        assertTrue(preview.contains("fontFamily = fontFamily"))
+        assertTrue(preview.contains("WeatherWidgetProvider.createViews("))
+        assertTrue(preview.contains("remoteViews.apply(context, host)"))
     }
 
     @Test
@@ -123,9 +122,9 @@ class WidgetLayoutTest {
         val provider = File(root, "WeatherWidgetProvider.kt").readText()
         val preview = File(root, "WidgetEditorScreen.kt").readText()
         assertTrue(provider.contains("val temperatureFit = widgetTemperatureFit("))
-        assertTrue(preview.contains("val temperatureFit = widgetTemperatureFit("))
+        assertTrue(preview.contains("WeatherWidgetProvider.createViews("))
         assertTrue(provider.contains("temperatureFit.textSizeSp"))
-        assertTrue(preview.contains("temperatureFit.textSizeSp.sp"))
+        assertTrue(preview.contains("withContext(Dispatchers.IO)"))
         assertTrue(provider.contains("('0'..'9').maxOf"))
         assertTrue(provider.contains("TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP"))
         assertTrue(provider.contains("paint.fontMetrics.descent - paint.fontMetrics.ascent"))

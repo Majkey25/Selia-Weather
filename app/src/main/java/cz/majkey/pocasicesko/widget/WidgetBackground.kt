@@ -25,15 +25,6 @@ import cz.majkey.pocasicesko.ui.weatherPalette
 import kotlin.math.roundToInt
 
 internal object WidgetBackground {
-    fun previewBitmap(
-        context: Context,
-        settings: WidgetSettings,
-        kind: WeatherKind,
-        isDay: Boolean,
-        widthDp: Int = MAX_BACKGROUND_WIDTH,
-        heightDp: Int = MAX_BACKGROUND_HEIGHT,
-    ): Bitmap = bitmapFor(context, settings.normalized(), kind, isDay, widthDp, heightDp)
-
     private fun bitmapFor(
         context: Context,
         settings: WidgetSettings,

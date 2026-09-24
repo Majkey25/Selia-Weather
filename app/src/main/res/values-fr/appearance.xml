@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="appearance_title">Apparence</string>
+    <string name="appearance_summary">Couleurs météo, dégradés fixes et styles sobres</string>
+    <string name="appearance_weather">Selon la météo</string>
+    <string name="appearance_weather_summary">Tons chauds au soleil, bleus sous les nuages, plus sombres la nuit</string>
+    <string name="appearance_fixed">Dégradés fixes</string>
+    <string name="appearance_ocean">Océan</string>
+    <string name="appearance_sunset">Coucher de soleil</string>
+    <string name="appearance_forest">Forêt</string>
+    <string name="appearance_simple">Styles sobres</string>
+    <string name="appearance_material">Material</string>
+    <string name="appearance_material_summary">Fond ardoise uni avec des touches de bleu</string>
+    <string name="appearance_minimal">Minimaliste</string>
+    <string name="appearance_minimal_summary">Fond anthracite uni avec des touches neutres</string>
+    <string name="appearance_widgets_note">Les widgets au style de l\'application suivent ce choix.</string>
+</resources>

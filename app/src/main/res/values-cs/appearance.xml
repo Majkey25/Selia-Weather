@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="appearance_title">Vzhled</string>
+    <string name="appearance_summary">Barvy podle počasí, pevné přechody a jednoduché styly</string>
+    <string name="appearance_weather">Podle počasí</string>
+    <string name="appearance_weather_summary">Teplé barvy za slunce, modré při oblačnosti, tmavší v noci</string>
+    <string name="appearance_fixed">Pevné barevné přechody</string>
+    <string name="appearance_ocean">Oceán</string>
+    <string name="appearance_sunset">Západ slunce</string>
+    <string name="appearance_forest">Les</string>
+    <string name="appearance_simple">Jednoduché styly</string>
+    <string name="appearance_material">Material</string>
+    <string name="appearance_material_summary">Jednobarevné břidlicové pozadí s modrými prvky</string>
+    <string name="appearance_minimal">Minimalistický</string>
+    <string name="appearance_minimal_summary">Jednobarevné antracitové pozadí s neutrálními prvky</string>
+    <string name="appearance_widgets_note">Widgety ve stylu aplikace přebírají tuto volbu.</string>
+</resources>

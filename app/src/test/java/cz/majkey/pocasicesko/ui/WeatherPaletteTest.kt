@@ -1,21 +1,57 @@
 package cz.majkey.pocasicesko.ui
 
-import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.luminance
 import cz.majkey.pocasicesko.data.WeatherKind
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class WeatherPaletteTest {
     @Test
-    fun sharedPalettePreservesExistingDayNightRainAndCloudColors() {
-        assertEquals(listOf(0xFF1D5D7A, 0xFF102A3C, 0xFF060E16).map(Long::toInt), weatherPalette(WeatherKind.CLEAR, true).background.map { it.toArgb() })
-        assertEquals(listOf(0xFF111A33, 0xFF080D1A, 0xFF04070D).map(Long::toInt), weatherPalette(WeatherKind.CLEAR, false).background.map { it.toArgb() })
-        assertEquals(listOf(0xFF263A49, 0xFF101D28, 0xFF070C11).map(Long::toInt), weatherPalette(WeatherKind.RAIN, true).background.map { it.toArgb() })
-        assertEquals(listOf(0xFF35444E, 0xFF17232B, 0xFF080D11).map(Long::toInt), weatherPalette(WeatherKind.CLOUDY, true).background.map { it.toArgb() })
+    fun sunnyDayIsWarmAndCloudyDayIsBlue() {
+        listOf(WeatherKind.CLEAR, WeatherKind.MAINLY_CLEAR).forEach { kind ->
+            val sunny = weatherPalette(kind, true).background.first()
+            assertTrue("$kind should be warm", sunny.red > sunny.blue && sunny.red > sunny.green)
+        }
+        listOf(WeatherKind.CLOUDY, WeatherKind.FOG, WeatherKind.SNOW).forEach { kind ->
+            val cloudy = weatherPalette(kind, true).background.first()
+            assertTrue("$kind should be blue", cloudy.blue > cloudy.red)
+        }
         assertEquals(weatherPalette(WeatherKind.CLOUDY, true), weatherPalette(WeatherKind.FOG, true))
         assertEquals(weatherPalette(WeatherKind.RAIN, true), weatherPalette(WeatherKind.STORM, true))
-        assertEquals(0x35E0A85D, weatherPalette(WeatherKind.CLEAR, true).primaryGlow.toArgb())
-        assertEquals(0x2D536BAA, weatherPalette(WeatherKind.CLEAR, false).primaryGlow.toArgb())
-        assertEquals(0xFF17384A.toInt(), weatherPalette(null, true).background.first().toArgb())
+    }
+
+    @Test
+    fun nightStaysCoolAndDarkerThanSunnyDay() {
+        val day = weatherPalette(WeatherKind.CLEAR, true).background.first()
+        val night = weatherPalette(WeatherKind.CLEAR, false).background.first()
+        assertTrue(night.blue > night.red)
+        assertTrue(night.luminance() < day.luminance())
+        assertEquals(weatherPalette(WeatherKind.CLEAR, false), weatherPalette(WeatherKind.RAIN, false))
+    }
+
+    @Test
+    fun unknownConditionsDoNotLookSunny() {
+        assertEquals(weatherPalette(null, true), weatherPalette(WeatherKind.UNKNOWN, true))
+        assertNotEquals(weatherPalette(WeatherKind.CLEAR, true), weatherPalette(WeatherKind.UNKNOWN, true))
+    }
+
+    @Test
+    fun secondaryTextRemainsReadableEvenWhereBothGlowsOverlap() {
+        val text = Color(0xFFDDEAF1)
+        (WeatherKind.entries + null).forEach { kind ->
+            listOf(true, false).forEach { isDay ->
+                val palette = weatherPalette(kind, isDay)
+                palette.background.forEach { background ->
+                    val lit = palette.secondaryGlow.compositeOver(palette.primaryGlow.compositeOver(background))
+                    assertEquals(1f, lit.alpha, 0f)
+                    val contrast = (text.luminance() + 0.05f) / (lit.luminance() + 0.05f)
+                    assertTrue("$kind day=$isDay secondary text contrast=$contrast", contrast >= 4.5f)
+                }
+            }
+        }
     }
 }

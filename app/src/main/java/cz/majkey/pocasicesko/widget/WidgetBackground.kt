@@ -21,7 +21,8 @@ import android.widget.RemoteViews
 import androidx.compose.ui.graphics.toArgb
 import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.data.WeatherKind
-import cz.majkey.pocasicesko.ui.weatherPalette
+import cz.majkey.pocasicesko.ui.AppearanceSettings
+import cz.majkey.pocasicesko.ui.appearancePalette
 import kotlin.math.roundToInt
 
 internal object WidgetBackground {
@@ -126,7 +127,7 @@ internal object WidgetBackground {
     private fun appStyleBitmap(context: Context, kind: WeatherKind, isDay: Boolean, widthDp: Int, heightDp: Int): Bitmap {
         val density = context.resources.displayMetrics.density
         val size = backgroundBitmapSize((widthDp * density).roundToInt(), (heightDp * density).roundToInt())
-        val palette = weatherPalette(kind, isDay)
+        val palette = appearancePalette(AppearanceSettings.load(context), kind, isDay)
         return Bitmap.createBitmap(size.width, size.height, Bitmap.Config.ARGB_8888).apply {
             val canvas = Canvas(this)
             val paint = Paint(Paint.ANTI_ALIAS_FLAG)

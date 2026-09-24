@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_about_support">À propos et soutien</string>
+    <string name="settings_notifications_summary">Bulletin matinal et alertes météo</string>
+    <string name="settings_warnings_summary">Alertes des services météo officiels</string>
+    <string name="settings_widgets_summary">Ajoutez ou modifiez les widgets de l’écran d’accueil</string>
+    <string name="settings_temperature_alerts">Alertes de température</string>
+    <string name="settings_temperature_summary">Froid, chaleur et baisses soudaines</string>
+    <string name="settings_alert_timing">Délai d’anticipation</string>
+    <string name="settings_on">Activé</string>
+    <string name="settings_off">Désactivé</string>
+</resources>

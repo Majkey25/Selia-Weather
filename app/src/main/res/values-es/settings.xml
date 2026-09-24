@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_about_support">Acerca de la app y apoyo</string>
+    <string name="settings_notifications_summary">Resumen diario y avisos meteorológicos</string>
+    <string name="settings_warnings_summary">Alertas de servicios meteorológicos oficiales</string>
+    <string name="settings_widgets_summary">Añade o edita widgets de la pantalla de inicio</string>
+    <string name="settings_temperature_alerts">Avisos de temperatura</string>
+    <string name="settings_temperature_summary">Frío, calor y descensos bruscos</string>
+    <string name="settings_alert_timing">Antelación del aviso</string>
+    <string name="settings_on">Activado</string>
+    <string name="settings_off">Desactivado</string>
+</resources>

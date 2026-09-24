@@ -81,6 +81,7 @@ class ForecastLayoutTest {
         compose.onNodeWithText(rainLabel).performTouchInput { click() }
         assertFalse(settings.value.rainEnabled)
         assertTrue(settings.value.officialWarningsEnabled)
+        compose.onNodeWithText(context.getString(R.string.settings_temperature_alerts)).performScrollTo().performTouchInput { click() }
         val coldLabel = context.getString(WeatherAlertCategory.COLD.labelResource)
         compose.onNodeWithText(coldLabel).performScrollTo().performTouchInput { click() }
         assertTrue(settings.value.coldEnabled)

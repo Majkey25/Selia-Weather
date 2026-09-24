@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_about_support">O aplikaci a podpora</string>
+    <string name="settings_notifications_summary">Ranní přehled a upozornění na počasí</string>
+    <string name="settings_warnings_summary">Upozornění od oficiálních meteorologických služeb</string>
+    <string name="settings_widgets_summary">Přidání a úprava widgetů na ploše</string>
+    <string name="settings_temperature_alerts">Upozornění na teplotu</string>
+    <string name="settings_temperature_summary">Chlad, horko a náhlé ochlazení</string>
+    <string name="settings_alert_timing">Předstih upozornění</string>
+    <string name="settings_on">Zapnuto</string>
+    <string name="settings_off">Vypnuto</string>
+</resources>

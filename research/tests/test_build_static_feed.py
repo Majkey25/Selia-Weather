@@ -161,6 +161,23 @@ def test_builder_compresses_tiles_losslessly_and_deterministically(tmp_path: Pat
     assert len(compressed) < len(decoded.encode("utf-8"))
 
 
+def test_quarantined_rain_stays_null_without_changing_other_fields(tmp_path: Path) -> None:
+    values = tuple(
+        replace(row, value=None)
+        if row.model_id == "model_a" and row.variable == "precipitation" else row
+        for row in fixture_values()
+    )
+    output = tmp_path / "feed"
+    manifest = build(output, values)
+    text = gzip.decompress((output / manifest.tile_checksums[0][0]).read_bytes()).decode("utf-8")
+
+    assert text.count('"value":null') == 12
+    assert text.count('"value":20.0') == 12  # Other-model rain remains numeric.
+    assert text.count('"value":21.0') == 24  # Both temperature series stay present.
+    assert text.count('"value":22.0') == 24
+    verify_static_feed(output)
+
+
 def test_builder_refuses_production_without_calibration(tmp_path: Path) -> None:
     generated_at = datetime(2026, 8, 29, 12, tzinfo=UTC)
 

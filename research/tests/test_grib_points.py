@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import UTC, datetime
+from dataclasses import dataclass, replace
+from datetime import UTC, datetime, timedelta
 from math import isclose
 from pathlib import Path
 from typing import BinaryIO
@@ -10,6 +10,7 @@ import pytest
 
 from aladin_ensemble.sources.grib_points import (
     GeoPoint,
+    PrecipitationDecreaseError,
     SampledMessage,
     SampledPoint,
     build_grib_point_index,
@@ -227,6 +228,52 @@ def test_preserves_contiguous_interval_precipitation_and_rejects_decrease() -> N
             canonical_unit="mm",
             elevation_by_point={point: 250.0},
         )
+
+
+def test_quarantines_real_ifs_decrease_without_claiming_zero_rain(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # Official 2026-09-22 12Z tp at 49.15, 16.4; frozen hashes and metadata in research evidence.
+    run_time = datetime(2026, 9, 22, 12, tzinfo=UTC)
+    point = GeoPoint(49.15, 16.4)
+    messages = tuple(
+        SampledMessage(
+            run_time, run_time + timedelta(hours=lead), "m", "accum", 0, lead,
+            (SampledPoint(point.latitude, point.longitude, 49.25, 16.5, 13.0, amount),),
+        )
+        for lead, amount in ((12, 0.0003509521484375), (18, 0.000335693359375))
+    )
+    with pytest.raises(PrecipitationDecreaseError, match="delta=-0.0152587890625 mm"):
+        to_forecast_values(
+            messages, model_id="ecmwf_ifs_open", variable="precipitation",
+            canonical_unit="mm", elevation_by_point={point: 250.0},
+        )
+    values = to_forecast_values(
+        messages, model_id="ecmwf_ifs_open", variable="precipitation",
+        canonical_unit="mm", elevation_by_point={point: 250.0},
+        missing_on_precipitation_decrease=True,
+    )
+    assert [row.value for row in values] == [None, None, None]
+    assert [row.valid_time for row in values] == [
+        run_time, run_time + timedelta(hours=12), run_time + timedelta(hours=18),
+    ]
+    assert "Discarding ecmwf_ifs_open precipitation" in caplog.text
+    assert "tolerance=0.01 mm" in caplog.text
+
+    # Structural/contract errors must never be swallowed by the operational missingness policy.
+    for malformed in (
+        (messages[0], messages[0]),
+        (messages[0], replace(messages[1], valid_time=run_time)),
+        (messages[0], replace(messages[1], step_type="instant")),
+        (messages[0], replace(messages[1], start_step_hours=6)),
+    ):
+        with pytest.raises(ValueError) as error:
+            to_forecast_values(
+                malformed, model_id="ecmwf_ifs_open", variable="precipitation",
+                canonical_unit="mm", elevation_by_point={point: 250.0},
+                missing_on_precipitation_decrease=True,
+            )
+        assert not isinstance(error.value, PrecipitationDecreaseError)
 
 
 def test_reuses_verified_grid_indexes_for_later_fields(tmp_path: Path) -> None:

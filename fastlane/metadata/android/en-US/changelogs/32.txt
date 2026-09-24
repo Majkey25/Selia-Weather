@@ -1,0 +1,1 @@
+Compact settings with dedicated language, units, appearance and alert menus. Swipe between Weather, Radar and Ask AI while map gestures stay on the map. Choose weather-based colours, fixed gradients, Material or Minimal. App-style widgets follow your theme. Improved rapid navigation, Back behaviour and archive refresh when returning to AI.

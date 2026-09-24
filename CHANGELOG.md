@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0] - 2026-09-24
+
+- Group settings into Notifications, Official warnings, Appearance, Units, Language, Widgets, and About. Keep thresholds in focused notification submenus and return to the parent menu with Back.
+- Swipe between Weather, Radar, and Ask AI. Keep scroll positions and the radar WebView, cancel superseded tab animations, and leave map drags and fullscreen gestures to the radar.
+- Add weather-reactive colours, Ocean/Sunset/Forest gradients, and Material/Minimal styles. App-style widgets follow the choice; explicit widget backgrounds remain unchanged.
+- Revalidate the retained AI archive on return and app resume without clearing the question or date range. Clear keyboard focus when leaving the tab.
+
 ## [0.3.1] - 2026-09-24
 
 - Coalesce rapid radar timeline changes instead of starting tile loads for every crossed position. Keep the selected frame through background/resume and prevent superseded frames from moving the slider.

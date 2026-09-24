@@ -1,0 +1,1 @@
+Menus clairs pour la langue, les unités, l’apparence et les alertes. Balayez entre Météo, Radar et IA ; les gestes sur la carte déplacent toujours la carte. Choisissez des couleurs selon la météo, des dégradés fixes, Material ou Minimal. Les widgets au style de l’app suivent le thème. Navigation rapide, retour et actualisation des archives améliorés.

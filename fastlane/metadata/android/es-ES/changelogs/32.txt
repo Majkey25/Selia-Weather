@@ -1,0 +1,1 @@
+Menús claros para idioma, unidades, apariencia y alertas. Desliza entre Tiempo, Radar e IA; los gestos sobre el mapa siguen moviendo el mapa. Elige colores según el tiempo, degradados fijos, Material o Minimal. Los widgets con estilo de la app siguen el tema. Mejoras en la navegación rápida, el botón Atrás y la actualización del archivo al volver a IA.

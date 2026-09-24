@@ -66,7 +66,8 @@ class HistoryPeriodTest {
         val details = File(root, "WeatherDetailScreen.kt").readText()
         assertTrue(forecast.contains("WeatherDetailAction(label = R.string.history_title)"))
         assertTrue(forecast.contains("initialHistory = openHistory"))
-        assertTrue(details.contains("if (initialHistory) loadArchive()"))
+        assertTrue(details.contains("if (initialHistory && active)"))
+        assertTrue(details.contains("HistoryUiState.Content(loadHistory(location))"))
         assertTrue(details.contains("onClick = { onShare(archive, question, range) }"))
     }
 

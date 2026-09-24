@@ -3,6 +3,7 @@ package cz.majkey.pocasicesko.ui
 import android.content.ActivityNotFoundException
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -48,6 +49,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -57,6 +59,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -109,6 +112,9 @@ import java.time.format.FormatStyle
 import kotlin.math.roundToInt
 import java.io.IOException
 import kotlinx.coroutines.launch
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import org.json.JSONException
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -120,6 +126,9 @@ internal fun WeatherDetailSheet(
     loadHistory: suspend (CzechLocation) -> HistoryArchive,
     initialHistory: Boolean = false,
     currentTime: LocalDateTime? = null,
+    embedded: Boolean = false,
+    active: Boolean = true,
+    padding: PaddingValues = PaddingValues(),
     onDismiss: () -> Unit,
 ) {
     val locale = LocalConfiguration.current.locales[0]
@@ -135,12 +144,13 @@ internal fun WeatherDetailSheet(
             }.getOrNull()
         }
     }
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val today = snapshot.daily.firstOrNull { it.date == currentTime?.toLocalDate()?.toString() }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val shareChooserTitle = stringResource(R.string.history_share_chooser)
     var historyState by remember(location) { mutableStateOf<HistoryUiState>(HistoryUiState.Idle) }
+    var historyReload by remember(location) { mutableIntStateOf(0) }
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
     var showHistoryDays by remember(location) { mutableStateOf(false) }
     var historyShareError by remember(location) { mutableStateOf(false) }
     var historySharing by remember(location) { mutableStateOf(false) }
@@ -154,20 +164,6 @@ internal fun WeatherDetailSheet(
         historyDateFromUtcMillis(start)..historyDateFromUtcMillis(end)
     } }
     val listState = rememberLazyListState()
-    fun loadArchive() {
-        historyState = HistoryUiState.Loading
-        showHistoryDays = false
-        historyShareError = false
-        scope.launch {
-            historyState = try {
-                HistoryUiState.Content(loadHistory(location))
-            } catch (_: IOException) {
-                HistoryUiState.Error
-            } catch (_: JSONException) {
-                HistoryUiState.Error
-            }
-        }
-    }
     fun shareArchive(archive: HistoryArchive, question: String, range: ClosedRange<LocalDate>) {
         if (historySharing) return
         historySharing = true
@@ -186,16 +182,22 @@ internal fun WeatherDetailSheet(
             }
         }
     }
-    LaunchedEffect(initialHistory, location) {
-        if (initialHistory) loadArchive()
+    LaunchedEffect(initialHistory, location, active, historyReload, lifecycle) {
+        if (initialHistory && active) lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            val previous = historyState
+            if (previous !is HistoryUiState.Content) historyState = HistoryUiState.Loading
+            historyShareError = false
+            historyState = try {
+                HistoryUiState.Content(loadHistory(location))
+            } catch (_: IOException) {
+                previous as? HistoryUiState.Content ?: HistoryUiState.Error
+            } catch (_: JSONException) {
+                previous as? HistoryUiState.Content ?: HistoryUiState.Error
+            }
+        }
     }
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = Color(0xFF101820),
-        contentColor = Color.White,
-        sheetState = sheetState,
-    ) {
-        Column(Modifier.fillMaxWidth().fillMaxHeight().navigationBarsPadding()) {
+    WeatherDetailContainer(embedded, padding, onDismiss) {
+        Column(Modifier.fillMaxWidth().fillMaxHeight().then(if (embedded) Modifier else Modifier.navigationBarsPadding())) {
             SheetHeader(
                 title = stringResource(if (initialHistory) R.string.home_ask_ai else R.string.weather_details),
                 onBack = onDismiss,
@@ -222,7 +224,7 @@ internal fun WeatherDetailSheet(
                             sharing = historySharing,
                             question = historyQuestion,
                             onQuestion = { historyQuestion = historyQuestionInput(it) },
-                            onLoad = ::loadArchive,
+                            onLoad = { historyReload++ },
                             onShare = { archive, question, range ->
                                 if (!historySharing) pendingShare = PendingHistoryShare(archive, question, range)
                             },
@@ -525,6 +527,27 @@ internal fun WeatherDetailSheet(
                 showRangePicker = false
             },
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun WeatherDetailContainer(
+    embedded: Boolean,
+    padding: PaddingValues,
+    onDismiss: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    if (embedded) {
+        Box(Modifier.fillMaxWidth().fillMaxHeight().background(MaterialTheme.colorScheme.surface)
+            .padding(padding).padding(bottom = 84.dp)) { content() }
+    } else {
+        ModalBottomSheet(
+            onDismissRequest = onDismiss,
+            containerColor = Color(0xFF101820),
+            contentColor = Color.White,
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        ) { content() }
     }
 }
 

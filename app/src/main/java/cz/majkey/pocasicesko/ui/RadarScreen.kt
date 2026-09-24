@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.graphics.Bitmap
+import android.view.View
 import android.webkit.CookieManager
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -62,7 +63,11 @@ internal fun localizedRadarUrl(
 
 @Composable
 @SuppressLint("SetJavaScriptEnabled")
-fun ChmiWebScreen(url: String, modifier: Modifier = Modifier) {
+fun ChmiWebScreen(
+    url: String,
+    modifier: Modifier = Modifier,
+    active: Boolean = true,
+) {
     val context = LocalContext.current
     val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
     val radarUnavailable = stringResource(R.string.radar_unavailable)
@@ -154,7 +159,8 @@ fun ChmiWebScreen(url: String, modifier: Modifier = Modifier) {
                     view.destroy()
                 },
                 update = { view ->
-                    if (lifecycleState.isAtLeast(Lifecycle.State.RESUMED)) {
+                    view.visibility = if (active) View.VISIBLE else View.INVISIBLE
+                    if (active && lifecycleState.isAtLeast(Lifecycle.State.RESUMED)) {
                         view.onResume()
                     } else {
                         view.onPause()

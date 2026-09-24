@@ -54,7 +54,8 @@ class WeatherChromeTest {
         val item = source.substringAfter("private fun NavigationItem")
             .substringBefore("private fun WeatherBackdrop")
 
-        assertTrue(item.contains(".semantics { contentDescription = label }"))
+        assertTrue(item.contains("contentDescription = label"))
+        assertTrue(item.contains("this.selected = selected"))
     }
 
     @Test

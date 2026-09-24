@@ -1,6 +1,7 @@
 package cz.majkey.pocasicesko.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -11,16 +12,22 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.FullscreenExit
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -37,10 +44,14 @@ internal fun MapHubScreen(
     fullscreen: Boolean,
     timezone: String? = null,
     onToggleFullscreen: () -> Unit,
+    active: Boolean = true,
+    onNavigate: (Destination) -> Unit = {},
 ) {
     val configuration = LocalConfiguration.current
     val languageTag = configuration.locales[0]?.toLanguageTag()
     val compact = configuration.screenHeightDp < 480
+    val navigate by rememberUpdatedState(onNavigate)
+    val swipeThreshold = with(LocalDensity.current) { 48.dp.toPx() }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -52,10 +63,24 @@ internal fun MapHubScreen(
                 bottom = if (fullscreen) 0.dp else 84.dp,
             ),
     ) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().testTag("radar-header").then(
+            if (fullscreen) Modifier else Modifier.pointerInput(swipeThreshold) {
+                var distance = 0f
+                detectHorizontalDragGestures(
+                    onDragStart = { distance = 0f },
+                    onDragCancel = { distance = 0f },
+                    onDragEnd = {
+                        when {
+                            distance <= -swipeThreshold -> navigate(Destination.AI)
+                            distance >= swipeThreshold -> navigate(Destination.WEATHER)
+                        }
+                    },
+                ) { change, amount -> change.consume(); distance += amount }
+            },
+        ), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f).padding(start = 8.dp)) {
                 Text(stringResource(R.string.radar_title), fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
-                if (!compact) Text(location.name, fontSize = 13.sp, color = Color.White.copy(alpha = 0.7f),
+                if (!compact) Text(location.name, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             IconButton(onClick = onToggleFullscreen, modifier = Modifier.heightIn(min = 48.dp)) {
@@ -79,6 +104,7 @@ internal fun MapHubScreen(
                     location.isInCzechia(),
                     timezone,
                 ),
+                active = active,
             )
         }
     }

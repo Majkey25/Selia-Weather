@@ -7,6 +7,15 @@ import org.junit.Test
 
 class WeatherChromeTest {
     @Test
+    fun warningsFollowWeatherDetailsAndPrecedeHistory() {
+        val source = source("ForecastScreen.kt")
+        val details = source.indexOf("WeatherDetailAction {")
+        val warnings = source.indexOf("WarningsAction(warnings, onWarnings)")
+        val history = source.indexOf("WeatherDetailAction(label = R.string.history_title)")
+        assertTrue(details >= 0 && warnings > details && history > warnings)
+    }
+
+    @Test
     fun navigationHasNoOuterOpaqueSurface() {
         val source = source("WeatherApp.kt")
         val navigation = source.substringAfter("private fun FloatingNavigation")

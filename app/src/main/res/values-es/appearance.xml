@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="appearance_title">Apariencia</string>
+    <string name="appearance_summary">Colores del tiempo, degradados fijos y estilos sencillos</string>
+    <string name="appearance_weather">Según el tiempo</string>
+    <string name="appearance_weather_summary">Tonos cálidos con sol, azules con nubes y oscuros de noche</string>
+    <string name="appearance_fixed">Degradados fijos</string>
+    <string name="appearance_ocean">Océano</string>
+    <string name="appearance_sunset">Atardecer</string>
+    <string name="appearance_forest">Bosque</string>
+    <string name="appearance_simple">Estilos sencillos</string>
+    <string name="appearance_material">Material</string>
+    <string name="appearance_material_summary">Fondo liso de color pizarra con detalles azules</string>
+    <string name="appearance_minimal">Minimalista</string>
+    <string name="appearance_minimal_summary">Fondo liso de color carbón con detalles neutros</string>
+    <string name="appearance_widgets_note">Los widgets con el estilo de la aplicación siguen esta selección.</string>
+</resources>

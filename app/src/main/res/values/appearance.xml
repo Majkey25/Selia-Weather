@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="appearance_title">Appearance</string>
+    <string name="appearance_summary">Weather colours, fixed gradients and simple styles</string>
+    <string name="appearance_weather">Match the weather</string>
+    <string name="appearance_weather_summary">Warm in sunshine, blue under clouds, darker at night</string>
+    <string name="appearance_fixed">Fixed gradients</string>
+    <string name="appearance_ocean">Ocean</string>
+    <string name="appearance_sunset">Sunset</string>
+    <string name="appearance_forest">Forest</string>
+    <string name="appearance_simple">Simple styles</string>
+    <string name="appearance_material">Material</string>
+    <string name="appearance_material_summary">Solid slate background with blue accents</string>
+    <string name="appearance_minimal">Minimal</string>
+    <string name="appearance_minimal_summary">Solid charcoal background with neutral accents</string>
+    <string name="appearance_widgets_note">Widgets set to App style follow this choice.</string>
+</resources>

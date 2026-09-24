@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_about_support">About and support</string>
+    <string name="settings_notifications_summary">Daily briefing and weather alerts</string>
+    <string name="settings_warnings_summary">Alerts from official weather services</string>
+    <string name="settings_widgets_summary">Add or edit home screen widgets</string>
+    <string name="settings_temperature_alerts">Temperature alerts</string>
+    <string name="settings_temperature_summary">Cold, heat and sudden drops</string>
+    <string name="settings_alert_timing">Advance notice</string>
+    <string name="settings_on">On</string>
+    <string name="settings_off">Off</string>
+</resources>

@@ -69,13 +69,17 @@ The historical data was obtained from the NASA Langley Research Center POWER pro
 
 Selia Weather supports Android 10 and later. It follows the Android system language by default. English is the fallback for unsupported system languages. You can select English, Czech, German, Spanish, or French in the app.
 
+Settings groups language, units, notifications, official warnings, appearance, widgets, and support into separate menus. Swipe left through Weather, Radar, and Ask AI, or right to return. On Radar, swipe the header to change tabs. Drags on the map pan the map, and fullscreen keeps all gestures in Radar.
+
+Appearance can follow the weather, use a fixed Ocean, Sunset, or Forest gradient, or use the flat Material and Minimal styles. The weather option uses warm colours in sunshine, blue under clouds, and darker colours at night.
+
 The public application ID is `com.majkeylab.weatheraladin`. A network connection is required for fresh forecasts, search, and radar. Build locally with JDK 17 and Android SDK 36.
 
 ## Widget
 
 One stable widget layout adapts to compact, standard, wide, and tall sizes. Resize it horizontally or vertically. Each widget stores its own configuration, so two widgets can use different colours, fields, labels, and backgrounds.
 
-Choose App style to use the forecast's weather-aware gradient, or start from Minimal, Material, Pixel, or Cupertino. Adjust fonts, text scale, alignment, corner shape, content spacing, colours, and background opacity independently.
+Choose App style to follow the app's appearance setting, or start from Minimal, Material, Pixel, or Cupertino. Adjust fonts, text scale, alignment, corner shape, content spacing, colours, and background opacity independently.
 
 Choose a date format for each widget: system default, `8.9.2026`, `08.09.2026`, ISO, a localized month name, or a custom Java date pattern. The editor previews the result and rejects invalid patterns. The clock can follow the system or use 12-hour or 24-hour time independently.
 

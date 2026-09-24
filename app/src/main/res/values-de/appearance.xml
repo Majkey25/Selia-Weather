@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="appearance_title">Darstellung</string>
+    <string name="appearance_summary">Wetterfarben, feste Farbverläufe und schlichte Stile</string>
+    <string name="appearance_weather">Passend zum Wetter</string>
+    <string name="appearance_weather_summary">Warme Farben bei Sonne, Blau bei Wolken, dunkler in der Nacht</string>
+    <string name="appearance_fixed">Feste Farbverläufe</string>
+    <string name="appearance_ocean">Ozean</string>
+    <string name="appearance_sunset">Sonnenuntergang</string>
+    <string name="appearance_forest">Wald</string>
+    <string name="appearance_simple">Schlichte Stile</string>
+    <string name="appearance_material">Material</string>
+    <string name="appearance_material_summary">Einfarbiger Schieferhintergrund mit blauen Akzenten</string>
+    <string name="appearance_minimal">Minimalistisch</string>
+    <string name="appearance_minimal_summary">Einfarbiger anthrazitfarbener Hintergrund mit neutralen Akzenten</string>
+    <string name="appearance_widgets_note">Widgets im App-Stil übernehmen diese Auswahl.</string>
+</resources>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_about_support">Über die App und Unterstützung</string>
+    <string name="settings_notifications_summary">Morgenbericht und Wetterhinweise</string>
+    <string name="settings_warnings_summary">Warnungen offizieller Wetterdienste</string>
+    <string name="settings_widgets_summary">Widgets zum Startbildschirm hinzufügen oder bearbeiten</string>
+    <string name="settings_temperature_alerts">Temperaturhinweise</string>
+    <string name="settings_temperature_summary">Kälte, Hitze und Temperaturabfall</string>
+    <string name="settings_alert_timing">Vorwarnzeit</string>
+    <string name="settings_on">Ein</string>
+    <string name="settings_off">Aus</string>
+</resources>

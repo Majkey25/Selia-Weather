@@ -1,0 +1,1 @@
+Přehledné nastavení s nabídkami jazyka, jednotek, vzhledu a upozornění. Mezi počasím, radarem a AI přejdete tahem do strany; tah na mapě stále posouvá mapu. Vyberte barvy podle počasí, pevný gradient, Material nebo Minimal. Widgety ve stylu aplikace převezmou vzhled. Spolehlivější rychlé přepínání, tlačítko Zpět a obnova archivu při návratu k AI.

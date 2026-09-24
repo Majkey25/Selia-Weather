@@ -1,0 +1,1 @@
+Übersichtliche Menüs für Sprache, Einheiten, Darstellung und Warnungen. Wischen Sie zwischen Wetter, Radar und KI; Gesten auf der Karte verschieben weiterhin die Karte. Wählen Sie wetterabhängige Farben, feste Farbverläufe, Material oder Minimal. Widgets im App-Stil übernehmen das Design. Zuverlässigere Navigation, Zurück-Funktion und Archivaktualisierung beim Öffnen der KI.

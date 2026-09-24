@@ -23,6 +23,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,6 +34,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -56,8 +59,6 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -85,7 +86,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -130,6 +134,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import java.time.Instant
 import java.time.Duration
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
@@ -140,6 +145,7 @@ import kotlinx.coroutines.withContext
 internal enum class Destination {
     WEATHER,
     MAPS,
+    AI,
 }
 
 internal enum class LocationPermissionAction {
@@ -182,17 +188,39 @@ fun WeatherApp(
 ) {
     val context = LocalContext.current
     val deviceLocationRepository = remember { DeviceLocationRepository(context) }
-    var destination by rememberSaveable { mutableStateOf(Destination.WEATHER) }
+    val pagerState = rememberPagerState { Destination.entries.size }
+    val focusManager = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    val destination = Destination.entries[pagerState.currentPage]
+    val navigationScope = rememberCoroutineScope()
+    var navigationJob by remember { mutableStateOf<Job?>(null) }
+    var visitedPages by remember { mutableStateOf(setOf(Destination.WEATHER, destination)) }
     var radarFullscreen by rememberSaveable { mutableStateOf(false) }
+    fun navigateTo(selected: Destination) {
+        navigationJob?.cancel()
+        navigationJob = navigationScope.launch { pagerState.animateScrollToPage(selected.ordinal) }
+    }
+    LaunchedEffect(destination, pagerState.targetPage) {
+        visitedPages = visitedPages + destination + Destination.entries[pagerState.targetPage]
+    }
+    LaunchedEffect(destination) {
+        focusManager.clearFocus()
+        keyboard?.hide()
+    }
+    BackHandler(enabled = destination != Destination.WEATHER && !radarFullscreen) {
+        navigateTo(Destination.entries[(pagerState.currentPage - 1).coerceAtLeast(0)])
+    }
     BackHandler(enabled = destination == Destination.MAPS && radarFullscreen) {
         radarFullscreen = false
     }
     var location by remember { mutableStateOf(repository.lastLocation()) }
-    var showAiHistory by rememberSaveable(location.latitude, location.longitude) { mutableStateOf(false) }
     var reloadKey by remember { mutableIntStateOf(0) }
     var showLocationSearch by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var showNotificationSettings by rememberSaveable { mutableStateOf(false) }
+    var notificationSection by rememberSaveable { mutableStateOf(NotificationSettingsSection.GENERAL) }
+    var showAppearance by rememberSaveable { mutableStateOf(false) }
+    var appearance by remember { mutableStateOf(AppearanceSettings.load(context)) }
     var showWarnings by rememberSaveable { mutableStateOf(initialWarnings) }
     val warningsRepository = remember { WeatherWarningsRepository(context.applicationContext) }
     val warningsLifecycle = LocalLifecycleOwner.current.lifecycle
@@ -334,14 +362,22 @@ fun WeatherApp(
     }
 
     val snapshot = (state as? WeatherUiState.Content)?.snapshot
-    WeatherTheme {
-        Box(Modifier.fillMaxSize()) {
-            WeatherBackdrop(snapshot = snapshot)
+    WeatherTheme(appearance = appearance) {
+        Box(Modifier.fillMaxSize().imePadding()) {
+            WeatherBackdrop(snapshot = snapshot, appearance = appearance)
             Scaffold(
                 containerColor = Color.Transparent,
                 contentColor = Color.White,
             ) { padding ->
-                when (destination) {
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize().testTag("main-pages"),
+                    beyondViewportPageCount = 2,
+                    userScrollEnabled = !radarFullscreen && pagerState.settledPage != Destination.MAPS.ordinal,
+                    key = { Destination.entries[it] },
+                ) { page ->
+                val pageDestination = Destination.entries[page]
+                if (pageDestination in visitedPages) when (pageDestination) {
                     Destination.WEATHER -> WeatherDestination(
                         state = state,
                         location = location,
@@ -361,35 +397,52 @@ fun WeatherApp(
                         fullscreen = radarFullscreen,
                         timezone = snapshot?.timezone,
                         onToggleFullscreen = { radarFullscreen = !radarFullscreen },
+                        active = destination == Destination.MAPS || pagerState.isScrollInProgress,
+                        onNavigate = ::navigateTo,
                     )
+
+                    Destination.AI -> if (snapshot != null) {
+                        val locale = LocalConfiguration.current.locales[0]
+                        WeatherDetailSheet(
+                            snapshot = snapshot,
+                            location = location,
+                            units = remember(measurementSystem, locale) { WeatherUnitFormatter(measurementSystem, locale) },
+                            loadHistory = repository::fetchHistory,
+                            initialHistory = true,
+                            currentTime = rememberForecastLocalTime(snapshot.timezone, snapshot.utcOffsetSeconds),
+                            embedded = true,
+                            active = pagerState.settledPage == Destination.AI.ordinal,
+                            padding = padding,
+                            onDismiss = { navigateTo(Destination.MAPS) },
+                        )
+                    } else if (state == WeatherUiState.Loading) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = Color.White)
+                        }
+                    } else ErrorState(
+                        message = stringResource(R.string.forecast_unavailable),
+                        padding = padding,
+                        onRetry = { reloadKey++ },
+                        onSettings = { showSettings = true },
+                        warnings = null,
+                        onWarnings = { showWarnings = true },
+                    )
+                }
                 }
             }
             if (!(destination == Destination.MAPS && radarFullscreen)) FloatingNavigation(
                 destination = destination,
                 modifier = Modifier.align(Alignment.BottomCenter),
-                onAskAi = if (snapshot != null) ({ showAiHistory = true }) else null,
+                onAskAi = { navigateTo(Destination.AI) },
                 onDestination = { selected ->
                     if (destination == Destination.MAPS && selected == Destination.WEATHER) {
-                        adsController?.maybeShowInterstitial(entitlement) { destination = selected }
-                            ?: run { destination = selected }
+                        adsController?.maybeShowInterstitial(entitlement) { navigateTo(selected) }
+                            ?: navigateTo(selected)
                     } else {
-                        destination = selected
+                        navigateTo(selected)
                     }
                 },
             )
-
-            if (showAiHistory && snapshot != null) {
-                val locale = LocalConfiguration.current.locales[0]
-                WeatherDetailSheet(
-                    snapshot = snapshot,
-                    location = location,
-                    units = remember(measurementSystem, locale) { WeatherUnitFormatter(measurementSystem, locale) },
-                    loadHistory = repository::fetchHistory,
-                    initialHistory = true,
-                    currentTime = rememberForecastLocalTime(snapshot.timezone, snapshot.utcOffsetSeconds),
-                    onDismiss = { showAiHistory = false },
-                )
-            }
 
             if (showLocationSearch) {
                 LocationSearchSheet(
@@ -436,6 +489,7 @@ fun WeatherApp(
                         } else openSystemNotifications()
                     },
                     onChannelSettings = ::openSystemNotifications,
+                    initialSection = notificationSection,
                     onDismiss = { showNotificationSettings = false; showSettings = true },
                 )
             }
@@ -457,8 +511,15 @@ fun WeatherApp(
                     },
                     onNotifications = {
                         showSettings = false
+                        notificationSection = NotificationSettingsSection.GENERAL
                         showNotificationSettings = true
                     },
+                    onWarningSettings = {
+                        showSettings = false
+                        notificationSection = NotificationSettingsSection.OFFICIAL
+                        showNotificationSettings = true
+                    },
+                    onAppearance = { showSettings = false; showAppearance = true },
                     onAddWidget = {
                         val manager = AppWidgetManager.getInstance(context)
                         val requested = manager.isRequestPinAppWidgetSupported && manager.requestPinAppWidget(
@@ -509,6 +570,17 @@ fun WeatherApp(
                     onPrivacyOptions = { adsController?.showPrivacyOptions() },
                     onClearBillingMessage = { premiumBillingController?.clearMessage() },
                     onDismiss = { showSettings = false },
+                )
+            }
+            if (showAppearance) {
+                AppearanceSheet(
+                    selectedAppearance = appearance,
+                    onAppearance = { selected ->
+                        AppearanceSettings.save(context, selected)
+                        appearance = selected
+                        WeatherWidgetProvider.updateAll(context)
+                    },
+                    onDismiss = { showAppearance = false; showSettings = true },
                 )
             }
         }
@@ -604,18 +676,13 @@ internal fun FloatingNavigation(
                 onClick = { onDestination(Destination.MAPS) },
             )
             if (onAskAi != null) {
-                FilledTonalIconButton(
+                NavigationItem(
+                    selected = destination == Destination.AI,
+                    label = askAiLabel,
+                    icon = { Icon(painterResource(R.drawable.ic_ai), contentDescription = null, modifier = Modifier.size(28.dp)) },
+                    modifier = if (destination == Destination.AI) Modifier.weight(1f) else Modifier.width(52.dp),
                     onClick = onAskAi,
-                    modifier = Modifier.size(52.dp).semantics {
-                        contentDescription = askAiLabel
-                    },
-                    colors = IconButtonDefaults.filledTonalIconButtonColors(
-                        containerColor = Color(0xFF214E60),
-                        contentColor = Color.White,
-                    ),
-                ) {
-                    Icon(painterResource(R.drawable.ic_ai), contentDescription = null, modifier = Modifier.size(28.dp))
-                }
+                )
             }
         }
     }
@@ -633,7 +700,7 @@ private fun NavigationItem(
         onClick = onClick,
         modifier = modifier
             .fillMaxSize()
-            .semantics { contentDescription = label },
+            .semantics { contentDescription = label; this.selected = selected },
         color = if (selected) Color(0xFF2E6474) else Color(0xFF142731),
         contentColor = Color.White,
         shape = RoundedCornerShape(28.dp),
@@ -655,8 +722,9 @@ private fun NavigationItem(
 }
 
 @Composable
-private fun WeatherBackdrop(snapshot: WeatherSnapshot?) {
-    val palette = weatherPalette(
+private fun WeatherBackdrop(snapshot: WeatherSnapshot?, appearance: AppAppearance) {
+    val palette = appearancePalette(
+        appearance,
         snapshot?.current?.let { conditionFor(it.weatherCode, it.isDay).kind },
         snapshot?.current?.isDay ?: true,
     )
@@ -680,7 +748,7 @@ private fun WeatherBackdrop(snapshot: WeatherSnapshot?) {
             radius = size.width * 0.7f,
             center = Offset(size.width * 0.9f, size.height * 0.38f),
         )
-        if (snapshot?.current?.isDay == false) {
+        if (appearance == AppAppearance.WEATHER && snapshot?.current?.isDay == false) {
             NIGHT_STARS.forEach { star ->
                 drawCircle(
                     color = Color.White.copy(alpha = star.third),

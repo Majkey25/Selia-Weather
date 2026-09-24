@@ -1,0 +1,1 @@
+Plynulejší posouvání časové osy radaru s méně zbytečným načítáním a spolehlivým návratem do aplikace. Výstrahy jsou pod podrobnostmi počasí. Přehlednější widget a přesný nativní náhled, nové widgety používají přechody barev aplikace. Nové snímky v obchodě. Chybná data srážek zůstávají neznámá, ostatní použitelná data modelů zachováváme.

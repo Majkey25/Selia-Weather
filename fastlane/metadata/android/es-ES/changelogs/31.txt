@@ -1,0 +1,1 @@
+Desplazamiento más fluido de la línea temporal del radar, con menos cargas descartadas y reanudación fiable. Los avisos están debajo de los detalles del tiempo. Widget más claro y vista previa nativa fiel; los nuevos widgets usan el degradado de la app. Nuevas imágenes de la tienda. Los datos de lluvia inválidos quedan como desconocidos y se conservan los demás datos útiles.

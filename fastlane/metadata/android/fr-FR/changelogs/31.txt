@@ -1,0 +1,1 @@
+Chronologie du radar plus fluide, avec moins de chargements inutiles et une reprise fiable. Les alertes figurent sous les détails météo. Widget plus lisible et aperçu natif fidèle ; les nouveaux widgets utilisent le dégradé de l’app. Nouvelles images pour la boutique. Les données de pluie invalides restent inconnues, les autres données utiles sont conservées.

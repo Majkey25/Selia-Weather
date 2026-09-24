@@ -59,7 +59,7 @@
     </div>
     <div class="topline">
       <button id="play" type="button" aria-label="Play" aria-pressed="false" onclick="togglePlay()" disabled><svg id="play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 11 7-11 7Z" fill="currentColor" stroke="none"/></svg><svg id="pause-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14" stroke-width="3"/></svg></button>
-      <input id="slider" type="range" min="0" max="0" value="0" aria-label="Observed radar timeline" oninput="stopPlay(); showFrame(Number(this.value))" disabled>
+      <input id="slider" type="range" min="0" max="0" value="0" aria-label="Observed radar timeline" oninput="seekFrame(Number(this.value))" disabled>
       <button id="retry" type="button" aria-label="Refresh radar" onclick="refreshMap()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2 6M20 4v7h-7"/></svg></button>
     </div>
     <div class="range"><span id="range-start">—</span><span id="range-end">—</span></div>
@@ -99,6 +99,8 @@
     var coverageLayer = null;
     var coverageVisible = true;
     var timer = null;
+    var seekTimer = null;
+    var seekIndex = null;
     var requestToken = 0;
     var tileHost = '';
     var activeRequest = null;
@@ -208,6 +210,7 @@
     }
 
     function clearRadarLayer() {
+      cancelSeek();
       clearTimeout(forecastExpiryTimer); forecastExpiryTimer = null;
       clearTimeout(tileTimeout); tileTimeout = null;
       clearTimeout(panTimeout); panTimeout = null;
@@ -380,6 +383,28 @@
         (day(start) !== day(frame.time) ? day(frame.time) + ' ' : '') + formatTime(frame.time);
     }
 
+    function cancelSeek() {
+      clearTimeout(seekTimer);
+      seekTimer = null;
+      seekIndex = null;
+    }
+
+    function flushSeek() {
+      var index = seekIndex;
+      cancelSeek();
+      if (index !== null) showFrame(index);
+    }
+
+    function seekFrame(index) {
+      stopPlay();
+      cancelSeek();
+      if (pendingLayer) map.removeLayer(pendingLayer);
+      pendingLayer = null;
+      clearTimeout(tileTimeout); tileTimeout = null;
+      seekIndex = index;
+      seekTimer = setTimeout(flushSeek, 120);
+    }
+
     function showFrame(index) {
       if (!ensureForecastFresh()) return;
       if (!frames.length) { setStatus(unavailableText()); return; }
@@ -539,6 +564,7 @@
 
     function togglePlay() {
       if (!ensureForecastFresh()) return;
+      flushSeek();
       var button = document.getElementById('play');
       if (timer) {
         stopPlay();
@@ -614,9 +640,14 @@
     }
 
     document.addEventListener('visibilitychange', function() {
-      if (document.hidden) stopPlay();
-      else if (mode === 'observed' && Date.now() - lastLoadedAt >= REFRESH_INTERVAL_MS) loadRadar();
-      else if (mode === 'forecast') ensureForecastFresh();
+      if (document.hidden) {
+        stopPlay();
+        clearTimeout(seekTimer); seekTimer = null;
+      } else {
+        if (mode === 'observed' && Date.now() - lastLoadedAt >= REFRESH_INTERVAL_MS) loadRadar();
+        else if (mode === 'forecast' && !ensureForecastFresh()) return;
+        flushSeek();
+      }
     });
     window.addEventListener('online', function() {
       if (mode === 'observed') loadRadar(); else ensureForecastFresh();

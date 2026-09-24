@@ -77,6 +77,95 @@ function runtime(response = manifest(), search = '?lat=50&lon=14') {
 }
 const settled = () => new Promise(resolve => setImmediate(resolve));
 
+function scrubTimeline(app, values) {
+  const input = html.match(/id="slider"[^>]*oninput="([^"]+)"/)[1];
+  for (const value of values) {
+    app.node('slider').value = value;
+    vm.runInContext(`(function() { ${input} }).call(document.getElementById('slider'))`, app.context);
+  }
+}
+
+test('rapid timeline input loads only the final selection and retains the displayed frame', async () => {
+  const app = runtime();
+  await settled();
+  const displayed = app.context.pendingLayer;
+  displayed.events.load();
+  const count = app.layers.length;
+  scrubTimeline(app, [0, 1, 0, 1, 0]);
+  assert.equal(app.layers.length, count, 'dragging must not create discarded tile layers');
+  assert.equal(app.context.radarLayer, displayed);
+  assert.ok(app.timeoutDelays.get(app.context.seekTimer) <= 150);
+  app.timeouts.get(app.context.seekTimer)();
+  assert.equal(app.context.pendingLayer.frameIndex, 0);
+  assert.equal(app.context.seekTimer, null);
+  app.context.pendingLayer.events.load();
+  assert.equal(app.context.frameIndex, 0);
+});
+
+test('backgrounding and mode changes cancel queued timeline work', async () => {
+  const app = runtime();
+  await settled();
+  scrubTimeline(app, [0]);
+  const hiddenTimer = app.context.seekTimer;
+  app.document.hidden = true;
+  app.events.visibilitychange();
+  assert.equal(app.timeouts.has(hiddenTimer), false);
+  assert.equal(app.context.seekTimer, null);
+  app.document.hidden = false;
+  scrubTimeline(app, [1]);
+  const modeTimer = app.context.seekTimer;
+  app.context.setMode('forecast');
+  assert.equal(app.timeouts.has(modeTimer), false);
+  assert.equal(app.context.seekTimer, null);
+});
+
+test('a superseded loading frame cannot snap the slider back during a new seek', async () => {
+  const app = runtime();
+  await settled();
+  const displayed = app.context.pendingLayer;
+  displayed.events.load();
+  app.context.showFrame(0);
+  const superseded = app.context.pendingLayer;
+  scrubTimeline(app, [1]);
+  superseded.events.load();
+  assert.equal(app.context.radarLayer, displayed);
+  assert.equal(Number(app.node('slider').value), 1);
+  assert.ok(app.removed.includes(superseded));
+});
+
+for (const committed of [false, true]) {
+  test(`a queued seek resumes after backgrounding with initial frame committed=${committed}`, async () => {
+    const app = runtime();
+    await settled();
+    if (committed) app.context.pendingLayer.events.load();
+    scrubTimeline(app, [0]);
+    app.document.hidden = true;
+    app.events.visibilitychange();
+    app.document.hidden = false;
+    app.events.visibilitychange();
+    assert.ok(app.context.pendingLayer, 'the canceled render must restart on resume');
+    assert.equal(app.context.pendingLayer.frameIndex, 0);
+    app.context.pendingLayer.events.load();
+    assert.equal(app.context.frameIndex, 0);
+    assert.equal(Number(app.node('slider').value), 0);
+    assert.equal(app.node('status').hidden, true);
+  });
+}
+
+test('play starts from the queued slider selection without an old seek firing later', async () => {
+  const app = runtime();
+  await settled();
+  app.context.pendingLayer.events.load();
+  app.context.preloadLayer.events.load();
+  scrubTimeline(app, [0]);
+  const queued = app.context.seekTimer;
+  app.context.togglePlay();
+  assert.equal(app.context.frameIndex, 0);
+  assert.equal(app.timeouts.has(queued), false);
+  assert.equal(app.context.seekTimer, null);
+  assert.equal(app.node('play')['aria-pressed'], 'true');
+});
+
 test('forecast intervals identify both days when an accumulation crosses midnight', () => {
   const app = runtime(manifest(), '?lang=en&tz=America%2FNew_York');
   const overnight = Date.parse('2026-09-23T06:00:00Z') / 1000;

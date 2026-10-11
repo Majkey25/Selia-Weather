@@ -10,6 +10,7 @@
     <string name="widget_placeholder_time">--:--</string>
     <string name="nav_weather">Počasí</string>
     <string name="nav_maps">Radar</string>
+    <string name="nav_ai">AI</string>
     <string name="open_settings">Otevřít nastavení</string>
     <string name="refresh_forecast">Obnovit předpověď</string>
     <string name="forecast_unavailable">Předpověď není k dispozici</string>
@@ -402,7 +403,10 @@
     <string name="history_loading_archive">Připravuji archiv počasí…</string>
     <string name="history_choose_ai_title">Vyberte AI aplikaci</string>
     <string name="history_choose_ai_action">Vybrat aplikaci</string>
-    <string name="history_choose_ai_message">Bude sdílen celý pětiletý archiv pro %1$s (%2$d denních záznamů), vaše otázka a vybrané období v UTC.\n\nVyberte ChatGPT, Gemini, Claude nebo Grok, pokud nainstalovaná aplikace přijímá soubory CSV. Pokud v nabídce chybí nebo přílohu neotevře, uložte CSV přes kompatibilní aplikaci pro sdílení a nahrajte jej do AI aplikace ručně.</string>
+    <string name="history_choose_ai_message">Bude sdílen celý pětiletý archiv pro %1$s (%2$d denních záznamů), souřadnice lokality, vaše otázka a vybrané období v UTC.\n\nPřed odesláním ověřte soubor a otázku ve vybrané AI aplikaci.</string>
+    <string name="history_ai_apps_description">Zobrazují se jen nainstalované AI aplikace, které přijímají CSV. Před odesláním ověřte, že dorazil soubor i otázka.</string>
+    <string name="history_ai_no_apps">Žádná nainstalovaná AI aplikace nepřijímá sdílení CSV. Exportujte soubor a přiložte jej v AI aplikaci ručně.</string>
+    <string name="history_export_csv">Exportovat CSV</string>
     <string name="detail_group_sun_moon">Slunce a Měsíc</string>
     <string name="detail_group_other">Další podmínky</string>
     <string name="detail_group_sources">Zdroje a diagnostika</string>

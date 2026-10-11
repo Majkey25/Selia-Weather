@@ -80,7 +80,9 @@ var RadarForecast = (function() {
 
     // Global capabilities merge runs at PT3H, but a selected run serves 6-hour totals at 00/06/12/18 UTC.
     var step = source.hours * 3600, frames = [];
-    for (var time = Math.ceil(now / step) * step; time <= end && frames.length < maxFrames; time += step) {
+    var limit = Math.min(end, Math.ceil((now + horizonHours * 3600 + 600) / step) * step);
+    for (var time = Math.max(Math.ceil(now / step) * step, Math.ceil(start / step) * step);
+        time <= limit && frames.length < maxFrames; time += step) {
       if (time <= now || time < start || time < run + step || (time - start) % (Number(period[1]) * 3600)) continue;
       frames.push({ type: 'forecast', time: time, hours: source.hours, key: key,
         reference: new Date(run * 1000).toISOString() });

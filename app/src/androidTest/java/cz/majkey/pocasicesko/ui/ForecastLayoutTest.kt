@@ -17,6 +17,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.hasClickAction
@@ -34,9 +35,11 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
 import cz.majkey.pocasicesko.R
+import cz.majkey.pocasicesko.data.CurrentWeather
 import cz.majkey.pocasicesko.data.DailyWeather
 import cz.majkey.pocasicesko.data.HourlyWeather
 import cz.majkey.pocasicesko.data.PrecipitationModelSpread
+import cz.majkey.pocasicesko.data.WeatherSnapshot
 import cz.majkey.pocasicesko.notification.WeatherAlertCategory
 import cz.majkey.pocasicesko.notification.WeatherAlertSettings
 import cz.majkey.pocasicesko.units.MeasurementSystem
@@ -209,6 +212,97 @@ class ForecastLayoutTest {
     }
 
     @Test
+    fun allCurrentMetricsFitInTwoColumnsWithLargeText() {
+        compose.setContent {
+            TestSurface {
+                Box(Modifier.verticalScroll(rememberScrollState())) {
+                    CurrentMetrics(snapshot(), units, LocalDateTime.parse("2026-09-12T10:45"))
+                }
+            }
+        }
+        listOf(R.string.precipitation, R.string.wind, R.string.humidity, R.string.pressure,
+            R.string.sunrise, R.string.sunset).forEach { resource ->
+            val label = context.getString(resource)
+            val node = compose.onNodeWithText(label, useUnmergedTree = true)
+            node.performScrollTo().assertIsDisplayed()
+            val bounds = node.fetchSemanticsNode().boundsInRoot
+            assertTrue("Metric off left edge: $label", bounds.left >= 0f)
+            assertTrue("Metric off right edge: $label", bounds.right <= compose.onRoot().fetchSemanticsNode().boundsInRoot.right)
+            assertTextFits(label)
+        }
+        assertTextFits(units.pressure(1015.0))
+        val windValue = units.windSpeed(5.0)
+        compose.onNodeWithText(windValue, useUnmergedTree = true).performScrollTo().assertIsDisplayed()
+        assertTextFits(windValue)
+    }
+
+    @Test
+    fun longHeroTemperatureFitsAtLargeFont() {
+        val forecast = snapshot().let { it.copy(current = it.current.copy(temperature = -100.0)) }
+        compose.setContent {
+            TestSurface { WeatherHero(forecast, androidx.compose.ui.graphics.Color.Blue, units, day.date) }
+        }
+        assertTextFits(units.temperature(-100.0))
+    }
+
+    @Test
+    fun tappingCurrentHourKeepsForwardPrecipitationIntervalAndFeelsLike() {
+        val forecast = snapshot(listOf(hour(10).copy(precipitation = 99.0),
+            hour(11).copy(precipitation = 2.4, precipitationProbability = 80)))
+        var selected: String? = null
+        compose.setContent {
+            WeatherTheme {
+                Box(Modifier.width(320.dp)) {
+                    HourlyGraphPanel(forecast, units, LocalDateTime.parse("2026-09-12T10:45")) { selected = it }
+                }
+            }
+        }
+        val current = compose.onNodeWithContentDescription(context.getString(R.string.now), substring = true)
+        val description = current.fetchSemanticsNode().config[SemanticsProperties.ContentDescription].joinToString()
+        assertTrue(description.contains("2.4 mm"))
+        assertFalse(description.contains("99.0 mm"))
+        assertTrue(description.contains(context.getString(R.string.precipitation_interval, "10:00–11:00")))
+        assertTrue(description.contains(context.getString(R.string.feels_like_temperature, units.temperature(19.0))))
+        current.performTouchInput { click() }
+        assertEquals(hour(10).time, selected)
+    }
+
+    @Test
+    fun futureDayKeepsOptionalDailyDataInItsOwnDisclosure() {
+        val future = day.copy(date = "2026-09-13", uvIndexMax = 8.5, windGustsMax = 42.0,
+            sunshineDurationSeconds = 21600.0, daylightDurationSeconds = 43200.0,
+            precipitationHours = 3.5, snowfallSum = 2.0, rainSum = 1.2,
+            dominantWindDirection = 180, shortwaveRadiationSum = 14.5, et0 = 2.5)
+        compose.setContent {
+            WeatherTheme { DayDetailSheet(listOf(future), emptyList(), 0,
+                LocalDateTime.parse("2026-09-12T10:45"), units, {}) }
+        }
+        compose.onNodeWithText(context.getString(R.string.sunrise)).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.uv_index_max)).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.daily_wind_gusts)).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.sunshine_duration)).assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.advanced_details)).performScrollTo().performTouchInput { click() }
+        listOf(R.string.sunshine_duration, R.string.daylight_duration, R.string.precipitation_hours,
+            R.string.snowfall, R.string.rain, R.string.dominant_wind, R.string.shortwave_radiation,
+            R.string.et0_evapotranspiration).forEach { resource ->
+            compose.onNodeWithText(context.getString(resource)).assertExists()
+        }
+        compose.onNodeWithText(context.getString(R.string.duration_hours_minutes, 6, 0)).assertExists()
+        compose.onNodeWithText(units.snowfall(2.0)).assertExists()
+    }
+
+    @Test
+    fun unavailableDailyValuesDoNotCreateAnEmptyAdvancedDisclosure() {
+        compose.setContent {
+            WeatherTheme { DayAvailableDetails(day.copy(uvIndexMax = Double.NaN, windGustsMax = Double.NaN,
+                sunshineDurationSeconds = Double.NaN, precipitationHours = Double.NaN), units, Locale.ENGLISH) }
+        }
+        compose.onNodeWithText(context.getString(R.string.sunrise)).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.uv_index_max)).assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.advanced_details)).assertDoesNotExist()
+    }
+
+    @Test
     fun currentHourLabelsFit() {
         showDay()
         compose.onNodeWithText("10:00", useUnmergedTree = true).performScrollTo()
@@ -218,11 +312,19 @@ class ForecastLayoutTest {
 
     @Test
     fun tappingExpandedMetricDoesNotCollapseTheHour() {
-        showDay()
-        compose.onNodeWithText("10:00", useUnmergedTree = true).performTouchInput { click() }
+        showDay(largeText = true)
+        val hour = compose.onNodeWithText("10:00", useUnmergedTree = true)
+        hour.performScrollTo().performTouchInput { click() }
+        val advanced = compose.onNodeWithText(context.getString(R.string.advanced_details))
+        advanced.performScrollTo().performTouchInput { click() }
         val label = context.getString(R.string.pressure)
         compose.onNodeWithText(label, useUnmergedTree = true).performScrollTo().performTouchInput { click() }
         compose.onNodeWithText(label, useUnmergedTree = true).assertIsDisplayed()
+        advanced.assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription,
+            context.getString(R.string.hour_expanded)))
+        hour.performScrollTo().performTouchInput { click() }
+        compose.onNodeWithText(label, useUnmergedTree = true).assertDoesNotExist()
+        advanced.assertDoesNotExist()
     }
 
     @Test
@@ -240,11 +342,15 @@ class ForecastLayoutTest {
         compose.onNodeWithText(note, useUnmergedTree = true).assertDoesNotExist()
     }
 
-    private fun showDay() {
+    private fun showDay(largeText: Boolean = false) {
         compose.setContent {
-            WeatherTheme {
-                DayDetailSheet(listOf(day), listOf(hour(10), hour(11)), 0,
-                    LocalDateTime.parse("2026-09-12T10:45"), units, {})
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density,
+                if (largeText) 2f else density.fontScale)) {
+                WeatherTheme {
+                    DayDetailSheet(listOf(day), listOf(hour(10), hour(11)), 0,
+                        LocalDateTime.parse("2026-09-12T10:45"), units, {})
+                }
             }
         }
     }
@@ -276,4 +382,13 @@ class ForecastLayoutTest {
 
     private fun hour(value: Int) = HourlyWeather("2026-09-12T${value}:00", 20.0, 50, 10, 0.0,
         0, 1015.0, 5.0, 180, true, apparentTemperature = 19.0)
+
+    private fun snapshot(hours: List<HourlyWeather> = listOf(hour(10), hour(11))) = WeatherSnapshot(
+        timezone = "Europe/Prague",
+        current = CurrentWeather("2026-09-12T10:00", 20.0, 19.0, 50, 1.2, 0, 10,
+            1015.0, 5.0, 180, 10.0, true),
+        hourly = hours,
+        daily = listOf(day),
+        updatedAtEpochMillis = System.currentTimeMillis(),
+    )
 }

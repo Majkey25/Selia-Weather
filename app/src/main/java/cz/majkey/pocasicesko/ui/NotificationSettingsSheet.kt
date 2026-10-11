@@ -14,11 +14,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Air
-import androidx.compose.material.icons.rounded.BatteryAlert
+import androidx.compose.material.icons.rounded.CalendarToday
 import androidx.compose.material.icons.rounded.Umbrella
 import androidx.compose.material.icons.rounded.Schedule
-import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.Thermostat
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material.icons.rounded.WbSunny
@@ -99,6 +100,8 @@ fun NotificationSettingsSheet(
     val timeText = briefingTime.format(DateTimeFormatter.ofPattern(
         if (DateFormat.is24HourFormat(context)) "HH:mm" else "h:mm a", AppLocale.locale(context)))
     val current = settings.normalized()
+    val temperatureCategories = listOf(WeatherAlertCategory.COLD, WeatherAlertCategory.DROP, WeatherAlertCategory.HEAT)
+    val enabledTemperatureCategories = temperatureCategories.filter(current::isEnabled)
     var section by rememberSaveable(initialSection) { mutableStateOf(initialSection) }
     val rootListState = rememberLazyListState()
     ModalBottomSheet(
@@ -141,14 +144,17 @@ fun NotificationSettingsSheet(
                 when (section) {
                     NotificationSettingsSection.GENERAL -> {
                         item {
-                            SettingsCategoryRow(R.string.notification_background_delivery, Icons.Rounded.BatteryAlert) {
+                            SettingsCategoryRow(R.string.notification_background_delivery, Icons.Rounded.Sync) {
                                 section = NotificationSettingsSection.DELIVERY
                             }
                         }
                         item {
-                            SettingsCategoryRow(R.string.daily_briefing, Icons.Rounded.Schedule,
-                                if (dailyBriefingEnabled) stringResource(R.string.notification_morning_at, timeText)
-                                else stringResource(R.string.settings_off)) { section = NotificationSettingsSection.MORNING }
+                            SettingsCategoryRow(R.string.daily_briefing, Icons.Rounded.CalendarToday,
+                                when {
+                                    "daily_weather_briefing" in blockedChannels -> stringResource(R.string.notification_channel_blocked)
+                                    dailyBriefingEnabled -> stringResource(R.string.notification_morning_at, timeText)
+                                    else -> stringResource(R.string.settings_off)
+                                }) { section = NotificationSettingsSection.MORNING }
                         }
                         item {
                             SettingsCategoryRow(R.string.notification_official, Icons.Rounded.WarningAmber,
@@ -159,12 +165,16 @@ fun NotificationSettingsSheet(
                         }
                         item {
                             SettingsCategoryRow(R.string.notification_rain, Icons.Rounded.Umbrella,
-                                if (current.rainEnabled) stringResource(R.string.notification_rain_lead, current.rainLeadHours)
-                                else stringResource(R.string.settings_off)) { section = NotificationSettingsSection.RAIN }
+                                when {
+                                    WeatherAlertCategory.RAIN.channelId in blockedChannels -> stringResource(R.string.notification_channel_blocked)
+                                    current.rainEnabled -> stringResource(R.string.notification_rain_lead, current.rainLeadHours)
+                                    else -> stringResource(R.string.settings_off)
+                                }) { section = NotificationSettingsSection.RAIN }
                         }
                         item {
                             SettingsCategoryRow(R.string.settings_temperature_alerts, Icons.Rounded.Thermostat,
-                                stringResource(R.string.settings_temperature_summary)) {
+                                alertStatus(enabledTemperatureCategories.isNotEmpty(), enabledTemperatureCategories.isNotEmpty() &&
+                                    enabledTemperatureCategories.all { it.channelId in blockedChannels })) {
                                 section = NotificationSettingsSection.TEMPERATURE
                             }
                         }
@@ -232,8 +242,7 @@ fun NotificationSettingsSheet(
                     else -> items(
                         when (section) {
                             NotificationSettingsSection.OFFICIAL -> listOf(WeatherAlertCategory.OFFICIAL)
-                            NotificationSettingsSection.TEMPERATURE -> listOf(
-                                WeatherAlertCategory.COLD, WeatherAlertCategory.DROP, WeatherAlertCategory.HEAT)
+                            NotificationSettingsSection.TEMPERATURE -> temperatureCategories
                             NotificationSettingsSection.WIND -> listOf(WeatherAlertCategory.WIND)
                             NotificationSettingsSection.UV -> listOf(WeatherAlertCategory.UV)
                             NotificationSettingsSection.RAIN -> listOf(WeatherAlertCategory.RAIN)
@@ -337,7 +346,7 @@ private fun NotificationToggle(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Switch(checked = enabled, onCheckedChange = null)
                 IconButton(onClick = onChannelSettings) {
-                    Icon(Icons.Rounded.Settings, contentDescription = stringResource(R.string.notification_channel_settings, title))
+                    Icon(Icons.AutoMirrored.Rounded.OpenInNew, contentDescription = stringResource(R.string.notification_channel_settings, title))
                 }
             }
         },

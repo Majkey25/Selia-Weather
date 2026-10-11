@@ -81,6 +81,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -90,7 +91,10 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -143,6 +147,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.ceil
 
 internal enum class Destination {
     WEATHER,
@@ -170,6 +175,7 @@ private sealed interface WeatherUiState {
 
     data class Content(
         val snapshot: WeatherSnapshot,
+        val location: CzechLocation,
         val fromCache: Boolean,
         val refreshing: Boolean,
         val refreshError: String? = null,
@@ -350,19 +356,20 @@ fun WeatherApp(
     }
 
     LaunchedEffect(location, reloadKey) {
+        val requestedLocation = location
         lastRefreshAttemptMillis = System.currentTimeMillis()
-        val cached = withContext(Dispatchers.IO) { repository.cachedForecast(location) }
-        state = cached?.let { WeatherUiState.Content(it, fromCache = true, refreshing = true) }
+        val cached = withContext(Dispatchers.IO) { repository.cachedForecast(requestedLocation) }
+        state = cached?.let { WeatherUiState.Content(it, requestedLocation, fromCache = true, refreshing = true) }
             ?: WeatherUiState.Loading
         try {
-            val fresh = repository.fetchForecast(location)
-            state = WeatherUiState.Content(fresh, fromCache = false, refreshing = false)
-            WeatherAlerts.evaluateAndNotify(context, location, fresh)
+            val fresh = repository.fetchForecast(requestedLocation)
+            state = WeatherUiState.Content(fresh, requestedLocation, fromCache = false, refreshing = false)
+            WeatherAlerts.evaluateAndNotify(context, requestedLocation, fresh)
         } catch (error: Exception) {
             if (error is CancellationException) throw error
             val message = if (error is java.io.IOException) serverError else forecastLoadFailed
             state = cached?.let {
-                WeatherUiState.Content(it, fromCache = true, refreshing = false, refreshError = message)
+                WeatherUiState.Content(it, requestedLocation, fromCache = true, refreshing = false, refreshError = message)
             } ?: WeatherUiState.Error(message)
         }
     }
@@ -385,9 +392,12 @@ fun WeatherApp(
         }
     }
 
-    val snapshot = (state as? WeatherUiState.Content)?.snapshot
+    val content = state as? WeatherUiState.Content
+    val snapshot = content?.snapshot
     WeatherTheme(config = appearance, kind = snapshot?.current?.let { conditionFor(it.weatherCode, it.isDay).kind },
         isDay = snapshot?.current?.isDay ?: true) {
+        val density = LocalDensity.current
+        var navigationHeightDp by remember { mutableIntStateOf(76) }
         if (showBackgroundDisclosure) AlertDialog(
             onDismissRequest = { acceptBackgroundChoice(false) },
             title = { Text(stringResource(R.string.notification_background_consent_title)) },
@@ -432,10 +442,11 @@ fun WeatherApp(
                         location = location,
                         padding = padding,
                         fullscreen = radarFullscreen,
-                        timezone = snapshot?.timezone,
+                        timezone = content?.takeIf { it.location == location }?.snapshot?.timezone,
                         onToggleFullscreen = { radarFullscreen = !radarFullscreen },
                         active = destination == Destination.MAPS || pagerState.isScrollInProgress,
                         onNavigate = ::navigateTo,
+                        bottomInsetDp = ceil(navigationHeightDp - padding.calculateBottomPadding().value).toInt().coerceAtLeast(0),
                     )
 
                     Destination.AI -> if (snapshot != null) {
@@ -469,7 +480,9 @@ fun WeatherApp(
             }
             if (!(destination == Destination.MAPS && radarFullscreen)) FloatingNavigation(
                 destination = destination,
-                modifier = Modifier.align(Alignment.BottomCenter),
+                modifier = Modifier.align(Alignment.BottomCenter).onSizeChanged {
+                    navigationHeightDp = ceil(it.height / density.density).toInt()
+                },
                 onAskAi = { navigateTo(Destination.AI) },
                 onDestination = { selected ->
                     if (destination == Destination.MAPS && selected == Destination.WEATHER) {
@@ -706,37 +719,45 @@ internal fun FloatingNavigation(
             .padding(start = 8.dp, end = 8.dp, bottom = 12.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Row(
+        Surface(
             modifier = Modifier
-                .widthIn(max = if (LocalDensity.current.fontScale > 1.3f) 310.dp else 270.dp)
+                .widthIn(max = if (LocalDensity.current.fontScale > 1.3f) 340.dp else 300.dp)
                 .fillMaxWidth()
-                .height(64.dp)
-                .padding(6.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .clip(RoundedCornerShape(50))
+                .testTag("main-navigation"),
+            shape = RoundedCornerShape(50),
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         ) {
-            NavigationItem(
-                selected = destination == Destination.WEATHER,
-                label = stringResource(R.string.nav_weather),
-                icon = { Icon(Icons.Rounded.WbSunny, contentDescription = null) },
-                modifier = if (destination == Destination.WEATHER) Modifier.weight(1f) else Modifier.width(48.dp),
-                onClick = { onDestination(Destination.WEATHER) },
-            )
-            NavigationItem(
-                selected = destination == Destination.MAPS,
-                label = stringResource(R.string.nav_maps),
-                icon = { Icon(Icons.Rounded.Map, contentDescription = null) },
-                modifier = if (destination == Destination.MAPS) Modifier.weight(1f) else Modifier.width(48.dp),
-                onClick = { onDestination(Destination.MAPS) },
-            )
-            if (onAskAi != null) {
+            Row(
+                modifier = Modifier.height(64.dp).padding(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 NavigationItem(
-                    selected = destination == Destination.AI,
-                    label = askAiLabel,
-                    icon = { Icon(painterResource(R.drawable.ic_ai), contentDescription = null, modifier = Modifier.size(28.dp)) },
-                    modifier = if (destination == Destination.AI) Modifier.weight(1f) else Modifier.width(48.dp),
-                    onClick = onAskAi,
+                    selected = destination == Destination.WEATHER,
+                    label = stringResource(R.string.nav_weather),
+                    icon = { Icon(Icons.Rounded.WbSunny, contentDescription = null) },
+                    modifier = if (destination == Destination.WEATHER) Modifier.weight(1f) else Modifier.width(48.dp),
+                    onClick = { onDestination(Destination.WEATHER) },
                 )
+                NavigationItem(
+                    selected = destination == Destination.MAPS,
+                    label = stringResource(R.string.nav_maps),
+                    icon = { Icon(Icons.Rounded.Map, contentDescription = null) },
+                    modifier = if (destination == Destination.MAPS) Modifier.weight(1f) else Modifier.width(48.dp),
+                    onClick = { onDestination(Destination.MAPS) },
+                )
+                if (onAskAi != null) {
+                    NavigationItem(
+                        selected = destination == Destination.AI,
+                        label = askAiLabel,
+                        displayLabel = stringResource(R.string.nav_ai),
+                        icon = { Icon(painterResource(R.drawable.ic_ai), contentDescription = null, modifier = Modifier.size(28.dp)) },
+                        modifier = if (destination == Destination.AI) Modifier.weight(1f) else Modifier.width(48.dp),
+                        onClick = onAskAi,
+                    )
+                }
             }
         }
     }
@@ -748,27 +769,28 @@ private fun NavigationItem(
     label: String,
     icon: @Composable () -> Unit,
     modifier: Modifier = Modifier,
+    displayLabel: String = label,
     onClick: () -> Unit,
 ) {
     Surface(
         onClick = onClick,
         modifier = modifier
             .fillMaxSize()
-            .semantics { contentDescription = label; this.selected = selected },
-        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-        contentColor = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-        shape = RoundedCornerShape(28.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            .clip(RoundedCornerShape(50))
+            .semantics { contentDescription = label; this.selected = selected; role = Role.Tab },
+        color = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
+        contentColor = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+        shape = RoundedCornerShape(50),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp),
+            modifier = Modifier.padding(horizontal = if (selected) 12.dp else 0.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             icon()
             if (selected) {
                 Spacer(Modifier.width(7.dp))
-                Text(label, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 16.sp,
+                Text(displayLabel, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 16.sp,
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }

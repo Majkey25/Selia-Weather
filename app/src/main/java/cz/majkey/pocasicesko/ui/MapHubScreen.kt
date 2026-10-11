@@ -2,13 +2,13 @@ package cz.majkey.pocasicesko.ui
 
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
@@ -19,6 +19,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.FullscreenExit
+import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
@@ -50,6 +51,7 @@ internal fun MapHubScreen(
     onToggleFullscreen: () -> Unit,
     active: Boolean = true,
     onNavigate: (Destination) -> Unit = {},
+    bottomInsetDp: Int = 76,
 ) {
     val configuration = LocalConfiguration.current
     val languageTag = configuration.locales[0]?.toLanguageTag()
@@ -60,15 +62,14 @@ internal fun MapHubScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(padding)
-            .padding(
-                bottom = if (fullscreen) 0.dp else 84.dp,
-            ),
+            .padding(padding),
     ) {
         ChmiWebScreen(
-            localizedRadarUrl(languageTag, location.latitude, location.longitude, location.isInCzechia(), timezone),
+            localizedRadarUrl(languageTag, location.latitude, location.longitude, location.isInCzechia()),
             active = active,
             topInsetDp = headerInset,
+            bottomInsetDp = if (fullscreen) 0 else bottomInsetDp,
+            timezone = timezone,
         )
         Row(Modifier.fillMaxWidth().onSizeChanged {
             headerInset = kotlin.math.ceil(it.height / density.density).toInt()
@@ -86,16 +87,19 @@ internal fun MapHubScreen(
                     },
                 ) { change, amount -> change.consume(); distance += amount }
             },
-        ), verticalAlignment = Alignment.CenterVertically) {
-            Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface,
-                modifier = Modifier.weight(1f, fill = false)) {
-                Text(location.name, modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-                    fontSize = 14.sp, fontWeight = FontWeight.Medium,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+        ), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f)) {
+                Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.surface) {
+                    Row(Modifier.heightIn(min = 48.dp).padding(horizontal = 14.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.LocationOn, contentDescription = null, modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(location.name, fontSize = 14.sp, fontWeight = FontWeight.Medium,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
             }
-            Spacer(Modifier.weight(1f))
-            Spacer(Modifier.width(8.dp))
-            Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface) {
+            Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.surface) {
                 IconButton(onClick = onToggleFullscreen, modifier = Modifier.size(48.dp)) {
                     Icon(if (fullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
                         contentDescription = stringResource(if (fullscreen) R.string.radar_exit_fullscreen else R.string.radar_fullscreen))

@@ -34,12 +34,16 @@ import cz.majkey.pocasicesko.data.ConfidenceLevel
 import cz.majkey.pocasicesko.data.ConfidenceReason
 import cz.majkey.pocasicesko.data.ForecastConfidence
 import cz.majkey.pocasicesko.units.WeatherUnitFormatter
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable
 internal fun ForecastConfidenceBadge(confidence: ForecastConfidence, units: WeatherUnitFormatter) {
     var show by rememberSaveable(confidence.validTime) { mutableStateOf(false) }
     val level = stringResource(confidence.level.labelResource())
     val description = stringResource(R.string.confidence_label, level)
+    val evidenceContext = confidenceEvidenceContext(confidence.validTime, LocalConfiguration.current.locales[0])
     TextButton(onClick = { show = true }, modifier = Modifier.heightIn(min = 48.dp)) {
         ConfidenceRating(confidence.level, text = description)
     }
@@ -60,20 +64,38 @@ internal fun ForecastConfidenceBadge(confidence: ForecastConfidence, units: Weat
                 confidence.expectedHours?.let { expected ->
                     Text(stringResource(R.string.confidence_day_coverage, confidence.coveredHours ?: 0, expected))
                 }
-                confidence.evidence?.let { evidence ->
-                    if (confidence.expectedHours != null) Text(stringResource(R.string.confidence_day_method))
-                    Text(stringResource(R.string.confidence_models, confidence.modelCount))
-                    Text(stringResource(R.string.confidence_temperature_spread, units.temperatureDifference(evidence.temperatureRangeCelsius)))
-                    Text(stringResource(R.string.confidence_wind_spread, units.windSpeed(evidence.windRangeKmh)))
-                    Text(stringResource(R.string.confidence_cloud_spread, evidence.cloudRangePercent.toInt()))
-                }
-                confidence.precipitationEvidence?.let { rain ->
-                    Text("${stringResource(R.string.precipitation)} · ${units.precipitation(rain.minimumPrecipitationMm)} – ${units.precipitation(rain.maximumPrecipitationMm)}")
+                if (confidence.expectedHours == null || evidenceContext != null) {
+                    if (confidence.expectedHours != null) {
+                        Text(stringResource(R.string.confidence_day_method))
+                        Text("${stringResource(R.string.forecast)} · ${requireNotNull(evidenceContext).validTime}")
+                    }
+                    confidence.evidence?.let { evidence ->
+                        Text(stringResource(R.string.confidence_models, confidence.modelCount))
+                        Text(stringResource(R.string.confidence_temperature_spread, units.temperatureDifference(evidence.temperatureRangeCelsius)))
+                        Text(stringResource(R.string.confidence_wind_spread, units.windSpeed(evidence.windRangeKmh)))
+                        Text(stringResource(R.string.confidence_cloud_spread, evidence.cloudRangePercent.toInt()))
+                    }
+                    confidence.precipitationEvidence?.let { rain ->
+                        if (confidence.expectedHours != null) Text(stringResource(R.string.precipitation_interval,
+                            requireNotNull(evidenceContext).precipitationInterval))
+                        Text("${stringResource(R.string.precipitation)} · ${units.precipitation(rain.minimumPrecipitationMm)} – ${units.precipitation(rain.maximumPrecipitationMm)}")
+                    }
                 }
                 Text(stringResource(R.string.confidence_method), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }, confirmButton = { TextButton(onClick = { show = false }) { Text(stringResource(android.R.string.ok)) } })
+}
+
+internal data class ConfidenceEvidenceContext(val validTime: String, val precipitationInterval: String)
+
+internal fun confidenceEvidenceContext(time: String?, locale: Locale): ConfidenceEvidenceContext? {
+    val sourceTime = time ?: return null
+    val validTime = runCatching {
+        LocalDateTime.parse(sourceTime).format(DateTimeFormatter.ofPattern("d MMM uuuu, HH:mm", locale))
+    }.getOrNull() ?: return null
+    val interval = hourlyStartingPrecipitationInterval(sourceTime, locale) ?: return null
+    return ConfidenceEvidenceContext(validTime, interval)
 }
 
 @Composable
@@ -83,14 +105,14 @@ internal fun ConfidenceRating(level: ConfidenceLevel, modifier: Modifier = Modif
     val inactive = MaterialTheme.colorScheme.outlineVariant
     Row(modifier.semantics(mergeDescendants = true) { contentDescription = description },
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        Canvas(Modifier.size(13.dp, 12.dp).clearAndSetSemantics { }) {
+        Canvas(Modifier.size(16.dp, 14.dp).clearAndSetSemantics { }) {
             repeat(3) { index ->
                 val height = size.height * (index + 2) / 4
                 drawRoundRect(if (index < confidenceBarCount(level)) active else inactive,
                     Offset(index * size.width / 3, size.height - height), Size(size.width / 5, height), CornerRadius(1.dp.toPx()))
             }
         }
-        Text(text, fontSize = 11.sp, lineHeight = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        Text(text, fontSize = 12.sp, lineHeight = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.clearAndSetSemantics { })
     }
 }

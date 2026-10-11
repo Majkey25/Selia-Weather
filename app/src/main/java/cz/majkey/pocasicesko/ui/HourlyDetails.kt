@@ -1,15 +1,23 @@
 package cz.majkey.pocasicesko.ui
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Air
+import androidx.compose.material.icons.rounded.Cloud
+import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.Thermostat
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.WaterDrop
+import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
@@ -24,7 +32,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
@@ -212,133 +221,133 @@ internal fun ExpandedHourDetails(
     val metrics = kinds.map { kind ->
         when (kind) {
             HourMetricKind.TEMPERATURE -> HourMetric(
-                stringResource(R.string.temperature),
+                R.string.temperature,
                 units.temperature(hour.temperature),
             )
             HourMetricKind.FEELS_LIKE -> HourMetric(
-                stringResource(R.string.feels_like),
+                R.string.feels_like,
                 hour.apparentTemperature?.let(units::temperature) ?: stringResource(R.string.unavailable),
             )
             HourMetricKind.DEW_POINT -> HourMetric(
-                stringResource(R.string.dew_point),
+                R.string.dew_point,
                 units.temperature(requireNotNull(hour.dewPoint)),
             )
             HourMetricKind.WET_BULB -> HourMetric(
-                stringResource(R.string.wet_bulb_temperature),
+                R.string.wet_bulb_temperature,
                 units.temperature(requireNotNull(hour.wetBulbTemperature)),
             )
             HourMetricKind.PRECIPITATION -> HourMetric(
-                stringResource(R.string.precipitation),
+                R.string.precipitation,
                 precipitationHour?.let { units.precipitation(it.precipitation) } ?: stringResource(R.string.unavailable),
             )
             HourMetricKind.PRECIPITATION_PROBABILITY -> HourMetric(
-                stringResource(R.string.precipitation_probability),
+                R.string.precipitation_probability,
                 precipitationHour?.let { "${it.precipitationProbability} %" } ?: stringResource(R.string.unavailable),
             )
             HourMetricKind.RAIN -> HourMetric(
-                stringResource(R.string.rain),
+                R.string.rain,
                 units.precipitation(requireNotNull(precipitationHour?.rain)),
             )
             HourMetricKind.SHOWERS -> HourMetric(
-                stringResource(R.string.showers),
+                R.string.showers,
                 units.precipitation(requireNotNull(precipitationHour?.showers)),
             )
             HourMetricKind.SNOWFALL -> HourMetric(
-                stringResource(R.string.snowfall),
+                R.string.snowfall,
                 units.snowfall(requireNotNull(precipitationHour?.snowfall)),
             )
             HourMetricKind.SNOW_WATER -> HourMetric(
-                stringResource(R.string.snow_water_equivalent),
+                R.string.snow_water_equivalent,
                 units.precipitation(requireNotNull(hour.snowDepthWaterEquivalent)),
             )
             HourMetricKind.HUMIDITY -> HourMetric(
-                stringResource(R.string.humidity),
+                R.string.humidity,
                 "${hour.humidity} %",
             )
             HourMetricKind.WIND -> HourMetric(
-                stringResource(R.string.wind),
+                R.string.wind,
                 "${units.windSpeed(hour.windSpeed)} · " +
                     stringResource(windDirectionResource(hour.windDirection)) +
                     " · ${hour.windDirection}°",
             )
             HourMetricKind.WIND_GUSTS -> HourMetric(
-                stringResource(R.string.wind_gusts),
+                R.string.wind_gusts,
                 hour.windGusts?.let(units::windSpeed) ?: stringResource(R.string.unavailable),
             )
             HourMetricKind.PRESSURE -> HourMetric(
-                stringResource(R.string.pressure),
+                R.string.pressure,
                 units.pressure(hour.pressure),
             )
             HourMetricKind.SURFACE_PRESSURE -> HourMetric(
-                stringResource(R.string.surface_pressure),
+                R.string.surface_pressure,
                 units.pressure(requireNotNull(hour.surfacePressure)),
             )
             HourMetricKind.CLOUD_COVER -> HourMetric(
-                stringResource(R.string.cloud_cover),
+                R.string.cloud_cover,
                 "${requireNotNull(hour.cloudCover)} %",
             )
             HourMetricKind.LOW_CLOUDS -> HourMetric(
-                stringResource(R.string.low_clouds),
+                R.string.low_clouds,
                 "${requireNotNull(hour.cloudCoverLow)} %",
             )
             HourMetricKind.MIDDLE_CLOUDS -> HourMetric(
-                stringResource(R.string.middle_clouds),
+                R.string.middle_clouds,
                 "${requireNotNull(hour.cloudCoverMid)} %",
             )
             HourMetricKind.HIGH_CLOUDS -> HourMetric(
-                stringResource(R.string.high_clouds),
+                R.string.high_clouds,
                 "${requireNotNull(hour.cloudCoverHigh)} %",
             )
             HourMetricKind.UV -> HourMetric(
-                stringResource(R.string.uv_index),
+                R.string.uv_index,
                 hour.uvIndex?.let { String.format(locale, "%.1f", it) } ?: stringResource(R.string.unavailable),
             )
             HourMetricKind.VISIBILITY -> HourMetric(
-                stringResource(R.string.visibility),
+                R.string.visibility,
                 hour.visibilityMeters?.let(units::visibility) ?: stringResource(R.string.unavailable),
             )
             HourMetricKind.FREEZING_LEVEL -> HourMetric(
-                stringResource(R.string.freezing_level),
+                R.string.freezing_level,
                 units.distance(requireNotNull(hour.freezingLevelHeightMeters) / 1_000.0),
             )
             HourMetricKind.BOUNDARY_LAYER -> HourMetric(
-                stringResource(R.string.boundary_layer_height),
+                R.string.boundary_layer_height,
                 units.distance(requireNotNull(hour.boundaryLayerHeightMeters) / 1_000.0),
             )
             HourMetricKind.INTEGRATED_WATER -> HourMetric(
-                stringResource(R.string.integrated_water_vapour),
+                R.string.integrated_water_vapour,
                 String.format(locale, "%.1f kg/m²", requireNotNull(hour.integratedWaterVapour)),
             )
             HourMetricKind.LIFTED_INDEX -> HourMetric(
-                stringResource(R.string.lifted_index),
+                R.string.lifted_index,
                 String.format(locale, "%.1f", requireNotNull(hour.liftedIndex)),
             )
             HourMetricKind.CONVECTIVE_INHIBITION -> HourMetric(
-                stringResource(R.string.convective_inhibition),
+                R.string.convective_inhibition,
                 String.format(locale, "%.0f J/kg", requireNotNull(hour.convectiveInhibition)),
             )
             HourMetricKind.CAPE -> HourMetric(
-                stringResource(R.string.cape),
+                R.string.cape,
                 String.format(locale, "%.0f J/kg", requireNotNull(hour.cape)),
             )
             HourMetricKind.VAPOUR_PRESSURE_DEFICIT -> HourMetric(
-                stringResource(R.string.vapour_pressure_deficit),
+                R.string.vapour_pressure_deficit,
                 String.format(locale, "%.1f kPa", requireNotNull(hour.vapourPressureDeficit)),
             )
             HourMetricKind.SURFACE_TEMPERATURE -> HourMetric(
-                stringResource(R.string.surface_temperature),
+                R.string.surface_temperature,
                 units.temperature(requireNotNull(hour.surfaceTemperature)),
             )
             HourMetricKind.ET0 -> HourMetric(
-                stringResource(R.string.et0_evapotranspiration),
+                R.string.et0_evapotranspiration,
                 units.precipitation(requireNotNull(precipitationHour?.et0)),
             )
             HourMetricKind.SOIL_TEMPERATURE -> HourMetric(
-                stringResource(R.string.soil_temperature),
+                R.string.soil_temperature,
                 units.temperature(requireNotNull(hour.soilTemperature0Cm)),
             )
             HourMetricKind.SOIL_MOISTURE -> HourMetric(
-                stringResource(R.string.soil_moisture),
+                R.string.soil_moisture,
                 String.format(locale, "%.3f m³/m³", requireNotNull(hour.soilMoisture0To1Cm)),
             )
         }
@@ -347,31 +356,53 @@ internal fun ExpandedHourDetails(
         Text(
             stringResource(R.string.precipitation_interval,
                 hourlyStartingPrecipitationInterval(hour.time, locale) ?: stringResource(R.string.unavailable)),
-            fontSize = 12.sp,
+            fontSize = 13.sp,
+            lineHeight = 18.sp,
             fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.secondary,
         )
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surfaceVariant,
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
             shape = MaterialTheme.shapes.medium,
         ) {
-            Text(
-                text = hourlyWeatherSummary(hour, units, precipitationHour, locale, resources::getString),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 12.sp,
-                lineHeight = 18.sp,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            )
+            Row(
+                Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.Top,
+            ) {
+                val condition = conditionFor(hour.weatherCode, hour.isDay)
+                WeatherIcon(condition.kind, hour.isDay, contentDescription = null,
+                    modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary,
+                    conditionKey = condition.key)
+                Text(
+                    text = hourlyWeatherSummary(hour, units, precipitationHour, locale, resources::getString),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 14.sp,
+                    lineHeight = 21.sp,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+        HourMetricGrid(metrics.take(BASIC_HOUR_METRICS.size))
+        if (metrics.size > BASIC_HOUR_METRICS.size) {
+            TextButton(
+                onClick = { showAdvanced = !showAdvanced },
+                modifier = Modifier.heightIn(min = 48.dp).semantics { stateDescription = advancedState },
+            ) {
+                Icon(if (showAdvanced) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, contentDescription = null)
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.advanced_details))
+            }
+            if (showAdvanced) HourMetricGrid(metrics.drop(BASIC_HOUR_METRICS.size))
         }
         TextButton(
             onClick = { showPrecipitationHelp = !showPrecipitationHelp },
-            modifier = Modifier.semantics { stateDescription = helpExpansionState },
+            modifier = Modifier.heightIn(min = 48.dp).semantics { stateDescription = helpExpansionState },
         ) {
             Icon(Icons.Rounded.Info, contentDescription = null, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(6.dp))
-            Text(stringResource(R.string.precipitation_help), fontSize = 12.sp, lineHeight = 18.sp)
+            Text(stringResource(R.string.precipitation_help), fontSize = 13.sp, lineHeight = 18.sp)
         }
         if (showPrecipitationHelp) {
             precipitationHour?.precipitationSpread?.let { spread ->
@@ -381,28 +412,16 @@ internal fun ExpandedHourDetails(
                     stringResource(R.string.hourly_precipitation_models, spread.wetModelCount,
                         spread.modelCount, if (minimum == maximum) minimum else "$minimum – $maximum"),
                     color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = 12.sp,
-                    lineHeight = 18.sp,
+                    fontSize = 13.sp,
+                    lineHeight = 20.sp,
                 )
             }
             Text(
                 stringResource(R.string.precipitation_probability_note),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 11.sp,
-                lineHeight = 16.sp,
+                fontSize = 13.sp,
+                lineHeight = 20.sp,
             )
-        }
-        HourMetricGrid(metrics.take(BASIC_HOUR_METRICS.size))
-        if (metrics.size > BASIC_HOUR_METRICS.size) {
-            TextButton(
-                onClick = { showAdvanced = !showAdvanced },
-                modifier = Modifier.semantics { stateDescription = advancedState },
-            ) {
-                Icon(if (showAdvanced) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, contentDescription = null)
-                Spacer(Modifier.width(6.dp))
-                Text(stringResource(R.string.advanced_details))
-            }
-            if (showAdvanced) HourMetricGrid(metrics.drop(BASIC_HOUR_METRICS.size))
         }
     }
 }
@@ -489,31 +508,47 @@ private fun HourMetricGrid(metrics: List<HourMetric>) {
 private val BASIC_HOUR_METRICS = listOf(
     HourMetricKind.TEMPERATURE, HourMetricKind.FEELS_LIKE,
     HourMetricKind.PRECIPITATION, HourMetricKind.PRECIPITATION_PROBABILITY,
-    HourMetricKind.UV, HourMetricKind.HUMIDITY,
-    HourMetricKind.WIND, HourMetricKind.WIND_GUSTS,
-    HourMetricKind.PRESSURE, HourMetricKind.VISIBILITY,
+    HourMetricKind.WIND, HourMetricKind.UV,
 )
 
 @Composable
 private fun HourMetricValue(metric: HourMetric, modifier: Modifier) {
-    Column(modifier.padding(vertical = 2.dp)) {
-        Text(
-            text = metric.label,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 10.sp,
-            lineHeight = 14.sp,
-        )
-        Text(
-            text = metric.value,
-            color = MaterialTheme.colorScheme.onSurface,
-            fontSize = 13.sp,
-            lineHeight = 18.sp,
-            fontWeight = FontWeight.Medium,
-        )
+    Row(modifier.padding(vertical = 5.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Icon(hourMetricIcon(metric.label), contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 2.dp).size(18.dp))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = stringResource(metric.label),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp,
+                lineHeight = 17.sp,
+            )
+            Text(
+                text = metric.value,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 15.sp,
+                lineHeight = 21.sp,
+                fontWeight = FontWeight.Medium,
+            )
+        }
     }
 }
 
 private data class HourMetric(
-    val label: String,
+    @param:StringRes val label: Int,
     val value: String,
 )
+
+private fun hourMetricIcon(@StringRes label: Int): ImageVector = when (label) {
+    R.string.temperature, R.string.feels_like, R.string.dew_point, R.string.wet_bulb_temperature,
+    R.string.surface_temperature, R.string.soil_temperature, R.string.freezing_level -> Icons.Rounded.Thermostat
+    R.string.precipitation, R.string.precipitation_probability, R.string.rain, R.string.showers,
+    R.string.snowfall, R.string.snow_water_equivalent, R.string.humidity, R.string.integrated_water_vapour,
+    R.string.vapour_pressure_deficit, R.string.et0_evapotranspiration, R.string.soil_moisture -> Icons.Rounded.WaterDrop
+    R.string.wind, R.string.wind_gusts -> Icons.Rounded.Air
+    R.string.cloud_cover, R.string.low_clouds, R.string.middle_clouds, R.string.high_clouds -> Icons.Rounded.Cloud
+    R.string.pressure, R.string.surface_pressure -> Icons.Rounded.Speed
+    R.string.uv_index -> Icons.Rounded.WbSunny
+    R.string.visibility -> Icons.Rounded.Visibility
+    else -> Icons.Rounded.Info
+}

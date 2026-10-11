@@ -1,12 +1,10 @@
 package cz.majkey.pocasicesko.ui
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -22,8 +20,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
@@ -31,6 +27,8 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.Air
+import androidx.compose.material.icons.rounded.Compress
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
@@ -39,6 +37,9 @@ import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.WaterDrop
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Opacity
+import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -63,13 +64,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -104,6 +108,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.currentStateAsState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlin.math.roundToInt
 
 private const val HOURLY_OUTLOOK_COUNT = 24
 
@@ -172,8 +177,8 @@ internal fun ForecastScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            contentPadding = PaddingValues(start = 18.dp, top = 16.dp, end = 18.dp, bottom = 100.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+            contentPadding = PaddingValues(start = 20.dp, top = 8.dp, end = 20.dp, bottom = 100.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
             item {
                 LocationHeader(
@@ -199,7 +204,7 @@ internal fun ForecastScreen(
                     })
             }
             item {
-                CurrentMetrics(snapshot = snapshot, accent = accent, units = units, localNow = localNow)
+                CurrentMetrics(snapshot = snapshot, units = units, localNow = localNow)
             }
             item {
                 DailyForecastPanel(
@@ -211,16 +216,18 @@ internal fun ForecastScreen(
                 )
             }
             item {
-                WeatherDetailAction {
-                    openHistory = false
-                    showDetails = true
-                }
-            }
-            item { WarningsAction(warnings, onWarnings) }
-            item {
-                WeatherDetailAction(label = R.string.history_title) {
-                    openHistory = true
-                    showDetails = true
+                Column {
+                    WeatherDetailAction {
+                        openHistory = false
+                        showDetails = true
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    WarningsAction(warnings, onWarnings)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    WeatherDetailAction(label = R.string.history_title) {
+                        openHistory = true
+                        showDetails = true
+                    }
                 }
             }
         }
@@ -254,22 +261,20 @@ internal fun ForecastScreen(
 private fun WeatherDetailAction(label: Int = R.string.open_weather_details, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface,
-        shape = MaterialTheme.shapes.large,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+        color = Color.Transparent,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 15.dp),
+            modifier = Modifier.padding(vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (label == R.string.history_title) {
-                Icon(Icons.Rounded.History, contentDescription = null, modifier = Modifier.padding(end = 12.dp).size(22.dp))
-            }
+            Icon(if (label == R.string.history_title) Icons.Rounded.History else Icons.Rounded.Info,
+                contentDescription = null, modifier = Modifier.padding(end = 12.dp).size(22.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(
                 stringResource(label),
                 modifier = Modifier.weight(1f),
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Medium,
             )
             Icon(
                 Icons.AutoMirrored.Rounded.KeyboardArrowRight,
@@ -302,10 +307,9 @@ private fun LocationHeader(
             Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 Surface(
                     onClick = onSearch,
-                    modifier = Modifier.widthIn(max = 200.dp).heightIn(min = 48.dp),
-                    color = MaterialTheme.colorScheme.surface,
+                    modifier = Modifier.widthIn(max = 240.dp).heightIn(min = 48.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.45f),
                     shape = RoundedCornerShape(24.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp),
@@ -316,7 +320,7 @@ private fun LocationHeader(
                             text = location.name,
                             modifier = Modifier.weight(1f, fill = false),
                             fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold,
+                            fontWeight = FontWeight.Medium,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -344,7 +348,7 @@ private fun LocationHeader(
             text = location.localizedRegion(),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 12.sp,
-            modifier = Modifier.padding(top = 7.dp),
+            modifier = Modifier.padding(top = 2.dp),
         )
         if (fromCache) {
             Text(
@@ -358,7 +362,7 @@ private fun LocationHeader(
 }
 
 @Composable
-private fun WeatherHero(snapshot: WeatherSnapshot, accent: Color, units: WeatherUnitFormatter, currentDate: String?) {
+internal fun WeatherHero(snapshot: WeatherSnapshot, accent: Color, units: WeatherUnitFormatter, currentDate: String?) {
     val condition = conditionFor(snapshot.current.weatherCode, snapshot.current.isDay)
     val conditionLabel = stringResource(condition.labelResource())
     val today = snapshot.daily.firstOrNull { it.date == currentDate }
@@ -370,31 +374,35 @@ private fun WeatherHero(snapshot: WeatherSnapshot, accent: Color, units: Weather
             kind = condition.kind,
             conditionKey = condition.key,
             isDay = snapshot.current.isDay,
-            contentDescription = conditionLabel,
-            modifier = Modifier.size(46.dp),
+            contentDescription = null,
+            modifier = Modifier.size(40.dp),
             tint = accent,
         )
-        Text(
-            text = units.temperature(snapshot.current.temperature),
-            fontSize = 92.sp,
-            lineHeight = 100.sp,
-            fontWeight = FontWeight.Medium,
-            letterSpacing = (-3).sp,
-        )
-        Text(conditionLabel, fontSize = 20.sp, fontWeight = FontWeight.Medium)
+        BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            val temperature = units.temperature(snapshot.current.temperature)
+            val style = MaterialTheme.typography.displayLarge.copy(fontSize = 88.sp,
+                lineHeight = 96.sp, fontWeight = FontWeight.Light, letterSpacing = (-2).sp)
+            val measuredWidth = rememberTextMeasurer().measure(temperature, style, softWrap = false).size.width
+            val scale = (with(LocalDensity.current) { maxWidth.toPx() } / measuredWidth.coerceAtLeast(1)).coerceAtMost(1f)
+            Text(temperature, style = style.copy(fontSize = style.fontSize * scale, lineHeight = style.lineHeight * scale),
+                maxLines = 1)
+        }
+        Text(conditionLabel, fontSize = 18.sp, fontWeight = FontWeight.Normal, textAlign = TextAlign.Center)
         Text(
             text = (today?.let { "${units.temperature(it.temperatureMin)} / ${units.temperature(it.temperatureMax)}" }
                 ?: stringResource(R.string.unavailable)) + "  ·  " +
                 stringResource(R.string.feels_like_temperature, units.temperature(snapshot.current.feelsLike)),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 14.sp,
-            modifier = Modifier.padding(top = 5.dp),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 4.dp),
         )
     }
 }
 
 @Composable
-private fun HourlyGraphPanel(snapshot: WeatherSnapshot, units: WeatherUnitFormatter, localNow: LocalDateTime?, onHourClick: (String) -> Unit) {
+internal fun HourlyGraphPanel(snapshot: WeatherSnapshot, units: WeatherUnitFormatter, localNow: LocalDateTime?, onHourClick: (String) -> Unit) {
+    val locale = LocalConfiguration.current.locales[0]
     val precipitationByStart = remember(snapshot.hourly) { hourlyPrecipitationByStart(snapshot.hourly) }
     val currentHour = localNow?.toString()?.take(13) ?: snapshot.current.time.take(13)
     val hours = upcomingHours(snapshot.hourly, currentHour)
@@ -407,10 +415,10 @@ private fun HourlyGraphPanel(snapshot: WeatherSnapshot, units: WeatherUnitFormat
     val itemWidth = maxOf(68.dp, 56.dp * LocalDensity.current.fontScale)
     Column {
         SectionTitle(stringResource(R.string.next_hours, HOURLY_OUTLOOK_COUNT))
-        Text(stringResource(R.string.confidence_hour_hint), fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(12.dp))
-        WeatherPanel {
+        if (hours.isEmpty()) {
+            Text(stringResource(R.string.unavailable), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -450,7 +458,7 @@ private fun HourlyGraphPanel(snapshot: WeatherSnapshot, units: WeatherUnitFormat
                                         isDay = iconIsDay,
                                         contentDescription = null,
                                         modifier = Modifier.size(25.dp),
-                                        tint = weatherAccent(condition.kind, iconIsDay),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
                             }
@@ -470,7 +478,7 @@ private fun HourlyGraphPanel(snapshot: WeatherSnapshot, units: WeatherUnitFormat
                                     text = units.temperature(hour.temperature),
                                     modifier = Modifier.width(itemWidth),
                                     fontSize = 16.sp,
-                                    fontWeight = FontWeight.SemiBold,
+                                    fontWeight = FontWeight.Medium,
                                     textAlign = TextAlign.Center,
                                 )
                             }
@@ -509,7 +517,7 @@ private fun HourlyGraphPanel(snapshot: WeatherSnapshot, units: WeatherUnitFormat
                         Row {
                             hours.forEach { hour ->
                                 Box(Modifier.width(itemWidth), contentAlignment = Alignment.Center) {
-                                    ConfidenceRating(confidenceByTime.getValue(hour.time).level)
+                                    ConfidenceRating(confidenceByTime.getValue(hour.time).level, text = "")
                                 }
                             }
                         }
@@ -525,9 +533,11 @@ private fun HourlyGraphPanel(snapshot: WeatherSnapshot, units: WeatherUnitFormat
                                 hour.time.substringAfter('T').take(5)
                             }
                             val precipitationHour = precipitationByStart[hour.time]
+                            val interval = hourlyStartingPrecipitationInterval(hour.time, locale)
                             val precipitationLabel = "${stringResource(R.string.precipitation)} " +
                                 (precipitationHour?.let { "${it.precipitationProbability}%, ${units.precipitation(it.precipitation)}" }
-                                    ?: stringResource(R.string.unavailable))
+                                    ?: stringResource(R.string.unavailable)) +
+                                (interval?.let { ", " + stringResource(R.string.precipitation_interval, it) } ?: "")
                             val windLabel = "${stringResource(R.string.wind)} ${units.windSpeed(hour.windSpeed)}, " +
                                 stringResource(windDirectionResource(hour.windDirection))
                             val confidence = confidenceByTime.getValue(hour.time)
@@ -535,7 +545,10 @@ private fun HourlyGraphPanel(snapshot: WeatherSnapshot, units: WeatherUnitFormat
                             val description = hourlyAccessibilityDescription(
                                 time = time,
                                 condition = stringResource(condition.labelResource()),
-                                temperature = units.temperature(hour.temperature),
+                                temperature = units.temperature(hour.temperature) + ", " +
+                                    stringResource(R.string.feels_like_temperature,
+                                        hour.apparentTemperature?.takeIf(Double::isFinite)?.let(units::temperature)
+                                            ?: stringResource(R.string.unavailable)),
                                 precipitationLabel = precipitationLabel,
                                 windLabel = windLabel,
                             ) + ", " + confidenceText
@@ -550,6 +563,8 @@ private fun HourlyGraphPanel(snapshot: WeatherSnapshot, units: WeatherUnitFormat
                     }
                 }
             }
+            Text(stringResource(R.string.confidence_hour_hint), fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
         }
     }
 }
@@ -571,59 +586,52 @@ internal fun HourPrecipitationColumn(precipitationHour: HourlyWeather?, units: W
     }
 }
 
+private data class CurrentMetric(val icon: ImageVector, val label: String, val value: String, val note: String)
+
 @Composable
-private fun CurrentMetrics(snapshot: WeatherSnapshot, accent: Color, units: WeatherUnitFormatter, localNow: LocalDateTime?) {
+internal fun CurrentMetrics(snapshot: WeatherSnapshot, units: WeatherUnitFormatter, localNow: LocalDateTime?) {
     val today = snapshot.daily.firstOrNull { it.date == localNow?.toLocalDate()?.toString() }
     val metrics = listOf(
-        Triple(
+        CurrentMetric(
+            Icons.Rounded.WaterDrop,
             stringResource(R.string.precipitation),
             units.precipitation(snapshot.current.precipitation),
             if (isCurrentForecastHour(snapshot.current.time, localNow)) stringResource(R.string.now)
                 else snapshot.current.time.replace('T', ' '),
         ),
-        Triple(
+        CurrentMetric(
+            Icons.Rounded.Air,
             stringResource(R.string.wind),
             units.windSpeed(snapshot.current.windSpeed),
             stringResource(windDirectionResource(snapshot.current.windDirection)),
         ),
-        Triple(stringResource(R.string.humidity), "${snapshot.current.humidity} %", stringResource(R.string.relative)),
-        Triple(stringResource(R.string.pressure), units.pressure(snapshot.current.pressure), stringResource(R.string.sea_level)),
-        Triple(stringResource(R.string.sun), today?.let { "${it.sunrise.takeLast(5)}–${it.sunset.takeLast(5)}" }
+        CurrentMetric(Icons.Rounded.Opacity, stringResource(R.string.humidity), "${snapshot.current.humidity} %",
+            stringResource(R.string.relative)),
+        CurrentMetric(Icons.Rounded.Compress, stringResource(R.string.pressure), units.pressure(snapshot.current.pressure),
+            stringResource(R.string.sea_level)),
+        CurrentMetric(Icons.Rounded.WbSunny, stringResource(R.string.sunrise), today?.sunrise?.takeLast(5)
+            ?: stringResource(R.string.unavailable), stringResource(R.string.today)),
+        CurrentMetric(Icons.Rounded.WbSunny, stringResource(R.string.sunset), today?.sunset?.takeLast(5)
             ?: stringResource(R.string.unavailable), stringResource(R.string.today)),
     )
     Column {
         SectionTitle(stringResource(R.string.current_details))
-        Spacer(Modifier.height(12.dp))
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            contentPadding = PaddingValues(end = 18.dp),
-        ) {
-            items(metrics) { metric ->
-                Surface(
-                    modifier = Modifier
-                        .width(154.dp)
-                        .height(98.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    shape = MaterialTheme.shapes.large,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                ) {
-                    Column(
-                        modifier = Modifier.padding(15.dp),
-                        verticalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                Modifier
-                                    .size(7.dp)
-                                    .padding(0.dp),
-                            ) {
-                                Canvas(Modifier.fillMaxSize()) { drawCircle(accent) }
+        Spacer(Modifier.height(16.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+            metrics.chunked(2).forEach { pair ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                    pair.forEach { metric ->
+                        Column(Modifier.weight(1f).semantics(mergeDescendants = true) { },
+                            verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(metric.icon, contentDescription = null, modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Spacer(Modifier.width(8.dp))
+                                Text(metric.label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                             }
-                            Spacer(Modifier.width(7.dp))
-                            Text(metric.first, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                            Text(metric.value, fontSize = 20.sp, fontWeight = FontWeight.Medium)
+                            Text(metric.note, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                         }
-                        Text(metric.second, fontSize = 19.sp, fontWeight = FontWeight.SemiBold)
-                        Text(metric.third, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                     }
                 }
             }
@@ -640,39 +648,33 @@ internal fun DailyForecastPanel(
     confidenceByDay: Map<String, ForecastConfidence> = emptyMap(),
 ) {
     var expanded by rememberSaveable(days.firstOrNull()?.date) { mutableStateOf(false) }
-    val shownDays = if (expanded) days else days.take(4)
+    val availableDays = days.take(14)
+    val shownDays = if (expanded) availableDays else availableDays.take(4)
     val expansionState = stringResource(if (expanded) R.string.hour_expanded else R.string.hour_collapsed)
     Column {
         SectionTitle(stringResource(R.string.days_14))
         Spacer(Modifier.height(12.dp))
-        WeatherPanel {
-            Column {
-                shownDays.forEachIndexed { index, day ->
-                    DailyRow(
-                        day = day,
-                        today = day.date == currentDate,
-                        units = units,
-                        onClick = { onDayClick(index) },
-                        confidence = confidenceByDay[day.date],
-                    )
-                    if (index != shownDays.lastIndex) {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(horizontal = 15.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant,
-                        )
-                    }
-                }
-                if (days.size > 4) {
-                    TextButton(
-                        onClick = { expanded = !expanded },
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                            .semantics { stateDescription = expansionState },
-                    ) {
-                        Text(if (expanded) stringResource(R.string.forecast_collapse)
-                            else stringResource(R.string.forecast_expand, days.size))
-                        Icon(if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, contentDescription = null)
-                    }
-                }
+        shownDays.forEachIndexed { index, day ->
+            DailyRow(
+                day = day,
+                today = day.date == currentDate,
+                units = units,
+                onClick = { onDayClick(index) },
+                confidence = confidenceByDay[day.date],
+            )
+            if (index != shownDays.lastIndex) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            }
+        }
+        if (availableDays.size > 4) {
+            TextButton(
+                onClick = { expanded = !expanded },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                    .semantics { stateDescription = expansionState },
+            ) {
+                Text(if (expanded) stringResource(R.string.forecast_collapse)
+                    else stringResource(R.string.forecast_expand, availableDays.size))
+                Icon(if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, contentDescription = null)
             }
         }
     }
@@ -695,10 +697,8 @@ internal fun DailyRow(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 78.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(if (today) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
             .clickable(onClick = onClick)
-            .padding(horizontal = 15.dp, vertical = 12.dp),
+            .padding(vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -707,6 +707,7 @@ internal fun DailyRow(
                     text = if (today) stringResource(R.string.today) else formatDay(day.date, locale),
                     fontSize = 14.sp,
                     fontWeight = if (today) FontWeight.SemiBold else FontWeight.Normal,
+                    color = if (today) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
                     text = LocalDate.parse(day.date).format(DateTimeFormatter.ofPattern("d MMM", locale)),
@@ -721,7 +722,7 @@ internal fun DailyRow(
                 isDay = true,
                 contentDescription = conditionLabel,
                 modifier = Modifier.size(27.dp),
-                tint = weatherAccent(condition.kind, true),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
                 text = conditionLabel,
@@ -776,7 +777,7 @@ internal fun DailyRow(
             )
             val rating = confidence ?: ForecastConfidence(ConfidenceLevel.LIMITED, ConfidenceReason.MISSING_MODELS)
             Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
-                ConfidenceRating(rating.level)
+                ConfidenceRating(rating.level, text = "")
             }
         }
     }
@@ -880,6 +881,7 @@ internal fun DayDetailSheet(
                             fontSize = 12.sp,
                             modifier = Modifier.padding(bottom = 12.dp),
                         )
+                        DayAvailableDetails(day, units, locale)
                         ForecastConfidenceBadge(dailyForecastConfidence(day.date, hourly, precipitationByStart, localNow,
                             System.currentTimeMillis() - updatedAtEpochMillis), units)
                     }
@@ -899,7 +901,6 @@ internal fun DayDetailSheet(
                                 .fillMaxWidth()
                                 .heightIn(min = 78.dp)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(if (currentHour) MaterialTheme.colorScheme.primaryContainer else Color.Transparent, RoundedCornerShape(12.dp))
                                 .padding(horizontal = 12.dp, vertical = 12.dp),
                             verticalArrangement = Arrangement.Center,
                         ) {
@@ -975,6 +976,63 @@ internal fun DayDetailSheet(
 }
 
 @Composable
+internal fun DayAvailableDetails(day: DailyWeather, units: WeatherUnitFormatter, locale: java.util.Locale) {
+    val basic = listOfNotNull(
+        day.sunrise.takeIf(String::isNotBlank)?.let { R.string.sunrise to it.takeLast(5) },
+        day.sunset.takeIf(String::isNotBlank)?.let { R.string.sunset to it.takeLast(5) },
+        day.uvIndexMax?.takeIf { it.isFinite() && it >= 0.0 }?.let {
+            R.string.uv_index_max to String.format(locale, "%.1f", it)
+        },
+        day.windGustsMax?.takeIf { it.isFinite() && it >= 0.0 }?.let { R.string.daily_wind_gusts to units.windSpeed(it) },
+    )
+    val advanced = listOfNotNull(
+        dayDurationValue(day.sunshineDurationSeconds)?.let { R.string.sunshine_duration to it },
+        dayDurationValue(day.daylightDurationSeconds)?.let { R.string.daylight_duration to it },
+        day.precipitationHours?.takeIf { it.isFinite() && it >= 0.0 }?.let {
+            R.string.precipitation_hours to String.format(locale, "%.1f h", it)
+        },
+        day.snowfallSum?.takeIf { it.isFinite() && it >= 0.0 }?.let { R.string.snowfall to units.snowfall(it) },
+        day.rainSum?.takeIf { it.isFinite() && it >= 0.0 }?.let { R.string.rain to units.precipitation(it) },
+        day.dominantWindDirection?.let {
+            R.string.dominant_wind to "${stringResource(windDirectionResource(it))} · ${Math.floorMod(it, 360)}°"
+        },
+        day.shortwaveRadiationSum?.takeIf { it.isFinite() && it >= 0.0 }?.let {
+            R.string.shortwave_radiation to String.format(locale, "%.1f MJ/m²", it)
+        },
+        day.et0?.takeIf { it.isFinite() && it >= 0.0 }?.let { R.string.et0_evapotranspiration to units.precipitation(it) },
+    )
+    var expanded by rememberSaveable(day.date) { mutableStateOf(false) }
+    val expansionState = stringResource(if (expanded) R.string.hour_expanded else R.string.hour_collapsed)
+    DayMetricGrid(basic)
+    if (advanced.isNotEmpty()) {
+        TextButton(onClick = { expanded = !expanded }, modifier = Modifier.heightIn(min = 48.dp)
+            .semantics { stateDescription = expansionState }) {
+            Text(stringResource(R.string.advanced_details))
+            Icon(if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, contentDescription = null)
+        }
+        if (expanded) DayMetricGrid(advanced)
+    }
+}
+
+@Composable
+private fun DayMetricGrid(metrics: List<Pair<Int, String>>) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        metrics.chunked(2).forEach { pair ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                pair.forEach { (label, value) ->
+                    DaySummaryMetric(stringResource(label), value, Modifier.weight(1f))
+                }
+                if (pair.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun dayDurationValue(seconds: Double?): String? = seconds?.takeIf { it.isFinite() && it >= 0.0 }
+    ?.roundToInt()?.div(60)?.let { stringResource(R.string.duration_hours_minutes, it / 60, it % 60) }
+
+@Composable
 private fun DaySummaryMetric(label: String, value: String, modifier: Modifier = Modifier) {
     Column(modifier) {
         Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
@@ -988,19 +1046,8 @@ internal fun dailyPrecipitationSummary(
 ): String = "${day.precipitationProbability?.let { "$it%" } ?: "—"} · ${units.precipitation(day.precipitationSum)}"
 
 @Composable
-private fun WeatherPanel(content: @Composable () -> Unit) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface,
-        shape = MaterialTheme.shapes.large,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        content = content,
-    )
-}
-
-@Composable
 private fun SectionTitle(text: String) {
-    Text(text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+    Text(text, fontSize = 17.sp, fontWeight = FontWeight.Medium, modifier = Modifier.semantics { heading() })
 }
 
 @Composable

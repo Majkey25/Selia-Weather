@@ -10,6 +10,7 @@
     <string name="widget_placeholder_time">--:--</string>
     <string name="nav_weather">Météo</string>
     <string name="nav_maps">Radar</string>
+    <string name="nav_ai">IA</string>
     <string name="open_settings">Ouvrir les paramètres</string>
     <string name="refresh_forecast">Actualiser les prévisions</string>
     <string name="forecast_unavailable">Prévisions indisponibles</string>
@@ -398,7 +399,10 @@
     <string name="history_loading_archive">Préparation des archives météo…</string>
     <string name="history_choose_ai_title">Choisir une app IA</string>
     <string name="history_choose_ai_action">Choisir une app</string>
-    <string name="history_choose_ai_message">Les archives complètes sur cinq ans pour %1$s (%2$d relevés quotidiens), votre question et la période UTC choisie seront partagées.\n\nChoisissez ChatGPT, Gemini, Claude ou Grok si l’app installée accepte les fichiers CSV. Si elle est absente ou ne peut pas ouvrir la pièce jointe, enregistrez le CSV via une app de partage compatible, puis importez-le manuellement dans votre app IA.</string>
+    <string name="history_choose_ai_message">Les archives complètes sur cinq ans pour %1$s (%2$d relevés quotidiens), les coordonnées du lieu, votre question et la période UTC choisie seront partagées.\n\nVérifiez le fichier et la question dans l’app IA avant l’envoi.</string>
+    <string name="history_ai_apps_description">Seules les apps IA installées qui acceptent le CSV apparaissent ici. Vérifiez que le fichier et la question sont arrivés avant l’envoi.</string>
+    <string name="history_ai_no_apps">Aucune app IA installée n’accepte le CSV. Exportez le fichier et joignez-le manuellement dans votre app IA.</string>
+    <string name="history_export_csv">Exporter le CSV</string>
     <string name="detail_group_sun_moon">Soleil et Lune</string>
     <string name="detail_group_other">Autres conditions</string>
     <string name="detail_group_sources">Sources et diagnostic</string>

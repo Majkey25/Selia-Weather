@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.graphics.Bitmap
+import android.net.Uri
 import android.view.View
 import android.webkit.CookieManager
 import android.webkit.WebResourceError
@@ -47,20 +48,26 @@ import androidx.webkit.WebViewAssetLoader
 import cz.majkey.pocasicesko.BuildConfig
 import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.locale.normalizeLanguageTag
-import java.net.URLEncoder
 import java.util.Locale
 import org.json.JSONObject
 import kotlin.math.roundToInt
 
 const val RADAR_APP_URL = "https://appassets.androidplatform.net/assets/radar.html"
 
-internal fun radarAppearanceScript(colors: ColorScheme, topInsetDp: Int): String {
+internal fun radarAppearanceScript(
+    colors: ColorScheme,
+    topInsetDp: Int,
+    bottomInsetDp: Int = 0,
+    timezone: String? = null,
+): String {
     fun hex(color: Color) = String.format(Locale.ROOT, "#%06X", color.toArgb() and 0xFFFFFF)
     val values = JSONObject().put("bg", hex(colors.background)).put("surface", hex(colors.surface))
         .put("text", hex(colors.onSurface)).put("muted", hex(colors.onSurfaceVariant))
         .put("border", hex(colors.outlineVariant)).put("accent", hex(colors.primary))
         .put("onAccent", hex(colors.onPrimary)).put("variant", hex(colors.surfaceVariant))
         .put("topInset", topInsetDp.coerceIn(0, 240))
+        .put("bottomInset", bottomInsetDp.coerceIn(0, 240))
+        .put("timezone", timezone ?: JSONObject.NULL)
     return "window.setAppearance && window.setAppearance($values);"
 }
 
@@ -69,14 +76,11 @@ internal fun localizedRadarUrl(
     latitude: Double,
     longitude: Double,
     chmiDetail: Boolean,
-    timezone: String? = null,
 ): String {
     require(latitude.isFinite() && latitude in -90.0..90.0)
     require(longitude.isFinite() && longitude in -180.0..180.0)
     val language = normalizeLanguageTag(languageTag).ifEmpty { "en" }
-    return "$RADAR_APP_URL?lang=$language&lat=$latitude&lon=$longitude" +
-        "&chmi=${if (chmiDetail) 1 else 0}" +
-        (timezone?.let { "&tz=${URLEncoder.encode(it, "UTF-8")}" } ?: "")
+    return "$RADAR_APP_URL?lang=$language&lat=$latitude&lon=$longitude&chmi=${if (chmiDetail) 1 else 0}"
 }
 
 @Composable
@@ -86,6 +90,8 @@ fun ChmiWebScreen(
     modifier: Modifier = Modifier,
     active: Boolean = true,
     topInsetDp: Int = 0,
+    bottomInsetDp: Int = 0,
+    timezone: String? = null,
 ) {
     val context = LocalContext.current
     val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
@@ -93,7 +99,14 @@ fun ChmiWebScreen(
     var webView by remember { mutableStateOf<WebView?>(null) }
     var loading by remember(url) { mutableStateOf(true) }
     var error by remember(url) { mutableStateOf<String?>(null) }
-    val appearanceScript by rememberUpdatedState(radarAppearanceScript(MaterialTheme.colorScheme, topInsetDp))
+    val colors = MaterialTheme.colorScheme
+    val appearanceScript by rememberUpdatedState(remember(colors, topInsetDp, bottomInsetDp, timezone) {
+        radarAppearanceScript(colors, topInsetDp, bottomInsetDp, timezone)
+    })
+    val pageActive = active && lifecycleState.isAtLeast(Lifecycle.State.RESUMED)
+    val activeScript by rememberUpdatedState("window.setNativeActive && window.setNativeActive($pageActive);")
+    var appliedAppearanceScript by remember(url) { mutableStateOf<String?>(null) }
+    var appliedActiveScript by remember(url) { mutableStateOf<String?>(null) }
     val textZoom = (LocalDensity.current.fontScale * 100).roundToInt().coerceIn(90, 250)
 
     Box(
@@ -133,6 +146,8 @@ fun ChmiWebScreen(
                             override fun onPageStarted(view: WebView?, pageUrl: String?, favicon: Bitmap?) {
                                 loading = true
                                 error = null
+                                appliedAppearanceScript = null
+                                appliedActiveScript = null
                             }
 
                             override fun onPageCommitVisible(view: WebView?, pageUrl: String?) {
@@ -141,6 +156,9 @@ fun ChmiWebScreen(
 
                             override fun onPageFinished(view: WebView?, pageUrl: String?) {
                                 view?.evaluateJavascript(appearanceScript, null)
+                                view?.evaluateJavascript(activeScript, null)
+                                appliedAppearanceScript = appearanceScript
+                                appliedActiveScript = activeScript
                                 loading = false
                             }
 
@@ -171,7 +189,8 @@ fun ChmiWebScreen(
                                 return true
                             }
                         }
-                        loadUrl(url)
+                        loadUrl(Uri.parse(url).buildUpon()
+                            .appendQueryParameter("nativeActive", if (pageActive) "1" else "0").build().toString())
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
@@ -182,9 +201,16 @@ fun ChmiWebScreen(
                 },
                 update = { view ->
                     view.settings.textZoom = textZoom
-                    view.evaluateJavascript(appearanceScript, null)
+                    if (!loading && appliedAppearanceScript != appearanceScript) {
+                        view.evaluateJavascript(appearanceScript, null)
+                        appliedAppearanceScript = appearanceScript
+                    }
+                    if (!loading && appliedActiveScript != activeScript) {
+                        view.evaluateJavascript(activeScript, null)
+                        appliedActiveScript = activeScript
+                    }
                     view.visibility = if (active) View.VISIBLE else View.INVISIBLE
-                    if (active && lifecycleState.isAtLeast(Lifecycle.State.RESUMED)) {
+                    if (pageActive) {
                         view.onResume()
                     } else {
                         view.onPause()

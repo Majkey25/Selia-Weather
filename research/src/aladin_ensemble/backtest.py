@@ -4,7 +4,7 @@ import hashlib
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime, time, timedelta
 from math import isfinite
 from pathlib import Path
 from types import MappingProxyType
@@ -63,6 +63,7 @@ class SegmentDataset:
     holdout: tuple[ScalarForecastCase, ...]
     eligible_models: tuple[str, ...]
     coverage: Mapping[str, float]
+    coverage_threshold: float = 0.9
 
     def __post_init__(self) -> None:
         if not self.training or not self.holdout or not self.eligible_models:
@@ -70,6 +71,8 @@ class SegmentDataset:
         copied = dict(self.coverage)
         if any(not 0 <= value <= 1 for value in copied.values()):
             raise ValueError("model coverage must be from zero through one")
+        if not isfinite(self.coverage_threshold) or not 0 < self.coverage_threshold <= 1:
+            raise ValueError("coverage_threshold must be from zero through one")
         object.__setattr__(self, "coverage", MappingProxyType(copied))
 
 
@@ -82,6 +85,12 @@ class BacktestDataset:
     def __post_init__(self) -> None:
         if not self.stations or not self.segments:
             raise ValueError("backtest stations and segments are required")
+        for segment in self.segments.values():
+            issued_at = min(forecast_issued_at(case) for case in segment.holdout)
+            if len({case.forecast_date for case in segment.training}) < 90 or any(
+                truth_time(case) >= issued_at for case in segment.training
+            ):
+                raise ValueError("90 distinct safe training days must precede holdout issuance")
         object.__setattr__(self, "segments", MappingProxyType(dict(self.segments)))
 
 
@@ -162,22 +171,24 @@ def build_backtest_dataset(
             builder.observation,
             {model_id: builder.model_values.get(model_id) for model_id in config.model_ids},
             builder.best_match,
+            observation_id=(builder.station.station.wigos_id, builder.valid_time),
         )
         grouped.setdefault(SegmentKey(case.variable, case.lead_hours), []).append(case)
 
     segments: dict[SegmentKey, SegmentDataset] = {}
     for key, cases in sorted(grouped.items()):
-        training = tuple(case for case in cases if config.train.contains(case.forecast_date))
         holdout = tuple(case for case in cases if config.holdout.contains(case.forecast_date))
-        if len({case.forecast_date for case in training}) < 90:
-            raise ValueError(f"segment {key} has fewer than 90 distinct training days")
         if len({case.forecast_date for case in holdout}) < 30:
             raise ValueError(f"segment {key} has fewer than 30 distinct holdout days")
-        coverage = {
-            model_id: sum(case.model_values[model_id] is not None for case in training)
-            / len(training)
-            for model_id in config.model_ids
-        }
+        issued_at = min(forecast_issued_at(case) for case in holdout)
+        training = tuple(
+            case
+            for case in cases
+            if config.train.contains(case.forecast_date) and truth_time(case) < issued_at
+        )
+        if len({case.forecast_date for case in training}) < 90:
+            raise ValueError(f"segment {key} has fewer than 90 distinct safe training days")
+        coverage = training_model_coverage(training, config.model_ids)
         eligible = tuple(
             model_id
             for model_id in config.model_ids
@@ -185,8 +196,37 @@ def build_backtest_dataset(
         )
         if not eligible:
             raise ValueError(f"segment {key} has no model above the coverage threshold")
-        segments[key] = SegmentDataset(key, training, holdout, eligible, coverage)
+        segments[key] = SegmentDataset(
+            key, training, holdout, eligible, coverage, config.coverage_threshold
+        )
     return BacktestDataset(config, tuple(stations), segments)
+
+
+def forecast_issued_at(case: ScalarForecastCase) -> datetime:
+    valid_time = (
+        case.observation_id[1]
+        if case.observation_id is not None
+        else datetime.combine(case.forecast_date, time.min, UTC)
+    )
+    return valid_time - timedelta(hours=case.lead_hours)
+
+
+def truth_time(case: ScalarForecastCase) -> datetime:
+    # Date-only truth is usable only after its entire UTC day has passed.
+    return (
+        case.observation_id[1]
+        if case.observation_id is not None
+        else datetime.combine(case.forecast_date, time.max, UTC)
+    )
+
+
+def training_model_coverage(
+    cases: Sequence[ScalarForecastCase], model_ids: Sequence[str]
+) -> dict[str, float]:
+    return {
+        model_id: sum(case.model_values.get(model_id) is not None for case in cases) / len(cases)
+        for model_id in model_ids
+    }
 
 
 def write_dataset_manifest(
@@ -209,13 +249,14 @@ def write_dataset_manifest(
         },
         "models": list(dataset.config.model_ids),
         "registry_hash": registry_hash,
-        "schema_version": 1,
+        "schema_version": 2,
         "segments": [
             {
                 "coverage": {
                     model_id: round(segment.coverage[model_id], 12)
                     for model_id in dataset.config.model_ids
                 },
+                "coverage_threshold": segment.coverage_threshold,
                 "eligible_models": list(segment.eligible_models),
                 "holdout_case_count": len(segment.holdout),
                 "lead_hours": key.lead_hours,

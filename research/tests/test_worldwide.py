@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 from collections import Counter
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import pytest
 
+from aladin_ensemble.align import align_station_forecasts
 from aladin_ensemble.sources.chmi_download import ResearchTarget, SelectedStation
 from aladin_ensemble.sources.chmi_station import Station
+from aladin_ensemble.types import ForecastValue
 from aladin_ensemble.worldwide import (
     WORLD_MODEL_IDS,
     WORLD_TARGETS,
@@ -115,6 +117,7 @@ def test_worldwide_truth_download_requires_every_selected_station(tmp_path: Path
     assert len(tokyo_rain) == 1
     assert tokyo_rain[0].valid_time.hour == 6
     assert tokyo_rain[0].valid_time.minute == 0
+    assert tokyo_rain[0].value == 0.7
     assert tokyo_rain[0].interval is not None
     assert tokyo_rain[0].interval.total_seconds() == 3_600
     tokyo_variables = {
@@ -135,6 +138,55 @@ def test_worldwide_truth_download_requires_every_selected_station(tmp_path: Path
         )
 
 
+@pytest.mark.parametrize(
+    ("timestamp", "period", "accepted"),
+    (
+        ("2025-08-24T05:50:00", "01", False),
+        ("2025-08-24T05:53:00", "01", False),
+        ("2025-08-24T05:59:59.999999", "01", False),
+        ("2025-08-24T06:00:00", "01", True),
+        ("2025-08-24T06:00:00.000001", "01", False),
+        ("2025-08-24T06:00:01", "01", False),
+        ("2025-08-24T06:07:00", "01", False),
+        ("2025-08-24T06:10:00", "01", False),
+        ("2025-08-24T06:30:00", "01", False),
+        ("2025-08-24T06:00:00", "06", False),
+    ),
+)
+def test_worldwide_rain_truth_requires_the_exact_forecast_hourly_interval(
+    tmp_path: Path, timestamp: str, period: str, accepted: bool
+) -> None:
+    station = Station("72505394728", "New York", 40.7, -74.0, 10.0)
+    selected = SelectedStation(
+        ResearchTarget("new-york", "NORTH_AMERICA", 40.7, -74.0), station
+    )
+    header, report = WORLD_ISD_CSV.splitlines()[:2]
+    instant = report.replace("01,0012,9,1", "")
+    rain_report = report.replace("2025-08-24T12:00:00", timestamp).replace(
+        "01,0012,9,1", f"{period},0012,9,1"
+    )
+    payload = f"{header}\n{instant}\n{rain_report}\n".encode()
+    observations, _hashes = download_worldwide_truth(
+        (selected,), date(2025, 8, 24), date(2025, 8, 24), tmp_path,
+        http_get=lambda _url, _timeout, _max_bytes: payload,
+    )
+    rain = tuple(item for item in observations if item.variable == "precipitation")
+    forecast = ForecastValue(
+        "gfs_seamless", datetime(2025, 8, 23, 6, tzinfo=UTC),
+        datetime(2025, 8, 24, 6, tzinfo=UTC), 40.7, -74.0, 10.0,
+        "precipitation", 1.0, "mm", station.wigos_id,
+    )
+    aligned = align_station_forecasts((forecast,), observations)
+    if accepted:
+        assert len(rain) == len(aligned) == 1
+        assert rain[0].valid_time == forecast.valid_time
+        assert rain[0].interval == timedelta(hours=1)
+        assert rain[0].value == aligned[0].truth_value == 1.2
+    else:
+        assert rain == ()
+        assert aligned == ()
+
+
 WORLD_ISD_CSV = (
     '"STATION","DATE","LATITUDE","LONGITUDE","ELEVATION","TMP","DEW","SLP",'
     '"WND","VIS","AA1"\n'
@@ -145,7 +197,7 @@ WORLD_ISD_CSV = (
     '"47671099999","2025-08-24T12:30:00","35.6","139.7","6.0","+0241,1",'
     '"+0131,1","10111,1","100,1,N,0021,1","010000,1,9,9","01,0000,9,1"\n'
     '"47671099999","2025-08-24T06:00:00","35.6","139.7","6.0","+0230,1",'
-    '"+0120,1","10120,1","090,1,N,9999,9","010000,1,9,9",""\n'
+    '"+0120,1","10120,1","090,1,N,9999,9","010000,1,9,9","01,0007,9,1"\n'
     '"47671099999","2025-08-24T05:53:00","35.6","139.7","6.0","+0220,1",'
     '"+0110,1","10130,1","080,1,N,0010,1","010000,1,9,9","01,0000,9,1"\n'
 )

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime
 from math import isfinite
 from statistics import fmean, median
 from types import MappingProxyType
@@ -35,12 +35,21 @@ class ScalarForecastCase:
     observation: float
     model_values: Mapping[str, float | None]
     best_match: float | None
+    observation_id: tuple[str, datetime] | None = None
 
     def __post_init__(self) -> None:
         if not all((self.variable, self.region, self.elevation_band, self.season)):
             raise ValueError("case grouping fields are required")
         if self.lead_hours < 0:
             raise ValueError("lead_hours must be non-negative")
+        if self.observation_id is not None:
+            station_id, valid_time = self.observation_id
+            if not station_id:
+                raise ValueError("observation_id station is required")
+            if valid_time.tzinfo is None or valid_time.utcoffset() != UTC.utcoffset(valid_time):
+                raise ValueError("observation_id valid_time must be timezone-aware UTC")
+            if valid_time.date() != self.forecast_date:
+                raise ValueError("observation_id valid_time must match forecast_date")
         _finite(self.observation, "observation")
         if self.best_match is not None:
             _finite(self.best_match, "best_match")

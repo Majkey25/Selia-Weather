@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import date
+from dataclasses import replace
+from datetime import UTC, date, datetime, timedelta, timezone
 from math import isclose, sqrt
 
 import pytest
@@ -91,4 +92,23 @@ def test_baselines_reject_unknown_models_and_empty_common_mask() -> None:
             (_case(1, 0.0, 0.0, None, 0.0),),
             ("model_a", "model_b"),
             seed=1,
+        )
+
+
+@pytest.mark.parametrize(
+    ("station_id", "valid_time", "message"),
+    (
+        ("", datetime(2026, 8, 1, tzinfo=UTC), "station"),
+        ("station", datetime(2026, 8, 1), "UTC"),
+        ("station", datetime(2026, 8, 1, tzinfo=timezone(timedelta(hours=1))), "UTC"),
+        ("station", datetime(2026, 8, 2, tzinfo=UTC), "forecast_date"),
+    ),
+)
+def test_case_rejects_invalid_observation_identity(
+    station_id: str, valid_time: datetime, message: str
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        replace(
+            _case(1, 0.0, 0.0, 1.0, 0.5),
+            observation_id=(station_id, valid_time),
         )

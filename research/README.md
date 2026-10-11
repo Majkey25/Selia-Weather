@@ -9,6 +9,23 @@ this check and must be rerun before any export. The prospective replay can expli
 include provisional quality 5 for a separately labelled descriptive comparison only.
 See [the frozen September replay](../docs/research/2026-09-08-prospective-replay.md).
 
+As of 11 October 2026, wind-vector cases retain the original station ID, exact UTC observation
+time and forecast lead. NOAA hourly rainfall is accepted only when the native one-hour interval
+ends exactly on the forecast hour; nearby observation times are not rounded. Rerun every
+worldwide backtest in a new output directory, and rerun Czech wind-vector segments before using
+their scores. Record the source commit alongside the report: an unchanged input manifest alone
+does not identify the evaluation code. These fixes do not activate learned weights. Temperature-only
+studies that bypass the worldwide rain selection are unaffected.
+
+Backtests also purge observations at or after the earliest holdout forecast issuance before
+model coverage selection. Each expanding-window validation fold refits on past-only coverage.
+The same inspected eight-station holdout now has 15 diagnostic passes out of 28 evaluations,
+with no eligible exact-hour rain truth. See [the corrected worldwide diagnostic](../docs/research/worldwide-ensemble-validation.md).
+This replay does not authorize regional production weights or establish new independent skill.
+New dataset manifests pin segment coverage thresholds in schema 2. Incomplete legacy schema 1
+runs cannot be resumed; create a new output directory using the verified cached inputs instead.
+Existing completed reports are not rewritten.
+
 ## Prospective forecast capture
 
 The manual collector freezes raw provider forecasts before their valid time. Each manifest records

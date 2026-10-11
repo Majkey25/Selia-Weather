@@ -3,10 +3,10 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, timedelta
-from math import cos, hypot, isfinite, radians, sin
+from math import ceil, cos, hypot, isfinite, radians, sin
 from pathlib import Path
 from statistics import fmean
 from tempfile import TemporaryDirectory
@@ -20,6 +20,9 @@ from aladin_ensemble.backtest import (
     SegmentDataset,
     SegmentKey,
     build_backtest_dataset,
+    forecast_issued_at,
+    training_model_coverage,
+    truth_time,
     write_dataset_manifest,
 )
 from aladin_ensemble.baselines import ScalarForecastCase
@@ -97,6 +100,7 @@ FORECAST_VARIABLES = (
 FIXED_LEADS = tuple(range(1, 8))
 PRECIPITATION_EVENT_THRESHOLD_MM = 0.1
 PRECIPITATION_THRESHOLDS_MM = (0.1, 1.0, 5.0)
+FORWARD_VALIDATION_DAYS = 30
 Sleeper = Callable[[float], None]
 UtcClock = Callable[[], datetime]
 PreflightStatus = Literal["ready", "blocked"]
@@ -338,6 +342,12 @@ def resume_locked_backtest(
     report_path = output_dir / "report.json"
     if not manifest_path.is_file() or not lock_path.is_file() or report_path.exists():
         raise ValueError("resume requires a locked run without a report")
+    manifest = _json_value(json.loads(manifest_path.read_text(encoding="utf-8")))
+    if not isinstance(manifest, dict) or manifest.get("schema_version") != 2:
+        raise ValueError(
+            "resume requires schema_version 2 with pinned coverage thresholds; "
+            "legacy manifests cannot be resumed"
+        )
     lock = read_holdout_lock(lock_path)
     with TemporaryDirectory() as temporary:
         expected_path = Path(temporary) / "dataset-manifest.json"
@@ -962,6 +972,14 @@ def fit_scalar_segment(
 
 
 def fit_scalar_training(segment: SegmentDataset) -> ScalarTraining:
+    fitted = _fit_scalar_training(segment)
+    return replace(
+        fitted,
+        fold_improvements=() if fitted.fit is None else _fold_improvements(segment),
+    )
+
+
+def _fit_scalar_training(segment: SegmentDataset) -> ScalarTraining:
     training = _complete_cases(segment.training, segment.eligible_models)
     if not training:
         raise ValueError("segment requires complete training cases")
@@ -980,7 +998,7 @@ def fit_scalar_training(segment: SegmentDataset) -> ScalarTraining:
         fallback_model,
         fit,
         fallback_regions,
-        _fold_improvements(training, fit, fallback_model, fallback_regions),
+        (),
     )
 
 
@@ -1036,6 +1054,18 @@ def evaluate_scalar_training(
 
 
 def fit_precipitation_training(segment: SegmentDataset) -> PrecipitationTraining:
+    fitted = _fit_precipitation_training(segment)
+    if fitted.occurrence is None:
+        return fitted
+    occurrence_folds, amount_folds = _precipitation_fold_improvements(segment)
+    return replace(
+        fitted,
+        occurrence_fold_improvements=occurrence_folds,
+        amount_fold_improvements=() if fitted.amount is None else amount_folds,
+    )
+
+
+def _fit_precipitation_training(segment: SegmentDataset) -> PrecipitationTraining:
     _require_precipitation_segment(segment)
     cases = _complete_cases(segment.training, segment.eligible_models)
     _require_non_negative_precipitation(cases, segment.eligible_models)
@@ -1076,15 +1106,6 @@ def fit_precipitation_training(segment: SegmentDataset) -> PrecipitationTraining
         amount,
         fallback_model,
     )
-    occurrence_folds, amount_folds = _precipitation_fold_improvements(
-        cases,
-        occurrence,
-        occurrence_fallback_regions,
-        amount,
-        amount_fallback_regions,
-        fallback_model,
-        occurrence_threshold,
-    )
     return PrecipitationTraining(
         segment.eligible_models,
         fallback_model,
@@ -1093,8 +1114,8 @@ def fit_precipitation_training(segment: SegmentDataset) -> PrecipitationTraining
         occurrence_threshold,
         amount,
         amount_fallback_regions,
-        occurrence_folds,
-        amount_folds,
+        (),
+        (),
     )
 
 
@@ -1302,7 +1323,26 @@ def fit_wind_vector_training(
         speed_segment.training,
         direction_segment.training,
         eligible_models,
+        require_complete=False,
     )
+    fitted = _fit_wind_training(
+        _complete_wind_pairs(training, eligible_models),
+        eligible_models,
+    )
+    return replace(
+        fitted,
+        fold_improvements=(
+            ()
+            if fitted.fit is None
+            else _wind_fold_improvements(training, speed_segment, direction_segment)
+        ),
+    )
+
+
+def _fit_wind_training(
+    training: Sequence[tuple[ScalarForecastCase, ScalarForecastCase]],
+    eligible_models: tuple[str, ...],
+) -> WindTraining:
     fallback_model = _select_wind_fallback(training, eligible_models)
     fit_result = fit_wind_vector_weights(
         eligible_models,
@@ -1320,7 +1360,7 @@ def fit_wind_vector_training(
         fallback_model,
         fit,
         fallback_regions,
-        _wind_fold_improvements(training, fit, fallback_model, fallback_regions),
+        (),
     )
 
 
@@ -1419,10 +1459,18 @@ def _paired_wind_cases(
 ) -> tuple[tuple[ScalarForecastCase, ScalarForecastCase], ...]:
     def index(
         cases: Sequence[ScalarForecastCase],
-    ) -> dict[tuple[date, str, str, str], ScalarForecastCase]:
-        result: dict[tuple[date, str, str, str], ScalarForecastCase] = {}
+    ) -> dict[tuple[str, datetime, int, str, str, str], ScalarForecastCase]:
+        result: dict[tuple[str, datetime, int, str, str, str], ScalarForecastCase] = {}
         for case in cases:
-            key = (case.forecast_date, case.region, case.elevation_band, case.season)
+            if case.observation_id is None:
+                raise ValueError("paired wind cases require a known station/time identity")
+            key = (
+                *case.observation_id,
+                case.lead_hours,
+                case.region,
+                case.elevation_band,
+                case.season,
+            )
             if key in result:
                 raise ValueError("paired wind cases contain a duplicate")
             result[key] = case
@@ -1432,13 +1480,22 @@ def _paired_wind_cases(
     direction_by_key = index(directions)
     if speed_by_key.keys() != direction_by_key.keys():
         raise ValueError("paired wind cases do not match")
-    return tuple(
+    pairs = tuple(
         (speed_by_key[key], direction_by_key[key])
         for key in sorted(speed_by_key)
-        if not require_complete
-        or all(
-            speed_by_key[key].model_values.get(model_id) is not None
-            and direction_by_key[key].model_values.get(model_id) is not None
+    )
+    return _complete_wind_pairs(pairs, model_ids) if require_complete else pairs
+
+
+def _complete_wind_pairs(
+    pairs: Sequence[tuple[ScalarForecastCase, ScalarForecastCase]], model_ids: Sequence[str]
+) -> tuple[tuple[ScalarForecastCase, ScalarForecastCase], ...]:
+    return tuple(
+        pair
+        for pair in pairs
+        if all(
+            case.model_values.get(model_id) is not None
+            for case in pair
             for model_id in model_ids
         )
     )
@@ -1505,21 +1562,6 @@ def _wind_vector_loss(
     )
 
 
-def _wind_prediction_loss(
-    speed: ScalarForecastCase,
-    direction: ScalarForecastCase,
-    fit: WeightFit | None,
-    fallback_model: str,
-    fallback_regions: frozenset[str],
-) -> float:
-    return _wind_pair_loss(
-        speed,
-        direction,
-        None if speed.region in fallback_regions else fit,
-        fallback_model,
-    )
-
-
 def _wind_evaluation_prediction(
     speed: ScalarForecastCase,
     direction: ScalarForecastCase,
@@ -1567,29 +1609,46 @@ def _wind_fallback_regions(
 
 def _wind_fold_improvements(
     pairs: Sequence[tuple[ScalarForecastCase, ScalarForecastCase]],
-    fit: WeightFit | None,
-    fallback_model: str,
-    fallback_regions: frozenset[str],
+    speed_segment: SegmentDataset,
+    direction_segment: SegmentDataset,
 ) -> tuple[float, ...]:
-    if fit is None:
-        return ()
-    folds: dict[tuple[int, int], list[tuple[ScalarForecastCase, ScalarForecastCase]]] = {}
-    for pair in pairs:
-        folds.setdefault((pair[0].forecast_date.year, pair[0].forecast_date.month), []).append(pair)
-    return tuple(
-        fmean(
-            _wind_pair_loss(speed, direction, None, fallback_model)
-            - _wind_prediction_loss(
-                speed,
-                direction,
-                fit,
-                fallback_model,
-                fallback_regions,
-            )
-            for speed, direction in fold
+    improvements: list[float] = []
+    for training, validation in _forward_folds(pairs, lambda pair: pair[0]):
+        speed_coverage = training_model_coverage(
+            tuple(pair[0] for pair in training), tuple(speed_segment.coverage)
         )
-        for _, fold in sorted(folds.items())
-    )
+        direction_coverage = training_model_coverage(
+            tuple(pair[1] for pair in training), tuple(direction_segment.coverage)
+        )
+        eligible_models = tuple(
+            model_id
+            for model_id, coverage in speed_coverage.items()
+            if coverage >= speed_segment.coverage_threshold
+            and direction_coverage.get(model_id, 0.0) >= direction_segment.coverage_threshold
+        )
+        complete = _complete_wind_pairs(training, eligible_models)
+        if not eligible_models or not complete:
+            improvements.append(0.0)
+            continue
+        fitted = _fit_wind_training(complete, eligible_models)
+        predictions = tuple(
+            (speed, direction, _wind_evaluation_prediction(speed, direction, fitted))
+            for speed, direction in validation
+        )
+        if any(prediction is None for _, _, prediction in predictions):
+            improvements.append(0.0)
+            continue
+        improvements.append(
+            fmean(
+                _wind_pair_loss(speed, direction, None, fitted.fallback_model)
+                - _wind_vector_loss(
+                    prediction[0], prediction[1], speed.observation, direction.observation
+                )
+                for speed, direction, prediction in predictions
+                if prediction is not None
+            )
+        )
+    return tuple(improvements)
 
 
 def _require_precipitation_segment(segment: SegmentDataset) -> None:
@@ -1765,25 +1824,36 @@ def _precipitation_amount_fallback_regions(
 
 
 def _precipitation_fold_improvements(
-    cases: Sequence[ScalarForecastCase],
-    occurrence: OccurrenceCalibration | None,
-    occurrence_fallback_regions: frozenset[str],
-    amount: WeightFit | None,
-    amount_fallback_regions: frozenset[str],
-    fallback_model: str,
-    occurrence_threshold: float,
+    segment: SegmentDataset,
 ) -> tuple[tuple[float, ...], tuple[float, ...]]:
-    folds: dict[tuple[int, int], list[ScalarForecastCase]] = {}
-    for case in cases:
-        folds.setdefault((case.forecast_date.year, case.forecast_date.month), []).append(case)
-    occurrence_improvements = (
-        ()
-        if occurrence is None
-        else tuple(
+    occurrence_improvements: list[float] = []
+    amount_improvements: list[float] = []
+    for training, validation in _forward_folds(segment.training, lambda case: case):
+        fold_segment = _fold_segment(segment, training)
+        if fold_segment is None:
+            occurrence_improvements.append(0.0)
+            amount_improvements.append(0.0)
+            continue
+        cases = _complete_cases(training, fold_segment.eligible_models)
+        # Wait for the existing occurrence fit's sample and inner-fold requirements.
+        if len(cases) < 60 or len(
+            {(case.forecast_date.year, case.forecast_date.month) for case in cases}
+        ) < 2:
+            continue
+        fitted = _fit_precipitation_training(fold_segment)
+        if any(
+            _optional_model_value(case, fitted.fallback_model) is None
+            or any(case.model_values.get(model_id) is None for model_id in fitted.eligible_models)
+            for case in validation
+        ):
+            occurrence_improvements.append(0.0)
+            amount_improvements.append(0.0)
+            continue
+        occurrence_improvements.append(
             fmean(
                 (
                     float(
-                        _model_value(case, fallback_model)
+                        _model_value(case, fitted.fallback_model)
                         >= PRECIPITATION_EVENT_THRESHOLD_MM
                     )
                     - float(case.observation >= PRECIPITATION_EVENT_THRESHOLD_MM)
@@ -1792,42 +1862,37 @@ def _precipitation_fold_improvements(
                 - (
                     _precipitation_probability(
                         case,
-                        occurrence,
-                        fallback_model,
-                        occurrence_fallback_regions,
+                        fitted.occurrence,
+                        fitted.fallback_model,
+                        fitted.occurrence_fallback_regions,
                     )
                     - float(case.observation >= PRECIPITATION_EVENT_THRESHOLD_MM)
                 )
                 ** 2
-                for case in fold
+                for case in validation
             )
-            for _, fold in sorted(folds.items())
         )
-    )
-    amount_improvements = (
-        ()
-        if occurrence is None or amount is None
-        else tuple(
+        if sum(case.observation > 0 for case in cases) < 30:
+            continue
+        amount_improvements.append(
             fmean(
-                abs(_model_value(case, fallback_model) - case.observation)
+                abs(_model_value(case, fitted.fallback_model) - case.observation)
                 - abs(
                     _precipitation_amount(
                         case,
-                        occurrence,
-                        occurrence_fallback_regions,
-                        occurrence_threshold,
-                        amount,
-                        amount_fallback_regions,
-                        fallback_model,
+                        fitted.occurrence,
+                        fitted.occurrence_fallback_regions,
+                        fitted.occurrence_threshold,
+                        fitted.amount,
+                        fitted.amount_fallback_regions,
+                        fitted.fallback_model,
                     )
                     - case.observation
                 )
-                for case in fold
+                for case in validation
             )
-            for _, fold in sorted(folds.items())
         )
-    )
-    return occurrence_improvements, amount_improvements
+    return tuple(occurrence_improvements), tuple(amount_improvements)
 
 
 def _complete_cases(
@@ -1886,17 +1951,6 @@ def _blend_or_fallback(
     return blend_scalar(fit, values)
 
 
-def _scalar_prediction(
-    case: ScalarForecastCase,
-    fit: WeightFit | None,
-    fallback_model: str,
-    fallback_regions: frozenset[str],
-) -> float:
-    if case.region in fallback_regions:
-        return _model_value(case, fallback_model)
-    return _blend_or_fallback(case, fit, fallback_model)
-
-
 def _scalar_evaluation_prediction(
     case: ScalarForecastCase,
     training: ScalarTraining,
@@ -1935,27 +1989,73 @@ def _scalar_fallback_regions(
 
 
 def _fold_improvements(
-    cases: Sequence[ScalarForecastCase],
-    fit: WeightFit | None,
-    fallback_model: str,
-    fallback_regions: frozenset[str],
+    segment: SegmentDataset,
 ) -> tuple[float, ...]:
-    if fit is None:
-        return ()
-    folds: dict[tuple[int, int], list[ScalarForecastCase]] = {}
-    for case in cases:
-        folds.setdefault((case.forecast_date.year, case.forecast_date.month), []).append(case)
-    return tuple(
-        fmean(
-            abs(_model_value(case, fallback_model) - case.observation)
-            - abs(
-                _scalar_prediction(case, fit, fallback_model, fallback_regions)
-                - case.observation
-            )
-            for case in fold
+    improvements: list[float] = []
+    for training, validation in _forward_folds(segment.training, lambda case: case):
+        fold_segment = _fold_segment(segment, training)
+        if fold_segment is None:
+            improvements.append(0.0)
+            continue
+        fitted = _fit_scalar_training(fold_segment)
+        predictions = tuple(
+            (case, _scalar_evaluation_prediction(case, fitted)) for case in validation
         )
-        for _, fold in sorted(folds.items())
+        if any(prediction is None for _, prediction in predictions):
+            improvements.append(0.0)
+            continue
+        improvements.append(
+            fmean(
+                abs(_model_value(case, fitted.fallback_model) - case.observation)
+                - abs(prediction - case.observation)
+                for case, prediction in predictions
+                if prediction is not None
+            )
+        )
+    return tuple(improvements)
+
+
+def _fold_segment(
+    segment: SegmentDataset, training: tuple[ScalarForecastCase, ...]
+) -> SegmentDataset | None:
+    coverage = training_model_coverage(training, tuple(segment.coverage))
+    eligible = tuple(
+        model_id for model_id, value in coverage.items() if value >= segment.coverage_threshold
     )
+    if not eligible or not _complete_cases(training, eligible):
+        return None
+    return replace(segment, training=training, eligible_models=eligible, coverage=coverage)
+
+
+def _forward_folds[T](
+    rows: Sequence[T], case_for: Callable[[T], ScalarForecastCase]
+) -> Iterator[tuple[tuple[T, ...], tuple[T, ...]]]:
+    """Validate disjoint date blocks using only truth preceding their earliest issuance."""
+    dated_rows = tuple((row, case_for(row)) for row in rows)
+    dates = sorted({case.forecast_date for _, case in dated_rows})
+    if not dates:
+        return
+    warmup_days = FORWARD_VALIDATION_DAYS + ceil(
+        max(case.lead_hours for _, case in dated_rows) / 24
+    )
+    for start in range(warmup_days, len(dates), FORWARD_VALIDATION_DAYS):
+        validation_dates = set(dates[start : start + FORWARD_VALIDATION_DAYS])
+        validation = tuple(
+            row for row, case in dated_rows if case.forecast_date in validation_dates
+        )
+        issued_at = min(
+            forecast_issued_at(case)
+            for _, case in dated_rows
+            if case.forecast_date in validation_dates
+        )
+        training = tuple(
+            row
+            for row, case in dated_rows
+            if case.forecast_date < dates[start]
+            and truth_time(case) < issued_at
+        )
+        if training:
+            yield training, validation
 
 
 def _evaluation_payload(evaluation: SegmentEvaluation) -> dict[str, JsonValue]:

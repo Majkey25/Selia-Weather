@@ -126,6 +126,7 @@ class AppearanceFlowTest {
         restoration.emulateSavedInstanceStateRestore()
         compose.onNodeWithText(context.getString(R.string.appearance_auto_text)).performScrollTo().assertIsOff()
         compose.onNodeWithText(startColor).performScrollTo().assertTextContains("#123456")
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(context.getString(R.string.appearance_apply)))
         compose.onNodeWithText(context.getString(R.string.appearance_apply)).performScrollTo().performClick()
         assertEquals(false, applied?.custom?.automaticText)
         assertEquals("#123456", applied?.custom?.backgroundStart)

@@ -328,7 +328,8 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             views.setCharSequence(R.id.widget_clock, "setFormat24Hour", widgetClockPattern(settings.timeFormat, true))
             views.setTextColor(R.id.widget_clock, primaryColor)
             views.setViewVisibility(R.id.widget_icon, if (visibility.showIcon) View.VISIBLE else View.GONE)
-            views.setImageViewResource(R.id.widget_icon, widgetIconFor(kind, isDay))
+            views.setImageViewResource(R.id.widget_icon, widgetIconFor(kind, isDay,
+                widgetConditionKey(weather.getString(WeatherRepository.KEY_WIDGET_CONDITION_KEY, null))))
             views.setInt(R.id.widget_icon, "setColorFilter", primaryColor)
             views.setContentDescription(R.id.widget_icon, condition)
 
@@ -856,13 +857,13 @@ internal fun widgetConditionKey(value: String?): WeatherConditionKey = runCatchi
 internal fun isWidgetLocaleChange(action: String?): Boolean = action == Intent.ACTION_APPLICATION_LOCALE_CHANGED ||
     action == Intent.ACTION_LOCALE_CHANGED
 
-internal fun widgetIconFor(kind: WeatherKind, isDay: Boolean): Int = when (kind) {
+internal fun widgetIconFor(kind: WeatherKind, isDay: Boolean, key: WeatherConditionKey? = null): Int = when (kind) {
     WeatherKind.CLEAR -> if (isDay) R.drawable.ic_weather_clear else R.drawable.ic_weather_moon
     WeatherKind.MAINLY_CLEAR, WeatherKind.PARTLY_CLOUDY ->
         if (isDay) R.drawable.ic_weather_partly_cloudy else R.drawable.ic_weather_partly_cloudy_night
     WeatherKind.CLOUDY, WeatherKind.UNKNOWN -> R.drawable.ic_weather_cloud
     WeatherKind.FOG -> R.drawable.ic_weather_fog
-    WeatherKind.RAIN -> R.drawable.ic_weather_rain
+    WeatherKind.RAIN -> cz.majkey.pocasicesko.ui.precipitationIconResource(key)
     WeatherKind.STORM -> R.drawable.ic_weather_storm
     WeatherKind.SNOW -> R.drawable.ic_weather_snow
 }

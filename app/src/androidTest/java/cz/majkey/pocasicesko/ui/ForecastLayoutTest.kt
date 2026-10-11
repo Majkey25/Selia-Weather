@@ -196,9 +196,10 @@ class ForecastLayoutTest {
 
     @Test
     fun dailyValuesFitAtLargeFontInNarrowWidth() {
-        compose.setContent { TestSurface { DailyRow(day, true, units, {}) } }
+        compose.setContent { TestSurface { DailyRow(day.copy(displayWeatherCode = 2), true, units, {}) } }
         assertTextFits("123.4 mm", substring = true)
         assertTextFits(context.getString(R.string.feels_like), substring = true)
+        assertTextFits(context.getString(R.string.condition_storm), substring = true)
     }
 
     @Test

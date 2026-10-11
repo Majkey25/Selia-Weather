@@ -34,13 +34,13 @@ class RadarScreenTest {
         assertTrue(source.contains("/v2/coverage/0/"))
         assertTrue(source.contains("#map { flex: 1 1 auto; min-height: 0"))
         assertTrue(source.contains("document.documentElement.style.height = height + 'px'"))
-        assertTrue(source.contains(".panel { flex: 0 0 auto"))
+        assertTrue(source.contains(".panel { position: absolute"))
         assertFalse(source.contains("getElementById('map').style.height ="))
         assertTrue(source.contains("L.map('map'"))
         assertTrue(source.contains("setView([latitude, longitude], 6)"))
         assertTrue(source.contains("https://tile.openstreetmap.org/{z}/{x}/{y}.png"))
         assertTrue(source.contains("RainViewer"))
-        assertTrue(source.contains("Forecast +12h"))
+        assertTrue(source.contains("var forecastLabel = FORECAST_TEXT[1]"))
         assertTrue(source.contains("radar-forecast.js"))
         assertTrue(source.contains("https://maps.dwd.de"))
         assertFalse(source.contains("radar.nowcast"))
@@ -69,7 +69,7 @@ class RadarScreenTest {
             "src/main/java/cz/majkey/pocasicesko/ui/MapHubScreen.kt",
         ).readText()
 
-        assertTrue(source.contains(".weight(1f)"))
+        assertTrue(source.contains(".fillMaxSize()"))
         assertFalse(source.contains(".aspectRatio("))
     }
 

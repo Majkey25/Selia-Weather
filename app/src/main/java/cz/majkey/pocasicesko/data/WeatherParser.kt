@@ -118,6 +118,7 @@ object WeatherParser {
             }
         }
         if (hourly.isEmpty()) throw JSONException("Předpověď neobsahuje úplná hodinová data.")
+        val hoursByDay = hourly.groupBy { it.time.take(10) }
 
         return WeatherSnapshot(
             timezone = root.getString("timezone"),
@@ -194,6 +195,10 @@ object WeatherParser {
                     shortwaveRadiationSum = dailyJson.optionalDoubleAt("shortwave_radiation_sum", index),
                     et0 = dailyJson.optionalDoubleAt("et0_fao_evapotranspiration", index),
                     uvIndexMax = dailyJson.optionalFiniteDoubleAt("uv_index_max", index),
+                    displayWeatherCode = representativeDayCode(
+                        hoursByDay[dailyTimes.requiredString(index, "time")].orEmpty(),
+                        dailyJson.getJSONArray("weather_code").requiredInt(index, "weather_code"),
+                    ),
                 )
             },
             updatedAtEpochMillis = updatedAtEpochMillis,

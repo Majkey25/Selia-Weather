@@ -172,16 +172,9 @@ class DailyBriefingReceiver : BroadcastReceiver() {
         day: DailyWeather,
     ): NotificationCompat.Builder {
         val formatter = WeatherUnitFormatter(MeasurementUnits.current(context), AppLocale.locale(context))
-        val advice = dailyBriefingAdvice(day)
         val minimum = day.apparentTemperatureMin ?: day.temperatureMin
         val maximum = day.apparentTemperatureMax ?: day.temperatureMax
-        val content = listOfNotNull(
-            context.getString(advice.outfit.resource()),
-            context.getString(
-                if (advice.umbrella) R.string.daily_briefing_umbrella else R.string.daily_briefing_no_umbrella,
-            ).takeIf { advice.umbrella || day.precipitationProbability != null },
-            context.getString(R.string.daily_briefing_sun_protection).takeIf { advice.sunProtection },
-        ).joinToString(" ")
+        val content = dailyBriefingText(context, day)
         val openApp = PendingIntent.getActivity(
             context,
             REQUEST_CODE_OPEN,
@@ -208,12 +201,22 @@ class DailyBriefingReceiver : BroadcastReceiver() {
 
 }
 
-private fun OutfitLevel.resource(): Int = when (this) {
-    OutfitLevel.WINTER -> R.string.daily_briefing_outfit_winter
-    OutfitLevel.WARM_COAT -> R.string.daily_briefing_outfit_warm_coat
-    OutfitLevel.JACKET -> R.string.daily_briefing_outfit_jacket
-    OutfitLevel.LIGHT_LAYERS -> R.string.daily_briefing_outfit_light_layers
-    OutfitLevel.HOT -> R.string.daily_briefing_outfit_hot
+internal fun dailyBriefingText(context: Context, day: DailyWeather): String {
+    val advice = dailyBriefingAdvice(day)
+    return listOfNotNull(
+        context.getString(advice.outfit.resource(advice.umbrella)),
+        context.getString(R.string.daily_briefing_no_umbrella)
+            .takeIf { !advice.umbrella && day.precipitationProbability != null },
+        context.getString(R.string.daily_briefing_sun_protection).takeIf { advice.sunProtection },
+    ).joinToString(" ")
+}
+
+private fun OutfitLevel.resource(umbrella: Boolean): Int = when (this) {
+    OutfitLevel.WINTER -> if (umbrella) R.string.daily_briefing_outfit_winter_rain else R.string.daily_briefing_outfit_winter
+    OutfitLevel.WARM_COAT -> if (umbrella) R.string.daily_briefing_outfit_warm_coat_rain else R.string.daily_briefing_outfit_warm_coat
+    OutfitLevel.JACKET -> if (umbrella) R.string.daily_briefing_outfit_jacket_rain else R.string.daily_briefing_outfit_jacket
+    OutfitLevel.LIGHT_LAYERS -> if (umbrella) R.string.daily_briefing_outfit_light_layers_rain else R.string.daily_briefing_outfit_light_layers
+    OutfitLevel.HOT -> if (umbrella) R.string.daily_briefing_outfit_hot_rain else R.string.daily_briefing_outfit_hot
 }
 
 private const val CHANNEL_ID = "daily_weather_briefing"

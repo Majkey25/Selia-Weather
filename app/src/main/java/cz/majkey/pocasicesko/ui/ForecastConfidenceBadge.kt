@@ -2,11 +2,13 @@ package cz.majkey.pocasicesko.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -16,6 +18,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
@@ -31,8 +40,9 @@ internal fun ForecastConfidenceBadge(confidence: ForecastConfidence, units: Weat
     var show by rememberSaveable(confidence.validTime) { mutableStateOf(false) }
     val level = stringResource(confidence.level.labelResource())
     val description = stringResource(R.string.confidence_label, level)
-    AssistChip(onClick = { show = true }, label = { Text(description, fontSize = 12.sp) },
-        modifier = Modifier.heightIn(min = 48.dp))
+    TextButton(onClick = { show = true }, modifier = Modifier.heightIn(min = 48.dp)) {
+        ConfidenceRating(confidence.level, text = description)
+    }
     if (show) AlertDialog(onDismissRequest = { show = false },
         title = { Text(description) },
         text = {
@@ -64,6 +74,32 @@ internal fun ForecastConfidenceBadge(confidence: ForecastConfidence, units: Weat
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }, confirmButton = { TextButton(onClick = { show = false }) { Text(stringResource(android.R.string.ok)) } })
+}
+
+@Composable
+internal fun ConfidenceRating(level: ConfidenceLevel, modifier: Modifier = Modifier, text: String = stringResource(level.labelResource())) {
+    val description = stringResource(R.string.confidence_label, stringResource(level.labelResource()))
+    val active = MaterialTheme.colorScheme.primary
+    val inactive = MaterialTheme.colorScheme.outlineVariant
+    Row(modifier.semantics(mergeDescendants = true) { contentDescription = description },
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Canvas(Modifier.size(13.dp, 12.dp).clearAndSetSemantics { }) {
+            repeat(3) { index ->
+                val height = size.height * (index + 2) / 4
+                drawRoundRect(if (index < confidenceBarCount(level)) active else inactive,
+                    Offset(index * size.width / 3, size.height - height), Size(size.width / 5, height), CornerRadius(1.dp.toPx()))
+            }
+        }
+        Text(text, fontSize = 11.sp, lineHeight = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.clearAndSetSemantics { })
+    }
+}
+
+internal fun confidenceBarCount(level: ConfidenceLevel): Int = when (level) {
+    ConfidenceLevel.HIGH -> 3
+    ConfidenceLevel.MODERATE -> 2
+    ConfidenceLevel.LOW -> 1
+    ConfidenceLevel.LIMITED -> 0
 }
 
 internal fun ConfidenceLevel.labelResource(): Int = when (this) {

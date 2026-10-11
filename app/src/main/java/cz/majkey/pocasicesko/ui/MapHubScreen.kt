@@ -1,14 +1,15 @@
 package cz.majkey.pocasicesko.ui
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -21,11 +22,14 @@ import androidx.compose.material.icons.rounded.FullscreenExit
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -49,21 +53,26 @@ internal fun MapHubScreen(
 ) {
     val configuration = LocalConfiguration.current
     val languageTag = configuration.locales[0]?.toLanguageTag()
-    val compact = configuration.screenHeightDp < 480
     val navigate by rememberUpdatedState(onNavigate)
-    val swipeThreshold = with(LocalDensity.current) { 48.dp.toPx() }
-    Column(
+    val density = LocalDensity.current
+    val swipeThreshold = with(density) { 48.dp.toPx() }
+    var headerInset by remember { mutableIntStateOf(64) }
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .padding(padding)
             .padding(
-                start = if (fullscreen) 0.dp else 8.dp,
-                top = if (fullscreen) 0.dp else 4.dp,
-                end = if (fullscreen) 0.dp else 8.dp,
                 bottom = if (fullscreen) 0.dp else 84.dp,
             ),
     ) {
-        Row(Modifier.fillMaxWidth().testTag("radar-header").then(
+        ChmiWebScreen(
+            localizedRadarUrl(languageTag, location.latitude, location.longitude, location.isInCzechia(), timezone),
+            active = active,
+            topInsetDp = headerInset,
+        )
+        Row(Modifier.fillMaxWidth().onSizeChanged {
+            headerInset = kotlin.math.ceil(it.height / density.density).toInt()
+        }.padding(8.dp).testTag("radar-header").then(
             if (fullscreen) Modifier else Modifier.pointerInput(swipeThreshold) {
                 var distance = 0f
                 detectHorizontalDragGestures(
@@ -78,34 +87,20 @@ internal fun MapHubScreen(
                 ) { change, amount -> change.consume(); distance += amount }
             },
         ), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f).padding(start = 8.dp)) {
-                Text(stringResource(R.string.radar_title), fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
-                if (!compact) Text(location.name, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface,
+                modifier = Modifier.weight(1f, fill = false)) {
+                Text(location.name, modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                    fontSize = 14.sp, fontWeight = FontWeight.Medium,
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            IconButton(onClick = onToggleFullscreen, modifier = Modifier.heightIn(min = 48.dp)) {
-                Icon(if (fullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
-                    contentDescription = stringResource(if (fullscreen) R.string.radar_exit_fullscreen else R.string.radar_fullscreen))
+            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.width(8.dp))
+            Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface) {
+                IconButton(onClick = onToggleFullscreen, modifier = Modifier.size(48.dp)) {
+                    Icon(if (fullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
+                        contentDescription = stringResource(if (fullscreen) R.string.radar_exit_fullscreen else R.string.radar_fullscreen))
+                }
             }
-        }
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
-            color = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(if (fullscreen) 0.dp else 18.dp),
-            border = if (fullscreen) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        ) {
-            ChmiWebScreen(
-                localizedRadarUrl(
-                    languageTag,
-                    location.latitude,
-                    location.longitude,
-                    location.isInCzechia(),
-                    timezone,
-                ),
-                active = active,
-            )
         }
     }
 }

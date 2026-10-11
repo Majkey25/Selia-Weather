@@ -213,8 +213,6 @@
     <string name="radar_title">Radar</string>
     <string name="radar_fullscreen">Pantalla completa</string>
     <string name="radar_exit_fullscreen">Salir de pantalla completa</string>
-    <string name="radar_subtitle">Radar observado + pronóstico de precipitación de 12 horas</string>
-    <string name="radar_footer">Observado: RainViewer · pronóstico: Open-Meteo · mapa: OpenStreetMap</string>
     <string name="radar_retry">Reintentar radar</string>
     <string name="radar_unavailable">Radar no disponible</string>
     <string name="widget_title">Widget del tiempo</string>
@@ -340,7 +338,11 @@
     <string name="daily_briefing_outfit_jacket">Lleva chaqueta o ropa por capas.</string>
     <string name="daily_briefing_outfit_light_layers">Las capas ligeras deberían ser cómodas.</string>
     <string name="daily_briefing_outfit_hot">Elige ropa ligera y transpirable.</string>
-    <string name="daily_briefing_umbrella">Lleva paraguas.</string>
+    <string name="daily_briefing_outfit_winter_rain">Ponte un abrigo de invierno y capas cálidas, y lleva paraguas.</string>
+    <string name="daily_briefing_outfit_warm_coat_rain">Ponte un abrigo cálido y lleva paraguas.</string>
+    <string name="daily_briefing_outfit_jacket_rain">Lleva chaqueta y paraguas.</string>
+    <string name="daily_briefing_outfit_light_layers_rain">Ponte capas ligeras y lleva paraguas.</string>
+    <string name="daily_briefing_outfit_hot_rain">Ponte ropa ligera y transpirable, y lleva paraguas.</string>
     <string name="daily_briefing_no_umbrella">No debería hacer falta paraguas.</string>
     <string name="daily_briefing_sun_protection">Usa protección solar.</string>
     <string name="hourly_rain_unlikely">La lluvia es poco probable: se esperan %1$s en el intervalo indicado (%2$d%% de probabilidad).</string>

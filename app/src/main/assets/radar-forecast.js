@@ -2,6 +2,7 @@
  * https://www.dwd.de/geodienste · https://www.dwd.de/copyright */
 var RadarForecast = (function() {
   var endpoint = 'https://maps.dwd.de/geoserver/wms';
+  var horizonHours = 48, maxFrames = 50;
   var sources = {
     eu: { layer: 'Icon-eu_reg00625_fd_sl_TOTPREC01H', model: 'ICON-EU', hours: 1,
       style: 'icon-eu_reg00625_fd_sl_totprec01h_lawa' },
@@ -53,6 +54,13 @@ var RadarForecast = (function() {
         !reference.textContent.split(',').some(function(value) { return Date.parse(value) / 1000 === run; })) {
       throw new Error('Stale forecast run');
     }
+    // Main cycles provide the full hourly outlook; metadata can also list shorter intermediate cycles.
+    if (key === 'eu') {
+      var mainRuns = reference.textContent.split(',').map(function(value) { return Date.parse(value) / 1000; })
+        .filter(function(value) { return Number.isFinite(value) && value <= now && now - value <= 12 * 3600 && value % 21600 === 0; });
+      if (!mainRuns.length) throw new Error('No fresh full-range forecast run');
+      run = Math.max.apply(null, mainRuns);
+    }
     var range = dimension('time').textContent.trim().split('/');
     var start = Date.parse(range[0]) / 1000, end = Date.parse(range[1]) / 1000;
     var period = /^PT([1-6])H$/.exec(range[2]);
@@ -72,11 +80,11 @@ var RadarForecast = (function() {
 
     // Global capabilities merge runs at PT3H, but a selected run serves 6-hour totals at 00/06/12/18 UTC.
     var step = source.hours * 3600, frames = [];
-    for (var time = Math.ceil(now / step) * step; time <= end && frames.length < 15; time += step) {
+    for (var time = Math.ceil(now / step) * step; time <= end && frames.length < maxFrames; time += step) {
       if (time <= now || time < start || time < run + step || (time - start) % (Number(period[1]) * 3600)) continue;
       frames.push({ type: 'forecast', time: time, hours: source.hours, key: key,
         reference: new Date(run * 1000).toISOString() });
-      if (time >= now + 12 * 3600 + 600) break;
+      if (time >= now + horizonHours * 3600 + 600) break;
     }
     if (frames.length < 3 || frames[0].time > now + step || frames[frames.length - 1].time < now + 12 * 3600 + 600) {
       throw new Error('Forecast does not cover the next 12 hours');
@@ -99,5 +107,5 @@ var RadarForecast = (function() {
   }
 
   return { endpoint: endpoint, sources: sources, capabilitiesUrl: capabilitiesUrl, read: read,
-    parse: parse, sourceFor: sourceFor, legendUrl: legendUrl };
+    parse: parse, sourceFor: sourceFor, legendUrl: legendUrl, maxFrames: maxFrames };
 })();

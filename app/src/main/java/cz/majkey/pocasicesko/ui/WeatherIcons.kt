@@ -6,7 +6,6 @@ import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Dehaze
-import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
@@ -15,9 +14,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import cz.majkey.pocasicesko.data.WeatherKind
+import cz.majkey.pocasicesko.data.WeatherConditionKey
+import cz.majkey.pocasicesko.R
 
 @Composable
 fun WeatherIcon(
@@ -26,7 +28,13 @@ fun WeatherIcon(
     contentDescription: String?,
     modifier: Modifier = Modifier,
     tint: Color = Color.White,
+    conditionKey: WeatherConditionKey? = null,
 ) {
+    if (kind == WeatherKind.RAIN) {
+        Icon(painter = painterResource(precipitationIconResource(conditionKey)), contentDescription = contentDescription,
+            modifier = modifier, tint = tint)
+        return
+    }
     if (kind == WeatherKind.MAINLY_CLEAR || kind == WeatherKind.PARTLY_CLOUDY) {
         val cloudFraction = compositeCloudFraction(kind)
         val dark = LocalWeatherAppearance.current.dark
@@ -62,7 +70,7 @@ fun WeatherIcon(
         WeatherKind.PARTLY_CLOUDY -> error("Handled above")
         WeatherKind.CLOUDY -> Icons.Outlined.Cloud
         WeatherKind.FOG -> Icons.Outlined.Dehaze
-        WeatherKind.RAIN -> Icons.Outlined.WaterDrop
+        WeatherKind.RAIN -> error("Handled above")
         WeatherKind.STORM -> Icons.Outlined.Bolt
         WeatherKind.SNOW -> Icons.Outlined.AcUnit
         WeatherKind.UNKNOWN -> Icons.Outlined.Cloud
@@ -80,6 +88,9 @@ internal fun compositeCloudFraction(kind: WeatherKind): Float = when (kind) {
     WeatherKind.PARTLY_CLOUDY -> 0.64f
     else -> error("Only composite conditions have a cloud fraction")
 }
+
+internal fun precipitationIconResource(key: WeatherConditionKey?): Int =
+    if (key == WeatherConditionKey.DRIZZLE) R.drawable.ic_weather_drizzle else R.drawable.ic_weather_rain
 
 internal fun compositeCloudTint(kind: WeatherKind, requested: Color): Color = when (kind) {
     WeatherKind.MAINLY_CLEAR -> Color(0xFF9FB7FF)

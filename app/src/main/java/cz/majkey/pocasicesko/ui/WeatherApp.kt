@@ -86,6 +86,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
@@ -707,7 +708,7 @@ internal fun FloatingNavigation(
     ) {
         Row(
             modifier = Modifier
-                .widthIn(max = 310.dp)
+                .widthIn(max = if (LocalDensity.current.fontScale > 1.3f) 310.dp else 270.dp)
                 .fillMaxWidth()
                 .height(64.dp)
                 .padding(6.dp),
@@ -718,14 +719,14 @@ internal fun FloatingNavigation(
                 selected = destination == Destination.WEATHER,
                 label = stringResource(R.string.nav_weather),
                 icon = { Icon(Icons.Rounded.WbSunny, contentDescription = null) },
-                modifier = if (destination == Destination.WEATHER) Modifier.weight(1f) else Modifier.width(52.dp),
+                modifier = if (destination == Destination.WEATHER) Modifier.weight(1f) else Modifier.width(48.dp),
                 onClick = { onDestination(Destination.WEATHER) },
             )
             NavigationItem(
                 selected = destination == Destination.MAPS,
                 label = stringResource(R.string.nav_maps),
                 icon = { Icon(Icons.Rounded.Map, contentDescription = null) },
-                modifier = if (destination == Destination.MAPS) Modifier.weight(1f) else Modifier.width(52.dp),
+                modifier = if (destination == Destination.MAPS) Modifier.weight(1f) else Modifier.width(48.dp),
                 onClick = { onDestination(Destination.MAPS) },
             )
             if (onAskAi != null) {
@@ -733,7 +734,7 @@ internal fun FloatingNavigation(
                     selected = destination == Destination.AI,
                     label = askAiLabel,
                     icon = { Icon(painterResource(R.drawable.ic_ai), contentDescription = null, modifier = Modifier.size(28.dp)) },
-                    modifier = if (destination == Destination.AI) Modifier.weight(1f) else Modifier.width(52.dp),
+                    modifier = if (destination == Destination.AI) Modifier.weight(1f) else Modifier.width(48.dp),
                     onClick = onAskAi,
                 )
             }
@@ -767,7 +768,7 @@ private fun NavigationItem(
             icon()
             if (selected) {
                 Spacer(Modifier.width(7.dp))
-                Text(label, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 20.sp,
+                Text(label, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 16.sp,
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }

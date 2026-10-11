@@ -27,7 +27,7 @@
 
 - Shows current and apparent temperature, dew point, wet-bulb temperature, precipitation, cloud layers, visibility, pressure, wind, sun, and Moon details.
 - Adds UV, freezing-level, boundary-layer, atmospheric-water, instability, showers, and ground details.
-- Shows observed precipitation through RainViewer where radar coverage exists. The future map uses official DWD forecast grids: hourly ICON-EU totals in Europe and six-hour ICON totals elsewhere, with at least a 12-hour outlook when available. Forecast totals are not observed future radar.
+- Shows observed precipitation through RainViewer where radar coverage exists. The future map uses official DWD forecast grids: hourly ICON-EU totals in Europe and six-hour ICON totals elsewhere, targeting a 48-hour outlook. The timeline shows the actual available horizon; missing or stale data stays unavailable. Forecast totals are not observed future radar.
 - Shows a horizontal 24-hour outlook and a four-day preview expandable to the full 14-day forecast. Weather details and history sit below the daily overview. Each day opens its hourly details and a short weather summary.
 - Supports independent Android notification categories for rain advice, cold, temperature drops, heat, wind, UV and official warnings. Thresholds are configurable; background delivery is best effort.
 - Matches official warnings to Czech locations through ČÚZK/ČHMÚ and US locations through NWS point queries. UK and other unsupported feeds are explicitly marked unavailable, with links to official sources. The app does not replace emergency-alert systems.

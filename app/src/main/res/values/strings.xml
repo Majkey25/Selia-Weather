@@ -214,8 +214,6 @@
     <string name="radar_title">Radar</string>
     <string name="radar_fullscreen">Fullscreen</string>
     <string name="radar_exit_fullscreen">Exit fullscreen</string>
-    <string name="radar_subtitle">Observed radar + 12-hour model precipitation forecast</string>
-    <string name="radar_footer">Observed: RainViewer · forecast: Open-Meteo · map: OpenStreetMap</string>
     <string name="radar_retry">Retry radar</string>
     <string name="radar_unavailable">Radar unavailable</string>
     <string name="widget_title">Weather widget</string>
@@ -341,7 +339,11 @@
     <string name="daily_briefing_outfit_jacket">Take a jacket or layered clothing.</string>
     <string name="daily_briefing_outfit_light_layers">Light layers should be comfortable.</string>
     <string name="daily_briefing_outfit_hot">Choose light, breathable clothing.</string>
-    <string name="daily_briefing_umbrella">Take an umbrella.</string>
+    <string name="daily_briefing_outfit_winter_rain">Wear a winter coat and warm layers, and take an umbrella.</string>
+    <string name="daily_briefing_outfit_warm_coat_rain">Wear a warm coat and take an umbrella.</string>
+    <string name="daily_briefing_outfit_jacket_rain">Take a jacket and an umbrella.</string>
+    <string name="daily_briefing_outfit_light_layers_rain">Wear light layers and take an umbrella.</string>
+    <string name="daily_briefing_outfit_hot_rain">Wear light, breathable clothing and take an umbrella.</string>
     <string name="daily_briefing_no_umbrella">No umbrella should be needed.</string>
     <string name="daily_briefing_sun_protection">Use sun protection.</string>
     <string name="hourly_rain_unlikely">Rain is unlikely: %1$s expected in the reported interval (%2$d%% chance).</string>

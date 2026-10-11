@@ -272,9 +272,8 @@ internal fun fitWidgetHeader(
 ): WidgetTemperatureFit {
     var visible = visibility
     var padding = contentPaddingDp.coerceIn(0, 24)
-    if (!visible.showTemperature) return WidgetTemperatureFit(requestedSp, visible, padding)
-    val minimumWidth = measure(12f)
-    val minimumHeight = measureHeight(12f)
+    val minimumWidth = if (visible.showTemperature) measure(12f) else 0f
+    val minimumHeight = if (visible.showTemperature) measureHeight(12f) else 0f
     fun fitsMinimum() = availableWidth(visible, padding) >= minimumWidth && availableHeight(visible, padding) >= minimumHeight
     if (!fitsMinimum()) visible = visible.copy(showIcon = false)
     if (!fitsMinimum()) visible = visible.copy(showClock = false, showDate = false)
@@ -285,7 +284,10 @@ internal fun fitWidgetHeader(
     if (!fitsMinimum()) visible = visible.copy(showLabel = false, showLocation = false, showCondition = false, showRange = false)
     val width = availableWidth(visible, padding)
     val height = availableHeight(visible, padding)
-    return WidgetTemperatureFit(fitWidgetTemperatureSp(requestedSp) { measure(it) <= width && measureHeight(it) <= height }, visible, padding)
+    val textSize = if (visible.showTemperature) {
+        fitWidgetTemperatureSp(requestedSp) { measure(it) <= width && measureHeight(it) <= height }
+    } else requestedSp
+    return WidgetTemperatureFit(textSize, visible, padding)
 }
 
 internal fun widgetPresetSettings(preset: WidgetPreset, current: WidgetSettings): WidgetSettings = when (preset) {

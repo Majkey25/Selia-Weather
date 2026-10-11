@@ -4,6 +4,7 @@ import cz.majkey.pocasicesko.data.DailyWeather
 import cz.majkey.pocasicesko.data.hasPrecipitationEvidence
 import java.time.Instant
 import java.time.LocalTime
+import java.time.ZoneId
 import java.time.ZonedDateTime
 
 internal enum class OutfitLevel {
@@ -43,8 +44,11 @@ internal fun nextDailyBriefingTime(now: ZonedDateTime, time: LocalTime = BRIEFIN
     return (if (today.isAfter(now)) today else now.toLocalDate().plusDays(1).atTime(time).atZone(now.zone)).toInstant()
 }
 
-internal fun isBriefingDeliveryDue(scheduledAt: Long, now: Long): Boolean =
-    scheduledAt > 0 && now - scheduledAt in 0..BRIEFING_DELIVERY_WINDOW_MILLIS
+internal fun isBriefingDeliveryDue(scheduledAt: Long, now: Long, time: LocalTime, zone: ZoneId): Boolean {
+    if (scheduledAt <= 0 || now - scheduledAt !in 0..BRIEFING_DELIVERY_WINDOW_MILLIS) return false
+    val day = Instant.ofEpochMilli(scheduledAt).atZone(zone).toLocalDate()
+    return day.atTime(time).atZone(zone).toInstant().toEpochMilli() == scheduledAt
+}
 
 internal const val BRIEFING_DELIVERY_WINDOW_MILLIS = 30 * 60 * 1_000L
 

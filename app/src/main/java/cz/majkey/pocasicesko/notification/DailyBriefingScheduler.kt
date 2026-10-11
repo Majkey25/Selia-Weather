@@ -123,7 +123,8 @@ class DailyBriefingReceiver : BroadcastReceiver() {
         if (!DailyBriefingScheduler.isEnabled(context)) return
         if (intent.action == DailyBriefingScheduler.ACTION_SHOW) {
             val scheduledAt = intent.getLongExtra(DailyBriefingScheduler.EXTRA_SCHEDULED_AT, 0)
-            if (isBriefingDeliveryDue(scheduledAt, System.currentTimeMillis()) && !showBriefing(context, scheduledAt)) {
+            if (isBriefingDeliveryDue(scheduledAt, System.currentTimeMillis(), DailyBriefingScheduler.time(context),
+                ZoneId.systemDefault()) && !showBriefing(context, scheduledAt)) {
                 WeatherRefreshScheduler.request(context, briefing = true, scheduledAt = scheduledAt)
             }
         } else if (intent.action == DailyBriefingScheduler.ACTION_REFRESH) {
@@ -133,7 +134,8 @@ class DailyBriefingReceiver : BroadcastReceiver() {
     }
 
     internal fun showBriefing(context: Context, scheduledAt: Long): Boolean = synchronized(DailyBriefingScheduler) {
-        if (!isBriefingDeliveryDue(scheduledAt, System.currentTimeMillis())) return false
+        if (!isBriefingDeliveryDue(scheduledAt, System.currentTimeMillis(), DailyBriefingScheduler.time(context),
+            ZoneId.systemDefault())) return false
         if (!DailyBriefingScheduler.isEnabled(context) ||
             !NotificationManagerCompat.from(context).areNotificationsEnabled()
         ) return false

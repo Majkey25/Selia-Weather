@@ -21,12 +21,22 @@ class DailyBriefingTest {
 
     @Test
     fun morningDeliveryRejectsEarlyAndHoursLateRequests() {
-        val due = 1_000_000L
-        assertFalse(isBriefingDeliveryDue(due, due - 1))
-        assertTrue(isBriefingDeliveryDue(due, due))
-        assertTrue(isBriefingDeliveryDue(due, due + 29 * 60 * 1000))
-        assertFalse(isBriefingDeliveryDue(due, due + 31 * 60 * 1000))
-        assertFalse(isBriefingDeliveryDue(0, due))
+        val due = ZonedDateTime.parse("2026-10-11T06:20:00+02:00[Europe/Prague]").toInstant().toEpochMilli()
+        val time = LocalTime.of(6, 20)
+        val zone = ZoneId.of("Europe/Prague")
+        assertFalse(isBriefingDeliveryDue(due, due - 1, time, zone))
+        assertTrue(isBriefingDeliveryDue(due, due, time, zone))
+        assertTrue(isBriefingDeliveryDue(due, due + 29 * 60 * 1000, time, zone))
+        assertFalse(isBriefingDeliveryDue(due, due + 31 * 60 * 1000, time, zone))
+        assertFalse(isBriefingDeliveryDue(0, due, time, zone))
+        assertFalse(isBriefingDeliveryDue(due, due, time.plusMinutes(1), zone))
+        assertFalse(isBriefingDeliveryDue(due, due, time, ZoneId.of("UTC")))
+    }
+
+    @Test
+    fun daylightSavingGapUsesTheSameResolvedTimeAsScheduling() {
+        val due = ZonedDateTime.parse("2026-03-29T03:30:00+02:00[Europe/Prague]").toInstant().toEpochMilli()
+        assertTrue(isBriefingDeliveryDue(due, due, LocalTime.of(2, 30), ZoneId.of("Europe/Prague")))
     }
     @Test
     fun missingRainChanceStillUsesActualRainEvidence() {

@@ -7,7 +7,9 @@ import android.content.Intent
 import android.content.res.Configuration
 import cz.majkey.pocasicesko.data.DailyWeather
 import java.util.Locale
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -51,6 +53,23 @@ class NotificationRecoveryTest {
         preferences.edit().putString("briefing_day", LocalDate.now().toString())
             .putLong("briefing_scheduled_at", System.currentTimeMillis() - 2 * 60 * 60 * 1000L).commit()
         assertNull(WeatherRefreshScheduler.pendingBriefing(context))
+    }
+
+    @Test
+    fun changingBriefingTimeRejectsTheOldPendingDelivery() {
+        val context = context
+        WeatherAlertSettings(backgroundAlertsAllowed = true).save(context)
+        val scheduledAt = System.currentTimeMillis() / 60_000 * 60_000
+        val oldTime = Instant.ofEpochMilli(scheduledAt).atZone(ZoneId.systemDefault()).toLocalTime()
+        val briefing = context.getSharedPreferences("daily_briefing", Context.MODE_PRIVATE)
+        briefing.edit().putBoolean("enabled", true)
+            .putInt("time_minutes", (oldTime.hour * 60 + oldTime.minute + 60) % 1440).commit()
+        val refresh = context.getSharedPreferences("weather_refresh", Context.MODE_PRIVATE)
+        refresh.edit().putString("briefing_day", LocalDate.now().toString())
+            .putLong("briefing_scheduled_at", scheduledAt).commit()
+
+        assertNull(WeatherRefreshScheduler.pendingBriefing(context))
+        assertFalse(refresh.contains("briefing_scheduled_at"))
     }
 
     @Test

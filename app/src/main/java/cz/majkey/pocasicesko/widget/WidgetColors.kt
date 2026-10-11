@@ -1,5 +1,11 @@
 package cz.majkey.pocasicesko.widget
 
+import android.content.Context
+import androidx.compose.ui.graphics.toArgb
+import cz.majkey.pocasicesko.data.WeatherKind
+import cz.majkey.pocasicesko.data.WeatherRepository
+import cz.majkey.pocasicesko.ui.AppearanceSettings
+import cz.majkey.pocasicesko.ui.renderedAppearance
 import java.util.Locale
 import kotlin.math.pow
 
@@ -47,6 +53,20 @@ internal fun WidgetSettings.automaticTextColorsAvailable(): Boolean = opacity ==
     WidgetBackgroundMode.SOLID -> widgetArgbOrNull(backgroundStart)?.ushr(24) == 255
     WidgetBackgroundMode.GRADIENT -> listOf(backgroundStart, backgroundEnd).all { widgetArgbOrNull(it)?.ushr(24) == 255 }
     else -> true
+}
+
+internal fun WidgetSettings.renderedTextColors(context: Context): WidgetSettings {
+    if (backgroundMode != WidgetBackgroundMode.APP_STYLE || !automaticTextColors || opacity != 100) return renderedTextColors()
+    val weather = context.getSharedPreferences(WeatherRepository.PREFERENCES_NAME, Context.MODE_PRIVATE)
+    val kind = runCatching {
+        WeatherKind.valueOf(weather.getString(WeatherRepository.KEY_WIDGET_KIND, "UNKNOWN").orEmpty())
+    }.getOrDefault(WeatherKind.UNKNOWN)
+    val colors = renderedAppearance(context, AppearanceSettings.load(context), kind,
+        weather.getBoolean(WeatherRepository.KEY_WIDGET_IS_DAY, true)).colors
+    return copy(
+        primaryColor = String.format(Locale.ROOT, "#%08X", colors.onBackground.toArgb()),
+        secondaryColor = String.format(Locale.ROOT, "#%08X", colors.onSurfaceVariant.toArgb()),
+    )
 }
 
 internal fun WidgetSettings.renderedTextColors(): WidgetSettings {

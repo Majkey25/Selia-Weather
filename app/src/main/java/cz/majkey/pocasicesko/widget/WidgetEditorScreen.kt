@@ -70,7 +70,7 @@ internal fun WidgetEditorScreen(
     var settings by rememberSaveable(stateSaver = WidgetSettingsSaver) { mutableStateOf(initial) }
     var previewSize by rememberSaveable { mutableStateOf(WidgetSize.WIDE) }
     val locale = LocalConfiguration.current.locales[0]
-    val displayedColors = settings.renderedTextColors()
+    val displayedColors = settings.renderedTextColors(androidx.compose.ui.platform.LocalContext.current)
     LaunchedEffect(pickedImageUri) {
         if (pickedImageUri != null) {
             settings = settings.copy(imageUri = pickedImageUri)

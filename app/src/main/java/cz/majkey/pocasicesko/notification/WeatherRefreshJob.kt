@@ -14,6 +14,7 @@ import cz.majkey.pocasicesko.locale.AppLocale
 import kotlinx.coroutines.runBlocking
 import cz.majkey.pocasicesko.widget.WeatherWidgetProvider
 import java.time.LocalDate
+import java.time.ZoneId
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.Future
 import java.util.concurrent.ThreadPoolExecutor
@@ -47,7 +48,8 @@ internal object WeatherRefreshScheduler {
         val preferences = preferences(context)
         val day = preferences.getString(KEY_BRIEFING_DAY, null)
         if (isPendingBriefingForToday(day, LocalDate.now()) && DailyBriefingScheduler.isEnabled(context) &&
-            isBriefingDeliveryDue(briefingScheduledAt(context), System.currentTimeMillis())) return day
+            isBriefingDeliveryDue(briefingScheduledAt(context), System.currentTimeMillis(), DailyBriefingScheduler.time(context),
+                ZoneId.systemDefault())) return day
         clearBriefing(context)
         return null
     }

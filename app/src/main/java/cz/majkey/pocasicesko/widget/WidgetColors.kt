@@ -1,5 +1,13 @@
 package cz.majkey.pocasicesko.widget
 
+import android.content.Context
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import cz.majkey.pocasicesko.data.WeatherKind
+import cz.majkey.pocasicesko.data.WeatherRepository
+import cz.majkey.pocasicesko.ui.AppearanceSettings
+import cz.majkey.pocasicesko.ui.gradientContrastSamples
+import cz.majkey.pocasicesko.ui.renderedAppearance
 import java.util.Locale
 import kotlin.math.pow
 
@@ -49,12 +57,28 @@ internal fun WidgetSettings.automaticTextColorsAvailable(): Boolean = opacity ==
     else -> true
 }
 
+internal fun WidgetSettings.renderedTextColors(context: Context): WidgetSettings {
+    if (backgroundMode != WidgetBackgroundMode.APP_STYLE || !automaticTextColors || opacity != 100) return renderedTextColors()
+    val weather = context.getSharedPreferences(WeatherRepository.PREFERENCES_NAME, Context.MODE_PRIVATE)
+    val kind = runCatching {
+        WeatherKind.valueOf(weather.getString(WeatherRepository.KEY_WIDGET_KIND, "UNKNOWN").orEmpty())
+    }.getOrDefault(WeatherKind.UNKNOWN)
+    val colors = renderedAppearance(context, AppearanceSettings.load(context), kind,
+        weather.getBoolean(WeatherRepository.KEY_WIDGET_IS_DAY, true)).colors
+    return copy(
+        primaryColor = String.format(Locale.ROOT, "#%08X", colors.onBackground.toArgb()),
+        secondaryColor = String.format(Locale.ROOT, "#%08X", colors.onSurfaceVariant.toArgb()),
+    )
+}
+
 internal fun WidgetSettings.renderedTextColors(): WidgetSettings {
     if (!automaticTextColors || !automaticTextColorsAvailable()) return this
     val backgrounds = when (backgroundMode) {
         WidgetBackgroundMode.LIGHT -> listOf(0xFFF4F1EA.toInt())
         WidgetBackgroundMode.SOLID -> listOfNotNull(widgetArgbOrNull(backgroundStart))
-        WidgetBackgroundMode.GRADIENT -> listOfNotNull(widgetArgbOrNull(backgroundStart), widgetArgbOrNull(backgroundEnd))
+        WidgetBackgroundMode.GRADIENT -> gradientContrastSamples(
+            listOfNotNull(widgetArgbOrNull(backgroundStart), widgetArgbOrNull(backgroundEnd)).map { Color(it) },
+        ).map { it.toArgb() }
         WidgetBackgroundMode.TRANSPARENT, WidgetBackgroundMode.CUSTOM_IMAGE -> return this
         else -> return copy(primaryColor = DEFAULT_PRIMARY_COLOR, secondaryColor = DEFAULT_SECONDARY_COLOR)
     }

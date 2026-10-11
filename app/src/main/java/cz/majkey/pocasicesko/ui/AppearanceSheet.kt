@@ -6,6 +6,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -74,9 +76,12 @@ fun AppearanceSheet(selectedAppearance: AppearanceConfig, onAppearance: (Appeara
             if (customOpen) {
                 item {
                     ThemePreview(draft)
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                        .toggleable(value = draft.automaticText, role = Role.Switch,
+                            onValueChange = { draft = draft.copy(automaticText = it) }),
+                        verticalAlignment = Alignment.CenterVertically) {
                         Text(stringResource(R.string.appearance_auto_text), Modifier.weight(1f))
-                        Switch(draft.automaticText, { draft = draft.copy(automaticText = it) })
+                        Switch(draft.automaticText, onCheckedChange = null)
                     }
                 }
                 item { ColorInput(draft.backgroundStart, stringResource(R.string.appearance_start_color), opaqueOnly = true) { draft = draft.copy(backgroundStart = it) } }
@@ -156,6 +161,7 @@ fun AppearanceSheet(selectedAppearance: AppearanceConfig, onAppearance: (Appeara
 
 @Composable
 private fun ThemeCard(theme: AppAppearance, config: AppearanceConfig, modifier: Modifier, onSelect: (Boolean) -> Unit) {
+    val context = LocalContext.current
     val name = stringResource(theme.labelResource())
     val selectedDark = config.isDark(isSystemInDarkTheme())
     Column(modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
@@ -163,16 +169,17 @@ private fun ThemeCard(theme: AppAppearance, config: AppearanceConfig, modifier: 
         .padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
             listOf(false, true).forEach { dark ->
-                val palette = appearancePalette(theme, WeatherKind.CLEAR, true, dark, config.custom)
-                val colors = appearanceColors(palette, theme, dark, config.custom)
+                val rendered = renderedAppearance(context,
+                    config.copy(mode = if (dark) AppearanceMode.DARK else AppearanceMode.LIGHT,
+                        lightTheme = theme, darkTheme = theme), WeatherKind.CLEAR, true)
                 val selected = config.theme(dark) == theme
                 val mode = stringResource(if (dark) R.string.appearance_dark else R.string.appearance_light)
-                Box(Modifier.size(54.dp).background(Brush.verticalGradient(palette.background), CircleShape)
+                Box(Modifier.size(54.dp).background(Brush.verticalGradient(rendered.palette.background), CircleShape)
                     .border(if (selected) 2.dp else 1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, CircleShape)
                     .selectable(selected = selected, role = Role.RadioButton, onClick = { onSelect(dark) })
                     .semantics { contentDescription = "$name · $mode" }, contentAlignment = Alignment.Center) {
                     Icon(if (selected) Icons.Rounded.Check else if (dark) Icons.Rounded.DarkMode else Icons.Rounded.LightMode,
-                        contentDescription = null, tint = colors.onBackground, modifier = Modifier.size(20.dp))
+                        contentDescription = null, tint = rendered.colors.onBackground, modifier = Modifier.size(20.dp))
                 }
             }
         }

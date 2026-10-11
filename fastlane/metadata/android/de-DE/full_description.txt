@@ -1,10 +1,12 @@
 Selia Weather zeigt weltweites Wetter ohne Konto, mit beobachtetem Radar, regionaler Modellauswahl und anpassbarem Widget. Diese Version enthält keine Werbung und kein Premium.
 
+Fragen Sie KI zum Wetterarchiv. Wählen Sie einen Zeitraum aus fünf Jahren täglicher NASA-POWER-Schätzungen und sehen Sie Niederschlagssummen mit Datenabdeckung. Nach Bestätigung teilen Sie die vollständige CSV und Ihre Frage mit einer kompatiblen installierten ChatGPT-, Gemini-, Claude- oder Grok-App. Die Antwort wird in der App-Sprache angefordert. Dateiunterstützung hängt vom Empfänger ab; manueller Upload bleibt möglich. Das Archiv enthält Raster-Schätzungen, keine Messung direkt am gewählten Punkt.
+
 Die Vorhersage verwendet Open-Meteo Best Match und eine diagnostische Mehrmodellberechnung für bis zu 14 Tage. In Tschechien korrigieren aktuelle ČHMÚ-Messungen den Istzustand. Andernorts können nahe frische METAR-Berichte verfügbare Temperatur-, Feuchte-, Taupunkt-, Druck-, Sicht-, Wolken- und Windwerte korrigieren. Zukünftige Stunden bleiben Modellvorhersagen.
 
 Suchen Sie Orte weltweit, speichern Sie Favoriten, wählen Sie einen exakten Punkt auf der Weltkarte oder geben Sie Koordinaten ein. Optional können Sie Ihren aktuellen Standort verwenden. Die letzte erfolgreiche Vorhersage bleibt offline verfügbar.
 
-Das Radar zeigt verfügbare RainViewer-Beobachtungen mit Zoom, Verschieben, Animation, Zeitleiste und Abdeckungsmaske. Die separate DWD-Niederschlagsprognose reicht bis zu 48 Stunden voraus. Kompakte Bedienelemente schweben über der Karte; der Vollbildmodus bietet mehr Platz. Die Zeitleiste zeigt den verfügbaren Zeitraum. Die Prognose ist eine Modellberechnung, kein beobachtetes zukünftiges Radar. Konfidenzanzeigen beschreiben Modellübereinstimmung und Datenlücken, keine garantierte Vorhersagegenauigkeit.
+Das Radar verbindet verfügbare RainViewer-Beobachtungen und DWD-Niederschlagsprognosen in einer Zeitleiste mit Zoom, Verschieben, Animation und Abdeckungsmaske. Je nach verfügbaren Daten reicht die Prognose bis zu 48 Stunden voraus. Kompakte Bedienelemente schweben über der Karte; der Vollbildmodus bietet mehr Platz. Beobachtungen, Prognoseintervalle und Datenlücken bleiben unterscheidbar. Die Prognose ist eine Modellberechnung, kein beobachtetes zukünftiges Radar. Konfidenzanzeigen beschreiben Modellübereinstimmung und Datenlücken, keine garantierte Vorhersagegenauigkeit.
 
 Gestalten Sie Ihr eigenes Startbildschirm-Widget. Jedes Widget kann eigene Farben, Transparenz, Verlauf oder Hintergrundbild, Textgröße, Ausrichtung, Beschriftung und sichtbare Wetterdaten verwenden. Wenn Android ein Bild nicht mehr lesen kann, nutzt das Widget seinen Farbhintergrund und funktioniert weiter.
 

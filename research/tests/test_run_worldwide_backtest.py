@@ -98,7 +98,7 @@ def test_worldwide_execute_writes_locked_diagnostic_report(
             "--station-history",
             str(history),
             "--train-start",
-            "2025-01-01",
+            "2024-12-31",
             "--train-end",
             "2025-03-31",
             "--holdout-start",
@@ -159,8 +159,8 @@ def _history_fixture() -> str:
 def _backtest_rows() -> tuple[tuple[ForecastValue, ...], tuple[Observation, ...]]:
     forecasts: list[ForecastValue] = []
     observations: list[Observation] = []
-    for day_offset in range(120):
-        valid_time = datetime(2025, 1, 1, 12, tzinfo=UTC) + timedelta(days=day_offset)
+    for day_offset in range(121):
+        valid_time = datetime(2024, 12, 31, 12, tzinfo=UTC) + timedelta(days=day_offset)
         for station_index, target in enumerate(WORLD_TARGETS):
             station_id = f"{station_index + 100000:06d}{station_index:05d}"
             truth = 10.0 + station_index * 0.2 + day_offset * 0.01

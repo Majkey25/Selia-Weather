@@ -1,10 +1,12 @@
 Selia Weather affiche la météo mondiale sans compte, avec radar observé, sélection régionale des modèles et widget personnalisable. Cette version ne contient ni publicité ni Premium.
 
+Interrogez l’IA sur l’archive météo. Choisissez une période parmi cinq années d’estimations quotidiennes NASA POWER et consultez les totaux de pluie avec la couverture des données. Après confirmation, partagez le CSV complet et votre question avec une app compatible installée ChatGPT, Gemini, Claude ou Grok. La réponse est demandée dans la langue de l’app. La prise en charge du fichier dépend du destinataire ; l’envoi manuel reste possible. Ce sont des estimations de grille, pas des mesures au point choisi.
+
 La prévision utilise Open-Meteo Best Match et un calcul diagnostique multimodèle sur 14 jours. En Tchéquie, les observations récentes de ČHMÚ corrigent l’état actuel. Ailleurs, des rapports METAR proches peuvent corriger la température, l’humidité, le point de rosée, la pression, la visibilité, la nébulosité et le vent disponibles. Les heures futures restent des prévisions de modèles.
 
 Recherchez des lieux dans le monde entier, enregistrez des favoris, choisissez un point exact sur la carte mondiale ou saisissez des coordonnées. Vous pouvez aussi utiliser votre position actuelle. La dernière prévision réussie reste disponible hors connexion.
 
-Le radar affiche les observations disponibles de RainViewer avec zoom, déplacement, animation, chronologie et masque de couverture. La prévision de précipitations DWD permet de regarder jusqu’à 48 heures à l’avance. Les commandes compactes flottent sur la carte ; le plein écran offre plus d’espace. La chronologie indique l’horizon disponible. Il s’agit d’une prévision du modèle, pas d’un radar futur observé. Les indicateurs de confiance décrivent l’accord entre modèles et les limites des données, pas une précision garantie.
+Le radar réunit les observations disponibles de RainViewer et les prévisions DWD dans une chronologie avec zoom, déplacement, animation et masque de couverture. La prévision va jusqu’à 48 heures selon les données disponibles. Les commandes compactes flottent sur la carte ; le plein écran offre plus d’espace. Les observations, intervalles de prévision et lacunes restent distincts. Il s’agit d’une prévision du modèle, pas d’un radar futur observé. Les indicateurs de confiance décrivent l’accord entre modèles et les limites des données, pas une précision garantie.
 
 Créez votre propre widget d'accueil. Chaque widget peut utiliser ses couleurs, sa transparence, un dégradé ou une image de fond, une taille de texte, un alignement, une étiquette et des données météo visibles. Si Android ne peut plus lire une image, le widget utilise son fond coloré et continue de fonctionner.
 

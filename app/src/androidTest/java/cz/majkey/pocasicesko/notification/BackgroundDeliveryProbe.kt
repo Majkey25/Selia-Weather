@@ -6,6 +6,10 @@ import android.app.job.JobScheduler
 import android.content.ComponentName
 import android.content.Context
 import androidx.test.platform.app.InstrumentationRegistry
+import cz.majkey.pocasicesko.data.WeatherRepository
+import java.time.Instant
+import java.time.ZoneId
+import java.util.concurrent.TimeUnit
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 
@@ -18,11 +22,26 @@ class BackgroundDeliveryProbe {
         assumeTrue(InstrumentationRegistry.getArguments().getString("backgroundProbe") == "true")
         check(context.packageName.endsWith(".debug"))
         check(WeatherAlertSettings.load(context).backgroundAlertsAllowed) { "Enable background alerts in the app before the probe" }
+        val repository = WeatherRepository(context)
+        val snapshot = checkNotNull(repository.cachedForecast(repository.lastLocation())) {
+            "Load a real forecast for the selected location before the probe"
+        }
+        val now = Instant.now()
+        val age = now.toEpochMilli() - snapshot.updatedAtEpochMillis
+        check(age in 0 until TimeUnit.HOURS.toMillis(1)) {
+            "Refresh the forecast in the app before the probe (cache age: $age ms)"
+        }
+        val today = now.atZone(ZoneId.of(snapshot.timezone)).toLocalDate().toString()
+        check(snapshot.daily.any { it.date == today }) { "The cached forecast must contain today's daily weather" }
+        check(WeatherAlerts.canPost(context, "daily_weather_briefing")) {
+            "Allow app notifications and the daily briefing channel in Android before the probe"
+        }
         val scheduler = context.getSystemService(JobScheduler::class.java)
         check(scheduler.getPendingJob(7003) == null) { "Existing refresh work must finish first" }
         val backup = context.getSharedPreferences("notification_probe", Context.MODE_PRIVATE)
         check(!backup.contains("enabled")) { "Restore the preceding probe first" }
         check(backup.edit().putBoolean("enabled", DailyBriefingScheduler.isEnabled(context))
+            .putInt("time_minutes", context.getSharedPreferences("daily_briefing", Context.MODE_PRIVATE).getInt("time_minutes", -1))
             .putString("pending_day", context.getSharedPreferences("weather_refresh", Context.MODE_PRIVATE)
                 .getString("briefing_day", null))
             .putLong("scheduled_at", WeatherRefreshScheduler.briefingScheduledAt(context))
@@ -31,7 +50,9 @@ class BackgroundDeliveryProbe {
         InstrumentationRegistry.getInstrumentation().runOnMainSync {
             context.getSharedPreferences("daily_briefing", Context.MODE_PRIVATE).edit().remove("delivered_day").commit()
             DailyBriefingScheduler.setEnabled(context, true)
-            WeatherRefreshScheduler.request(context, briefing = true)
+            val scheduledAt = System.currentTimeMillis() / 60_000 * 60_000
+            DailyBriefingScheduler.setTime(context, Instant.ofEpochMilli(scheduledAt).atZone(ZoneId.systemDefault()).toLocalTime())
+            WeatherRefreshScheduler.request(context, briefing = true, scheduledAt = scheduledAt)
             check(scheduler.schedule(JobInfo.Builder(7003, ComponentName(context, WeatherRefreshJob::class.java))
                 .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
                 .setMinimumLatency(120_000)
@@ -47,6 +68,12 @@ class BackgroundDeliveryProbe {
         val backup = context.getSharedPreferences("notification_probe", Context.MODE_PRIVATE)
         check(backup.contains("enabled"))
         context.getSystemService(JobScheduler::class.java).cancel(7003)
+        if (backup.contains("time_minutes")) {
+            val briefing = context.getSharedPreferences("daily_briefing", Context.MODE_PRIVATE).edit()
+            val timeMinutes = backup.getInt("time_minutes", -1)
+            if (timeMinutes < 0) briefing.remove("time_minutes") else briefing.putInt("time_minutes", timeMinutes)
+            check(briefing.commit())
+        }
         DailyBriefingScheduler.setEnabled(context, backup.getBoolean("enabled", false))
         check(context.getSharedPreferences("weather_refresh", Context.MODE_PRIVATE).edit()
             .putString("briefing_day", backup.getString("pending_day", null))

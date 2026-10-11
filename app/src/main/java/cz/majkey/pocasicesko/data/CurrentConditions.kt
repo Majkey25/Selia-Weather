@@ -96,10 +96,11 @@ internal fun fuseCurrentConditions(
             Duration.between(observation.time, now).seconds <= MAX_WEATHER_AGE_SECONDS
     }
     val nearestRain = localWeather.firstOrNull { it.first.precipitation != null }?.first
-    val reportedCloudCover = localWeather.firstOrNull { it.first.cloudCoverPercent != null }
-        ?.first?.cloudCoverPercent
-    val reportedWeatherCode = localWeather.firstOrNull { it.first.weatherCode != null }
-        ?.first?.weatherCode
+    val weatherReport = localWeather.firstOrNull { it.first.weatherCode != null }?.first
+    // Keep the phenomenon and cloud cover from one report, even when its cloud cover is missing.
+    val cloudReport = weatherReport ?: localWeather.firstOrNull { it.first.cloudCoverPercent != null }?.first
+    val reportedCloudCover = cloudReport?.cloudCoverPercent
+    val reportedWeatherCode = weatherReport?.weatherCode
     val wind = nearby.mapNotNull { (observation, distance) ->
         val speed = observation.windSpeed ?: return@mapNotNull null
         val direction = observation.windDirection ?: return@mapNotNull null
@@ -122,15 +123,17 @@ internal fun fuseCurrentConditions(
         }
         else -> model.weatherCode to (reportedCloudCover ?: model.cloudCover)
     }
-    val temperatureDelta = temperature?.minus(model.temperature)
+    // Apparent temperature remains model-derived; station reports lack matching solar radiation.
     return model.copy(
         temperature = temperature ?: model.temperature,
-        feelsLike = temperatureDelta?.let(model.feelsLike::plus) ?: model.feelsLike,
         humidity = humidity ?: model.humidity,
         // Ten-minute gauge totals cannot replace fifteen-minute model amounts.
         // Sunshine duration also does not measure total or layered cloud cover.
         weatherCode = weatherCode,
         cloudCover = cloudCover,
+        cloudCoverLow = if (reportedCloudCover != null) null else model.cloudCoverLow,
+        cloudCoverMid = if (reportedCloudCover != null) null else model.cloudCoverMid,
+        cloudCoverHigh = if (reportedCloudCover != null) null else model.cloudCoverHigh,
         windSpeed = windVector?.first ?: model.windSpeed,
         windDirection = windVector?.second?.roundToInt() ?: model.windDirection,
         dewPoint = dewPoint ?: model.dewPoint,
@@ -160,6 +163,9 @@ internal fun applyCurrentConditionsToForecastJson(json: String, current: Current
         "wind_direction_10m" to current.windDirection,
     )
     values.forEach { (name, value) -> if (value != null) currentJson.put(name, value) }
+    listOf("cloud_cover_low", "cloud_cover_mid", "cloud_cover_high").forEach { name ->
+        if (values[name] == null) currentJson.remove(name)
+    }
 
     // Current conditions and the hourly forecast have different time support.
     // Copying current values into an hour also invalidates its daily summary.

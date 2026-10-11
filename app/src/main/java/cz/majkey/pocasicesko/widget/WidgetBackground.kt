@@ -21,11 +21,14 @@ import android.widget.RemoteViews
 import androidx.compose.ui.graphics.toArgb
 import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.data.WeatherKind
+import cz.majkey.pocasicesko.data.readLimited
 import cz.majkey.pocasicesko.ui.AppearanceSettings
 import cz.majkey.pocasicesko.ui.renderedAppearance
 import kotlin.math.roundToInt
 
 internal object WidgetBackground {
+    internal const val MAX_IMAGE_BYTES = 20_000_000
+
     private fun bitmapFor(
         context: Context,
         settings: WidgetSettings,
@@ -159,18 +162,17 @@ internal object WidgetBackground {
             ?.takeIf { it.scheme == ContentResolver.SCHEME_CONTENT }
             ?: return null
         return runCatching {
+            // shortcut: provider open/read can block, import a local copy before rendering if providers stall.
+            val bytes = context.contentResolver.openInputStream(uri)?.use { readLimited(it, MAX_IMAGE_BYTES) }
+                ?: return@runCatching null
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            context.contentResolver.openInputStream(uri)?.use { stream ->
-                BitmapFactory.decodeStream(stream, null, bounds)
-            }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
             if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@runCatching null
 
             val options = BitmapFactory.Options().apply {
                 inSampleSize = sampleSize(bounds.outWidth, bounds.outHeight)
             }
-            val decoded = context.contentResolver.openInputStream(uri)?.use { stream ->
-                BitmapFactory.decodeStream(stream, null, options)
-            } ?: return@runCatching null
+            val decoded = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options) ?: return@runCatching null
             val size = backgroundBitmapSize(decoded.width, decoded.height)
             try {
                 Bitmap.createBitmap(size.width, size.height, Bitmap.Config.ARGB_8888).also { rendered ->

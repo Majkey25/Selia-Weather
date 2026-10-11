@@ -19,7 +19,6 @@ import android.util.TypedValue
 import android.view.View
 import android.widget.RemoteViews
 import androidx.core.content.edit
-import androidx.compose.ui.graphics.toArgb
 import cz.majkey.pocasicesko.MainActivity
 import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.data.WeatherCondition
@@ -215,11 +214,7 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             }.getOrDefault(WeatherKind.UNKNOWN)
             val isDay = weather.getBoolean(WeatherRepository.KEY_WIDGET_IS_DAY, true)
             val configured = (previewSettings ?: loadSettings(localizedContext, appWidgetId)).normalized()
-            val settings = if (configured.backgroundMode == WidgetBackgroundMode.APP_STYLE && configured.automaticTextColors && configured.opacity == 100) {
-                val colors = cz.majkey.pocasicesko.ui.renderedAppearance(context, cz.majkey.pocasicesko.ui.AppearanceSettings.load(context), kind, isDay).colors
-                configured.copy(primaryColor = String.format(java.util.Locale.ROOT, "#%08X", colors.onBackground.toArgb()),
-                    secondaryColor = String.format(java.util.Locale.ROOT, "#%08X", colors.onSurfaceVariant.toArgb()))
-            } else configured.renderedTextColors()
+            val settings = configured.renderedTextColors(localizedContext)
             val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, COMPACT_WIDTH_DP)
             val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, COMPACT_HEIGHT_DP)
             val hostSize = widgetHostSize(
@@ -832,6 +827,7 @@ internal fun widgetTemperatureFit(
             if (visible.showLocation) reserved += lineHeight(12f * scale)
             if (visible.showCondition) reserved += lineHeight(12f * scale)
             if (visible.showRange) reserved += lineHeight(11f * scale) + 2f * metrics.density
+            val leftHeaderHeight = reserved
             if (visible.showHourly) reserved += lineHeight(11f * scale) + lineHeight(14f * scale) + 14f * metrics.density
             if (visible.showUpdatedAt) reserved += lineHeight(9f * scale)
             val shownMetrics = listOf(visible.showPrecipitation, visible.showWind, visible.showHumidity)
@@ -844,7 +840,11 @@ internal fun widgetTemperatureFit(
                 lineHeight(10f * scale)
                 reserved += wrappedHeight(advancedText, contentWidth, 2)
             }
-            (hostHeightDp - padding * 2) * metrics.density - reserved - 2f
+            val available = (hostHeightDp - padding * 2) * metrics.density - reserved - 2f
+            val clockHeight = (if (visible.showClock) lineHeight(14f * scale) else 0f) +
+                (if (visible.showDate) lineHeight(10f * scale) else 0f)
+            val siblingHeight = maxOf(if (visible.showIcon) 30f * metrics.density else 0f, clockHeight)
+            if (available + leftHeaderHeight >= siblingHeight) available else -1f
         },
         measureHeight = ::lineHeight,
     )

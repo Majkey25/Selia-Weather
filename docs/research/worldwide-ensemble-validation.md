@@ -12,6 +12,40 @@ Doing so would double-count some providers and would apply scores to a different
 
 ## Locked worldwide diagnostic run
 
+### Correction checked on 11 October 2026
+
+The original rain evaluations below are retired. The current selector requires the native
+one-hour report to end exactly on the forecast hour, without rounding. A network-free replay
+verified all 79 original payload hashes and reused the same eight stations and inspected holdout
+(11 July–24 August 2025). It found no eligible exact-hour rain truth, so the corrected report has
+no rain evaluations, not zero rain error.
+
+The final replay also excludes training observations at or after the earliest holdout forecast
+issuance. Model coverage and each of three expanding-window refits use only their own past data.
+It contains 28 evaluations: 15 diagnostic passes and 13 rejections. Dew-point leads at 24/48 hours
+and pressure leads at 96/120 hours no longer pass fold stability. All 35 dataset segments satisfy
+the strict training-truth boundary. Depending on lead, 114–120 safe training days remain.
+
+All seven wind-vector leads were independently recomputed with 315 holdout samples each.
+The 24-hour vector MAE is 8.716462 km/h versus 9.525593 km/h for the training-selected fallback.
+At 144/168 hours, removing temporal leakage increases blend MAE to 11.370637/11.576580 km/h;
+the earlier scores were 11.336044/11.387740 km/h. These aggregate errors do not establish skill
+for an individual location. Frankfurt contributes only one holdout case, Nairobi 44 and the other
+six stations 45 each. Pressure has 136 cases from only four stations.
+
+Corrected report SHA-256: `6af85b3fbbb6b23a8ad390917dd0cb3b546173983167eb67f112f6f890f4f29b`.
+Comparison summary SHA-256: `9f4ea62b3bca3a1a60b07d8064440d6e203b4703a985ddce8cf56ee427498519`.
+The replay used existing backtest APIs with network-denying callbacks; its temporary runner
+was removed after verification. Outputs remain local. This reused-holdout check establishes
+the correction, not improved forecast skill, an untouched regional holdout or approved weights.
+
+The replay records the evaluation source hashes from before the subsequent manifest-only
+hardening. New dataset manifests use schema 2 and pin each segment's coverage threshold;
+resume rejects legacy schema 1 rather than inferring its fitting policy. Completed historical
+reports remain unchanged. The manifest change does not change fitting or replay scores.
+
+### Original September report
+
 The run on 1 September 2026 used the exact ten provider-family IDs that Android requests. The
 dataset covered eight NOAA ISD stations, one in each populated calibration region. It used 120
 training days and a later 45-day holdout. The downloader made 77 Open-Meteo Previous Runs
@@ -20,8 +54,8 @@ dataset manifest.
 
 The station selector chose Frankfurt, New York, São Paulo, Nairobi, Delhi, Tokyo, Moscow, and
 Sydney. Continuous fields use one exact synoptic report per station and day. One-hour rain reports
-use a separate daily selection. The rain selector accepts a report only when its end time is within
-ten minutes of a UTC hour, then records the comparison at that nearest hour.
+used a separate daily selection. The old rain selector accepted a report whose end time was within
+ten minutes of a UTC hour and rounded that comparison to the nearest hour. That rule is no longer used.
 
 The locked report contains 42 evaluations:
 
@@ -122,6 +156,10 @@ diagnostic. A Pages production calibration artifact remains blocked until the st
 accepted segments.
 
 ## Verification
+
+The 11 October 2026 implementation check passed 378 research tests, Ruff, and Pyright with
+zero errors and warnings. The network-free replay verified 79 payload hashes and evaluated
+533,148 forecast rows. No calibration artifact was activated or exported.
 
 The implementation check on 1 September 2026 produced:
 

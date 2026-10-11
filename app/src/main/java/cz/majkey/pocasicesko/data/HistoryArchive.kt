@@ -24,6 +24,15 @@ data class HistoricalDay(
     val cloudCoverPercent: Double? = null,
 )
 
+private val HistoricalDay.hasData: Boolean
+    get() = listOf(
+        temperatureMeanC, temperatureMaximumC, temperatureMinimumC, precipitationMm,
+        relativeHumidityPercent, windSpeedMetersPerSecond, solarEnergyMegajoulesPerSquareMeter,
+        dewPointC, wetBulbTemperatureC, surfacePressureHpa, windSpeedMaximumMetersPerSecond,
+        windSpeedMinimumMetersPerSecond, windDirectionDegrees, clearSkySolarEnergyMegajoulesPerSquareMeter,
+        cloudCoverPercent,
+    ).any { it != null }
+
 data class HistoryArchive(
     val location: CzechLocation,
     val days: List<HistoricalDay>,
@@ -68,7 +77,7 @@ fun HistoryArchive.summary(): HistorySummary {
     val minimumTemperatures = days.mapNotNull(HistoricalDay::temperatureMinimumC)
     val maximumTemperatures = days.mapNotNull(HistoricalDay::temperatureMaximumC)
     return HistorySummary(
-        dayCount = days.size,
+        dayCount = days.count(HistoricalDay::hasData),
         calendarDayCount = days.maxOf { it.date.toEpochDay() } - days.minOf { it.date.toEpochDay() } + 1,
         solarEnergyDayCount = days.count { it.solarEnergyMegajoulesPerSquareMeter != null },
         humidityDayCount = days.count { it.relativeHumidityPercent != null },
@@ -123,7 +132,6 @@ internal fun parsePowerHistory(
             val values = fields.mapValues { (parameter, data) ->
                 data?.valueOrNull(key, fillValue)?.takeIf { validPowerValue(parameter, it) }
             }
-            if (values.values.all { it == null }) continue
             add(
                 HistoricalDay(
                     date = date,
@@ -146,7 +154,7 @@ internal fun parsePowerHistory(
             )
         }
     }.sortedBy(HistoricalDay::date)
-    if (days.isEmpty()) throw JSONException("NASA POWER response contains no usable daily history.")
+    if (days.none(HistoricalDay::hasData)) throw JSONException("NASA POWER response contains no usable daily history.")
     return HistoryArchive(
         location = location,
         days = days,
@@ -179,4 +187,4 @@ internal val POWER_HISTORY_UNITS = mapOf(
 )
 
 private const val DEFAULT_FILL_VALUE = -999.0
-private const val WET_DAY_THRESHOLD_MM = 0.1
+internal const val WET_DAY_THRESHOLD_MM = 0.1

@@ -21,7 +21,7 @@ class WeatherDetailScreenTest {
     }
 
     @Test
-    fun nextPrecipitationIncludesDrizzleTraceAndLowProbability() {
+    fun nextPrecipitationIncludesDrizzleTraceAndMeaningfulProbability() {
         val time = "2026-08-29T19:00"
         val dry = hour(time, probability = 0, precipitation = 0.0)
         listOf(
@@ -29,9 +29,35 @@ class WeatherDetailScreenTest {
             dry.copy(precipitation = 0.03),
             dry.copy(rain = 0.03),
             dry.copy(weatherCode = 71),
-            dry.copy(precipitationProbability = 10),
+            dry.copy(precipitationProbability = 16),
         ).forEach { assertEquals(it, nextWetHour(listOf(it), "2026-08-29T18:30")) }
         assertNull(nextWetHour(listOf(dry), time))
+    }
+
+    @Test
+    fun nextPrecipitationSkipsNegligibleChanceWithoutDiscardingSourceEvidence() {
+        val minimal = hour("2026-08-29T19:00", probability = 1, precipitation = 0.0)
+        val low = minimal.copy(time = "2026-08-29T20:00", precipitationProbability = 15)
+        val meaningful = minimal.copy(time = "2026-08-29T21:00", precipitationProbability = 16)
+        val reference = "2026-08-29T18:30"
+
+        assertNull(nextWetHour(listOf(minimal, low), reference))
+        assertEquals(15, maximumPrecipitationProbability(listOf(minimal, low), reference))
+        assertEquals(meaningful, nextWetHour(listOf(meaningful, low, minimal), reference))
+        val trace = minimal.copy(precipitation = 0.03)
+        assertEquals(trace, nextWetHour(listOf(meaningful, trace), reference))
+        val drizzle = minimal.copy(weatherCode = 51)
+        assertEquals(drizzle, nextWetHour(listOf(meaningful, drizzle), reference))
+    }
+
+    @Test
+    fun confidenceEvidenceNamesTheSelectedHourAndItsFollowingPrecipitationInterval() {
+        val context = requireNotNull(confidenceEvidenceContext("2026-12-31T23:00", Locale.ENGLISH))
+        assertEquals("31 Dec 2026, 23:00", context.validTime)
+        assertEquals("31 Dec 2026, 23:00 – 1 Jan 2027, 00:00", context.precipitationInterval)
+        assertNull(confidenceEvidenceContext(null, Locale.ENGLISH))
+        assertNull(confidenceEvidenceContext("invalid", Locale.ENGLISH))
+        assertNull(confidenceEvidenceContext("+999999999-12-31T23:00", Locale.ENGLISH))
     }
 
     @Test
@@ -74,16 +100,16 @@ class WeatherDetailScreenTest {
         ).readText()
         val markers = listOf(
             "AtAGlanceSection(",
-            "DetailSection(stringResource(R.string.temperature), collapsible = true)",
-            "DetailSection(stringResource(R.string.precipitation_and_clouds), collapsible = true)",
-            "DetailSection(stringResource(R.string.wind), collapsible = true)",
-            "DetailSection(stringResource(R.string.detail_group_sun_moon), collapsible = true)",
+            "DetailSection(stringResource(R.string.temperature), collapsible = true,",
+            "DetailSection(stringResource(R.string.precipitation_and_clouds), collapsible = true,",
+            "DetailSection(stringResource(R.string.wind), collapsible = true,",
+            "DetailSection(stringResource(R.string.detail_group_sun_moon), collapsible = true,",
             "DetailSection(stringResource(R.string.sun))",
             "MoonSection(",
-            "DetailSection(stringResource(R.string.detail_group_other), collapsible = true)",
+            "DetailSection(stringResource(R.string.detail_group_other), collapsible = true,",
             "DetailSection(stringResource(R.string.atmosphere))",
             "DetailSection(stringResource(R.string.ground))",
-            "DetailSection(stringResource(R.string.detail_group_sources), collapsible = true)",
+            "DetailSection(stringResource(R.string.detail_group_sources), collapsible = true,",
         )
 
         assertTrue(markers.zipWithNext().all { (first, second) -> source.indexOf(first) < source.indexOf(second) })

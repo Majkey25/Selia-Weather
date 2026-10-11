@@ -19,6 +19,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasScrollToIndexAction
@@ -32,6 +33,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -124,7 +126,8 @@ class StoreScreenshotsTest {
         compose.runOnIdle { scene.intValue = 1 }
         val hour = now.withMinute(0).withSecond(0).withNano(0).toLocalTime().toString()
         compose.onAllNodes(hasScrollToNodeAction()).onLast().performScrollToNode(hasText(hour))
-        compose.onNodeWithText(hour).performClick()
+        // Use the row's accessibility action to avoid pointer feedback in store captures.
+        compose.onNodeWithText(hour).assertIsDisplayed().performSemanticsAction(SemanticsActions.OnClick) { it() }
         val selectedDay = snapshot.daily[forecastStartIndex(snapshot.daily, now.toLocalDate().toString())]
         val hourIndex = hourlyForDay(snapshot.hourly, selectedDay.date).indexOfFirst { it.time.substringAfter('T').take(5) == hour }
         assertTrue(hourIndex >= 0)
@@ -175,8 +178,11 @@ class StoreScreenshotsTest {
             compose.runOnIdle {
                 view.evaluateJavascript("""
                     JSON.stringify({ready:typeof radarLayer!=='undefined'&&!!radarLayer,
-                        mode:typeof mode==='undefined'?'':mode,
-                        frame:typeof frameIndex==='undefined'?-1:frameIndex,
+                        type:typeof radarLayer==='undefined'||!radarLayer?'':radarLayer.frame.type,
+                        displayedTime:typeof radarLayer==='undefined'||!radarLayer?0:radarLayer.frame.time,
+                        forecastCount:typeof frames==='undefined'?0:frames.filter(function(frame){return frame.type==='forecast';}).length,
+                        forecastTime:typeof frames==='undefined'?0:(frames.filter(function(frame){return frame.type==='forecast';})[3]?.time || 0),
+                        sliderTime:Number(document.getElementById('slider').value),
                         pending:typeof pendingLayer!=='undefined'&&!!pendingLayer,
                         status:document.getElementById('status')?.textContent})
                 """.trimIndent()) { result ->
@@ -184,20 +190,25 @@ class StoreScreenshotsTest {
                 }
             }
         }
-        compose.waitUntil(45_000) { readState(); state.get().optBoolean("ready") }
-        compose.runOnIdle { view.evaluateJavascript("document.getElementById('forecast').click()", null) }
         compose.waitUntil(45_000) {
             readState()
-            state.get().optString("mode") == "forecast" && state.get().optBoolean("ready") && !state.get().optBoolean("pending")
+            state.get().optBoolean("ready") && state.get().optInt("forecastCount") >= 4
         }
-        assertEquals("", state.get().getString("status"))
+        val selectedTime = state.get().getLong("forecastTime")
         compose.runOnIdle {
-            view.evaluateJavascript("var slider=document.getElementById('slider');slider.value=3;slider.dispatchEvent(new Event('input'))", null)
+            view.evaluateJavascript("""
+                var slider = document.getElementById('slider');
+                slider.value = $selectedTime;
+                slider.dispatchEvent(new Event('input'));
+            """.trimIndent(), null)
         }
         compose.waitUntil(45_000) {
             readState()
-            state.get().optInt("frame") == 3 && !state.get().optBoolean("pending")
+            state.get().optString("type") == "forecast" && state.get().optBoolean("ready") &&
+                state.get().optLong("displayedTime") == selectedTime &&
+                !state.get().optBoolean("pending")
         }
+        assertEquals(selectedTime, state.get().getLong("sliderTime"))
         assertEquals("", state.get().getString("status"))
         capture(context, tag, "03-forecast-map.png")
     }

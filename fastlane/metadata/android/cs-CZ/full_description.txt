@@ -6,7 +6,7 @@ Předpověď používá Open-Meteo Best Match a diagnostický výpočet z více 
 
 Vyhledávejte místa po celém světě, ukládejte oblíbené lokality, vyberte přesný bod na světové mapě nebo zadejte souřadnice. Volitelně lze použít aktuální polohu. Poslední úspěšná předpověď zůstane k dispozici offline.
 
-Radar používá dostupná pozorování RainViewer, přiblížení, posun, animaci, časovou osu a masku pokrytí. Přepněte na mapu modelové předpovědi srážek DWD s výhledem až na 48 hodin. Kompaktní ovládání plave nad mapou; režim celé obrazovky poskytuje více místa. Časová osa ukazuje dostupný výhled. Jde o výstup modelu, nikoli o pozorovaný budoucí radar. Hodinový detail srozumitelně popisuje pravděpodobnost i množství srážek. Ukazatele spolehlivosti vyjadřují shodu modelů a omezení dat, nikoli zaručenou pravděpodobnost správné předpovědi.
+Radar spojuje dostupná pozorování RainViewer a předpověď srážek DWD na společné časové ose. Nabízí přiblížení, posun, animaci a masku pokrytí. Předpověď sahá až na 48 hodin podle dostupných dat. Kompaktní ovládání plave nad mapou; režim celé obrazovky poskytuje více místa. Pozorované snímky, předpovědní intervaly a mezery v datech jsou rozlišeny. Budoucnost je výstup modelu, nikoli pozorovaný radar. Hodinový detail srozumitelně popisuje pravděpodobnost i množství srážek. Ukazatele spolehlivosti vyjadřují shodu modelů a omezení dat, nikoli zaručenou pravděpodobnost správné předpovědi.
 
 Vlastní widget se přizpůsobí malé, široké i vysoké velikosti. Každý widget může mít vlastní barvy, průhlednost, gradient nebo obrázek, velikost textu, zarovnání, vlastní popisek a vybraná data. Pokud vybraný obrázek přestane být dostupný, widget dál funguje s nastaveným barevným pozadím.
 

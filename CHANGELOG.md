@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.0] - 2026-10-11
+
+- Join observed radar and DWD precipitation forecasts in one timeline. Use actual snapshots and accumulation intervals, retain the last valid frame on failures, and stop hidden-map requests. Improve fullscreen controls, keyboard navigation, timezone updates and short-screen layout.
+- Simplify the weather overview and navigation. Keep four forecast days initially, basic hourly metrics visible, and technical fields under Advanced details. Clarify daily confidence and next-rain summaries.
+- Offer installed, compatible ChatGPT, Gemini, Claude and Grok apps after archive-sharing consent. Share a CSV and an app-language question through Android; the recipient controls attachment support. Keep missing archive days distinct from zero rainfall.
+- Improve widget contrast across gradients and light backgrounds, resized clock/date headers and bounded custom-image decoding. Match Material theme previews to rendered colors and label the full-row automatic-text switch.
+- Reject outdated morning-briefing deliveries after the configured time changes. Show Android-blocked notification categories without changing saved preferences.
+- Keep location hardware optional so devices using manually selected places are not excluded by Google Play hardware filtering.
+- Keep cloud observations from the same report and invalidate incompatible model cloud layers. Preserve the provider's apparent-temperature estimate instead of shifting it by a station temperature difference.
+- Avoid unnecessary forecast parsing on resume and defer Czech station metadata until needed. Reuse the parsed forecast after current-condition correction, defer collapsed moon details, and bound retained radar layers during scrubbing.
+- Correct daily precipitation aggregation, station/time identity in wind backtests and exact-hour NOAA rain alignment. Purge observations dated at or after forecast issuance and refit validation folds using past-only coverage. The corrected diagnostic replay accepts 15 of 28 evaluations; no unvalidated forecast weights are enabled.
+
 ## [0.5.1] - 2026-10-11
 
 - Refine the gradient forecast layout with a compact location picker, hourly graph, navigation and model-agreement indicators for every day and hour. Keep current-condition icons and accessibility descriptions consistent.

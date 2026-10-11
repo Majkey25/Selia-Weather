@@ -21,6 +21,7 @@ class HistoryExportTest {
         assertTrue(prompt.contains("2 of 3 calendar days"))
         assertTrue(prompt.contains("Solar energy: 1 days"))
         assertTrue(prompt.contains("Missing days and blank values are not zero"))
+        assertTrue(prompt.contains("A wet day has precipitation of at least 0.1 mm"))
     }
 
     @Test
@@ -39,6 +40,7 @@ class HistoryExportTest {
 
         assertEquals(3, lines.size)
         assertTrue(lines[0].contains("precipitation_mm"))
+        assertTrue(lines[0].contains(",date_utc,"))
         assertTrue(
             lines[1].startsWith(
                 "\"Praha, pole\",50.075500,14.437800,NASA POWER,v2.9.7," +

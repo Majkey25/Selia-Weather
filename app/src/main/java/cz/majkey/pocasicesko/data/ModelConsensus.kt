@@ -405,17 +405,23 @@ private fun updateCurrent(root: JSONObject, hourly: JSONObject, times: JSONArray
 private fun updateDaily(root: JSONObject, hourly: JSONObject, times: JSONArray, precipitationBlendedIndices: Set<Int>) {
     val daily = root.getJSONObject("daily")
     val days = daily.getJSONArray("time")
+    val intervalEnds = (0 until times.length()).associateBy { LocalDateTime.parse(times.getString(it)) }
     for (dayIndex in 0 until days.length()) {
         val date = days.getString(dayIndex)
         val indices = (0 until times.length()).filter { times.getString(it).startsWith(date) }
         if (indices.isEmpty()) continue
+        val start = LocalDateTime.parse("${date}T00:00")
+        // Preceding-hour totals end at 01:00 through next midnight; the API uses a fixed UTC offset even across DST.
+        val precipitationIndices = (1L..24L).mapNotNull { intervalEnds[start.plusHours(it)] }
+        val completePrecipitationDay = precipitationIndices.size == 24
         daily.putAt("temperature_2m_max", dayIndex, hourly.values("temperature_2m", indices).maxOrNull())
         daily.putAt("temperature_2m_min", dayIndex, hourly.values("temperature_2m", indices).minOrNull())
         daily.putAt("apparent_temperature_max", dayIndex, hourly.values("apparent_temperature", indices).maxOrNull())
         daily.putAt("apparent_temperature_min", dayIndex, hourly.values("apparent_temperature", indices).minOrNull())
         listOf("precipitation", "rain", "snowfall").forEach { field ->
-            val sum = hourly.values(field, indices).takeIf { it.size == indices.size }?.sum()
-            if (field != "precipitation" && indices.any { it in precipitationBlendedIndices }) {
+            val sum = hourly.values(field, precipitationIndices)
+                .takeIf { completePrecipitationDay && it.size == 24 }?.sum()
+            if (field != "precipitation" && precipitationIndices.any { it in precipitationBlendedIndices }) {
                 daily.optJSONArray("${field}_sum")?.put(dayIndex, sum ?: JSONObject.NULL)
             } else {
                 daily.putAt("${field}_sum", dayIndex, sum)
@@ -424,7 +430,8 @@ private fun updateDaily(root: JSONObject, hourly: JSONObject, times: JSONArray, 
         daily.putAt(
             "precipitation_probability_max",
             dayIndex,
-            hourly.values("precipitation_probability", indices).maxOrNull(),
+            hourly.values("precipitation_probability", precipitationIndices)
+                .takeIf { completePrecipitationDay && it.size == 24 }?.maxOrNull(),
         )
         daily.putAt("wind_speed_10m_max", dayIndex, hourly.values("wind_speed_10m", indices).maxOrNull())
         daily.putAt("wind_gusts_10m_max", dayIndex, hourly.values("wind_gusts_10m", indices).maxOrNull())

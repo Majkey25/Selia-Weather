@@ -30,7 +30,7 @@ import org.json.JSONObject
 class WeatherRepository(context: Context) {
     private val appContext = context.applicationContext
     private val preferences = appContext.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
-    private val currentConditions = ChmiCurrentConditionsRepository(appContext)
+    private val currentConditions by lazy { ChmiCurrentConditionsRepository(appContext) }
     private val metarCurrentConditions = MetarCurrentConditionsRepository()
     private val historyRepository = HistoryRepository(File(appContext.cacheDir, "history"))
     private val calibratedForecasts = StaticForecastRepository()
@@ -185,7 +185,7 @@ class WeatherRepository(context: Context) {
             now = Instant.now(),
         )
         val correctedJson = applyCurrentConditionsToForecastJson(forecastJson, observedCurrent)
-        val snapshot = WeatherParser.parseForecast(correctedJson, updatedAt)
+        val snapshot = modelSnapshot.copy(current = observedCurrent)
         synchronized(PERSISTENCE_LOCK) {
             checkActive()
             if (location.matches(lastLocation())) {

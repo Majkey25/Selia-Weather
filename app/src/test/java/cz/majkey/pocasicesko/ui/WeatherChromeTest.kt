@@ -8,34 +8,41 @@ import org.junit.Test
 class WeatherChromeTest {
     @Test
     fun warningsFollowWeatherDetailsAndPrecedeHistory() {
-        val source = source("ForecastScreen.kt")
+        val source = source("ForecastScreen.kt").substringAfter("internal fun ForecastScreen(")
+            .substringBefore("private fun WeatherDetailAction(")
+        val daily = source.indexOf("DailyForecastPanel(")
         val details = source.indexOf("WeatherDetailAction {")
         val warnings = source.indexOf("WarningsAction(warnings, onWarnings)")
         val history = source.indexOf("WeatherDetailAction(label = R.string.history_title)")
-        assertTrue(details >= 0 && warnings > details && history > warnings)
+        assertTrue("Daily forecast must precede details", daily >= 0 && details > daily)
+        assertTrue("Warnings must follow details and precede history", warnings > details && history > warnings)
     }
 
     @Test
-    fun navigationHasNoOuterOpaqueSurface() {
+    fun navigationUsesOneClippedCapsuleWithoutPageFooter() {
         val source = source("WeatherApp.kt")
-        val navigation = source.substringAfter("private fun FloatingNavigation")
+        val navigation = source.substringAfter("internal fun FloatingNavigation")
             .substringBefore("private fun NavigationItem")
 
-        assertFalse(navigation.contains("Surface("))
+        assertTrue(navigation.contains("Surface("))
+        assertTrue(navigation.contains(".clip(RoundedCornerShape(50))"))
+        assertTrue(navigation.contains(".testTag(\"main-navigation\")"))
         assertFalse(navigation.contains("0xED101B23"))
         assertFalse(source.contains("bottomBar ="))
     }
 
     @Test
-    fun eachNavigationButtonHasItsOwnVisibleBackground() {
+    fun onlySelectedNavigationItemHasVisibleBackgroundAndLabel() {
         val source = source("WeatherApp.kt")
         val item = source.substringAfter("private fun NavigationItem")
             .substringBefore("private fun WeatherBackdrop")
 
-        assertFalse(item.contains("else Color.Transparent"))
+        assertTrue(item.contains("else Color.Transparent"))
         assertTrue(item.contains("contentColor ="))
         assertTrue(item.contains("MaterialTheme.colorScheme.primary"))
-        assertTrue(item.contains("MaterialTheme.colorScheme.surface"))
+        assertFalse(item.contains("border ="))
+        assertTrue(item.contains("if (selected)"))
+        assertTrue(item.contains("Text(displayLabel"))
     }
 
     @Test
@@ -46,6 +53,7 @@ class WeatherChromeTest {
 
         assertFalse(item.contains(".clickable(onClick = onClick)"))
         assertTrue(item.contains("Surface(\n        onClick = onClick,"))
+        assertTrue(item.contains(".clip(RoundedCornerShape(50))"))
     }
 
     @Test
@@ -56,6 +64,7 @@ class WeatherChromeTest {
 
         assertTrue(item.contains("contentDescription = label"))
         assertTrue(item.contains("this.selected = selected"))
+        assertTrue(item.contains("role = Role.Tab"))
     }
 
     @Test

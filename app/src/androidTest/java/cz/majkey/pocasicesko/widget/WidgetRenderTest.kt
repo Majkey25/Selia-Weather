@@ -8,28 +8,40 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Rect
+import android.graphics.drawable.BitmapDrawable
 import android.os.Bundle
 import android.util.TypedValue
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.TextClock
 import android.widget.TextView
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.core.content.FileProvider
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.hasScrollToNodeAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.platform.app.InstrumentationRegistry
 import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.data.WeatherRepository
 import cz.majkey.pocasicesko.ui.WeatherTheme
+import cz.majkey.pocasicesko.ui.AppAppearance
+import cz.majkey.pocasicesko.ui.AppearanceConfig
+import cz.majkey.pocasicesko.ui.AppearanceMode
+import cz.majkey.pocasicesko.ui.AppearanceSettings
 import java.io.File
+import java.io.RandomAccessFile
 import java.util.Locale
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -114,6 +126,90 @@ class WidgetRenderTest {
             for ((width, height) in listOf(110 to 40, 168 to 184, 352 to 174, 352 to 300)) {
                 assertTemperatureFits(render(41, width, height, largeContext))
             }
+        }
+    }
+
+    @Test
+    fun shortHeaderFitsIconAndClockBeforeKeepingThemVisible() {
+        val settings = WidgetSettings(showLocation = false, showCondition = false, showRange = false,
+            showHourly = false, dateFormat = WidgetDateFormat.NUMERIC)
+        instrumentation.runOnMainSync {
+            for ((showClock, showTemperature) in listOf(false to true, true to true, true to false)) {
+                assertTrue(WeatherWidgetProvider.saveSettings(context, 41,
+                    settings.copy(showClock = showClock, showTemperature = showTemperature)))
+                val widget = render(41, 352, 40)
+                if (showTemperature) assertTemperatureFits(widget)
+                else assertEquals(View.GONE, widget.findViewById<View>(R.id.widget_temperature).visibility)
+                for (id in listOf(R.id.widget_icon, R.id.widget_clock, R.id.widget_date)) {
+                    val child = widget.findViewById<View>(id)
+                    if (child.visibility == View.VISIBLE) {
+                        val header = if (id == R.id.widget_icon) child.parent as ViewGroup
+                            else child.parent.parent as ViewGroup
+                        val rect = bounds(header, child)
+                        assertTrue("Header clips ${context.resources.getResourceEntryName(id)}: $rect in ${header.width}x${header.height}",
+                            rect.top >= 0 && rect.bottom <= header.height)
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun disablingAutomaticAppStyleColorsKeepsTheLightPreviewColors() {
+        AppearanceSettings.save(context, AppearanceConfig(mode = AppearanceMode.LIGHT, lightTheme = AppAppearance.MINIMAL))
+        var expectedPrimary = 0
+        var expectedSecondary = 0
+        instrumentation.runOnMainSync {
+            val widget = render(41, 352, 174)
+            expectedPrimary = widget.findViewById<TextView>(R.id.widget_temperature).currentTextColor
+            expectedSecondary = widget.findViewById<TextView>(R.id.widget_city).currentTextColor
+        }
+        var applied: WidgetSettings? = null
+        compose.setContent {
+            CompositionLocalProvider(LocalContext provides context) {
+                WeatherTheme { WidgetEditorScreen(WidgetSettings(), null, {}, {}, { applied = it }) }
+            }
+        }
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(context.getString(R.string.widget_automatic_text_colors)))
+        compose.onNodeWithText(context.getString(R.string.widget_automatic_text_colors))
+            .performScrollTo().performTouchInput { click() }
+        compose.onNodeWithText(context.getString(R.string.widget_apply)).performTouchInput { click() }
+        val saved = requireNotNull(applied)
+        assertEquals(false, saved.automaticTextColors)
+        assertEquals(expectedPrimary, Color.parseColor(saved.primaryColor))
+        assertEquals(expectedSecondary, Color.parseColor(saved.secondaryColor))
+    }
+
+    @Test
+    fun customImagesDecodeNormallyAndOversizedSourcesFallBackWithoutChangingSettings() {
+        val directory = File(context.cacheDir, "history_exports").apply { mkdirs() }
+        val file = File.createTempFile("widget-background-test-", ".png", directory)
+        try {
+            val bitmap = Bitmap.createBitmap(1024, 512, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.RED) }
+            try {
+                file.outputStream().use { assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
+            } finally {
+                bitmap.recycle()
+            }
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)
+            val settings = WidgetSettings(backgroundMode = WidgetBackgroundMode.CUSTOM_IMAGE, imageUri = uri.toString(),
+                backgroundStart = "#0000FF", backgroundEnd = "#0000FF", corners = WidgetCorners.SQUARE)
+            assertTrue(WeatherWidgetProvider.saveSettings(context, 41, settings))
+            instrumentation.runOnMainSync {
+                val image = render(41, 352, 174).findViewById<ImageView>(R.id.widget_background_image)
+                val rendered = (image.drawable as BitmapDrawable).bitmap
+                assertTrue("Valid custom image must render", Color.red(rendered.getPixel(rendered.width / 2, rendered.height / 2)) > 100)
+            }
+            RandomAccessFile(file, "rw").use { it.setLength(WidgetBackground.MAX_IMAGE_BYTES.toLong() + 1) }
+            instrumentation.runOnMainSync {
+                val image = render(41, 352, 174).findViewById<ImageView>(R.id.widget_background_image)
+                val rendered = (image.drawable as BitmapDrawable).bitmap
+                assertEquals("Oversized source must use the configured fallback", Color.BLUE,
+                    rendered.getPixel(rendered.width / 2, rendered.height / 2))
+            }
+            assertEquals(settings, WeatherWidgetProvider.loadSettings(context, 41))
+        } finally {
+            assertTrue(file.delete())
         }
     }
 

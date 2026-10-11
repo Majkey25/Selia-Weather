@@ -7,6 +7,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
+import java.time.LocalDate
 
 class ModelConsensusTest {
     @Test
@@ -146,7 +147,8 @@ class ModelConsensusTest {
         assertEquals(61, hourly.getJSONArray("weather_code").getInt(1))
         assertEquals(22.0, daily.getJSONArray("temperature_2m_max").getDouble(0), 0.0)
         assertEquals(20.0, daily.getJSONArray("temperature_2m_min").getDouble(0), 0.0)
-        assertEquals(0.2, daily.getJSONArray("precipitation_sum").getDouble(0), 0.0)
+        // Two hourly intervals cannot replace a complete provider daily total.
+        assertEquals(0.0, daily.getJSONArray("precipitation_sum").getDouble(0), 0.0)
         assertEquals(180, daily.getJSONArray("wind_direction_10m_dominant").getInt(0))
         assertEquals(ForecastCalculationMode.DIAGNOSTIC_MEDIAN, result.mode)
         assertEquals(listOf("a", "b", "c"), result.contributorIds)
@@ -330,7 +332,7 @@ class ModelConsensusTest {
             listOf(
                 "[null,null]" to 4.2,
                 "[0.2,null]" to 4.2,
-                "[0.2,0.3]" to 0.5,
+                "[0.2,0.3]" to 4.2,
             ).forEach { (amounts, expected) ->
                 val base = JSONObject(BASE).also { root ->
                     root.getJSONObject("hourly").put(field, JSONArray(amounts))
@@ -349,6 +351,71 @@ class ModelConsensusTest {
     }
 
     @Test
+    fun dailyPrecipitationUsesAllCalendarDayIntervalsIncludingNextMidnight() {
+        listOf("2026-08-29", "2026-03-29", "2026-10-25", "2026-12-31").forEach { date ->
+            val amounts = List<Double?>(25) { index ->
+                when (index) { 0 -> 99.0; 1 -> 2.0; 24 -> 5.0; else -> 0.0 }
+            }
+            val daily = dailyPrecipitationFixture(date, amounts).getJSONObject("daily")
+            listOf("precipitation_sum", "rain_sum").forEach { field ->
+                assertEquals("$date $field", 7.0, daily.getJSONArray(field).getDouble(0), 0.0)
+                assertEquals(100.0, daily.getJSONArray(field).getDouble(1), 0.0)
+            }
+            assertEquals(0.0, daily.getJSONArray("snowfall_sum").getDouble(0), 0.0)
+            assertEquals(90, daily.getJSONArray("precipitation_probability_max").getInt(0))
+            val dry = dailyPrecipitationFixture(date, List(25) { 0.0 }).getJSONObject("daily")
+            listOf("precipitation_sum", "rain_sum", "snowfall_sum").forEach { field ->
+                assertEquals(0.0, dry.getJSONArray(field).getDouble(0), 0.0)
+            }
+        }
+    }
+
+    @Test
+    fun incompleteCalendarDayDoesNotTurnMissingPrecipitationIntoZeroOrPartialTotal() {
+        listOf(List<Double?>(24) { 0.0 }, List<Double?>(25) { if (it == 24) null else 0.0 }).forEach { amounts ->
+            val daily = dailyPrecipitationFixture("2026-08-29", amounts).getJSONObject("daily")
+            assertEquals(100.0, daily.getJSONArray("precipitation_sum").getDouble(0), 0.0)
+            assertTrue(daily.getJSONArray("rain_sum").isNull(0))
+            assertTrue(daily.getJSONArray("snowfall_sum").isNull(0))
+            assertEquals(if (amounts.size == 25) 90 else 80,
+                daily.getJSONArray("precipitation_probability_max").getInt(0))
+        }
+    }
+
+    private fun dailyPrecipitationFixture(date: String, amounts: List<Double?>): JSONObject {
+        val start = LocalDate.parse(date).atStartOfDay()
+        val times = JSONArray(List(amounts.size) { start.plusHours(it.toLong()).toString() })
+        val base = precipitationBase().put("utc_offset_seconds", 3600)
+        val models = JSONObject(MODELS)
+        listOf(base.getJSONObject("hourly"), models.getJSONObject("hourly")).forEach { hourly ->
+            hourly.keys().asSequence().toList().filter { it != "time" }.forEach { field ->
+                val value = hourly.getJSONArray(field).opt(0)
+                hourly.put(field, JSONArray(List(amounts.size) { value }))
+            }
+            hourly.put("time", times)
+        }
+        base.getJSONObject("current").put("time", "${date}T12:15")
+        base.getJSONObject("hourly").put("precipitation_probability",
+            JSONArray(List(amounts.size) { if (it == 0) 100 else if (it == 24) 90 else 10 }))
+        val daily = base.getJSONObject("daily")
+        daily.put("time", JSONArray(listOf(date, start.plusDays(1).toLocalDate().toString())))
+        listOf("precipitation_sum", "rain_sum", "snowfall_sum").forEach { field ->
+            daily.put(field, JSONArray(listOf(100.0, 100.0)))
+        }
+        daily.put("precipitation_probability_max", JSONArray(listOf(80, 80)))
+        base.getJSONObject("hourly").put("snowfall", JSONArray(amounts.map { if (it == null) null else 0.0 }))
+        listOf("a", "b", "c").forEach { suffix ->
+            listOf("precipitation", "rain").forEach { field ->
+                base.getJSONObject("hourly").put(field, JSONArray(amounts))
+                models.getJSONObject("hourly").put("${field}_$suffix", JSONArray(amounts))
+            }
+            models.getJSONObject("hourly").put("snowfall_$suffix",
+                JSONArray(amounts.map { if (it == null) null else 0.0 }))
+        }
+        return JSONObject(blendModelForecast(base.toString(), models.toString()).json)
+    }
+
+    @Test
     fun precipitationComponentsFollowTheMedianTotalContributorNotIndependentMedians() {
         val result = JSONObject(blendModelForecast(precipitationBase().toString(), precipitationModels(
             listOf(0.05, 0.1, 0.2),
@@ -362,7 +429,7 @@ class ModelConsensusTest {
         assertEquals(0.1, hourly.getJSONArray("showers").getDouble(0), 0.0)
         assertEquals(0.0, hourly.getJSONArray("snowfall").getDouble(0), 0.0)
         assertEquals(3, hourly.getJSONArray("precipitation_probability").getInt(0))
-        assertEquals(0.1, result.getJSONObject("daily").getJSONArray("precipitation_sum").getDouble(0), 0.0)
+        assertEquals(0.0, result.getJSONObject("daily").getJSONArray("precipitation_sum").getDouble(0), 0.0)
         assertEquals(0.0, result.getJSONObject("current").getDouble("precipitation"), 0.0)
     }
 
@@ -378,7 +445,7 @@ class ModelConsensusTest {
         assertEquals(0.05, hourly.getJSONArray("rain").getDouble(0), 1e-12)
         assertEquals(0.05, hourly.getJSONArray("showers").getDouble(0), 1e-12)
         assertEquals(0.07, hourly.getJSONArray("snowfall").getDouble(0), 1e-12)
-        assertEquals(0.07, result.getJSONObject("daily").getJSONArray("snowfall_sum").getDouble(0), 1e-12)
+        assertTrue(result.getJSONObject("daily").getJSONArray("snowfall_sum").isNull(0))
     }
 
     @Test
@@ -540,6 +607,7 @@ class ModelConsensusTest {
         val base = JSONObject(BASE).also { root ->
             root.getJSONObject("hourly").getJSONArray("precipitation_probability")
                 .put(0, 35).put(1, 45)
+            root.getJSONObject("daily").getJSONArray("precipitation_probability_max").put(0, 65)
         }.toString()
         listOf(0.0, 0.2, JSONObject.NULL).forEach { precipitation ->
             val models = JSONObject(MODELS).also { root ->
@@ -554,7 +622,7 @@ class ModelConsensusTest {
 
             assertEquals(35, probabilities.getInt(0))
             assertEquals(45, probabilities.getInt(1))
-            assertEquals(45, result.getJSONObject("daily").getJSONArray("precipitation_probability_max").getInt(0))
+            assertEquals(65, result.getJSONObject("daily").getJSONArray("precipitation_probability_max").getInt(0))
         }
     }
 

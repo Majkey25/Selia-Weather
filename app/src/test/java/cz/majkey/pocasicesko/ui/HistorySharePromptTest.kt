@@ -26,6 +26,7 @@ class HistorySharePromptTest {
         assertTrue(prompt.contains("2025-12-01 to 2025-12-31 (UTC, inclusive)"))
         assertTrue(prompt.contains("Question: Kolik napršelo?"))
         assertTrue(prompt.contains("Missing days and blank values are not zero"))
+        assertTrue(prompt.contains("If no CSV attachment is accessible, ask the user to attach it"))
     }
 
     @Test

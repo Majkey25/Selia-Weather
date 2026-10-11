@@ -53,6 +53,38 @@ class HistoryArchiveTest {
     }
 
     @Test
+    fun missingDatesAtArchiveEdgesRemainInCoverageAndDoNotBecomeDryDays() {
+        val root = JSONObject(SAMPLE_JSON)
+        val fields = root.getJSONObject("properties").getJSONObject("parameter")
+        fields.keys().forEach { name ->
+            fields.getJSONObject(name).put("20260101", -999.0).put("20260103", -999.0)
+        }
+        val archive = parsePowerHistory(root.toString(), location, 123L)
+        val summary = archive.summary()
+        assertEquals(3, archive.days.size)
+        assertEquals(LocalDate.of(2026, 1, 1), archive.days.first().date)
+        assertEquals(LocalDate.of(2026, 1, 3), archive.days.last().date)
+        assertEquals(1, summary.dayCount)
+        assertEquals(3L, summary.calendarDayCount)
+        assertEquals(1, summary.precipitationDayCount)
+        assertEquals(0.66, requireNotNull(summary.totalPrecipitationMm), 0.0)
+        assertEquals(1, summary.wetDayCount)
+        assertNull(archive.days.first().precipitationMm)
+        assertNull(archive.days.last().precipitationMm)
+    }
+
+    @Test
+    fun rejectsEntirelyMissingMeasurementsEvenWhenDatesExist() {
+        val root = JSONObject(SAMPLE_JSON)
+        val fields = root.getJSONObject("properties").getJSONObject("parameter")
+        fields.keys().forEach { name ->
+            val values = fields.getJSONObject(name)
+            values.keys().forEach { values.put(it, -999.0) }
+        }
+        assertThrows(JSONException::class.java) { parsePowerHistory(root.toString(), location, 123L) }
+    }
+
+    @Test
     fun missingSolarDaysKeepPartialSumAndExplicitCoverage() {
         val archive = parsePowerHistory(SAMPLE_JSON, location, 123L)
         val partial = archive.copy(days = listOf(

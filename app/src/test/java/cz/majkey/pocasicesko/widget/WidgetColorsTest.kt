@@ -36,6 +36,39 @@ class WidgetColorsTest {
     }
 
     @Test
+    fun gradientForegroundAccountsForTheDarkerInterior() {
+        val settings = WidgetSettings(backgroundMode = WidgetBackgroundMode.GRADIENT,
+            backgroundStart = "#EE0000", backgroundEnd = "#008900")
+        val rendered = settings.renderedTextColors()
+        val endpoints = listOf(0xFFEE0000.toInt(), 0xFF008900.toInt())
+        assertTrue(endpoints.minOf { widgetContrastRatio(0xFF000000.toInt(), it) } >
+            endpoints.minOf { widgetContrastRatio(-1, it) })
+        val interior = 0xFF774500.toInt()
+        assertTrue(widgetContrastRatio(0xFF000000.toInt(), interior) < 4.5)
+        assertEquals("#FFFFFFFF", rendered.primaryColor)
+        assertEquals(rendered.primaryColor, rendered.secondaryColor)
+        for (background in endpoints + interior) {
+            assertTrue(widgetContrastRatio(requireNotNull(widgetArgbOrNull(rendered.primaryColor)), background) >= 4.5)
+        }
+    }
+
+    @Test
+    fun gradientMutedTextFallsBackWhenOnlyTheInteriorLosesContrast() {
+        val settings = WidgetSettings(backgroundMode = WidgetBackgroundMode.GRADIENT,
+            backgroundStart = "#FF00FF", backgroundEnd = "#00FF00")
+        val rendered = settings.renderedTextColors()
+        val endpoints = listOf(0xFFFF00FF.toInt(), 0xFF00FF00.toInt())
+        assertTrue(endpoints.all { widgetContrastRatio(0xCC000000.toInt(), it) >= 4.5 })
+        val interior = 0xFFAC53AC.toInt()
+        assertTrue(widgetContrastRatio(0xCC000000.toInt(), interior) < 4.5)
+        assertEquals("#FF000000", rendered.primaryColor)
+        assertEquals(rendered.primaryColor, rendered.secondaryColor)
+        for (background in endpoints + interior) {
+            assertTrue(widgetContrastRatio(requireNotNull(widgetArgbOrNull(rendered.secondaryColor)), background) >= 4.5)
+        }
+    }
+
+    @Test
     fun manualColorsAndUnknownImageBackgroundsRemainUnderUserControl() {
         val manual = WidgetSettings(backgroundMode = WidgetBackgroundMode.LIGHT, primaryColor = "#FF123456", automaticTextColors = false)
         assertEquals(manual, manual.renderedTextColors())

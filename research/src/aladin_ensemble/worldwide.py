@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import replace
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -127,7 +126,7 @@ def download_worldwide_truth(
         )
     rain = tuple(
         item
-        for item in _normalize_hourly_rain(parsed)
+        for item in _exact_hourly_rain(parsed)
         if start_date <= item.valid_time.date() <= end_date
     )
     observations = select_daily_synoptic_observations(
@@ -208,23 +207,13 @@ def _drop_unpaired_wind_observations(
     )
 
 
-def _normalize_hourly_rain(
+def _exact_hourly_rain(
     observations: Sequence[Observation],
 ) -> tuple[Observation, ...]:
-    normalized: list[Observation] = []
-    for item in observations:
-        if item.variable != "precipitation" or item.interval != timedelta(hours=1):
-            continue
-        if item.valid_time.minute <= 10:
-            valid_time = item.valid_time.replace(minute=0, second=0, microsecond=0)
-        elif item.valid_time.minute >= 50:
-            valid_time = (item.valid_time + timedelta(hours=1)).replace(
-                minute=0,
-                second=0,
-                microsecond=0,
-            )
-        else:
-            continue
-        if abs((valid_time - item.valid_time).total_seconds()) <= 600:
-            normalized.append(replace(item, valid_time=valid_time))
-    return tuple(normalized)
+    return tuple(
+        item
+        for item in observations
+        if item.variable == "precipitation"
+        and item.interval == timedelta(hours=1)
+        and not any((item.valid_time.minute, item.valid_time.second, item.valid_time.microsecond))
+    )

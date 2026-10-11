@@ -6,8 +6,11 @@ import android.content.ContextWrapper
 import android.content.Intent
 import android.content.res.Configuration
 import cz.majkey.pocasicesko.data.DailyWeather
+import cz.majkey.pocasicesko.data.WeatherRepository
 import java.util.Locale
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -21,6 +24,36 @@ class NotificationRecoveryTest {
     private val context get() = object : ContextWrapper(base) {
         override fun getSharedPreferences(name: String, mode: Int) =
             super.getSharedPreferences("notification_recovery_test_$name", mode)
+    }
+
+    @Test
+    fun disabledRainSchedulingDoesNotReadForecastPreferences() {
+        var forecastReads = 0
+        val context = object : ContextWrapper(context) {
+            override fun getApplicationContext(): Context = this
+            override fun getSharedPreferences(name: String, mode: Int): android.content.SharedPreferences {
+                if (name == WeatherRepository.PREFERENCES_NAME) forecastReads++
+                return super.getSharedPreferences(name, mode)
+            }
+        }
+        check(base.packageName.endsWith(".debug"))
+        val scheduler = base.getSystemService(JobScheduler::class.java)
+        val previous = scheduler.getPendingJob(WeatherAlertScheduler.JOB_ID)
+        val previousSettings = WeatherAlertSettings.load(context)
+        try {
+            for (settings in listOf(
+                WeatherAlertSettings(backgroundAlertsAllowed = false),
+                WeatherAlertSettings(backgroundAlertsAllowed = true, rainEnabled = false),
+            )) {
+                settings.save(context)
+                WeatherAlertScheduler.sync(context)
+                assertEquals(0, forecastReads)
+            }
+        } finally {
+            previousSettings.save(context)
+            scheduler.cancel(WeatherAlertScheduler.JOB_ID)
+            previous?.let(scheduler::schedule)
+        }
     }
 
     @Test
@@ -51,6 +84,23 @@ class NotificationRecoveryTest {
         preferences.edit().putString("briefing_day", LocalDate.now().toString())
             .putLong("briefing_scheduled_at", System.currentTimeMillis() - 2 * 60 * 60 * 1000L).commit()
         assertNull(WeatherRefreshScheduler.pendingBriefing(context))
+    }
+
+    @Test
+    fun changingBriefingTimeRejectsTheOldPendingDelivery() {
+        val context = context
+        WeatherAlertSettings(backgroundAlertsAllowed = true).save(context)
+        val scheduledAt = System.currentTimeMillis() / 60_000 * 60_000
+        val oldTime = Instant.ofEpochMilli(scheduledAt).atZone(ZoneId.systemDefault()).toLocalTime()
+        val briefing = context.getSharedPreferences("daily_briefing", Context.MODE_PRIVATE)
+        briefing.edit().putBoolean("enabled", true)
+            .putInt("time_minutes", (oldTime.hour * 60 + oldTime.minute + 60) % 1440).commit()
+        val refresh = context.getSharedPreferences("weather_refresh", Context.MODE_PRIVATE)
+        refresh.edit().putString("briefing_day", LocalDate.now().toString())
+            .putLong("briefing_scheduled_at", scheduledAt).commit()
+
+        assertNull(WeatherRefreshScheduler.pendingBriefing(context))
+        assertFalse(refresh.contains("briefing_scheduled_at"))
     }
 
     @Test

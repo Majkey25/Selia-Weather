@@ -36,6 +36,7 @@ import androidx.compose.material.icons.rounded.Air
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.WbSunny
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.DatePickerDialog
@@ -77,6 +78,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -86,7 +88,6 @@ import cz.majkey.pocasicesko.astro.MoonDetails
 import cz.majkey.pocasicesko.astro.MoonPhaseKey
 import cz.majkey.pocasicesko.data.CzechLocation
 import cz.majkey.pocasicesko.data.CalibrationTruthClass
-import cz.majkey.pocasicesko.data.DailyWeather
 import cz.majkey.pocasicesko.data.ForecastCalculation
 import cz.majkey.pocasicesko.data.ForecastCalculationMode
 import cz.majkey.pocasicesko.data.ForecastFallbackReason
@@ -95,7 +96,7 @@ import cz.majkey.pocasicesko.data.HistoricalDay
 import cz.majkey.pocasicesko.data.HistoryArchive
 import cz.majkey.pocasicesko.data.HistorySummary
 import cz.majkey.pocasicesko.data.HourlyWeather
-import cz.majkey.pocasicesko.data.hasPrecipitationEvidence
+import cz.majkey.pocasicesko.data.conditionFor
 import cz.majkey.pocasicesko.data.WeatherSnapshot
 import cz.majkey.pocasicesko.data.summary
 import cz.majkey.pocasicesko.data.inDateRange
@@ -132,18 +133,6 @@ internal fun WeatherDetailSheet(
     onDismiss: () -> Unit,
 ) {
     val locale = LocalConfiguration.current.locales[0]
-    val at = remember(snapshot.current.time, snapshot.timezone) {
-        runCatching {
-            LocalDateTime.parse(snapshot.current.time).atZone(ZoneId.of(snapshot.timezone))
-        }.getOrNull()
-    }
-    val moon = remember(at, location) {
-        at?.let { time ->
-            runCatching {
-                MoonCalculator.calculate(time, location.latitude, location.longitude)
-            }.getOrNull()
-        }
-    }
     val today = snapshot.daily.firstOrNull { it.date == currentTime?.toLocalDate()?.toString() }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -155,6 +144,8 @@ internal fun WeatherDetailSheet(
     var historyShareError by remember(location) { mutableStateOf(false) }
     var historySharing by remember(location) { mutableStateOf(false) }
     var pendingShare by remember(location) { mutableStateOf<PendingHistoryShare?>(null) }
+    var aiShare by remember(location) { mutableStateOf<PendingHistoryShare?>(null) }
+    var aiTargets by remember(location) { mutableStateOf<List<HistoryAiTarget>>(emptyList()) }
     var historyQuestion by rememberSaveable(location.latitude, location.longitude) { mutableStateOf("") }
     var historyPeriod by rememberSaveable(location.latitude, location.longitude) { mutableStateOf(HistoryPeriod.ALL) }
     var customStart by rememberSaveable(location.latitude, location.longitude) { mutableStateOf<Long?>(null) }
@@ -164,18 +155,20 @@ internal fun WeatherDetailSheet(
         historyDateFromUtcMillis(start)..historyDateFromUtcMillis(end)
     } }
     val listState = rememberLazyListState()
-    fun shareArchive(archive: HistoryArchive, question: String, range: ClosedRange<LocalDate>) {
+    fun shareArchive(archive: HistoryArchive, question: String, range: ClosedRange<LocalDate>, target: HistoryAiTarget? = null) {
         if (historySharing) return
         historySharing = true
         historyShareError = false
         scope.launch {
             try {
-                context.startActivity(createHistoryShareIntent(context, archive, shareChooserTitle, question, range))
+                context.startActivity(createHistoryShareIntent(context, archive, shareChooserTitle, question, range, target))
             } catch (_: IOException) {
                 historyShareError = true
             } catch (_: ActivityNotFoundException) {
                 historyShareError = true
             } catch (_: IllegalArgumentException) {
+                historyShareError = true
+            } catch (_: SecurityException) {
                 historyShareError = true
             } finally {
                 historySharing = false
@@ -250,11 +243,18 @@ internal fun WeatherDetailSheet(
                         }
                     }
                 } else {
-                    item { AtAGlanceSection(snapshot, today, units, locale, currentTime?.toString() ?: snapshot.current.time) }
+                    item { AtAGlanceSection(snapshot, units, locale, currentTime?.toString() ?: snapshot.current.time) }
                     item {
-                        DetailSection(stringResource(R.string.temperature), collapsible = true) {
+                        DetailSection(stringResource(R.string.temperature), collapsible = true, icon = Icons.Rounded.Thermostat) {
                             DetailRow(stringResource(R.string.temperature), units.temperature(snapshot.current.temperature))
                             DetailRow(stringResource(R.string.feels_like), units.temperature(snapshot.current.feelsLike))
+                            Text(
+                                stringResource(R.string.feels_like_model_note),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 11.sp,
+                                lineHeight = 16.sp,
+                                modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
+                            )
                             OptionalDetailRow(
                                 stringResource(R.string.dew_point),
                                 snapshot.current.dewPoint?.let(units::temperature),
@@ -277,7 +277,7 @@ internal fun WeatherDetailSheet(
                         }
                     }
                     item {
-                        DetailSection(stringResource(R.string.precipitation_and_clouds), collapsible = true) {
+                        DetailSection(stringResource(R.string.precipitation_and_clouds), collapsible = true, icon = Icons.Rounded.WaterDrop) {
                             DetailRow(
                                 stringResource(R.string.precipitation),
                                 units.precipitation(snapshot.current.precipitation),
@@ -334,7 +334,7 @@ internal fun WeatherDetailSheet(
                         }
                     }
                     item {
-                        DetailSection(stringResource(R.string.wind), collapsible = true) {
+                        DetailSection(stringResource(R.string.wind), collapsible = true, icon = Icons.Rounded.Air) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -383,7 +383,7 @@ internal fun WeatherDetailSheet(
                         }
                     }
                     item {
-                        DetailSection(stringResource(R.string.detail_group_sun_moon), collapsible = true) {
+                        DetailSection(stringResource(R.string.detail_group_sun_moon), collapsible = true, icon = Icons.Rounded.WbSunny) {
                             DetailSection(stringResource(R.string.sun)) {
                                 OptionalDetailRow(stringResource(R.string.sunrise), today?.sunrise?.takeLast(5))
                                 OptionalDetailRow(stringResource(R.string.sunset), today?.sunset?.takeLast(5))
@@ -402,11 +402,17 @@ internal fun WeatherDetailSheet(
                                     },
                                 )
                             }
+                            val moon = remember(snapshot.current.time, snapshot.timezone, location) {
+                                runCatching {
+                                    val at = LocalDateTime.parse(snapshot.current.time).atZone(ZoneId.of(snapshot.timezone))
+                                    MoonCalculator.calculate(at, location.latitude, location.longitude)
+                                }.getOrNull()
+                            }
                             MoonSection(moon, locale)
                         }
                     }
                     item {
-                        DetailSection(stringResource(R.string.detail_group_other), collapsible = true) {
+                        DetailSection(stringResource(R.string.detail_group_other), collapsible = true, icon = Icons.Rounded.Speed) {
                             DetailSection(stringResource(R.string.atmosphere)) {
                                 DetailRow(stringResource(R.string.humidity), "${snapshot.current.humidity} %")
                                 DetailRow(stringResource(R.string.pressure), units.pressure(snapshot.current.pressure))
@@ -485,7 +491,7 @@ internal fun WeatherDetailSheet(
                     }
                     snapshot.calculation?.let { calculation ->
                         item {
-                            DetailSection(stringResource(R.string.detail_group_sources), collapsible = true) {
+                            DetailSection(stringResource(R.string.detail_group_sources), collapsible = true, icon = Icons.Rounded.Info) {
                                 ForecastCalculationSection(calculation)
                             }
                         }
@@ -507,11 +513,37 @@ internal fun WeatherDetailSheet(
             },
             confirmButton = {
                 TextButton(onClick = {
+                    if (historySharing) return@TextButton
                     pendingShare = null
-                    shareArchive(share.archive, share.question, share.range)
+                    historySharing = true
+                    historyShareError = false
+                    scope.launch {
+                        try {
+                            aiTargets = historyAiTargets(context)
+                            aiShare = share
+                        } catch (_: SecurityException) {
+                            historyShareError = true
+                        } finally {
+                            historySharing = false
+                        }
+                    }
                 }) { Text(stringResource(R.string.history_choose_ai_action)) }
             },
             dismissButton = { TextButton(onClick = { pendingShare = null }) { Text(stringResource(android.R.string.cancel)) } },
+        )
+    }
+    aiShare?.let { share ->
+        HistoryAiChooserDialog(
+            targets = aiTargets,
+            onSelect = { target ->
+                aiShare = null
+                shareArchive(share.archive, share.question, share.range, target)
+            },
+            onExport = {
+                aiShare = null
+                shareArchive(share.archive, share.question, share.range)
+            },
+            onDismiss = { aiShare = null },
         )
     }
     val history = (historyState as? HistoryUiState.Content)?.archive
@@ -1032,7 +1064,6 @@ internal fun historicalTemperatureRange(minimum: Double?, maximum: Double?, unit
 @Composable
 private fun AtAGlanceSection(
     snapshot: WeatherSnapshot,
-    today: DailyWeather?,
     units: WeatherUnitFormatter,
     locale: java.util.Locale,
     referenceTime: String,
@@ -1041,41 +1072,68 @@ private fun AtAGlanceSection(
         ?.let { "$it %" }
     val nextRain = nextWetHour(snapshot.hourly, referenceTime)?.let { nextPrecipitationLabel(it, locale) }
         ?: stringResource(if (maximumProbability == null) R.string.unavailable else R.string.no_rain_next_24h)
+    val condition = conditionFor(snapshot.current.weatherCode, snapshot.current.isDay)
     DetailSection(stringResource(R.string.at_a_glance)) {
-        Row(Modifier.fillMaxWidth()) {
-            GlanceValue(stringResource(R.string.next_rain), nextRain, Modifier.weight(1f))
+        Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            WeatherIcon(condition.kind, snapshot.current.isDay, contentDescription = null,
+                modifier = Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary,
+                conditionKey = condition.key)
+            Column(Modifier.weight(1f)) {
+                Text(units.temperature(snapshot.current.temperature), fontSize = 48.sp, lineHeight = 56.sp,
+                    fontWeight = FontWeight.Light)
+                Text(stringResource(condition.labelResource()), fontSize = 16.sp, lineHeight = 22.sp)
+                Text("${stringResource(R.string.feels_like)} ${units.temperature(snapshot.current.feelsLike)}",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp, lineHeight = 20.sp)
+            }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            GlanceValue(stringResource(R.string.precipitation), units.precipitation(snapshot.current.precipitation),
+                Modifier.weight(1f), Icons.Rounded.WaterDrop)
             GlanceValue(
                 stringResource(R.string.max_precipitation_probability),
                 maximumProbability ?: stringResource(R.string.unavailable),
                 Modifier.weight(1f),
+                Icons.Rounded.WaterDrop,
             )
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        Row(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            GlanceValue(stringResource(R.string.wind), units.windSpeed(snapshot.current.windSpeed),
+                Modifier.weight(1f), Icons.Rounded.Air)
             GlanceValue(
-                stringResource(R.string.uv_index_max),
-                today?.uvIndexMax?.let { String.format(locale, "%.1f", it) }
+                stringResource(R.string.uv_index),
+                snapshot.current.uvIndex?.let { String.format(locale, "%.1f", it) }
                     ?: stringResource(R.string.unavailable),
                 Modifier.weight(1f),
+                Icons.Rounded.WbSunny,
             )
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            GlanceValue(stringResource(R.string.next_rain), nextRain, Modifier.weight(1f), Icons.Rounded.WaterDrop)
             GlanceValue(
                 stringResource(R.string.freezing_level),
                 snapshot.current.freezingLevelHeightMeters?.let { units.distance(it / 1_000.0) }
                     ?: stringResource(R.string.unavailable),
                 Modifier.weight(1f),
+                Icons.Rounded.Thermostat,
             )
         }
     }
 }
 
 @Composable
-private fun GlanceValue(label: String, value: String, modifier: Modifier = Modifier) {
-    Column(modifier.padding(vertical = 12.dp, horizontal = 2.dp)) {
-        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+private fun GlanceValue(label: String, value: String, modifier: Modifier = Modifier, icon: ImageVector? = null) {
+    Column(modifier.padding(vertical = 10.dp, horizontal = 2.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.Top) {
+            icon?.let { Icon(it, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp)) }
+            Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, lineHeight = 17.sp,
+                modifier = Modifier.weight(1f))
+        }
         Text(
             value,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 16.sp,
+            fontWeight = FontWeight.Medium,
+            fontSize = 17.sp,
+            lineHeight = 23.sp,
             modifier = Modifier.padding(top = 3.dp),
         )
     }
@@ -1083,8 +1141,7 @@ private fun GlanceValue(label: String, value: String, modifier: Modifier = Modif
 
 internal fun nextWetHour(hourly: List<HourlyWeather>, currentTime: String): HourlyWeather? =
     detailUpcomingHours(hourly, currentTime).firstOrNull { hour ->
-        hasPrecipitationEvidence(hour.weatherCode, hour.precipitation, hour.rain, hour.showers, hour.snowfall) ||
-            hour.precipitationProbability > 0
+        hourlyRainLevel(hour) != HourlyRainLevel.NONE
     }
 
 internal fun nextPrecipitationLabel(hour: HourlyWeather, locale: java.util.Locale): String? {
@@ -1167,24 +1224,24 @@ private fun MoonSection(moon: MoonDetails?, locale: java.util.Locale) {
 }
 
 @Composable
-private fun DetailSection(title: String, collapsible: Boolean = false, content: @Composable () -> Unit) {
+private fun DetailSection(title: String, collapsible: Boolean = false, icon: ImageVector? = null, content: @Composable () -> Unit) {
     var expanded by rememberSaveable(title) { mutableStateOf(false) }
     val expansionState = stringResource(if (expanded) R.string.hour_expanded else R.string.hour_collapsed)
     Column {
-        if (collapsible) {
-            Row(
-                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
-                    .clickable { expanded = !expanded }
-                    .semantics { stateDescription = expansionState },
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(title, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                Icon(if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, contentDescription = null)
-            }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        } else {
-            Text(title, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+        Row(
+            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).then(
+                if (collapsible) Modifier.clickable { expanded = !expanded }
+                    .semantics { stateDescription = expansionState } else Modifier,
+            ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            icon?.let { Icon(it, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp)) }
+            Text(title, fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+            if (collapsible) Icon(if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                contentDescription = null, modifier = Modifier.size(20.dp))
         }
+        if (collapsible) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
         if (!collapsible || expanded) {
             Spacer(Modifier.height(8.dp))
             content()
@@ -1195,17 +1252,17 @@ private fun DetailSection(title: String, collapsible: Boolean = false, content: 
 @Composable
 private fun DetailRow(label: String, value: String, icon: ImageVector? = null) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 11.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         icon?.let {
             Icon(it, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(10.dp))
         }
-        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-        Text(value, fontWeight = FontWeight.Medium)
+        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f),
+            fontSize = 14.sp, lineHeight = 20.sp)
+        Text(value, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f), textAlign = TextAlign.End,
+            fontSize = 14.sp, lineHeight = 20.sp)
     }
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }

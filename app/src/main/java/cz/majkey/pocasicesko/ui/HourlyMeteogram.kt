@@ -6,7 +6,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -34,7 +33,6 @@ internal fun HourlyMeteogram(
     precipitationHours: List<HourlyWeather?> = hours,
 ) {
     val lineColor = MaterialTheme.colorScheme.primary
-    val surfaceColor = MaterialTheme.colorScheme.surface
     val dividerColor = MaterialTheme.colorScheme.outlineVariant
     Canvas(modifier.clearAndSetSemantics { }) {
         if (hours.isEmpty() || size.width <= 0f || size.height <= 0f) return@Canvas
@@ -66,7 +64,11 @@ internal fun HourlyMeteogram(
                 )
             }
         }
-        if (geometry.hours.size < 2) return@Canvas
+        if (geometry.hours.size == 1) {
+            val hour = geometry.hours.single()
+            drawCircle(lineColor, radius = 2.dp.toPx(), center = Offset(hour.centerX, hour.temperatureY))
+            return@Canvas
+        }
         val path = Path().apply {
             geometry.hours.forEachIndexed { index, hour ->
                 if (index == 0) moveTo(hour.centerX, hour.temperatureY)
@@ -76,16 +78,8 @@ internal fun HourlyMeteogram(
         drawPath(
             path = path,
             color = lineColor,
-            style = Stroke(width = 1.7.dp.toPx(), cap = StrokeCap.Round),
+            style = Stroke(width = 1.25.dp.toPx(), cap = StrokeCap.Round),
         )
-        geometry.hours.forEach { hour ->
-            drawCircle(
-                color = surfaceColor,
-                radius = 3.dp.toPx(),
-                center = Offset(hour.centerX, hour.temperatureY),
-            )
-            drawCircle(lineColor, radius = 1.5.dp.toPx(), center = Offset(hour.centerX, hour.temperatureY))
-        }
     }
 }
 

@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from statistics import fmean
 
 from .align import DateRange
+from .backtest import forecast_issued_at, truth_time
 from .baselines import ScalarForecastCase
 from .train import WeightFit, blend_scalar, fit_scalar_weights
 
@@ -24,7 +25,7 @@ def fit_local_shrinkage(
     model_ids: tuple[str, ...],
     validation_windows: tuple[DateRange, ...],
 ) -> dict[str, LocalShrinkage]:
-    """Receive training cases only; fit every validation prefix strictly before its window."""
+    """Fit each prefix using only truth preceding the window's earliest forecast issuance."""
     pooled = tuple(case for cases in training.values() for case in cases)
     if not training or any(not location or not cases for location, cases in training.items()):
         raise ValueError("named locations with training cases are required")
@@ -43,17 +44,17 @@ def fit_local_shrinkage(
         location: {fraction: [] for fraction in (0.0, 0.5, 1.0)} for location in training
     }
     for window in validation_windows:
-        regional = _fit(
-            tuple(case for case in pooled if case.forecast_date < window.start), model_ids
-        )
+        validation = {
+            location: tuple(case for case in cases if window.contains(case.forecast_date))
+            for location, cases in training.items()
+        }
+        if any(not cases for cases in validation.values()):
+            raise ValueError("each location requires cases in every validation window")
+        issued_at = min(forecast_issued_at(case) for cases in validation.values() for case in cases)
+        regional = _fit(tuple(case for case in pooled if truth_time(case) < issued_at), model_ids)
         for location, cases in training.items():
-            local = _fit(
-                tuple(case for case in cases if case.forecast_date < window.start), model_ids
-            )
-            validation = tuple(case for case in cases if window.contains(case.forecast_date))
-            if not validation:
-                raise ValueError("each location requires cases in every validation window")
-            for case in validation:
+            local = _fit(tuple(case for case in cases if truth_time(case) < issued_at), model_ids)
+            for case in validation[location]:
                 values = _values(case, model_ids)
                 regional_value, local_value = (
                     blend_scalar(regional, values),

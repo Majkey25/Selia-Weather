@@ -5,7 +5,7 @@ import java.util.Locale
 
 internal fun historyCsv(archive: HistoryArchive): String = buildList {
     add(
-        "location_name,latitude,longitude,source,source_version,accessed_at_utc,date," +
+        "location_name,latitude,longitude,source,source_version,accessed_at_utc,date_utc," +
             "temperature_mean_c,temperature_max_c,temperature_min_c,precipitation_mm," +
             "relative_humidity_percent,wind_speed_m_s,solar_energy_mj_m2," +
             "dew_point_c,wet_bulb_temperature_c,surface_pressure_hpa,wind_speed_max_m_s," +
@@ -43,7 +43,7 @@ internal fun historyCsv(archive: HistoryArchive): String = buildList {
 
 internal fun historyChatPrompt(archive: HistoryArchive): String {
     val summary = archive.summary()
-    return "Analyze the attached daily weather archive for ${archive.location.name} " +
+    return "Analyze the shared daily weather archive for ${archive.location.name} " +
         "(${archive.location.latitude}, ${archive.location.longitude}) from " +
         "${archive.days.first().date} to ${archive.days.last().date}. " +
         "Calculate answers from the rows and state the covered dates. " +
@@ -55,6 +55,7 @@ internal fun historyChatPrompt(archive: HistoryArchive): String {
         "Missing days and blank values are not zero. Report coverage for each requested metric and range; " +
         "do not present partial sums as complete-period totals. " +
         "Be ready to calculate precipitation for any requested date range. " +
+        "A wet day has precipitation of at least $WET_DAY_THRESHOLD_MM mm. " +
         "NASA POWER values are model and satellite grid estimates, not local station observations. " +
         "Columns include dew point, wet-bulb temperature, surface pressure, wind maxima/minima and direction, " +
         "clear-sky solar energy and cloud cover where available. Surface pressure is not sea-level pressure. " +

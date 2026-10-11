@@ -10,6 +10,7 @@
     <string name="widget_placeholder_time">--:--</string>
     <string name="nav_weather">Wetter</string>
     <string name="nav_maps">Radar</string>
+    <string name="nav_ai">KI</string>
     <string name="open_settings">Einstellungen öffnen</string>
     <string name="refresh_forecast">Vorhersage aktualisieren</string>
     <string name="forecast_unavailable">Vorhersage nicht verfügbar</string>
@@ -51,6 +52,7 @@
     <string name="duration_hours_minutes">%1$dh %2$02dm</string>
     <string name="temperature">Temperatur</string>
     <string name="feels_like">Gefühlt</string>
+    <string name="feels_like_model_note">Modellschätzung aus Temperatur, Luftfeuchtigkeit, Wind und Sonneneinstrahlung. Messwerte naher Stationen ändern diese Schätzung nicht.</string>
     <string name="cloud_cover">Bewölkung</string>
     <string name="wind_gusts">Windböen</string>
     <string name="sunrise">Sonnenaufgang</string>
@@ -398,7 +400,10 @@
     <string name="history_loading_archive">Wetterarchiv wird vorbereitet…</string>
     <string name="history_choose_ai_title">KI-App auswählen</string>
     <string name="history_choose_ai_action">App auswählen</string>
-    <string name="history_choose_ai_message">Das vollständige Fünfjahresarchiv für %1$s (%2$d Tageswerte), Ihre Frage und der gewählte UTC-Zeitraum werden geteilt.\n\nWählen Sie ChatGPT, Gemini, Claude oder Grok, wenn die installierte App CSV-Dateien annimmt. Fehlt sie in der Auswahl oder kann sie den Anhang nicht öffnen, speichern Sie die CSV über eine kompatible App und laden Sie sie manuell in Ihre KI-App hoch.</string>
+    <string name="history_choose_ai_message">Das vollständige Fünfjahresarchiv für %1$s (%2$d Tageswerte), die Standortkoordinaten, Ihre Frage und der gewählte UTC-Zeitraum werden geteilt.\n\nPrüfen Sie Datei und Frage in der gewählten KI-App vor dem Senden.</string>
+    <string name="history_ai_apps_description">Hier erscheinen nur installierte KI-Apps, die CSV-Dateien annehmen. Prüfen Sie vor dem Senden, ob Datei und Frage angekommen sind.</string>
+    <string name="history_ai_no_apps">Keine installierte KI-App nimmt CSV-Dateien an. Exportieren Sie die Datei und hängen Sie sie in Ihrer KI-App manuell an.</string>
+    <string name="history_export_csv">CSV exportieren</string>
     <string name="detail_group_sun_moon">Sonne und Mond</string>
     <string name="detail_group_other">Weitere Bedingungen</string>
     <string name="detail_group_sources">Quellen und Diagnostik</string>

@@ -1,5 +1,8 @@
 package cz.majkey.pocasicesko.ui
 
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.ui.graphics.Color
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -7,6 +10,28 @@ import org.junit.Test
 import java.io.File
 
 class RadarScreenTest {
+    @Test
+    fun appearanceBoundsNativeInsetsAndKeepsThemeColors() {
+        val script = radarAppearanceScript(darkColorScheme(primary = Color(0xFF123456)), -1, 300)
+        val values = JSONObject(script.substringAfter("window.setAppearance(").substringBeforeLast(");"))
+
+        assertEquals(0, values.getInt("topInset"))
+        assertEquals(240, values.getInt("bottomInset"))
+        assertEquals("#123456", values.getString("accent"))
+    }
+
+    @Test
+    fun appearanceCarriesNullableTimezoneAsJson() {
+        val timezone = "Europe/Prague"
+        val script = radarAppearanceScript(darkColorScheme(), 64, 76, timezone)
+        val values = JSONObject(script.substringAfter("window.setAppearance(").substringBeforeLast(");"))
+        assertEquals(timezone, values.getString("timezone"))
+
+        val unknown = radarAppearanceScript(darkColorScheme(), 64, 76, null)
+        val unknownValues = JSONObject(unknown.substringAfter("window.setAppearance(").substringBeforeLast(");"))
+        assertTrue(unknownValues.isNull("timezone"))
+    }
+
     @Test
     fun localizedRadarUrlUsesSupportedLanguageOrEnglishFallback() {
         assertEquals(
@@ -34,13 +59,13 @@ class RadarScreenTest {
         assertTrue(source.contains("/v2/coverage/0/"))
         assertTrue(source.contains("#map { flex: 1 1 auto; min-height: 0"))
         assertTrue(source.contains("document.documentElement.style.height = height + 'px'"))
-        assertTrue(source.contains(".panel { position: absolute"))
+        assertTrue(source.contains(".panel, .details { position: absolute"))
+        assertTrue(source.contains("bottom: calc(var(--bottom-inset) + 12px)"))
         assertFalse(source.contains("getElementById('map').style.height ="))
         assertTrue(source.contains("L.map('map'"))
         assertTrue(source.contains("setView([latitude, longitude], 6)"))
         assertTrue(source.contains("https://tile.openstreetmap.org/{z}/{x}/{y}.png"))
         assertTrue(source.contains("RainViewer"))
-        assertTrue(source.contains("var forecastLabel = FORECAST_TEXT[1]"))
         assertTrue(source.contains("radar-forecast.js"))
         assertTrue(source.contains("https://maps.dwd.de"))
         assertFalse(source.contains("radar.nowcast"))
@@ -52,14 +77,48 @@ class RadarScreenTest {
     fun radarAssetBoundsLayersAndRejectsStaleManifestResponses() {
         val asset = File(System.getProperty("user.dir"), "src/main/assets/radar.html")
         assertTrue("Missing radar asset: ${asset.absolutePath}", asset.isFile)
-        val source = asset.readText()
+        val source = asset.readText().replace("\r\n", "\n")
 
-        assertTrue(source.contains("var requestToken = 0;"))
-        assertTrue(source.contains("if (token !== requestToken) return;"))
+        assertTrue(source.contains("var observedState = { request: null, token: 0"))
+        assertTrue(source.contains("var forecastState = { request: null, token: 0"))
+        assertTrue(source.contains("if (token !== state.token) return;"))
         assertTrue(source.contains("function clearRadarLayer()"))
-        assertTrue(source.contains("map.removeLayer(radarLayer)"))
-        assertTrue(source.contains("frames = manifest.radar.past.slice(-MAX_FRAMES);"))
-        assertTrue(source.contains("var MAX_FRAMES = 20;"))
+        assertTrue(source.contains("map.removeLayer(layer)"))
+        assertTrue(source.contains("var past = manifest.radar.past.slice(-MAX_FRAMES);"))
+        assertTrue(source.contains("observedIsUsable(observedCache) ? observedCache.frames : []"))
+        assertTrue(source.contains(".concat(forecastCache ?"))
+        assertTrue(source.contains("var MAX_FRAMES = 20,"))
+        assertTrue(source.contains("MAX_FRAME_AGE_SECONDS = 3600"))
+        val observedValidity = source.substringAfter("function observedIsUsable(cached) {")
+            .substringBefore("function forecastIsUsable(cached)")
+        assertTrue(observedValidity.contains("cached.loadedAt <= now"))
+        assertTrue(observedValidity.contains("cached.frames.length && now / 1000 - cached.frames[cached.frames.length - 1].time <= MAX_FRAME_AGE_SECONDS"))
+        assertFalse(observedValidity.contains("REFRESH_INTERVAL_MS"))
+        val forecastValidity = source.substringAfter("function forecastIsUsable(cached) {")
+            .substringBefore("function refreshDue(cached)")
+        assertTrue(forecastValidity.contains("cached.loadedAt <= now"))
+        assertTrue(forecastValidity.contains("now / 1000 - cached.run <= 12 * 3600"))
+        assertTrue(forecastValidity.contains("cached.frames.length >= 3 && cached.frames.length <= RadarForecast.maxFrames"))
+        assertTrue(forecastValidity.contains("cached.frames[cached.frames.length - 1].time >= now / 1000 + 12 * 3600"))
+        assertFalse(forecastValidity.contains("REFRESH_INTERVAL_MS"))
+        val expiry = source.substringAfter("function ensureSourcesFresh(fetchMissing) {")
+            .substringBefore("function commitFrame(layer)")
+        assertTrue(expiry.contains("if (observedCache && !observedIsUsable(observedCache)) {\n        observedCache = null;"))
+        assertTrue(expiry.contains("if (forecastModels[key] && !forecastIsUsable(forecastModels[key])) {\n          forecastModels[key] = null;"))
+        assertFalse(source.contains("function setMode("))
+        assertTrue(source.contains("function pageActive() { return nativeActive && !document.hidden; }"))
+        assertTrue(source.contains("window.setNativeActive = function(active)"))
+        assertTrue(source.contains("parameters.get('nativeActive') !== '0'"))
+        val hidden = source.substringAfter("function updateVisibility() {")
+            .substringAfter("if (!pageActive()) {").substringBefore("} else {")
+        assertTrue(hidden.contains("stopPlay();"))
+        assertTrue(hidden.contains("clearPending();"))
+        assertTrue(hidden.contains("clearTimeout(expiryTimer); expiryTimer = null;"))
+        assertTrue(hidden.contains("cancelRequest(observedState); cancelRequest(forecastState);"))
+        val activityHook = source.substringAfter("window.setNativeActive = function(active) {")
+            .substringBefore("document.addEventListener('visibilitychange'")
+        assertTrue(activityHook.contains("typeof active !== 'boolean'"))
+        assertTrue(activityHook.contains("nativeActive = active; updateVisibility();"))
     }
 
     @Test
@@ -71,6 +130,8 @@ class RadarScreenTest {
 
         assertTrue(source.contains(".fillMaxSize()"))
         assertFalse(source.contains(".aspectRatio("))
+        assertFalse(source.contains("else 84.dp"))
+        assertTrue(source.contains("bottomInsetDp = if (fullscreen) 0 else bottomInsetDp"))
     }
 
     @Test

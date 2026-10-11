@@ -10,6 +10,7 @@
     <string name="widget_placeholder_time">--:--</string>
     <string name="nav_weather">Tiempo</string>
     <string name="nav_maps">Radar</string>
+    <string name="nav_ai">IA</string>
     <string name="open_settings">Abrir ajustes</string>
     <string name="refresh_forecast">Actualizar pronóstico</string>
     <string name="forecast_unavailable">Pronóstico no disponible</string>
@@ -51,6 +52,7 @@
     <string name="duration_hours_minutes">%1$dh %2$02dm</string>
     <string name="temperature">Temperatura</string>
     <string name="feels_like">Sensación térmica</string>
+    <string name="feels_like_model_note">Estimación del modelo a partir de temperatura, humedad, viento y radiación solar. Las mediciones de estaciones cercanas no cambian esta estimación.</string>
     <string name="cloud_cover">Nubosidad</string>
     <string name="wind_gusts">Ráfagas de viento</string>
     <string name="sunrise">Amanecer</string>
@@ -398,7 +400,10 @@
     <string name="history_loading_archive">Preparando el archivo meteorológico…</string>
     <string name="history_choose_ai_title">Elegir una app de IA</string>
     <string name="history_choose_ai_action">Elegir app</string>
-    <string name="history_choose_ai_message">Se compartirá el archivo completo de cinco años de %1$s (%2$d registros diarios), tu pregunta y el período UTC seleccionado.\n\nElige ChatGPT, Gemini, Claude o Grok si la app instalada acepta archivos CSV. Si no aparece o no abre el adjunto, guarda el CSV mediante una app compatible para compartir y súbelo manualmente a tu app de IA.</string>
+    <string name="history_choose_ai_message">Se compartirá el archivo completo de cinco años de %1$s (%2$d registros diarios), las coordenadas, tu pregunta y el período UTC seleccionado.\n\nComprueba el archivo y la pregunta en la app de IA antes de enviar.</string>
+    <string name="history_ai_apps_description">Solo aparecen apps de IA instaladas que aceptan CSV. Comprueba que el archivo y la pregunta hayan llegado antes de enviar.</string>
+    <string name="history_ai_no_apps">Ninguna app de IA instalada acepta CSV. Exporta el archivo y adjúntalo manualmente en tu app de IA.</string>
+    <string name="history_export_csv">Exportar CSV</string>
     <string name="detail_group_sun_moon">Sol y Luna</string>
     <string name="detail_group_other">Otras condiciones</string>
     <string name="detail_group_sources">Fuentes y diagnóstico</string>

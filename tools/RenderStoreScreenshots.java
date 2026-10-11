@@ -21,9 +21,9 @@ public final class RenderStoreScreenshots {
     private static final Color BACKGROUND = new Color(0xF7F5F1);
     private static final Color TEXT = new Color(0x111310);
     private static final Color SECONDARY = new Color(0x5F6560);
-    private static final Path CAPTURES = Path.of("docs/store/captures/2026-09-24");
+    private static final Path CAPTURES = Path.of("docs/store/captures/2026-10-11");
     private static final Path OUTPUT = Path.of("fastlane/metadata/android");
-    private static final Path REVIEW = Path.of("docs/store/2026-09-24");
+    private static final Path REVIEW = Path.of("docs/store/2026-10-11");
     private static final Slide[] SLIDES = {
         new Slide("01-weather.png", "Weather for your day",
             "Forecasts, current conditions and the days ahead.",
@@ -32,8 +32,8 @@ public final class RenderStoreScreenshots {
             "Choose the colours, layout and details you need.",
             "Widget podle vás", "Vyberte barvy, rozložení a údaje, které potřebujete."),
         new Slide("03-forecast-map.png", "See the rain ahead",
-            "A model forecast map, separate from observed radar.",
-            "Srážky v příštích hodinách", "Modelová předpověď oddělená od pozorovaného radaru."),
+            "Observed radar and model forecasts. One timeline.",
+            "Srážky v příštích hodinách", "Pozorovaný radar i modelová předpověď na jedné ose."),
         new Slide("04-hourly.png", "Every hour, explained",
             "Rain chances, feels-like temperature, wind and more.",
             "Každá hodina přehledně", "Pravděpodobnost deště, pocitová teplota, vítr a další."),

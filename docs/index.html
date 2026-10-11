@@ -17,13 +17,13 @@
 </header>
 <main id="content" class="page" tabindex="-1">
   <h1>Privacy policy</h1>
-  <p class="updated">Updated 5 October 2026</p>
+  <p class="updated">Updated 11 October 2026</p>
   <p>This policy covers the official Android app and these project pages. The developer and privacy contact is Matěj Teplý, publishing as <a href="https://github.com/Majkey25/Selia-Weather">Majkey25</a>. Email: <a href="mailto:majkeylab@gmail.com">majkeylab@gmail.com</a>.</p>
   <p>Selia Weather, package <code>com.majkeylab.weatheraladin</code>, does not require an app account. The current release is free, has no advertising or in-app purchases, and does not request an advertising identifier. The developer does not sell personal data or run a separate app analytics service. Test-only builds can include development integrations.</p>
 
   <h2>Data on your device</h2>
   <p>The app stores the last selected place, favourite places, the last successful forecast, language preference, and widget settings in internal app storage. A history archive is cached for up to 12 selected coordinates and refreshed at most once per 24 hours. Clearing app data or uninstalling the app deletes it. Android backup and device transfer are disabled for this data.</p>
-  <p><strong>Ask AI with CSV</strong> first displays a confirmation describing the location and archive size. After you confirm, the app creates a separate CSV file in its private cache. It contains the <strong>full available five-year archive</strong>, selected location name and coordinates, daily weather estimates, data-source version and access time. Your question and selected-period context accompany it; selecting a shorter period does not shorten the attachment. Android shares it only with the recipient you choose in the system share sheet. Cancel either step to stop sharing. Later exports do not overwrite earlier files. On a new export, the app keeps at most 12 exports and removes files older than seven days. Android may clear cache sooner.</p>
+  <p><strong>Ask AI with CSV</strong> first displays a confirmation describing the location, coordinates and archive size. After you confirm, the app offers installed ChatGPT, Gemini, Claude and Grok apps only when Android reports that they accept CSV sharing. This check stays on your device; the app does not upload the list of installed apps. You can also export through Android's system share sheet. A separate CSV file in the private cache contains the <strong>full available five-year archive</strong>, selected location name and coordinates, daily weather estimates, data-source version and access time. Your question and selected-period context accompany it; selecting a shorter period does not shorten the attachment. The file is shared only with your chosen recipient. Check the attachment and question in that app before sending; receivers may handle attachments differently. Cancel either step to stop sharing. Later exports do not overwrite earlier files. On a new export, the app keeps at most 12 exports and removes files older than seven days. Android may clear cache sooner.</p>
   <p>A custom widget image remains in its original location. The app stores only its Android content URI and reads a bounded copy when it renders the widget. Removing the widget removes its settings and releases its retained image permission when no other widget uses the URI.</p>
 
   <h2>Location</h2>
@@ -42,7 +42,7 @@
     <li>Release builds do not contact Google Mobile Ads, UMP, or Play Billing and do not expose Premium purchases.</li>
     <li>Buy Me a Coffee receives data only if you choose the optional external support action.</li>
   </ul>
-  <p>All app network communication uses HTTPS. The app does not send contacts, messages, photos, audio, or the contents of a selected widget image. A weather-history CSV leaves the app only after you select <strong>Ask AI with CSV</strong> and choose a recipient in Android's share sheet. That recipient processes the file under its own terms.</p>
+  <p>All app network communication uses HTTPS. The app does not send contacts, messages, photos, audio, or the contents of a selected widget image. A weather-history CSV leaves the app only after you confirm sharing and choose an AI app or a recipient in Android's share sheet. That recipient processes the file under its own terms.</p>
 
   <h2 id="deletion">Retention, deletion and choices</h2>
   <p>There is no Selia Weather account to delete. To remove all local saved places, settings, cached forecasts and archive files, open <strong>Android Settings &gt; Apps &gt; Selia Weather &gt; Storage &gt; Clear storage</strong>, or uninstall the app. Android may display the launcher name <strong>Weather</strong>. Menu labels vary by device. Files already copied to another app, provider logs and support correspondence are separate; use the provider's controls or contact support for information held by the developer.</p>

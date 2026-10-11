@@ -1,0 +1,1 @@
+Upravený gradientový vzhled a ukazatele spolehlivosti pro každý den a hodinu. Denní ikona ukazuje převládající denní počasí; mrholení a déšť mají odlišné ikony. Radar má plovoucí ovládání i na celé obrazovce a předpověď DWD s cílem 48 hodin. Rady k oblečení a deštníku tvoří jednu větu. Spolehlivost znamená shodu modelů, ne zaručenou přesnost.

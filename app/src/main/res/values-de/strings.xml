@@ -213,8 +213,6 @@
     <string name="radar_title">Radar</string>
     <string name="radar_fullscreen">Vollbild</string>
     <string name="radar_exit_fullscreen">Vollbild beenden</string>
-    <string name="radar_subtitle">Beobachtungsradar + 12-Stunden-Niederschlagsprognose</string>
-    <string name="radar_footer">Beobachtung: RainViewer · Prognose: Open-Meteo · Karte: OpenStreetMap</string>
     <string name="radar_retry">Radar erneut laden</string>
     <string name="radar_unavailable">Radar nicht verfügbar</string>
     <string name="widget_title">Wetter-Widget</string>
@@ -340,7 +338,11 @@
     <string name="daily_briefing_outfit_jacket">Jacke oder Kleidung in Schichten mitnehmen.</string>
     <string name="daily_briefing_outfit_light_layers">Leichte Schichten sollten angenehm sein.</string>
     <string name="daily_briefing_outfit_hot">Leichte, atmungsaktive Kleidung wählen.</string>
-    <string name="daily_briefing_umbrella">Einen Regenschirm mitnehmen.</string>
+    <string name="daily_briefing_outfit_winter_rain">Wintermantel und warme Schichten anziehen und einen Regenschirm mitnehmen.</string>
+    <string name="daily_briefing_outfit_warm_coat_rain">Einen warmen Mantel anziehen und einen Regenschirm mitnehmen.</string>
+    <string name="daily_briefing_outfit_jacket_rain">Jacke und Regenschirm mitnehmen.</string>
+    <string name="daily_briefing_outfit_light_layers_rain">Leichte Schichten anziehen und einen Regenschirm mitnehmen.</string>
+    <string name="daily_briefing_outfit_hot_rain">Leichte, atmungsaktive Kleidung anziehen und einen Regenschirm mitnehmen.</string>
     <string name="daily_briefing_no_umbrella">Ein Regenschirm sollte nicht nötig sein.</string>
     <string name="daily_briefing_sun_protection">Sonnenschutz verwenden.</string>
     <string name="hourly_rain_unlikely">Regen ist unwahrscheinlich: %1$s im angegebenen Zeitraum erwartet (%2$d%% Wahrscheinlichkeit).</string>

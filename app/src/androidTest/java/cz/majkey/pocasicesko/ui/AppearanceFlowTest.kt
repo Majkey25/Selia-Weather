@@ -84,7 +84,7 @@ class AppearanceFlowTest {
         compose.setContent { WeatherTheme {
             ForecastConfidenceBadge(ForecastConfidence(ConfidenceLevel.HIGH, ConfidenceReason.AGREEMENT), units)
         } }
-        compose.onNodeWithText(context.getString(R.string.confidence_label, context.getString(R.string.confidence_high))).performClick()
+        compose.onNodeWithContentDescription(context.getString(R.string.confidence_label, context.getString(R.string.confidence_high))).performClick()
         compose.onNodeWithText(context.getString(R.string.confidence_method)).performScrollTo().assertIsDisplayed()
     }
 }

@@ -9,6 +9,38 @@ import org.junit.Test
 
 class WeatherParserTest {
     @Test
+    fun dailyIconUsesDaytimeMajorityWithoutLosingOvernightRainEvidence() {
+        val root = JSONObject(VALID_FORECAST)
+        val hours = root.getJSONObject("hourly")
+        for (key in hours.keys().asSequence().toList()) {
+            val original = hours.getJSONArray(key)
+            hours.put(key, JSONArray((0..23).map { hour -> when (key) {
+                "time" -> "2026-08-24T%02d:00".format(hour)
+                "weather_code" -> if (hour < 5) 61 else 2
+                "is_day" -> if (hour in 6..19) 1 else 0
+                "precipitation" -> if (hour in 1..5) 0.4 else 0.0
+                else -> original.get(0)
+            } }))
+        }
+        root.getJSONObject("daily").getJSONArray("weather_code").put(0, 61)
+        root.getJSONObject("daily").getJSONArray("precipitation_sum").put(0, 2.0)
+        val day = WeatherParser.parseForecast(root.toString(), 123L).daily.single()
+        assertEquals(2, day.displayWeatherCode)
+        assertEquals(61, day.weatherCode)
+        assertEquals(2.0, day.precipitationSum, 0.0)
+        hours.getJSONArray("weather_code").put(12, 95)
+        assertEquals(2, WeatherParser.parseForecast(root.toString(), 123L).daily.single().displayWeatherCode)
+        for (hour in 6..19) hours.getJSONArray("weather_code").put(hour, 61)
+        assertEquals(61, WeatherParser.parseForecast(root.toString(), 123L).daily.single().displayWeatherCode)
+    }
+
+    @Test
+    fun incompleteDayRetainsProviderIconInsteadOfGuessingFromTwoHours() {
+        val day = WeatherParser.parseForecast(VALID_FORECAST, 123L).daily.single()
+        assertEquals(day.weatherCode, day.displayWeatherCode)
+    }
+
+    @Test
     fun modelAgreementStaysAlignedWhenIncompleteHoursAreSkipped() {
         val root = JSONObject(VALID_FORECAST)
         val evidence = HourlyModelAgreement(5, 1.0, 2.0, 10.0, 5, 0, 0.0, 0.0, WeatherKind.CLEAR)

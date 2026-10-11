@@ -7,6 +7,16 @@ import android.view.ViewGroup
 import android.webkit.WebView
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
+import cz.majkey.pocasicesko.data.CzechLocation
 import androidx.test.platform.app.InstrumentationRegistry
 import org.json.JSONObject
 import org.json.JSONTokener
@@ -23,7 +33,21 @@ class RadarWebViewTest {
 
     @Test
     fun secureAssetOriginLoadsObservedAndForecastFrames() {
-        compose.setContent { ChmiWebScreen(localizedRadarUrl("en", 50.0755, 14.4378, true, "Europe/Prague")) }
+        val arguments = InstrumentationRegistry.getArguments()
+        val testHeight = arguments.getString("radarHeightDp")?.toIntOrNull()?.takeIf { it in 300..800 }
+        val testFont = arguments.getString("radarFontScale")?.toFloatOrNull()?.takeIf { it in 1f..2.5f }
+        val fullscreen = mutableStateOf(true)
+        compose.setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, testFont ?: density.fontScale)) {
+                WeatherTheme {
+                    Box(if (testHeight == null) Modifier else Modifier.height(testHeight.dp)) {
+                        MapHubScreen(CzechLocation("Prague", "", 50.0755, 14.4378, "CZ"), PaddingValues(),
+                            fullscreen.value, "Europe/Prague", { fullscreen.value = !fullscreen.value })
+                    }
+                }
+            }
+        }
         val view = compose.runOnIdle { findWebView(compose.activity.window.decorView)!! }
         val state = AtomicReference(JSONObject())
         fun readState() {
@@ -33,6 +57,14 @@ class RadarWebViewTest {
                         "time:document.getElementById('time')?.textContent," +
                         "ready:typeof radarLayer!=='undefined'&&!!radarLayer," +
                         "frame:typeof frameIndex==='undefined'?-1:frameIndex," +
+                        "count:typeof frames==='undefined'?0:frames.length," +
+                        "horizon:typeof frames==='undefined'||!frames.length?0:(frames[frames.length-1].time-Date.now()/1000)/3600," +
+                        "model:typeof forecastCache==='undefined'||!forecastCache?'':forecastCache.key," +
+                        "width:innerWidth,panelTop:document.querySelector('.panel').getBoundingClientRect().top," +
+                        "panelBottom:document.querySelector('.panel').getBoundingClientRect().bottom," +
+                        "modesBottom:document.getElementById('radar-modes').getBoundingClientRect().bottom," +
+                        "creditsBottom:map.attributionControl.getContainer().getBoundingClientRect().bottom," +
+                        "short:document.body.classList.contains('short')," +
                         "pending:typeof pendingLayer!=='undefined'&&!!pendingLayer," +
                         "status:document.getElementById('status')?.textContent})",
                 ) { result ->
@@ -41,6 +73,21 @@ class RadarWebViewTest {
             }
         }
         compose.waitUntil(30_000) { readState(); state.get().optBoolean("ready") }
+        val visibleHeight = view.height.toDouble() * state.get().getDouble("width") / view.width
+        assertTrue("Radar controls must stay onscreen: ${state.get()}, height=$visibleHeight",
+            state.get().getDouble("panelTop") >= 0 && state.get().getDouble("panelBottom") <= visibleHeight + 1)
+        assertEquals(visibleHeight <= 400, state.get().getBoolean("short"))
+        compose.runOnIdle { fullscreen.value = false }
+        compose.waitUntil(10_000) {
+            readState()
+            val height = view.height.toDouble() * state.get().optDouble("width") / view.width
+            state.get().optDouble("panelTop") >= 0 && state.get().optDouble("panelBottom") <= height + 1
+        }
+        compose.runOnIdle { fullscreen.value = true }
+        compose.waitUntil(10_000) {
+            readState()
+            state.get().optDouble("panelBottom") > visibleHeight - 20 && state.get().optDouble("panelBottom") <= visibleHeight + 1
+        }
         assertEquals("https://appassets.androidplatform.net", state.get().getString("origin"))
         assertEquals("observed", state.get().getString("mode"))
         val profiling = InstrumentationRegistry.getArguments().getString("profileRadar") == "true"
@@ -74,6 +121,10 @@ class RadarWebViewTest {
         }
         assertTrue(state.get().getString("time").contains("–"))
         assertEquals("", state.get().getString("status"))
+        assertTrue("Controls must not cover each other: ${state.get()}",
+            state.get().getDouble("panelTop") >= state.get().getDouble("modesBottom") &&
+                state.get().getDouble("panelTop") >= state.get().getDouble("creditsBottom"))
+        assertTrue("Forecast must actually cover +48h: ${state.get()}", state.get().getDouble("horizon") >= 48.0)
         if (profiling) {
             InstrumentationRegistry.getInstrumentation().sendStatus(0, Bundle().apply {
                 putString("stream", "\nRADAR_LOAD elapsedMs=${SystemClock.elapsedRealtime() - forecastStarted}\n")
@@ -107,6 +158,27 @@ class RadarWebViewTest {
             })
             assertEquals("", JSONObject(requireNotNull(report.get())).getString("status"))
         }
+        compose.runOnIdle { view.evaluateJavascript("showFrame(frames.length-1)", null) }
+        compose.waitUntil(30_000) {
+            readState()
+            state.get().optBoolean("ready") && !state.get().optBoolean("pending") &&
+                state.get().optInt("frame") == state.get().optInt("count") - 1
+        }
+        assertEquals("", state.get().getString("status"))
+        assertEquals("eu", state.get().getString("model"))
+        compose.runOnIdle { view.evaluateJavascript("map.setView([35.6762,139.6503],6)", null) }
+        compose.waitUntil(30_000) {
+            readState()
+            state.get().optString("model") == "global" && state.get().optBoolean("ready") && !state.get().optBoolean("pending")
+        }
+        assertTrue(state.get().getDouble("horizon") >= 48.0)
+        compose.runOnIdle { view.evaluateJavascript("showFrame(frames.length-1)", null) }
+        compose.waitUntil(30_000) {
+            readState()
+            state.get().optBoolean("ready") && !state.get().optBoolean("pending") &&
+                state.get().optInt("frame") == state.get().optInt("count") - 1
+        }
+        assertEquals("", state.get().getString("status"))
     }
 
     private fun findWebView(view: View): WebView? = when (view) {

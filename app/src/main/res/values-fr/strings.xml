@@ -213,8 +213,6 @@
     <string name="radar_title">Radar</string>
     <string name="radar_fullscreen">Plein écran</string>
     <string name="radar_exit_fullscreen">Quitter le plein écran</string>
-    <string name="radar_subtitle">Radar observé + prévisions de précipitations sur 12 heures</string>
-    <string name="radar_footer">Observé : RainViewer · prévisions : Open-Meteo · carte : OpenStreetMap</string>
     <string name="radar_retry">Réessayer le radar</string>
     <string name="radar_unavailable">Radar indisponible</string>
     <string name="widget_title">Widget météo</string>
@@ -340,7 +338,11 @@
     <string name="daily_briefing_outfit_jacket">Prenez une veste ou plusieurs couches.</string>
     <string name="daily_briefing_outfit_light_layers">Des couches légères devraient être confortables.</string>
     <string name="daily_briefing_outfit_hot">Choisissez des vêtements légers et respirants.</string>
-    <string name="daily_briefing_umbrella">Prenez un parapluie.</string>
+    <string name="daily_briefing_outfit_winter_rain">Portez un manteau d’hiver et des couches chaudes, et prenez un parapluie.</string>
+    <string name="daily_briefing_outfit_warm_coat_rain">Portez un manteau chaud et prenez un parapluie.</string>
+    <string name="daily_briefing_outfit_jacket_rain">Prenez une veste et un parapluie.</string>
+    <string name="daily_briefing_outfit_light_layers_rain">Portez des couches légères et prenez un parapluie.</string>
+    <string name="daily_briefing_outfit_hot_rain">Portez des vêtements légers et respirants, et prenez un parapluie.</string>
     <string name="daily_briefing_no_umbrella">Un parapluie ne devrait pas être nécessaire.</string>
     <string name="daily_briefing_sun_protection">Utilisez une protection solaire.</string>
     <string name="hourly_rain_unlikely">La pluie est peu probable : %1$s attendu sur l’intervalle indiqué (%2$d%% de probabilité).</string>

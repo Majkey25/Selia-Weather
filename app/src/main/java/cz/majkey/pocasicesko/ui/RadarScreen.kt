@@ -54,12 +54,13 @@ import kotlin.math.roundToInt
 
 const val RADAR_APP_URL = "https://appassets.androidplatform.net/assets/radar.html"
 
-internal fun radarAppearanceScript(colors: ColorScheme): String {
+internal fun radarAppearanceScript(colors: ColorScheme, topInsetDp: Int): String {
     fun hex(color: Color) = String.format(Locale.ROOT, "#%06X", color.toArgb() and 0xFFFFFF)
     val values = JSONObject().put("bg", hex(colors.background)).put("surface", hex(colors.surface))
         .put("text", hex(colors.onSurface)).put("muted", hex(colors.onSurfaceVariant))
         .put("border", hex(colors.outlineVariant)).put("accent", hex(colors.primary))
         .put("onAccent", hex(colors.onPrimary)).put("variant", hex(colors.surfaceVariant))
+        .put("topInset", topInsetDp.coerceIn(0, 240))
     return "window.setAppearance && window.setAppearance($values);"
 }
 
@@ -84,6 +85,7 @@ fun ChmiWebScreen(
     url: String,
     modifier: Modifier = Modifier,
     active: Boolean = true,
+    topInsetDp: Int = 0,
 ) {
     val context = LocalContext.current
     val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
@@ -91,7 +93,7 @@ fun ChmiWebScreen(
     var webView by remember { mutableStateOf<WebView?>(null) }
     var loading by remember(url) { mutableStateOf(true) }
     var error by remember(url) { mutableStateOf<String?>(null) }
-    val appearanceScript by rememberUpdatedState(radarAppearanceScript(MaterialTheme.colorScheme))
+    val appearanceScript by rememberUpdatedState(radarAppearanceScript(MaterialTheme.colorScheme, topInsetDp))
     val textZoom = (LocalDensity.current.fontScale * 100).roundToInt().coerceIn(90, 250)
 
     Box(

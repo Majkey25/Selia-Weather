@@ -1,0 +1,1 @@
+Diseño de degradado mejorado e indicadores de confianza por día y hora. El icono diario muestra el tiempo diurno predominante; llovizna y lluvia tienen iconos distintos. Radar a pantalla completa con controles flotantes y previsión DWD con objetivo de 48 horas. Ropa y paraguas se recomiendan en una sola frase. La confianza indica acuerdo entre modelos, no precisión garantizada.

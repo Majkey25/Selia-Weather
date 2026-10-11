@@ -4,7 +4,7 @@ Die Vorhersage verwendet Open-Meteo Best Match und eine diagnostische Mehrmodell
 
 Suchen Sie Orte weltweit, speichern Sie Favoriten, wählen Sie einen exakten Punkt auf der Weltkarte oder geben Sie Koordinaten ein. Optional können Sie Ihren aktuellen Standort verwenden. Die letzte erfolgreiche Vorhersage bleibt offline verfügbar.
 
-Der Radar verwendet weltweite RainViewer-Beobachtungen mit Zoom, Verschieben, Animation, Zeitleiste und Abdeckungsmaske. Stündliche Details erklären Wahrscheinlichkeit und Menge künftiger Niederschläge verständlich.
+Das Radar zeigt verfügbare RainViewer-Beobachtungen mit Zoom, Verschieben, Animation, Zeitleiste und Abdeckungsmaske. Die separate DWD-Niederschlagsprognose reicht bis zu 48 Stunden voraus. Kompakte Bedienelemente schweben über der Karte; der Vollbildmodus bietet mehr Platz. Die Zeitleiste zeigt den verfügbaren Zeitraum. Die Prognose ist eine Modellberechnung, kein beobachtetes zukünftiges Radar. Konfidenzanzeigen beschreiben Modellübereinstimmung und Datenlücken, keine garantierte Vorhersagegenauigkeit.
 
 Gestalten Sie Ihr eigenes Startbildschirm-Widget. Jedes Widget kann eigene Farben, Transparenz, Verlauf oder Hintergrundbild, Textgröße, Ausrichtung, Beschriftung und sichtbare Wetterdaten verwenden. Wenn Android ein Bild nicht mehr lesen kann, nutzt das Widget seinen Farbhintergrund und funktioniert weiter.
 

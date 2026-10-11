@@ -23,7 +23,8 @@ function runtime(response = manifest(), search = '?lat=50&lon=14') {
   const document = {
     hidden: false,
     documentElement: { style: { setProperty(key, value) { this[key] = value; } } },
-    body: { style: {} },
+    body: { style: {}, classList: { toggle(name, enabled) { this[name] = enabled; } } },
+    querySelector(selector) { return document.getElementById(selector === '.panel' ? 'panel' : selector); },
     getElementById(id) {
       if (!nodes.has(id)) nodes.set(id, { style: {}, setAttribute(key, value) { this[key] = value; } });
       return nodes.get(id);
@@ -36,6 +37,8 @@ function runtime(response = manifest(), search = '?lat=50&lon=14') {
   };
   const removed = [];
   const map = { setView() { return this; }, setMaxZoom() {}, removeLayer(layer) { removed.push(layer); },
+    attributionControl: { setPosition(position) { events.attributionPosition = position; },
+      getContainer() { return document.getElementById('credits'); } },
     invalidateSize() { events.invalidations = (events.invalidations || 0) + 1; },
     on(name, callback) { events[name] = callback; return this; },
     getCenter() { return { lat: 50, lng: 14 }; }, getZoom() { return 6; },
@@ -79,6 +82,7 @@ const settled = () => new Promise(resolve => setImmediate(resolve));
 
 test('appearance changes update only CSS roles and keep radar state', async () => {
   const app = runtime();
+  assert.equal(app.events.attributionPosition, 'topright');
   await settled();
   const layers = app.layers.length;
   const index = app.context.frameIndex;
@@ -88,6 +92,42 @@ test('appearance changes update only CSS roles and keep radar state', async () =
   assert.equal(app.document.documentElement.style['--surface'], undefined);
   assert.equal(app.layers.length, layers);
   assert.equal(app.context.frameIndex, index);
+  app.node('radar-modes').offsetHeight = 72;
+  app.context.window.setAppearance({ topInset: 88 });
+  assert.equal(app.document.documentElement.style['--header-inset'], '88px');
+  assert.equal(app.document.documentElement.style['--controls-bottom'], '168px');
+  app.node('radar-modes').offsetHeight = 96;
+  app.events.mapResize();
+  assert.equal(app.document.documentElement.style['--controls-bottom'], '192px');
+  app.context.window.setAppearance({ topInset: -1 });
+  assert.equal(app.document.documentElement.style['--header-inset'], '88px');
+});
+
+test('short viewport controls stay below the toolbar and credits, then recover on fullscreen resize', () => {
+  const app = runtime();
+  app.node('radar-modes').offsetHeight = 80;
+  app.node('credits').offsetHeight = 48;
+  app.context.window.setAppearance({ topInset: 88 });
+  app.context.window.innerHeight = 400;
+  app.events.resize();
+  assert.equal(app.document.body.classList.short, true);
+  assert.equal(app.node('panel').style.maxHeight, '160px');
+  app.context.window.innerHeight = 744;
+  app.events.resize();
+  assert.equal(app.document.body.classList.short, false);
+  assert.equal(app.node('panel').style.maxHeight, '334.8px');
+});
+
+test('European outlook selects a fresh main cycle when the default is an intermediate cycle', () => {
+  const app = runtime();
+  const payload = JSON.parse(forecastPayload(app));
+  const main = Date.parse(payload.Dimension[1].default);
+  const intermediate = main + 3 * 3600000;
+  payload.Dimension[1].default = new Date(intermediate).toISOString();
+  payload.Dimension[1].text += ',' + payload.Dimension[1].default;
+  const parsed = app.context.RadarForecast.parse(JSON.stringify(payload), 'eu', intermediate / 1000 + 3600);
+  assert.equal(parsed.run, main / 1000);
+  assert.ok(parsed.frames.every(frame => frame.reference === new Date(main).toISOString()));
 });
 
 function scrubTimeline(app, values) {
@@ -195,14 +235,30 @@ test('forecast provider uses official WMS grids instead of sampled point interpo
   assert.doesNotMatch(html, /api\.open-meteo\.com/);
 });
 
-test('radar controls are outside the flex map with stable status space and 48px hit areas', () => {
+test('radar fills the canvas with compact floating controls and 48px hit areas', () => {
   assert.match(html, /#map\s*\{[^}]*flex:\s*1[^}]*min-height:\s*0/);
-  assert.doesNotMatch(html, /\.panel\s*\{[^}]*position:\s*fixed/);
+  assert.match(html, /\.panel\s*\{[^}]*position:\s*absolute/);
+  assert.match(html, /\.modes\s*\{[^}]*position:\s*absolute/);
   assert.doesNotMatch(html, /\.status\s*\{[^}]*position:\s*fixed/);
   assert.match(html, /button\s*\{[^}]*min-width:\s*48px[^}]*min-height:\s*48px/);
-  assert.match(html, /\.status\[hidden\]\s*\{[^}]*visibility:\s*hidden/);
+  assert.match(html, /\.status\[hidden\]\s*\{[^}]*display:\s*none/);
   assert.ok(html.indexOf('id="status"') > html.indexOf('class="panel"'));
+  assert.ok(html.indexOf('id="frame-summary"') > html.indexOf('id="details"'));
   assert.doesNotMatch(script, /getElementById\('map'\)\.style\.height\s*=/);
+});
+
+test('forecast labels use the available horizon and never promise missing provider hours', () => {
+  const app = runtime();
+  const payload = JSON.parse(forecastPayload(app));
+  payload.Dimension[0].text = payload.Dimension[0].text.replace(/\/[^/]+\/PT/,
+    `/${new Date(Math.floor((now + 24 * 3600) / 3600) * 3600000).toISOString()}/PT`);
+  const partial = app.context.RadarForecast.parse(JSON.stringify(payload), 'eu', now);
+  app.context.mode = 'forecast';
+  app.context.frames = partial.frames;
+  app.context.updateTimeline();
+  assert.match(app.node('forecast').textContent, /Forecast \+23 h|Forecast \+24 h/);
+  assert.equal(app.node('slider')['aria-label'], app.node('forecast').textContent);
+  assert.ok(partial.frames.at(-1).time <= now + 24 * 3600);
 });
 
 test('Android viewport sizing gives the root height without forcing map height or fetching data', async () => {
@@ -709,14 +765,14 @@ test('hung request aborts and exits loading with disabled controls', async () =>
   assert.equal(app.timeouts.size, 0);
 });
 
-test('global frames use six-hour totals and every model covers at least the next 12 hours', () => {
+test('global frames use six-hour totals and every model covers at least the next 48 hours', () => {
   const app = runtime();
   for (const key of ['eu', 'global']) {
     const parsed = app.context.RadarForecast.parse(forecastPayload(app, key), key, now);
     const step = key === 'eu' ? 3600 : 21600;
-    assert.ok(parsed.frames.length >= 3 && parsed.frames.length <= 15);
+    assert.ok(parsed.frames.length >= 9 && parsed.frames.length <= 50);
     assert.ok(parsed.frames[0].time > now && parsed.frames[0].time <= now + step);
-    assert.ok(parsed.frames.at(-1).time >= now + 12 * 3600 + 600);
+    assert.ok(parsed.frames.at(-1).time >= now + 48 * 3600 + 600);
     assert.ok(parsed.frames.every((frame, index) => frame.hours * 3600 === step &&
       frame.time % step === 0 && (!index || frame.time === parsed.frames[index - 1].time + step)));
   }

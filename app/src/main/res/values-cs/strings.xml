@@ -213,8 +213,6 @@
     <string name="radar_title">Radar</string>
     <string name="radar_fullscreen">Celá obrazovka</string>
     <string name="radar_exit_fullscreen">Ukončit celou obrazovku</string>
-    <string name="radar_subtitle">Pozorovaný radar + modelová předpověď srážek na 12 hodin</string>
-    <string name="radar_footer">Pozorování: RainViewer · předpověď: Open-Meteo · mapa: OpenStreetMap</string>
     <string name="radar_retry">Zkusit radar znovu</string>
     <string name="radar_unavailable">Radar není k dispozici</string>
     <string name="widget_title">Widget počasí</string>
@@ -340,7 +338,11 @@
     <string name="daily_briefing_outfit_jacket">Vezměte si bundu nebo vrstvené oblečení.</string>
     <string name="daily_briefing_outfit_light_layers">Lehké vrstvy by měly být pohodlné.</string>
     <string name="daily_briefing_outfit_hot">Zvolte lehké a prodyšné oblečení.</string>
-    <string name="daily_briefing_umbrella">Vezměte si deštník.</string>
+    <string name="daily_briefing_outfit_winter_rain">Oblečte si zimní kabát a teplé vrstvy a vezměte si deštník.</string>
+    <string name="daily_briefing_outfit_warm_coat_rain">Oblečte si teplý kabát a vezměte si deštník.</string>
+    <string name="daily_briefing_outfit_jacket_rain">Vezměte si bundu a deštník.</string>
+    <string name="daily_briefing_outfit_light_layers_rain">Oblečte si lehké vrstvy a vezměte si deštník.</string>
+    <string name="daily_briefing_outfit_hot_rain">Oblečte si lehké, prodyšné oblečení a vezměte si deštník.</string>
     <string name="daily_briefing_no_umbrella">Deštník by neměl být potřeba.</string>
     <string name="daily_briefing_sun_protection">Použijte ochranu proti slunci.</string>
     <string name="hourly_rain_unlikely">Déšť je nepravděpodobný: očekává se %1$s za uvedený interval (pravděpodobnost %2$d%%).</string>

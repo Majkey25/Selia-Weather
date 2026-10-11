@@ -1,0 +1,1 @@
+Refined gradient layout and confidence indicators for each day and hour. Daily icons show predominant daytime weather; drizzle and rain have different icons. Fullscreen radar now has floating controls and a DWD forecast targeting 48 hours. Rainy-day clothing and umbrella advice is combined into one sentence. Confidence means model agreement, not guaranteed accuracy.

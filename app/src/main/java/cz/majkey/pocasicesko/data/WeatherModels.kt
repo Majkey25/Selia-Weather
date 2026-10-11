@@ -126,7 +126,20 @@ data class DailyWeather(
     val shortwaveRadiationSum: Double? = null,
     val et0: Double? = null,
     val uvIndexMax: Double? = null,
+    val displayWeatherCode: Int = weatherCode,
 )
+
+internal fun representativeDayCode(hours: List<HourlyWeather>, fallback: Int): Int {
+    if (hours.size < 18) return fallback
+    val daytime = hours.filter { it.isDay }
+    val sample = if (daytime.isEmpty()) hours else daytime
+    if (sample.size < 6 || sample.any { conditionFor(it.weatherCode).kind == WeatherKind.UNKNOWN }) return fallback
+    // The overview describes prevailing daytime weather. Hazard evidence keeps the provider code.
+    val codes = sample.groupBy { conditionFor(it.weatherCode).key }.values
+        .maxWithOrNull(compareBy<List<HourlyWeather>> { it.size }.thenBy { it.maxOf { hour -> hour.weatherCode } })!!
+    return codes.groupingBy { it.weatherCode }.eachCount().entries
+        .maxWithOrNull(compareBy<Map.Entry<Int, Int>> { it.value }.thenBy { it.key })!!.key
+}
 
 data class WeatherSnapshot(
     val timezone: String,

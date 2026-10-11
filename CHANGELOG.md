@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.1] - 2026-10-11
+
+- Refine the gradient forecast layout with a compact location picker, hourly graph, navigation and model-agreement indicators for every day and hour. Keep current-condition icons and accessibility descriptions consistent.
+- Use predominant daytime conditions for the daily icon. Retain whole-day precipitation and storm warnings; distinguish drizzle from rain in the app and widgets.
+- Extend the DWD precipitation map to a 48-hour target, with an honest available-horizon label, hourly European and six-hour global totals. Keep the map full-canvas with floating controls, including a visible fullscreen timeline and font-scaled header spacing.
+- Combine rainy-day clothing and umbrella advice into one sentence in English, Czech, German, Spanish and French.
+- Confidence remains a model-agreement estimate, not a validated accuracy probability. Forecast values and learned-weight validation gates are unchanged.
+
 ## [0.5.0] - 2026-10-07
 
 - Redesign the forecast with softer light/dark weather gradients, outlined weather icons and a compact hourly chart. Keep radar controls, details and app-style widgets consistent with the selected theme.

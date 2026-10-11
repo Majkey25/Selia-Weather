@@ -10,10 +10,10 @@
     * { box-sizing: border-box; }
     :root { --bg: #071018; --surface: #101e27; --text: #f4fafc; --muted: #b6c9d2; --border: #ffffff18; --accent: #a8deed; --on-accent: #10232c; --variant: #223541; }
     html, body { width: 100%; height: 100%; margin: 0; background: var(--bg); }
-    body { display: flex; flex-direction: column; overflow: hidden; color: var(--text); font-family: system-ui, sans-serif; }
+    body { position: relative; display: flex; flex-direction: column; overflow: hidden; color: var(--text); font-family: system-ui, sans-serif; }
     #map { flex: 1 1 auto; min-height: 0; width: 100%; position: relative; }
     .leaflet-container { background: var(--bg); }
-    .panel { flex: 0 0 auto; padding: 12px; border-top: 1px solid var(--border); background: var(--surface); max-height: 55%; overflow: auto; }
+    .panel { position: absolute; z-index: 1000; left: 8px; right: 8px; bottom: 8px; padding: 10px 12px; border-radius: 20px; background: var(--surface); max-height: 45%; overflow: auto; box-shadow: 0 2px 10px #0002; }
     .topline { display: grid; grid-template-columns: 48px minmax(0, 1fr) 48px; align-items: center; gap: 12px; }
     .meta { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
     .time { font-size: 16px; font-weight: 650; font-variant-numeric: tabular-nums; }
@@ -30,29 +30,32 @@
     #play[aria-pressed=true] #pause-icon { display: inline; }
     input[type=range] { width: 100%; min-width: 0; height: 48px; margin: 0; accent-color: var(--accent); }
     .status { min-height: 20px; color: var(--muted); font-size: 12px; line-height: 18px; }
-    .status[hidden] { display: block !important; visibility: hidden; }
-    .leaflet-control-attribution { max-width: 82%; font-size: 8px; background: var(--surface) !important; color: var(--muted); }
+    .status[hidden] { display: none !important; }
+    .leaflet-control-attribution { max-width: 82%; font-size: 10px; background: var(--surface) !important; color: var(--muted); }
     .leaflet-control-attribution a { color: var(--accent); }
+    .leaflet-top .leaflet-control-attribution { margin-top: 0; }
+    .leaflet-top.leaflet-right { top: var(--controls-bottom, 120px); }
     .leaflet-bar a { background: var(--surface); color: var(--text); }
     .leaflet-bar a:hover { background: var(--variant); }
-    .modes { display: flex; flex: 0 0 auto; gap: 6px; padding: 8px; background: var(--surface); }
+    .modes { display: flex; position: absolute; z-index: 1000; left: 8px; right: 8px; top: var(--header-inset, 64px); gap: 6px; }
     .modes button { flex: 1; font-size: 13px; padding: 0 10px; }
     .modes #details-toggle { flex: 0 0 48px; padding: 0; }
     #details { margin-top: 8px; border-top: 1px solid var(--border); padding-top: 8px; }
     .legend { color: var(--muted); font-size: 12px; line-height: 1.5; margin-top: 6px; }
-    .range { display: flex; justify-content: space-between; color: var(--muted); font-size: 11px; padding: 0 60px 6px; }
+    .range { display: flex; justify-content: space-between; color: var(--muted); font-size: 11px; padding: 0 60px; }
     #frame-summary { color: var(--muted); font-size: 12px; line-height: 18px; margin: 4px 0; }
     .radar-frame { transition: opacity 350ms linear; }
     #scale { max-width: 100%; margin-top: 6px; background: white; }
     [hidden] { display: none !important; }
-    @media (max-height: 400px) { .panel { padding: 6px 12px; } #frame-summary { display: none; } }
+    body.short .panel { padding: 6px 12px; }
+    body.short .range { display: none; }
     @media (prefers-reduced-motion: reduce) { .radar-frame { transition: none; } }
   </style>
 </head>
 <body>
-    <div class="modes">
+    <div id="radar-modes" class="modes">
       <button id="observed" class="active" type="button" aria-pressed="true" onclick="setMode('observed')">Observed</button>
-      <button id="forecast" type="button" aria-pressed="false" onclick="setMode('forecast')">Forecast +12h</button>
+      <button id="forecast" type="button" aria-pressed="false" onclick="setMode('forecast')">Forecast</button>
       <button id="details-toggle" type="button" aria-label="Radar details" aria-expanded="false" aria-controls="details" onclick="toggleDetails()"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7v.1"/></svg></button>
     </div>
   <div id="map" aria-label="Observed precipitation radar"></div>
@@ -66,9 +69,9 @@
       <button id="retry" type="button" aria-label="Refresh radar" onclick="refreshMap()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2 6M20 4v7h-7"/></svg></button>
     </div>
     <div class="range"><span id="range-start">—</span><span id="range-end">—</span></div>
-    <div id="frame-summary" hidden></div>
     <div id="status" class="status" role="status">Loading observed radar…</div>
     <div id="details" hidden>
+      <div id="frame-summary" hidden></div>
       <div id="source" class="source">RainViewer · UTC</div>
       <button id="coverage" class="active" type="button" aria-pressed="true" onclick="toggleCoverage()">Coverage</button>
       <button id="zoom-out" type="button" aria-label="Zoom out" onclick="map.zoomOut()">−</button>
@@ -87,6 +90,16 @@
       es: { loading: 'Cargando radar observado…', unavailable: 'El radar observado no está disponible para esta zona o momento.', play: 'Reproducir', pause: 'Pausa', coverage: 'Cobertura', map: 'Radar de precipitación observado' },
       fr: { loading: 'Chargement du radar observé…', unavailable: 'Le radar observé est indisponible pour cette zone ou cette heure.', play: 'Lire', pause: 'Pause', coverage: 'Couverture', map: 'Radar des précipitations observées' }
     };
+    var headerInset = 64, viewportHeight = 0;
+    function positionControls() {
+      var controlsBottom = headerInset + (document.getElementById('radar-modes').offsetHeight || 48) + 8;
+      document.documentElement.style.setProperty('--controls-bottom', controlsBottom + 'px');
+      if (viewportHeight > 0) {
+        var creditsHeight = typeof map !== 'undefined' && map ? map.attributionControl.getContainer().offsetHeight || 0 : 0;
+        document.querySelector('.panel').style.maxHeight = Math.min(viewportHeight * (viewportHeight <= 400 ? 0.5 : 0.45),
+          Math.max(48, viewportHeight - controlsBottom - creditsHeight - 16)) + 'px';
+      }
+    }
     window.setAppearance = function (values) {
       if (!values || typeof values !== 'object') return;
       var roles = { bg: '--bg', surface: '--surface', text: '--text', muted: '--muted', border: '--border', accent: '--accent', onAccent: '--on-accent', variant: '--variant' };
@@ -95,6 +108,11 @@
           document.documentElement.style.setProperty(roles[key], values[key]);
         }
       });
+      if (Number.isFinite(values.topInset) && values.topInset >= 0 && values.topInset <= 240) {
+        headerInset = values.topInset;
+        document.documentElement.style.setProperty('--header-inset', headerInset + 'px');
+        positionControls();
+      }
     };
     var parameters = new URLSearchParams(window.location.search);
     var language = Object.prototype.hasOwnProperty.call(TEXTS, parameters.get('lang')) ? parameters.get('lang') : 'en';
@@ -127,11 +145,11 @@
     var forecastRetryAt = 0, forecastRefreshPending = false, forecastRefreshFailed = false;
     var statusMessage = '';
     var FORECAST_TEXTS = {
-      en: ['Observed', 'Forecast +12h', 'Loading model forecast…', 'Model forecast unavailable. Try again later.', 'Refresh forecast', 'Model precipitation', 'mm / 1 h', 'mm / 6 h', 'Provider is busy. Try again later.', 'Colors show precipitation totals for the displayed interval. Clear areas are below the legend threshold.'],
-      cs: ['Pozorování', 'Předpověď +12 h', 'Načítám modelovou předpověď…', 'Modelová předpověď není dostupná. Zkuste to později.', 'Obnovit předpověď', 'Modelové srážky', 'mm / 1 h', 'mm / 6 h', 'Poskytovatel je přetížený. Zkuste to později.', 'Barvy znázorňují úhrn srážek za zobrazený interval. Průhledné oblasti jsou pod prahem legendy.'],
-      de: ['Beobachtet', 'Prognose +12 h', 'Modellprognose wird geladen…', 'Modellprognose nicht verfügbar. Später erneut versuchen.', 'Prognose aktualisieren', 'Modellniederschlag', 'mm / 1 h', 'mm / 6 h', 'Anbieter ausgelastet. Später erneut versuchen.', 'Farben zeigen die Niederschlagsmenge im angezeigten Zeitraum. Transparente Gebiete liegen unter dem Schwellenwert der Legende.'],
-      es: ['Observado', 'Pronóstico +12 h', 'Cargando pronóstico del modelo…', 'Pronóstico no disponible. Inténtalo más tarde.', 'Actualizar pronóstico', 'Precipitación del modelo', 'mm / 1 h', 'mm / 6 h', 'Proveedor ocupado. Inténtalo más tarde.', 'Los colores indican la precipitación acumulada del intervalo mostrado. Las zonas transparentes están por debajo del umbral de la leyenda.'],
-      fr: ['Observé', 'Prévision +12 h', 'Chargement des prévisions…', 'Prévisions indisponibles. Réessayez plus tard.', 'Actualiser les prévisions', 'Précipitations du modèle', 'mm / 1 h', 'mm / 6 h', 'Fournisseur occupé. Réessayez plus tard.', 'Les couleurs indiquent le cumul sur la période affichée. Les zones transparentes sont sous le seuil de la légende.']
+      en: ['Observed', 'Forecast', 'Loading model forecast…', 'Model forecast unavailable. Try again later.', 'Refresh forecast', 'Model precipitation', 'mm / 1 h', 'mm / 6 h', 'Provider is busy. Try again later.', 'Colors show precipitation totals for the displayed interval, not radar observations. Accuracy decreases further ahead. Clear areas are below the legend threshold.'],
+      cs: ['Pozorování', 'Předpověď', 'Načítám modelovou předpověď…', 'Modelová předpověď není dostupná. Zkuste to později.', 'Obnovit předpověď', 'Modelové srážky', 'mm / 1 h', 'mm / 6 h', 'Poskytovatel je přetížený. Zkuste to později.', 'Barvy znázorňují předpovězený úhrn za uvedený interval, ne radarové měření. Vzdálenější výhled je méně přesný. Průhledné oblasti jsou pod prahem legendy.'],
+      de: ['Beobachtet', 'Prognose', 'Modellprognose wird geladen…', 'Modellprognose nicht verfügbar. Später erneut versuchen.', 'Prognose aktualisieren', 'Modellniederschlag', 'mm / 1 h', 'mm / 6 h', 'Anbieter ausgelastet. Später erneut versuchen.', 'Farben zeigen vorhergesagte Niederschlagsmengen im Zeitraum, keine Radarbeobachtungen. Die Genauigkeit nimmt mit der Vorhersagezeit ab. Transparente Gebiete liegen unter dem Schwellenwert.'],
+      es: ['Observado', 'Pronóstico', 'Cargando pronóstico del modelo…', 'Pronóstico no disponible. Inténtalo más tarde.', 'Actualizar pronóstico', 'Precipitación del modelo', 'mm / 1 h', 'mm / 6 h', 'Proveedor ocupado. Inténtalo más tarde.', 'Los colores indican la precipitación prevista del intervalo, no observaciones de radar. La precisión disminuye a más largo plazo. Las zonas transparentes están por debajo del umbral.'],
+      fr: ['Observé', 'Prévision', 'Chargement des prévisions…', 'Prévisions indisponibles. Réessayez plus tard.', 'Actualiser les prévisions', 'Précipitations du modèle', 'mm / 1 h', 'mm / 6 h', 'Fournisseur occupé. Réessayez plus tard.', 'Les couleurs montrent le cumul prévu sur la période, pas des observations radar. La précision diminue avec l’échéance. Les zones transparentes sont sous le seuil de la légende.']
     };
     var FORECAST_TEXT = FORECAST_TEXTS[language];
     var DETAIL_TEXTS = {
@@ -180,12 +198,16 @@
       // Android WebView can resolve both % and vh to zero during attachment.
       var height = window.innerHeight;
       if (Number.isFinite(height) && height > 0) {
+        viewportHeight = height;
         document.documentElement.style.height = height + 'px';
         document.body.style.height = height + 'px';
+        document.body.classList.toggle('short', height <= 400);
+        positionControls();
       }
     }
     sizeViewport();
     var map = L.map('map', { maxZoom: 11, minZoom: 2, zoomControl: false }).setView([latitude, longitude], 6);
+    map.attributionControl.setPosition('topright');
     L.circleMarker([latitude, longitude], { radius: 5, color: '#ffffff', weight: 2,
       fillColor: '#145f79', fillOpacity: 1, interactive: false }).addTo(map);
     map.on('moveend', function() {
@@ -196,7 +218,10 @@
       map.invalidateSize(false);
     });
     requestAnimationFrame(function() { sizeViewport(); map.invalidateSize(false); });
-    new ResizeObserver(function() { map.invalidateSize(false); }).observe(document.getElementById('map'));
+    var viewportObserver = new ResizeObserver(function() { positionControls(); map.invalidateSize(false); });
+    viewportObserver.observe(map.attributionControl.getContainer());
+    viewportObserver.observe(document.getElementById('radar-modes'));
+    viewportObserver.observe(document.getElementById('map'));
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       minZoom: 2,
       maxZoom: 11,
@@ -327,7 +352,7 @@
     function forecastIsFresh(cached) {
       var now = Date.now();
       return cached && cached.loadedAt <= now && now - cached.loadedAt < REFRESH_INTERVAL_MS &&
-        now / 1000 - cached.run <= 12 * 3600 && cached.frames.length >= 3 && cached.frames.length <= 15 &&
+        now / 1000 - cached.run <= 12 * 3600 && cached.frames.length >= 3 && cached.frames.length <= RadarForecast.maxFrames &&
         cached.frames[cached.frames.length - 1].time >= now / 1000 + 12 * 3600;
     }
 
@@ -564,6 +589,15 @@
         endpoint(frames[0].time - (mode === 'forecast' ? frames[0].hours * 3600 : 0)) : '—';
       document.getElementById('range-end').textContent = frames.length ? endpoint(frames[frames.length - 1].time) : '—';
       if (!frames.length) document.getElementById('frame-summary').hidden = true;
+      var forecastLabel = FORECAST_TEXT[1];
+      if (mode === 'forecast' && frames.length) {
+        forecastLabel += ' +' + Math.floor((frames[frames.length - 1].time - Date.now() / 1000) / 3600) + ' h';
+      }
+      document.getElementById('forecast').textContent = forecastLabel;
+      if (mode === 'forecast') {
+        document.getElementById('map').setAttribute('aria-label', forecastLabel);
+        document.getElementById('slider').setAttribute('aria-label', forecastLabel);
+      }
     }
 
     function stopPlay() {

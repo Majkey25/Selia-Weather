@@ -4,12 +4,16 @@ import android.app.job.JobScheduler
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
+import android.content.res.Configuration
+import cz.majkey.pocasicesko.data.DailyWeather
+import java.util.Locale
 import java.time.LocalDate
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class NotificationRecoveryTest {
@@ -17,6 +21,25 @@ class NotificationRecoveryTest {
     private val context get() = object : ContextWrapper(base) {
         override fun getSharedPreferences(name: String, mode: Int) =
             super.getSharedPreferences("notification_recovery_test_$name", mode)
+    }
+
+    @Test
+    fun rainyClothingAdviceIsOneSentenceInEverySupportedLanguage() {
+        val day = DailyWeather("2026-10-11", 61, 8.0, 3.0, "06:00", "18:00", 2.0, 70, 10.0)
+        val expected = mapOf(
+            "en" to "Wear a warm coat and take an umbrella.",
+            "cs" to "Oblečte si teplý kabát a vezměte si deštník.",
+            "de" to "Einen warmen Mantel anziehen und einen Regenschirm mitnehmen.",
+            "es" to "Ponte un abrigo cálido y lleva paraguas.",
+            "fr" to "Portez un manteau chaud et prenez un parapluie.",
+        )
+        for ((language, text) in expected) {
+            val config = Configuration(base.resources.configuration).apply { setLocale(Locale.forLanguageTag(language)) }
+            val localized = base.createConfigurationContext(config)
+            assertEquals(text, dailyBriefingText(localized, day))
+            assertFalse(dailyBriefingText(localized, day.copy(precipitationSum = 0.0, precipitationProbability = null,
+                weatherCode = 0)).contains(localized.getString(cz.majkey.pocasicesko.R.string.daily_briefing_no_umbrella)))
+        }
     }
 
     @Test

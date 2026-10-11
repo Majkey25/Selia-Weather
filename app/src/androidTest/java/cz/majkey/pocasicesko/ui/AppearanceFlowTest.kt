@@ -3,9 +3,18 @@ package cz.majkey.pocasicesko.ui
 import android.content.Context
 import android.content.ContextWrapper
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -19,11 +28,14 @@ import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.data.ConfidenceLevel
 import cz.majkey.pocasicesko.data.ConfidenceReason
 import cz.majkey.pocasicesko.data.ForecastConfidence
+import cz.majkey.pocasicesko.data.WeatherKind
 import cz.majkey.pocasicesko.data.WeatherRepository
 import cz.majkey.pocasicesko.units.MeasurementSystem
 import cz.majkey.pocasicesko.units.WeatherUnitFormatter
 import java.util.Locale
+import kotlin.math.roundToInt
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -62,6 +74,38 @@ class AppearanceFlowTest {
         compose.onNodeWithContentDescription("$ocean · $light").assertIsSelected()
         compose.onNodeWithContentDescription("$ocean · $dark").performClick()
         assertEquals(AppAppearance.OCEAN, config.value.darkTheme)
+    }
+
+    @Test
+    fun materialPreviewsMatchRenderedLightAndDarkBackgrounds() {
+        val config = AppearanceConfig(mode = AppearanceMode.LIGHT)
+        compose.setContent { WeatherTheme(config) { AppearanceSheet(config, {}, {}) } }
+        val material = context.getString(R.string.appearance_material)
+        listOf(false, true).forEach { dark ->
+            val mode = if (dark) AppearanceMode.DARK else AppearanceMode.LIGHT
+            val label = context.getString(if (dark) R.string.appearance_dark else R.string.appearance_light)
+            val preview = compose.onNodeWithContentDescription("$material · $label").performScrollTo()
+                .captureToImage().asAndroidBitmap()
+            val expected = renderedAppearance(context,
+                config.copy(mode = mode, lightTheme = AppAppearance.MATERIAL, darkTheme = AppAppearance.MATERIAL),
+                WeatherKind.CLEAR, true)
+            assertEquals(expected.colors.background.toArgb(), preview.getPixel(preview.width / 2, preview.height / 5))
+        }
+    }
+
+    @Test
+    fun automaticTextHasOneLabeledSwitchWithFullRowAction() {
+        compose.setContent { WeatherTheme { AppearanceSheet(AppearanceConfig(), {}, {}) } }
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(context.getString(R.string.appearance_edit_custom)))
+        compose.onNodeWithText(context.getString(R.string.appearance_edit_custom)).performClick()
+        val toggle = compose.onNodeWithText(context.getString(R.string.appearance_auto_text)).performScrollTo()
+        toggle.assertIsOn()
+        assertEquals(Role.Switch, toggle.fetchSemanticsNode().config[SemanticsProperties.Role])
+        assertTrue(toggle.fetchSemanticsNode().boundsInRoot.height >= (48 * context.resources.displayMetrics.density).roundToInt())
+        compose.onAllNodes(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Switch), useUnmergedTree = true)
+            .assertCountEquals(1)
+        toggle.performClick().assertIsOff()
+        toggle.performClick().assertIsOn()
     }
 
     @Test

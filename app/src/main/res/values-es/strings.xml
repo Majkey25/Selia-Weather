@@ -52,6 +52,7 @@
     <string name="duration_hours_minutes">%1$dh %2$02dm</string>
     <string name="temperature">Temperatura</string>
     <string name="feels_like">Sensación térmica</string>
+    <string name="feels_like_model_note">Estimación del modelo a partir de temperatura, humedad, viento y radiación solar. Las mediciones de estaciones cercanas no cambian esta estimación.</string>
     <string name="cloud_cover">Nubosidad</string>
     <string name="wind_gusts">Ráfagas de viento</string>
     <string name="sunrise">Amanecer</string>

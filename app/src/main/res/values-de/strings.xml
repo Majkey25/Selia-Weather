@@ -52,6 +52,7 @@
     <string name="duration_hours_minutes">%1$dh %2$02dm</string>
     <string name="temperature">Temperatur</string>
     <string name="feels_like">Gefühlt</string>
+    <string name="feels_like_model_note">Modellschätzung aus Temperatur, Luftfeuchtigkeit, Wind und Sonneneinstrahlung. Messwerte naher Stationen ändern diese Schätzung nicht.</string>
     <string name="cloud_cover">Bewölkung</string>
     <string name="wind_gusts">Windböen</string>
     <string name="sunrise">Sonnenaufgang</string>

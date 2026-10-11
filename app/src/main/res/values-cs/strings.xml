@@ -52,6 +52,7 @@
     <string name="duration_hours_minutes">%1$dh %2$02dm</string>
     <string name="temperature">Teplota</string>
     <string name="feels_like">Pocitová teplota</string>
+    <string name="feels_like_model_note">Modelový odhad z teploty, vlhkosti, větru a slunečního záření. Z měření blízkých stanic se nepřepočítává.</string>
     <string name="cloud_cover">Oblačnost</string>
     <string name="wind_gusts">Nárazy větru</string>
     <string name="sunrise">Východ slunce</string>

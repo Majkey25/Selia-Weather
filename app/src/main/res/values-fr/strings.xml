@@ -52,6 +52,7 @@
     <string name="duration_hours_minutes">%1$dh %2$02dm</string>
     <string name="temperature">Température</string>
     <string name="feels_like">Ressenti</string>
+    <string name="feels_like_model_note">Estimation du modèle selon la température, le taux d\'humidité, le vent et le rayonnement solaire. Les mesures des stations proches ne modifient pas cette estimation.</string>
     <string name="cloud_cover">Couverture nuageuse</string>
     <string name="wind_gusts">Rafales de vent</string>
     <string name="sunrise">Lever du soleil</string>

@@ -146,6 +146,8 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlin.math.ceil
 
@@ -201,6 +203,10 @@ fun WeatherApp(
     val keyboard = LocalSoftwareKeyboardController.current
     val destination = Destination.entries[pagerState.currentPage]
     val navigationScope = rememberCoroutineScope()
+    val notificationSyncMutex = remember { Mutex() }
+    suspend fun syncAlerts() = notificationSyncMutex.withLock {
+        withContext(Dispatchers.IO) { WeatherAlertScheduler.sync(context.applicationContext) }
+    }
     var navigationJob by remember { mutableStateOf<Job?>(null) }
     var visitedPages by remember { mutableStateOf(setOf(Destination.WEATHER, destination)) }
     var radarFullscreen by rememberSaveable { mutableStateOf(false) }
@@ -274,11 +280,11 @@ fun WeatherApp(
             dailyBriefingEnabled = true
         }
         notificationsAllowed = WeatherAlertScheduler.notificationsAllowed(context)
-        WeatherAlertScheduler.sync(context)
+        navigationScope.launch { syncAlerts() }
     }
     val alertPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         notificationsAllowed = WeatherAlertScheduler.notificationsAllowed(context)
-        WeatherAlertScheduler.sync(context)
+        navigationScope.launch { syncAlerts() }
     }
 
     fun saveAlertSettings(selected: WeatherAlertSettings) {
@@ -286,7 +292,7 @@ fun WeatherApp(
         alertSettings.save(context)
         dailyBriefingEnabled = DailyBriefingScheduler.isEnabled(context)
         DailyBriefingScheduler.schedule(context)
-        WeatherAlertScheduler.sync(context)
+        navigationScope.launch { syncAlerts() }
     }
 
     fun acceptBackgroundChoice(allowed: Boolean) {
@@ -315,7 +321,7 @@ fun WeatherApp(
 
     LaunchedEffect(Unit) {
         DailyBriefingScheduler.schedule(context)
-        WeatherAlertScheduler.sync(context)
+        syncAlerts()
     }
 
     fun openSystemNotifications(channel: String? = null) {
@@ -335,12 +341,14 @@ fun WeatherApp(
             if (event == Lifecycle.Event.ON_RESUME) {
                 notificationChannelsVersion++
                 notificationsAllowed = WeatherAlertScheduler.notificationsAllowed(context)
-                WeatherAlertScheduler.sync(context)
-                exactAlarmsAllowed = DailyBriefingScheduler.exactAlarmsAllowed(context)
-                DailyBriefingScheduler.schedule(context)
-                widgetIds = AppWidgetManager.getInstance(context).getAppWidgetIds(
-                    ComponentName(context, WeatherWidgetProvider::class.java),
-                ).sorted()
+                navigationScope.launch {
+                    syncAlerts()
+                    exactAlarmsAllowed = DailyBriefingScheduler.exactAlarmsAllowed(context)
+                    DailyBriefingScheduler.schedule(context)
+                    widgetIds = AppWidgetManager.getInstance(context).getAppWidgetIds(
+                        ComponentName(context, WeatherWidgetProvider::class.java),
+                    ).sorted()
+                }
             }
             val content = latestState as? WeatherUiState.Content
             if (event == Lifecycle.Event.ON_RESUME && content != null && shouldRefreshWeatherOnResume(

@@ -1,10 +1,12 @@
 package cz.majkey.pocasicesko.widget
 
 import android.content.Context
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import cz.majkey.pocasicesko.data.WeatherKind
 import cz.majkey.pocasicesko.data.WeatherRepository
 import cz.majkey.pocasicesko.ui.AppearanceSettings
+import cz.majkey.pocasicesko.ui.gradientContrastSamples
 import cz.majkey.pocasicesko.ui.renderedAppearance
 import java.util.Locale
 import kotlin.math.pow
@@ -74,7 +76,9 @@ internal fun WidgetSettings.renderedTextColors(): WidgetSettings {
     val backgrounds = when (backgroundMode) {
         WidgetBackgroundMode.LIGHT -> listOf(0xFFF4F1EA.toInt())
         WidgetBackgroundMode.SOLID -> listOfNotNull(widgetArgbOrNull(backgroundStart))
-        WidgetBackgroundMode.GRADIENT -> listOfNotNull(widgetArgbOrNull(backgroundStart), widgetArgbOrNull(backgroundEnd))
+        WidgetBackgroundMode.GRADIENT -> gradientContrastSamples(
+            listOfNotNull(widgetArgbOrNull(backgroundStart), widgetArgbOrNull(backgroundEnd)).map { Color(it) },
+        ).map { it.toArgb() }
         WidgetBackgroundMode.TRANSPARENT, WidgetBackgroundMode.CUSTOM_IMAGE -> return this
         else -> return copy(primaryColor = DEFAULT_PRIMARY_COLOR, secondaryColor = DEFAULT_SECONDARY_COLOR)
     }

@@ -6,8 +6,10 @@ import android.app.job.JobScheduler
 import android.content.ComponentName
 import android.content.Context
 import androidx.test.platform.app.InstrumentationRegistry
+import cz.majkey.pocasicesko.data.WeatherRepository
 import java.time.Instant
 import java.time.ZoneId
+import java.util.concurrent.TimeUnit
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 
@@ -20,6 +22,20 @@ class BackgroundDeliveryProbe {
         assumeTrue(InstrumentationRegistry.getArguments().getString("backgroundProbe") == "true")
         check(context.packageName.endsWith(".debug"))
         check(WeatherAlertSettings.load(context).backgroundAlertsAllowed) { "Enable background alerts in the app before the probe" }
+        val repository = WeatherRepository(context)
+        val snapshot = checkNotNull(repository.cachedForecast(repository.lastLocation())) {
+            "Load a real forecast for the selected location before the probe"
+        }
+        val now = Instant.now()
+        val age = now.toEpochMilli() - snapshot.updatedAtEpochMillis
+        check(age in 0 until TimeUnit.HOURS.toMillis(1)) {
+            "Refresh the forecast in the app before the probe (cache age: $age ms)"
+        }
+        val today = now.atZone(ZoneId.of(snapshot.timezone)).toLocalDate().toString()
+        check(snapshot.daily.any { it.date == today }) { "The cached forecast must contain today's daily weather" }
+        check(WeatherAlerts.canPost(context, "daily_weather_briefing")) {
+            "Allow app notifications and the daily briefing channel in Android before the probe"
+        }
         val scheduler = context.getSystemService(JobScheduler::class.java)
         check(scheduler.getPendingJob(7003) == null) { "Existing refresh work must finish first" }
         val backup = context.getSharedPreferences("notification_probe", Context.MODE_PRIVATE)

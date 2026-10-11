@@ -3,6 +3,7 @@ package cz.majkey.pocasicesko.data
 import java.time.Instant
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class CurrentConditionsTest {
@@ -165,6 +166,108 @@ class CurrentConditionsTest {
     }
 
     @Test
+    fun observedTotalCloudCoverInvalidatesModeledLayersThroughJson() {
+        val now = Instant.parse("2026-08-29T09:10:00Z")
+        val original = JSONObject(FORECAST_WITH_CLOUD_LAYERS)
+        val snapshot = WeatherParser.parseForecast(original.toString(), 0L)
+        val model = snapshot.current
+        val fused = fuseCurrentConditions(
+            model,
+            CzechLocation("Point", REGION_PRAGUE, 50.0, 14.0),
+            listOf(observation(50.001, 14.0, now.minusSeconds(300)).copy(cloudCoverPercent = 0)),
+            now,
+        )
+        assertEquals(null, fused.cloudCoverLow)
+        assertEquals(null, fused.cloudCoverMid)
+        assertEquals(null, fused.cloudCoverHigh)
+
+        val corrected = JSONObject(applyCurrentConditionsToForecastJson(original.toString(), fused))
+        listOf("cloud_cover_low", "cloud_cover_mid", "cloud_cover_high").forEach { field ->
+            assertFalse(corrected.getJSONObject("current").has(field))
+        }
+        val parsed = WeatherParser.parseForecast(corrected.toString(), 0L)
+        assertEquals(snapshot.copy(current = fused), parsed)
+        assertEquals(0, parsed.current.weatherCode)
+        assertEquals(0, parsed.current.cloudCover)
+        assertEquals(null, parsed.current.cloudCoverLow)
+        assertEquals(null, parsed.current.cloudCoverMid)
+        assertEquals(null, parsed.current.cloudCoverHigh)
+        assertEquals(original.getJSONObject("hourly").toString(), corrected.getJSONObject("hourly").toString())
+        assertEquals(original.getJSONObject("daily").toString(), corrected.getJSONObject("daily").toString())
+    }
+
+    @Test
+    fun explicitWeatherReportKeepsItsOwnCloudCover() {
+        val now = Instant.parse("2026-08-29T09:10:00Z")
+        val clearStation = observation(50.001, 14.0, now.minusSeconds(300)).copy(
+            precipitation = null, cloudCoverPercent = 0,
+        )
+        val drizzleStation = observation(50.01, 14.0, now.minusSeconds(300)).copy(
+            precipitation = null, cloudCoverPercent = 100, weatherCode = 51,
+        )
+        for (reports in listOf(listOf(clearStation, drizzleStation), listOf(drizzleStation, clearStation))) {
+            val fused = fuseCurrentConditions(
+                current(weatherCode = 0, precipitation = 0.0, cloudCover = 0),
+                CzechLocation("Point", REGION_PRAGUE, 50.0, 14.0),
+                reports,
+                now,
+            )
+            assertEquals(51, fused.weatherCode)
+            assertEquals(100, fused.cloudCover)
+            assertEquals(0.0, fused.precipitation, 0.0)
+        }
+    }
+
+    @Test
+    fun explicitWeatherWithoutCloudCoverDoesNotBorrowAnotherStationsSky() {
+        val now = Instant.parse("2026-08-29T09:10:00Z")
+        val model = current(weatherCode = 0, precipitation = 0.0, cloudCover = 38).copy(
+            cloudCoverLow = 10, cloudCoverMid = 20, cloudCoverHigh = 0,
+        )
+        val fused = fuseCurrentConditions(
+            model,
+            CzechLocation("Point", REGION_PRAGUE, 50.0, 14.0),
+            listOf(
+                observation(50.001, 14.0, now.minusSeconds(300)).copy(
+                    precipitation = null, cloudCoverPercent = 0,
+                ),
+                observation(50.01, 14.0, now.minusSeconds(300)).copy(
+                    precipitation = null, weatherCode = 51,
+                ),
+            ),
+            now,
+        )
+        assertEquals(51, fused.weatherCode)
+        assertEquals(38, fused.cloudCover)
+        assertEquals(model.cloudCoverLow, fused.cloudCoverLow)
+        assertEquals(model.cloudCoverMid, fused.cloudCoverMid)
+        assertEquals(model.cloudCoverHigh, fused.cloudCoverHigh)
+        assertEquals(model.precipitation, fused.precipitation, 0.0)
+    }
+
+    @Test
+    fun stationTemperatureHumidityAndWindDoNotRecalculateModelApparentTemperature() {
+        val now = Instant.parse("2026-08-29T09:10:00Z")
+        val model = current(weatherCode = 0, precipitation = 0.0, cloudCover = 0).copy(feelsLike = 19.0)
+        for (temperature in listOf(model.temperature, 12.0)) {
+            val station = observation(50.001, 14.0, now.minusSeconds(300)).copy(
+                temperature = temperature, humidity = 90, windSpeed = 36.0, windDirection = 180.0,
+            )
+            val fused = fuseCurrentConditions(
+                model, CzechLocation("Point", REGION_PRAGUE, 50.0, 14.0), listOf(station), now,
+            )
+            assertEquals(temperature, fused.temperature, 0.0)
+            assertEquals(90, fused.humidity)
+            assertEquals(36.0, fused.windSpeed, 1e-9)
+            assertEquals(model.feelsLike, fused.feelsLike, 0.0)
+            val parsed = WeatherParser.parseForecast(
+                applyCurrentConditionsToForecastJson(FORECAST_WITH_CLOUD_LAYERS, fused), 0L,
+            )
+            assertEquals(model.feelsLike, parsed.current.feelsLike, 0.0)
+        }
+    }
+
+    @Test
     fun correctedJsonPreservesTheWholeHourlyForecast() {
         val corrected = JSONObject(
             applyCurrentConditionsToForecastJson(
@@ -283,4 +386,29 @@ class CurrentConditionsTest {
         windDirection = null,
         sunshineSeconds = sunshineSeconds,
     )
+
+    companion object {
+        private val FORECAST_WITH_CLOUD_LAYERS = """
+            {
+              "timezone":"Europe/Prague","utc_offset_seconds":7200,
+              "current":{
+                "time":"2026-08-29T11:10","temperature_2m":22,"apparent_temperature":22,
+                "relative_humidity_2m":50,"precipitation":0,"weather_code":3,"cloud_cover":100,
+                "cloud_cover_low":80,"cloud_cover_mid":65,"cloud_cover_high":40,
+                "pressure_msl":1015,"wind_speed_10m":5,"wind_direction_10m":270,"wind_gusts_10m":8,"is_day":1
+              },
+              "hourly":{
+                "time":["2026-08-29T11:00"],"temperature_2m":[19],"relative_humidity_2m":[60],
+                "precipitation_probability":[3],"precipitation":[0.3],"weather_code":[61],
+                "cloud_cover_low":[80],"cloud_cover_mid":[65],"cloud_cover_high":[40],
+                "pressure_msl":[1015],"wind_speed_10m":[5],"wind_direction_10m":[270],"is_day":[1]
+              },
+              "daily":{
+                "time":["2026-08-29"],"weather_code":[61],"temperature_2m_max":[22],"temperature_2m_min":[10],
+                "sunrise":["2026-08-29T06:00"],"sunset":["2026-08-29T20:00"],
+                "precipitation_sum":[0.3],"precipitation_probability_max":[3],"wind_speed_10m_max":[8]
+              }
+            }
+        """.trimIndent()
+    }
 }

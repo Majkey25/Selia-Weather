@@ -241,8 +241,9 @@
     viewportObserver.observe(document.getElementById('radar-tools'));
     viewportObserver.observe(document.querySelector('.panel'));
     viewportObserver.observe(document.getElementById('map'));
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { minZoom: 2, maxZoom: 11,
-      maxNativeZoom: 11, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }).addTo(map);
+    var baseLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { minZoom: 2, maxZoom: 11,
+      maxNativeZoom: 11, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' });
+    if (pageActive()) baseLayer.addTo(map);
 
     function coordinate(raw, minimum, maximum, fallback) {
       if (raw === null || String(raw).trim() === '') return fallback;
@@ -407,7 +408,7 @@
       frameIndex = index;
       if (radarLayer && sameFrame(radarLayer.frame, frame) && !retryTiles) {
         radarLayer.frame = frame; radarLayer.frameIndex = index; updateSlider(frame);
-      } else if (pageActive() && !seekTimer && (!pendingLayer || retryTiles)) renderFrame(index);
+      } else if (pageActive() && !seekTimer && (!pendingLayer || retryTiles)) renderFrame(index, retryTiles);
       renderStatus();
     }
     function scheduleExpiry() {
@@ -557,12 +558,21 @@
       selectionTouched = true;
       renderFrame(index);
     }
-    function renderFrame(index) {
+    function renderFrame(index, retryTiles) {
       var frame = frames[index];
       if (!frame || !pageActive()) return;
       clearPending();
-      var layer = preloadLayer && sameFrame(preloadLayer.frame, frame) && !preloadLayer.failed ? preloadLayer : newFrameLayer(index);
-      if (layer === preloadLayer) preloadLayer = null;
+      if (!retryTiles && radarLayer && radarLayer.ready && !radarLayer.failed && sameFrame(radarLayer.frame, frame)) {
+        frameIndex = index; updateSlider(frame); setStatus(''); return;
+      }
+      clearTimeout(transitionTimer); transitionTimer = null;
+      if (retiredLayer) map.removeLayer(retiredLayer);
+      retiredLayer = null;
+      if (preloadLayer && (retryTiles || preloadLayer.failed || !sameFrame(preloadLayer.frame, frame))) {
+        map.removeLayer(preloadLayer); preloadLayer = null;
+      }
+      var layer = preloadLayer || newFrameLayer(index);
+      preloadLayer = null;
       pendingLayer = layer;
       updateSlider(frame);
       if (layer.ready) { commitFrame(layer); return; }
@@ -709,13 +719,18 @@
         clearTimeout(transitionTimer); transitionTimer = null;
         [preloadLayer, retiredLayer].forEach(function(layer) { if (layer) map.removeLayer(layer); });
         preloadLayer = retiredLayer = null;
+        [baseLayer, coverageLayer, radarLayer].forEach(function(layer) {
+          if (layer && layer.isLoading()) map.removeLayer(layer);
+        });
         clearTimeout(expiryTimer); expiryTimer = null;
         cancelRequest(observedState); cancelRequest(forecastState);
         setStatus(radarLayer && radarLayer.failed ? unavailableText(radarLayer.frame) : '');
       } else {
+        baseLayer.addTo(map);
         ensureSourcesFresh();
         flushSeek(); rebuildTimeline();
         if (radarLayer && !radarLayer.ready && !pendingLayer) renderFrame(frameIndex);
+        if (coverageLayer && coverageVisible && radarLayer && radarLayer.frame.type === 'observed') coverageLayer.addTo(map);
       }
     }
     window.setNativeActive = function(active) {

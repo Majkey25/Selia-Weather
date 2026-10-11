@@ -133,18 +133,6 @@ internal fun WeatherDetailSheet(
     onDismiss: () -> Unit,
 ) {
     val locale = LocalConfiguration.current.locales[0]
-    val at = remember(snapshot.current.time, snapshot.timezone) {
-        runCatching {
-            LocalDateTime.parse(snapshot.current.time).atZone(ZoneId.of(snapshot.timezone))
-        }.getOrNull()
-    }
-    val moon = remember(at, location) {
-        at?.let { time ->
-            runCatching {
-                MoonCalculator.calculate(time, location.latitude, location.longitude)
-            }.getOrNull()
-        }
-    }
     val today = snapshot.daily.firstOrNull { it.date == currentTime?.toLocalDate()?.toString() }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -260,6 +248,13 @@ internal fun WeatherDetailSheet(
                         DetailSection(stringResource(R.string.temperature), collapsible = true, icon = Icons.Rounded.Thermostat) {
                             DetailRow(stringResource(R.string.temperature), units.temperature(snapshot.current.temperature))
                             DetailRow(stringResource(R.string.feels_like), units.temperature(snapshot.current.feelsLike))
+                            Text(
+                                stringResource(R.string.feels_like_model_note),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 11.sp,
+                                lineHeight = 16.sp,
+                                modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
+                            )
                             OptionalDetailRow(
                                 stringResource(R.string.dew_point),
                                 snapshot.current.dewPoint?.let(units::temperature),
@@ -406,6 +401,12 @@ internal fun WeatherDetailSheet(
                                         String.format(locale, "%.1f MJ/m²", it)
                                     },
                                 )
+                            }
+                            val moon = remember(snapshot.current.time, snapshot.timezone, location) {
+                                runCatching {
+                                    val at = LocalDateTime.parse(snapshot.current.time).atZone(ZoneId.of(snapshot.timezone))
+                                    MoonCalculator.calculate(at, location.latitude, location.longitude)
+                                }.getOrNull()
                             }
                             MoonSection(moon, locale)
                         }

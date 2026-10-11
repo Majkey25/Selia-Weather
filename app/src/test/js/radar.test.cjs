@@ -65,7 +65,8 @@ function runtime({ observed = manifest(), forecast = true, search = '?lat=50&lon
   };
   function layer(url, options) {
     const result = { url, options, events: {}, on(name, fn) { this.events[name] = fn; return this; },
-      addTo() { this.added = true; return this; }, setOpacity(value) { this.opacity = value; return this; } };
+      addTo() { this.added = true; return this; }, setOpacity(value) { this.opacity = value; return this; },
+      isLoading() { return this.loading === true; } };
     layers.push(result);
     return result;
   }
@@ -335,6 +336,43 @@ test('same-source transitions crossfade; observation-to-forecast and model chang
   assert.ok(app.removed.includes(europe));
   assert.equal(app.context.retiredLayer, null);
   assert.equal(app.context.radarLayer.frame.key, 'global');
+});
+
+test('reselecting a healthy frame reuses its tiles while explicit refresh replaces them', async () => {
+  const app = runtime();
+  await settled(); app.commit();
+  const displayed = app.context.radarLayer, count = app.layers.length;
+  app.context.showFrame(app.context.frameIndex);
+  scrub(app, [displayed.frame.time]); app.fire(app.context.seekTimer);
+  assert.equal(app.context.pendingLayer, null);
+  assert.equal(app.context.radarLayer, displayed);
+  assert.equal(app.layers.length, count);
+  app.context.refreshMap(); await settled();
+  assert.ok(app.context.pendingLayer);
+  assert.notEqual(app.context.pendingLayer, displayed);
+  assert.equal(app.context.pendingLayer.frame.time, displayed.frame.time);
+  app.commit();
+  app.context.radarLayer.events.tileerror();
+  app.context.showFrame(app.context.frameIndex);
+  assert.ok(app.context.pendingLayer, 'a failed displayed frame still retries');
+});
+
+test('a new selection retires unused tiles while the next-frame preload remains reusable', async () => {
+  const app = runtime();
+  await settled(); app.commit();
+  app.context.showFrame(0); app.commit();
+  assert.equal(app.layers.filter(layer => layer.added && layer.frame).length, 3);
+  const retired = app.context.retiredLayer, unused = app.context.preloadLayer;
+  app.context.showFrame(5);
+  assert.equal(retired.added, false);
+  assert.equal(unused.added, false);
+  assert.equal(app.layers.filter(layer => layer.added && layer.frame).length, 2);
+  app.commit();
+  const preload = app.context.preloadLayer, count = app.layers.length;
+  app.context.showFrame(6);
+  assert.equal(app.context.pendingLayer, preload);
+  assert.equal(app.layers.length, count);
+  assert.equal(app.layers.filter(layer => layer.added && layer.frame).length, 2);
 });
 
 test('snapshot and accumulated interval labels, legends and coverage match the displayed source', async () => {
@@ -641,11 +679,37 @@ test('native-inactive startup makes no requests until explicitly activated', asy
   const app = runtime({ search: '?nativeActive=0' });
   await settled();
   assert.equal(app.calls.length, 0);
+  assert.equal(app.layers.filter(layer => layer.added && typeof layer.url === 'string').length, 0);
   assert.equal(app.context.frames.length, 0);
   app.context.window.setNativeActive(true);
   await settled();
   assert.equal(app.calls.length, 3);
+  assert.ok(app.layers.some(layer => layer.added && layer.url.includes?.('tile.openstreetmap.org')));
   assert.equal(app.context.pendingLayer.frame.type, 'observed');
+});
+
+test('hiding cancels panned tile layers and resumes the same selection, preserving healthy tiles', async () => {
+  const app = runtime();
+  await settled(); app.commit();
+  const displayed = app.context.radarLayer, selected = app.context.selectedTime;
+  const base = app.layers.find(layer => typeof layer.url === 'string' && layer.url.includes('tile.openstreetmap.org'));
+  app.context.window.setNativeActive(false);
+  assert.equal(displayed.added, true, 'healthy displayed tiles stay attached');
+  assert.equal(base.added, true, 'healthy base tiles stay attached');
+  app.context.window.setNativeActive(true);
+  displayed.events.loading();
+  displayed.loading = base.loading = app.context.coverageLayer.loading = true;
+  app.context.window.setNativeActive(false);
+  assert.equal(displayed.added, false);
+  assert.equal(base.added, false);
+  assert.equal(app.context.coverageLayer.added, false);
+  assert.equal(app.context.selectedTime, selected);
+  app.context.window.setNativeActive(true);
+  assert.equal(base.added, true);
+  assert.equal(app.context.coverageLayer.added, true);
+  assert.equal(app.context.pendingLayer.frame.time, selected);
+  app.commit();
+  assert.equal(app.context.radarLayer.frame.time, selected);
 });
 
 test('model run age schedules expiration before the metadata TTL', async () => {

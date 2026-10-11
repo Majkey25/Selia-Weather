@@ -153,7 +153,15 @@ class RadarWebViewTest {
         compose.runOnIdle {
             assertFalse(view.settings.allowFileAccess)
             if (profiling) view.evaluateJavascript("""
-                window.radarProfile = {layers:0, tiles:0};
+                window.radarProfile = {layers:0, tiles:0, peakWeatherLayers:0};
+                function retainedWeatherLayers() {
+                  var count = 0;
+                  map.eachLayer(function(layer) { if (layer.frame) count++; });
+                  return count;
+                }
+                map.on('layeradd', function() {
+                  radarProfile.peakWeatherLayers = Math.max(radarProfile.peakWeatherLayers, retainedWeatherLayers());
+                });
                 var originalFrame = newFrameLayer;
                 newFrameLayer = function(index) {
                   var layer = originalFrame(index);
@@ -201,6 +209,7 @@ class RadarWebViewTest {
             compose.runOnIdle {
                 view.evaluateJavascript("""
                     radarProfile.layers = radarProfile.tiles = 0;
+                    radarProfile.peakWeatherLayers = retainedWeatherLayers();
                     var slider = document.getElementById('slider');
                     for (var i = 0; i < frames.length; i++) {
                       slider.value = frames[i].time;
@@ -215,6 +224,7 @@ class RadarWebViewTest {
                         !pendingLayer && radarLayer && radarLayer.frame === frames[frames.length - 1] &&
                           Number(document.getElementById('slider').value) === radarLayer.frame.time ?
                           JSON.stringify({layers:radarProfile.layers, tiles:radarProfile.tiles,
+                            retainedWeatherLayers:retainedWeatherLayers(), peakWeatherLayers:radarProfile.peakWeatherLayers,
                             tileSize:radarLayer.options.tileSize, status:document.getElementById('status').textContent}) : null
                     """.trimIndent()) { result ->
                         (JSONTokener(result).nextValue() as? String)?.let { report.set(it) }

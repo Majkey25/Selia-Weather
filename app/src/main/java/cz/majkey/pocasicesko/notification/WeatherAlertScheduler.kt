@@ -46,8 +46,14 @@ internal object WeatherAlertScheduler {
                 .build())
             if (result == JobScheduler.RESULT_FAILURE) Log.w("WeatherAlerts", "Unable to schedule alert checks")
         }
-        val repository = WeatherRepository(context)
-        scheduleRainCheck(context, repository.cachedForecast(repository.lastLocation()))
+        val settings = WeatherAlertSettings.load(context)
+        val snapshot = if (settings.backgroundAlertsAllowed && settings.rainEnabled &&
+            WeatherAlerts.canPost(context, WeatherAlertCategory.RAIN.channelId)
+        ) {
+            val repository = WeatherRepository(context)
+            repository.cachedForecast(repository.lastLocation())
+        } else null
+        scheduleRainCheck(context, snapshot)
     }
 
     fun scheduleRainCheck(context: Context, snapshot: WeatherSnapshot?, now: Long = System.currentTimeMillis()) {

@@ -6,6 +6,7 @@ import android.content.ContextWrapper
 import android.content.Intent
 import android.content.res.Configuration
 import cz.majkey.pocasicesko.data.DailyWeather
+import cz.majkey.pocasicesko.data.WeatherRepository
 import java.util.Locale
 import java.time.Instant
 import java.time.LocalDate
@@ -23,6 +24,36 @@ class NotificationRecoveryTest {
     private val context get() = object : ContextWrapper(base) {
         override fun getSharedPreferences(name: String, mode: Int) =
             super.getSharedPreferences("notification_recovery_test_$name", mode)
+    }
+
+    @Test
+    fun disabledRainSchedulingDoesNotReadForecastPreferences() {
+        var forecastReads = 0
+        val context = object : ContextWrapper(context) {
+            override fun getApplicationContext(): Context = this
+            override fun getSharedPreferences(name: String, mode: Int): android.content.SharedPreferences {
+                if (name == WeatherRepository.PREFERENCES_NAME) forecastReads++
+                return super.getSharedPreferences(name, mode)
+            }
+        }
+        check(base.packageName.endsWith(".debug"))
+        val scheduler = base.getSystemService(JobScheduler::class.java)
+        val previous = scheduler.getPendingJob(WeatherAlertScheduler.JOB_ID)
+        val previousSettings = WeatherAlertSettings.load(context)
+        try {
+            for (settings in listOf(
+                WeatherAlertSettings(backgroundAlertsAllowed = false),
+                WeatherAlertSettings(backgroundAlertsAllowed = true, rainEnabled = false),
+            )) {
+                settings.save(context)
+                WeatherAlertScheduler.sync(context)
+                assertEquals(0, forecastReads)
+            }
+        } finally {
+            previousSettings.save(context)
+            scheduler.cancel(WeatherAlertScheduler.JOB_ID)
+            previous?.let(scheduler::schedule)
+        }
     }
 
     @Test

@@ -53,6 +53,7 @@
     <string name="duration_hours_minutes">%1$dh %2$02dm</string>
     <string name="temperature">Temperature</string>
     <string name="feels_like">Feels like</string>
+    <string name="feels_like_model_note">Model estimate using temperature, humidity, wind and sunlight. Nearby station readings do not change this estimate.</string>
     <string name="cloud_cover">Cloud cover</string>
     <string name="wind_gusts">Wind gusts</string>
     <string name="sunrise">Sunrise</string>

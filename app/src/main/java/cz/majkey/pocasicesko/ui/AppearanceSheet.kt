@@ -39,7 +39,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -61,9 +61,9 @@ import kotlin.math.roundToInt
 @Composable
 fun AppearanceSheet(selectedAppearance: AppearanceConfig, onAppearance: (AppearanceConfig) -> Unit, onDismiss: () -> Unit) {
     var customOpen by rememberSaveable { mutableStateOf(false) }
-    var draft by remember(selectedAppearance.custom) { mutableStateOf(selectedAppearance.custom) }
-    var draftScale by remember(selectedAppearance.textScale) { mutableStateOf(selectedAppearance.textScale) }
-    var draftCorners by remember(selectedAppearance.cornerRadius) { mutableStateOf(selectedAppearance.cornerRadius.toFloat()) }
+    var draft by rememberSaveable(selectedAppearance.custom, stateSaver = CustomAppearanceSaver) { mutableStateOf(selectedAppearance.custom) }
+    var draftScale by rememberSaveable(selectedAppearance.textScale) { mutableStateOf(selectedAppearance.textScale) }
+    var draftCorners by rememberSaveable(selectedAppearance.cornerRadius) { mutableStateOf(selectedAppearance.cornerRadius.toFloat()) }
     val selectedDark = selectedAppearance.isDark(isSystemInDarkTheme())
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface,
         contentColor = MaterialTheme.colorScheme.onSurface, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -158,6 +158,12 @@ fun AppearanceSheet(selectedAppearance: AppearanceConfig, onAppearance: (Appeara
         }
     }
 }
+
+private val CustomAppearanceSaver = listSaver<CustomAppearance, String>(
+    save = { listOf(it.backgroundStart, it.backgroundEnd, it.surface, it.accent,
+        it.primaryText, it.secondaryText, it.automaticText.toString()) },
+    restore = { CustomAppearance(it[0], it[1], it[2], it[3], it[4], it[5], it[6].toBooleanStrict()) },
+)
 
 @Composable
 private fun ThemeCard(theme: AppAppearance, config: AppearanceConfig, modifier: Modifier, onSelect: (Boolean) -> Unit) {

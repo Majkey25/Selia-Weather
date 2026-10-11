@@ -14,11 +14,14 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasScrollToNodeAction
@@ -106,6 +109,26 @@ class AppearanceFlowTest {
             .assertCountEquals(1)
         toggle.performClick().assertIsOff()
         toggle.performClick().assertIsOn()
+    }
+
+    @Test
+    fun unsavedCustomPaletteSurvivesStateRestoration() {
+        val restoration = StateRestorationTester(compose)
+        var applied: AppearanceConfig? = null
+        restoration.setContent { WeatherTheme {
+            AppearanceSheet(AppearanceConfig(), { applied = it }, {})
+        } }
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(context.getString(R.string.appearance_edit_custom)))
+        compose.onNodeWithText(context.getString(R.string.appearance_edit_custom)).performClick()
+        compose.onNodeWithText(context.getString(R.string.appearance_auto_text)).performScrollTo().performClick().assertIsOff()
+        val startColor = context.getString(R.string.appearance_start_color)
+        compose.onNodeWithText(startColor).performScrollTo().performTextReplacement("#123456")
+        restoration.emulateSavedInstanceStateRestore()
+        compose.onNodeWithText(context.getString(R.string.appearance_auto_text)).performScrollTo().assertIsOff()
+        compose.onNodeWithText(startColor).performScrollTo().assertTextContains("#123456")
+        compose.onNodeWithText(context.getString(R.string.appearance_apply)).performScrollTo().performClick()
+        assertEquals(false, applied?.custom?.automaticText)
+        assertEquals("#123456", applied?.custom?.backgroundStart)
     }
 
     @Test

@@ -1,0 +1,1 @@
+Zachování shody modelů o stavu oblohy namísto nového přepočtu podle procent oblačnosti. Opravený výpočet neshody větru bez umělého zvýšení jistoty. Barevné hodinové ikony a zachované rámečky přehledu. Mrholení a déšť mají odlišné ikony. Rozšířený sběr dat pro ověřování předpovědí; neověřené váhy nejsou zapnuté.

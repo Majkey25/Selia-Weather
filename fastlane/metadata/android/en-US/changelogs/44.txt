@@ -1,0 +1,1 @@
+Preserve model agreement on sky conditions instead of reclassifying cloud percentages. Correct wind disagreement without raising confidence thresholds. Restore coloured hourly icons and keep bordered forecast panels. Drizzle and rain use distinct icons. Extend forecast validation captures without enabling unvalidated weights.

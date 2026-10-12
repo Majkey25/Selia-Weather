@@ -8,6 +8,7 @@ from io import StringIO
 from math import degrees, isclose
 from pathlib import Path
 from typing import cast
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 import pytest
 
@@ -17,7 +18,13 @@ from aladin_ensemble.sources.chmi_station import (
     Station,
     parse_station_observations,
 )
-from aladin_ensemble.sources.live_capture import capture, evaluate_capture, future_values
+from aladin_ensemble.sources.live_capture import (
+    CAPTURE_VARIABLES,
+    capture,
+    compare_capture_models,
+    evaluate_capture,
+    future_values,
+)
 from aladin_ensemble.sources.noaa_isd import parse_isd_observations
 from aladin_ensemble.types import ForecastPoint, Observation
 from aladin_ensemble.worldwide import WORLD_VARIABLES
@@ -27,18 +34,23 @@ MODELS = ("icon_seamless", "gfs_seamless")
 POINT = ForecastPoint("0-203-0-11775", 49.2, 17.7)
 
 
-def payload() -> bytes:
+def payload(variables: tuple[str, ...] = CAPTURE_VARIABLES) -> bytes:
     hourly: dict[str, JsonValue] = {
         "time": [int(datetime(2026, 9, 5, hour, tzinfo=UTC).timestamp()) for hour in range(12, 16)],
     }
     units: dict[str, JsonValue] = {}
     for model in MODELS:
-        for variable in WORLD_VARIABLES:
+        for variable in variables:
             field = f"{variable}_{model}"
             hourly[field] = [1.0, 2.0, None, 4.0]
+            if variable == "cloud_cover":
+                hourly[field] = [0, 100, None, 75]
+            elif variable == "weather_code":
+                hourly[field] = [0, 3, None, 97]
             units[field] = {
                 "temperature_2m": "°C", "dew_point_2m": "°C", "pressure_msl": "hPa",
                 "wind_speed_10m": "km/h", "wind_direction_10m": "°", "precipitation": "mm",
+                "cloud_cover": "%", "weather_code": "wmo code",
             }[variable]
     return json.dumps({"hourly": hourly, "hourly_units": units}).encode()
 
@@ -71,6 +83,78 @@ def test_capture_records_real_receipt_time_without_fabricating_initialization(
     assert manifest["calibration_eligible"] is False
     assert manifest["source_sha256"] == hashlib.sha256(raw).hexdigest()
     assert (tmp_path / str(manifest["raw_path"])).read_bytes() == raw
+    query = parse_qs(urlsplit(str(manifest["source_url"])).query)
+    assert query["hourly"] == [",".join(CAPTURE_VARIABLES)]
+    rows = evaluate_capture(manifest_path, (), {})
+    clouds = [row for row in rows if row.variable == "cloud_cover"]
+    assert [row.forecast_value for row in clouds] == [1.0, None, 0.75] * len(MODELS)
+    assert all(row.absolute_error is None for row in clouds)
+    codes = [row for row in rows if row.variable == "weather_code"]
+    assert [row.forecast_value for row in codes] == [3.0, None, 97.0] * len(MODELS)
+    assert {row.status for row in codes} == {"unscored_categorical", "missing_forecast"}
+    assert all(row.absolute_error is None and row.observed_value is None for row in codes)
+    assert compare_capture_models(rows) == {}
+
+
+def test_legacy_capture_replays_only_its_declared_variables(tmp_path: Path) -> None:
+    raw = payload(WORLD_VARIABLES)
+    path = capture(POINT, MODELS, tmp_path, variables=WORLD_VARIABLES,
+                   fetch=lambda _: raw, now=lambda: CAPTURED)
+    manifest = json.loads(path.read_bytes())
+    assert manifest["schema_version"] == 1
+    rows = evaluate_capture(path, (), {})
+    assert len(rows) == len(future_values(raw, MODELS, CAPTURED))
+    assert not {row.variable for row in rows}.intersection({"cloud_cover", "weather_code"})
+
+
+@pytest.mark.parametrize("hourly", [[], ["cloud_cover", "weather_code"], ["invented"]])
+def test_replay_rejects_missing_ambiguous_or_unsupported_query_variables(
+    tmp_path: Path, hourly: list[str],
+) -> None:
+    path = capture(POINT, MODELS, tmp_path, fetch=lambda _: payload(), now=lambda: CAPTURED)
+    manifest = json.loads(path.read_bytes())
+    url = urlsplit(str(manifest["source_url"]))
+    query = parse_qs(url.query)
+    query["hourly"] = hourly
+    manifest["source_url"] = url._replace(query=urlencode(query, doseq=True)).geturl()
+    body = json.dumps(manifest).encode()
+    changed = path.with_name(f"{hashlib.sha256(body).hexdigest()}.json")
+    changed.write_bytes(body)
+    with pytest.raises(ValueError, match="variables"):
+        evaluate_capture(changed, (), {})
+
+
+@pytest.mark.parametrize("variables", [(), ("cloud_cover", "cloud_cover"), ("invented",)])
+def test_capture_rejects_invalid_variables_before_fetch(
+    tmp_path: Path, variables: tuple[str, ...],
+) -> None:
+    with pytest.raises(ValueError, match="variables"):
+        capture(POINT, MODELS, tmp_path, variables=variables,
+                fetch=lambda _: pytest.fail("Invalid query reached the provider"))
+
+
+@pytest.mark.parametrize("variable,value", [
+    ("cloud_cover", -1), ("cloud_cover", 101), ("cloud_cover", True),
+    ("weather_code", 4), ("weather_code", 3.5), ("weather_code", True),
+])
+def test_capture_rejects_invalid_cloud_values(variable: str, value: JsonValue) -> None:
+    root = json.loads(payload())
+    root["hourly"][f"{variable}_{MODELS[0]}"][1] = value
+    with pytest.raises(ValueError, match="invalid|valid range"):
+        future_values(json.dumps(root).encode(), MODELS, CAPTURED, variables=CAPTURE_VARIABLES)
+
+
+@pytest.mark.parametrize("variable", ["cloud_cover", "weather_code"])
+def test_capture_requires_cloud_arrays_and_documented_units(variable: str) -> None:
+    root = json.loads(payload())
+    field = f"{variable}_{MODELS[0]}"
+    root["hourly"][field] = [None] * 4
+    root["hourly_units"][field] = "unknown"
+    with pytest.raises(ValueError, match="unsupported unit"):
+        future_values(json.dumps(root).encode(), MODELS, CAPTURED, variables=CAPTURE_VARIABLES)
+    del root["hourly"][field]
+    with pytest.raises(ValueError, match="incomplete"):
+        future_values(json.dumps(root).encode(), MODELS, CAPTURED, variables=CAPTURE_VARIABLES)
 
 
 def test_capture_is_immutable_and_rejects_corrupt_archive(tmp_path: Path) -> None:
@@ -161,7 +245,9 @@ def test_missing_or_wrong_station_time_truth_never_becomes_zero_error(tmp_path: 
     for unavailable in ((), wrong_station, wrong_time):
         rows = evaluate_capture(path, unavailable, truth)
         assert all(row.absolute_error is None for row in rows)
-        assert {row.status for row in rows} == {"missing_truth", "missing_forecast"}
+        assert {row.status for row in rows} == {
+            "missing_truth", "missing_forecast", "unscored_categorical",
+        }
 
 
 def test_rejects_ten_minute_rain_as_hourly_truth(tmp_path: Path) -> None:

@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.6.1] - 2026-10-12
+
+- Preserve unsaved custom appearance colours, text size and corner settings when Android restores the screen.
+
 ## [0.6.0] - 2026-10-11
 
 - Join observed radar and DWD precipitation forecasts in one timeline. Use actual snapshots and accumulation intervals, retain the last valid frame on failures, and stop hidden-map requests. Improve fullscreen controls, keyboard navigation, timezone updates and short-screen layout.

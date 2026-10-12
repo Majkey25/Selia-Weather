@@ -1,0 +1,1 @@
+Los colores y ajustes de apariencia sin guardar se conservan cuando Android restaura la pantalla.

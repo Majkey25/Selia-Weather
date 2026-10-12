@@ -188,6 +188,13 @@ data class WeatherCondition(
     val kind: WeatherKind,
 )
 
+internal fun cloudWeatherCode(cloudCover: Int): Int = when {
+    cloudCover < 20 -> 0
+    cloudCover < 50 -> 1
+    cloudCover < 80 -> 2
+    else -> 3
+}
+
 internal fun hasPrecipitationEvidence(weatherCode: Int, vararg amounts: Double?): Boolean =
     conditionFor(weatherCode).kind in setOf(WeatherKind.RAIN, WeatherKind.SNOW, WeatherKind.STORM) ||
         amounts.any { it != null && it.isFinite() && it > 0.0 }

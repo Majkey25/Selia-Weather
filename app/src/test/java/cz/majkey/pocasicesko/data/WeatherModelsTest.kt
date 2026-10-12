@@ -8,6 +8,13 @@ import org.junit.Test
 
 class WeatherModelsTest {
     @Test
+    fun cloudWeatherCodeMatchesProviderBoundaries() {
+        for ((cloudCover, expectedCode) in listOf(0 to 0, 19 to 0, 20 to 1, 49 to 1, 50 to 2, 79 to 2, 80 to 3, 100 to 3)) {
+            assertEquals("cloudCover=$cloudCover", expectedCode, cloudWeatherCode(cloudCover))
+        }
+    }
+
+    @Test
     fun precipitationSpreadRejectsIncoherentCountsAndAmounts() {
         assertEquals(0, PrecipitationModelSpread(3, 0, 0.0, 0.0).wetModelCount)
         assertEquals(32, PrecipitationModelSpread(32, 32, 0.01, 1.0).modelCount)

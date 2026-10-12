@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="confidence_hour_hint">Toca una hora para ver detalles y confianza del pronóstico</string>
-    <string name="confidence_label">Confianza · %1$s</string>
+    <string name="confidence_label">Confianza del pronóstico · %1$s</string>
     <string name="confidence_high">Alta</string>
     <string name="confidence_moderate">Media</string>
     <string name="confidence_low">Baja</string>
-    <string name="confidence_limited">Limitada</string>
+    <string name="confidence_limited">Sin evaluar</string>
     <string name="confidence_agreement">Los modelos comparados coinciden en gran parte para este periodo.</string>
     <string name="confidence_disagreement">Los datos difieren en lluvia, nubosidad, temperatura o viento.</string>
     <string name="confidence_long_range">Este periodo está más lejos. Los detalles pueden cambiar con nuevas previsiones.</string>
     <string name="confidence_old_fetch">La previsión se descargó hace tiempo. Actualízala para comprobar datos nuevos.</string>
-    <string name="confidence_missing">No hay suficientes datos completos de modelos para esta hora.</string>
+    <string name="confidence_missing">No hay suficientes datos completos de modelos para este periodo.</string>
     <string name="confidence_partial_day">Solo parte del día tiene suficientes datos para comparar.</string>
     <string name="confidence_historical">Los valores pasados no indican la precisión de una previsión anterior.</string>
     <string name="confidence_models">%1$d datos completos de modelos comparados</string>
@@ -19,5 +19,5 @@
     <string name="confidence_cloud_spread">Rango de nubosidad · %1$d%%</string>
     <string name="confidence_day_coverage">%1$d de %2$d horas restantes comparadas</string>
     <string name="confidence_day_method">La hora comparada menos segura determina la valoración del día.</string>
-    <string name="confidence_method">Estimación según coincidencia de modelos, antelación y antigüedad de descarga. No es una probabilidad de precisión. Los modelos pueden coincidir y equivocarse; no conocemos la antigüedad de sus ejecuciones.</string>
+    <string name="confidence_method">Evalúa el pronóstico, no las observaciones actuales de estaciones. Usa coincidencia de modelos, antelación y antigüedad de descarga. No es una probabilidad de precisión. Los modelos pueden coincidir y equivocarse; no conocemos la antigüedad de sus ejecuciones.</string>
 </resources>

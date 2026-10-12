@@ -100,7 +100,7 @@ class ForecastRegionTest {
         listOf(
             "icon_seamless",
             "ecmwf_ifs025",
-            "ecmwf_aifs025",
+            "ecmwf_aifs025_single",
             "gfs_seamless",
             "gem_seamless",
             "meteofrance_seamless",

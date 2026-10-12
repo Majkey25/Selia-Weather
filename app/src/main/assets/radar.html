@@ -3,20 +3,20 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5,user-scalable=yes">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src https://api.rainviewer.com https://maps.dwd.de; img-src data: https://tile.openstreetmap.org https://tilecache.rainviewer.com https://maps.dwd.de; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; base-uri 'none'; object-src 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src 'self' https://api.rainviewer.com https://maps.dwd.de https://tile.openstreetmap.org https://tilecache.rainviewer.com; img-src data: blob: https://tile.openstreetmap.org https://tilecache.rainviewer.com https://maps.dwd.de; worker-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; base-uri 'none'; object-src 'none'">
   <title>Radar</title>
-  <link rel="stylesheet" href="leaflet-1.9.4.css">
+  <link rel="stylesheet" href="maplibre-6.14.0/maplibre-gl.css">
   <style>
     * { box-sizing: border-box; }
-    :root { --bg: #071018; --surface: #101e27; --text: #f4fafc; --muted: #b6c9d2; --border: #ffffff18; --accent: #a8deed; --on-accent: #10232c; --variant: #223541; --bottom-inset: 0px; }
+    :root { --bg: #071018; --surface: #101e27; --text: #f4fafc; --muted: #b6c9d2; --border: #ffffff18; --accent: #a8deed; --on-accent: #10232c; --variant: #223541; --header-inset: 0px; --bottom-inset: 0px; }
     html, body { width: 100%; height: 100%; margin: 0; background: var(--bg); }
-    body { position: relative; display: flex; flex-direction: column; overflow: hidden; color: var(--text); font: 16px/1.4 system-ui, sans-serif; }
+    body { display: flex; flex-direction: column; padding-top: var(--header-inset); padding-bottom: var(--bottom-inset); overflow: hidden; color: var(--text); font: 16px/1.4 system-ui, sans-serif; }
     #map { flex: 1 1 auto; min-height: 0; width: 100%; position: relative; }
-    .leaflet-container { background: var(--bg); }
-    .panel, .details { position: absolute; z-index: 1000; left: 12px; right: 12px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 24px; background: var(--surface); overflow: auto; box-shadow: 0 4px 24px #0003; }
-    .panel { bottom: calc(var(--bottom-inset) + 12px); max-height: 45%; }
-    .details { bottom: var(--details-bottom, 180px); max-height: var(--details-height, 45%); }
-    body.details-open.details-over-panel .panel { visibility: hidden; }
+    .maplibregl-map { background: #e4e8e9; }
+    .panel, .details { flex: 0 1 auto; min-height: 0; padding: 12px 16px; border-top: 1px solid var(--border); background: var(--surface); overflow: auto; }
+    .panel { max-height: 42%; }
+    .details { max-height: 55%; }
+    body.details-open .panel { display: none !important; }
     .meta { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; }
     .time { font-size: 18px; font-weight: 650; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
     .kind { color: var(--accent); font-size: 14px; font-weight: 650; }
@@ -31,7 +31,12 @@
     #pause-icon { display: none; }
     #play[aria-pressed=true] #play-icon { display: none; }
     #play[aria-pressed=true] #pause-icon { display: inline; }
-    .tools { display: flex; position: absolute; z-index: 1000; right: 12px; top: calc(var(--header-inset, 64px) + 8px); gap: 8px; }
+    .tools { display: flex; flex: 0 0 auto; align-items: center; padding: 8px 12px; gap: 8px; background: var(--surface); border-bottom: 1px solid var(--border); }
+    .modes { display: flex; flex: 1; min-width: 0; gap: 4px; }
+    .modes button { flex: 1; border-radius: 16px; padding: 8px; font-size: 14px; font-weight: 650; }
+    .modes svg, #compact-time { display: none; }
+    .details-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .details-header h2 { margin: 0; font-size: 18px; }
     .timeline { position: relative; min-width: 0; }
     input[type=range] { display: block; width: 100%; min-width: 0; height: 48px; margin: 0; accent-color: var(--accent); }
     #timeline-marks { position: absolute; height: 5px; bottom: 1px; left: 8px; right: 8px; pointer-events: none; }
@@ -42,10 +47,8 @@
     #timeline-hint { margin-top: 4px; }
     .status { margin-top: 6px; }
     .status[hidden] { display: none !important; }
-    .leaflet-control-attribution { max-width: calc(100vw - 24px); font-size: 11px; background: var(--surface) !important; color: var(--muted); }
-    .leaflet-control-attribution a { color: var(--accent); }
-    .leaflet-top .leaflet-control-attribution { margin-top: 0; }
-    .leaflet-top.leaflet-right { top: var(--controls-bottom, 128px); }
+    .maplibregl-ctrl-attrib { max-width: calc(100vw - 24px); font-size: 10px; line-height: 1.4; background: var(--surface); color: var(--muted); }
+    .maplibregl-ctrl-attrib a { color: var(--accent); }
     .detail-controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
     #coverage { padding: 8px 16px; border-radius: 24px; }
     #frame-summary, .availability { margin: 8px 0; }
@@ -54,25 +57,30 @@
     #observed-scale span { display: inline-flex; align-items: center; gap: 6px; }
     #observed-scale i { width: 14px; height: 14px; border-radius: 50%; background: var(--swatch); }
     #scale { max-width: 100%; margin-top: 8px; background: white; }
-    .radar-frame { transition: opacity 350ms linear; }
     [hidden] { display: none !important; }
-    body.short .panel { display: flex; flex-direction: column; padding: 6px 12px; }
-    body.short .topline { order: -1; flex-shrink: 0; }
-    body.short #timeline-hint { display: none; }
-    @media (min-width: 700px) { .panel { max-width: 680px; margin: 0 auto; } .details { left: auto; width: min(440px, calc(100% - 24px)); } }
-    @media (prefers-reduced-motion: reduce) { .radar-frame { transition: none; } }
+    body.short .tools { padding-top: 4px; padding-bottom: 4px; }
+    body.short .modes .mode-label { display: none; }
+    body.short .modes svg { display: inline; }
+    body.short .panel { flex: 0 0 auto; max-height: none; padding: 0 12px; }
+    body.short .topline { grid-template-columns: 48px auto minmax(0, 1fr) 48px; gap: 8px; }
+    body.short #compact-time { display: inline; white-space: nowrap; font-size: 18px; font-variant-numeric: tabular-nums; }
+    body.short .meta, body.short .range, body.short #timeline-hint { display: none; }
+    body.short .status { margin-top: 0; white-space: nowrap; overflow-x: auto; }
+    @media (min-width: 700px) { .panel, .details { padding-left: max(16px, calc((100% - 680px) / 2)); padding-right: max(16px, calc((100% - 680px) / 2)); } }
   </style>
 </head>
 <body>
-  <div id="map" aria-label="Precipitation map"></div>
   <div id="radar-tools" class="tools">
-    <button id="center" type="button" aria-label="Show selected location" onclick="map.setView([latitude, longitude], map.getZoom())"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg></button>
+    <div class="modes" role="group" aria-label="Precipitation mode"><button id="forecast" class="active" type="button" aria-pressed="true" onclick="setMode('forecast')"><span class="mode-label">Forecast</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 17H7a4 4 0 1 1 1-7 5 5 0 0 1 9-2"/><circle cx="17" cy="15" r="5"/><path d="M17 12v3l2 1"/></svg></button><button id="observed" type="button" aria-pressed="false" onclick="setMode('observed')"><span class="mode-label">Observed</span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><path d="m12 12 6-6M12 4v8"/></svg></button></div>
+    <button id="center" type="button" aria-label="Show selected location" onclick="map && map.jumpTo({center: [longitude, latitude]})"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg></button>
     <button id="details-toggle" type="button" aria-label="Layers and details" aria-expanded="false" aria-controls="details" onclick="toggleDetails()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 8 9-5 9 5-9 5Zm0 4 9 5 9-5m-18 4 9 5 9-5"/></svg></button>
   </div>
+  <div id="map" aria-label="Precipitation map"></div>
   <div class="panel">
     <div class="meta"><span id="frame-kind" class="kind"></span><span id="time" class="time">—</span></div>
     <div class="topline">
       <button id="play" type="button" aria-label="Play" aria-pressed="false" onclick="togglePlay()" disabled><svg id="play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 11 7-11 7Z" fill="currentColor" stroke="none"/></svg><svg id="pause-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14" stroke-width="3"/></svg></button>
+      <span id="compact-time" aria-hidden="true">—</span>
       <div class="timeline"><input id="slider" type="range" min="0" max="0" value="0" step="1" aria-label="Precipitation timeline" oninput="seekTime(Number(this.value))" onkeydown="timelineKey(event)" disabled><div id="timeline-marks" aria-hidden="true"></div></div>
       <button id="retry" type="button" aria-label="Refresh precipitation" onclick="refreshMap()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2 6M20 4v7h-7"/></svg></button>
     </div>
@@ -81,12 +89,13 @@
     <div id="status" class="status" role="status">Loading precipitation…</div>
   </div>
   <div id="details" class="details" hidden>
+    <div class="details-header"><h2 id="details-title">Layers and details</h2><button id="details-close" type="button" aria-label="Close details" onclick="toggleDetails(false)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
     <div id="frame-summary"></div>
     <div id="source" class="source">RainViewer · Deutscher Wetterdienst</div>
     <div class="detail-controls">
       <button id="coverage" class="active" type="button" aria-pressed="true" onclick="toggleCoverage()">Coverage</button>
-      <button id="zoom-out" type="button" aria-label="Zoom out" onclick="map.zoomOut()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button>
-      <button id="zoom-in" type="button" aria-label="Zoom in" onclick="map.zoomIn()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14"/></svg></button>
+      <button id="zoom-out" type="button" aria-label="Zoom out" onclick="map && map.zoomOut()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button>
+      <button id="zoom-in" type="button" aria-label="Zoom in" onclick="map && map.zoomIn()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14"/></svg></button>
     </div>
     <div id="observed-status" class="availability"></div>
     <div id="forecast-status" class="availability"></div>
@@ -94,7 +103,6 @@
     <div id="observed-scale" hidden><span><i style="--swatch:#00a3e0"></i>20 dBZ</span><span><i style="--swatch:#005588"></i>30 dBZ</span><span><i style="--swatch:#ffaa00"></i>40 dBZ</span><span><i style="--swatch:#c10000"></i>50 dBZ</span></div>
     <img id="scale" hidden alt="DWD precipitation legend, mm">
   </div>
-  <script src="leaflet-1.9.4.js"></script>
   <script src="radar-forecast.js"></script>
   <script>
     var TEXTS = {
@@ -125,6 +133,13 @@
       es: ['Actualización del radar no disponible. Se muestra la imagen anterior.', 'Actualización del modelo no disponible. Se muestra el pronóstico anterior.'],
       fr: ['Mise à jour radar indisponible. L’image précédente est affichée.', 'Mise à jour du modèle indisponible. Les prévisions précédentes sont affichées.']
     };
+    var MODE_TEXTS = {
+      en: ['Future model precipitation · totals for each interval.', 'Past radar snapshots · observed precipitation.', 'Close details', 'Precipitation mode', 'Map unavailable. Update Android System WebView and check WebGL 2 support.'],
+      cs: ['Budoucí modelové srážky · úhrn za každý interval.', 'Minulé radarové snímky · pozorované srážky.', 'Zavřít podrobnosti', 'Režim srážek', 'Mapa není dostupná. Aktualizujte Android System WebView a ověřte podporu WebGL 2.'],
+      de: ['Künftiger Modellniederschlag · Mengen je Zeitraum.', 'Vergangene Radarbilder · beobachteter Niederschlag.', 'Details schließen', 'Niederschlagsmodus', 'Karte nicht verfügbar. Aktualisieren Sie Android System WebView und prüfen Sie die WebGL-2-Unterstützung.'],
+      es: ['Precipitación futura del modelo · total de cada intervalo.', 'Imágenes radar pasadas · precipitación observada.', 'Cerrar detalles', 'Modo de precipitación', 'Mapa no disponible. Actualiza Android System WebView y comprueba la compatibilidad con WebGL 2.'],
+      fr: ['Précipitations futures du modèle · cumul par période.', 'Images radar passées · précipitations observées.', 'Fermer les détails', 'Mode de précipitations', 'Carte indisponible. Mettez à jour Android System WebView et vérifiez la prise en charge de WebGL 2.']
+    };
     var parameters = new URLSearchParams(window.location.search);
     var language = Object.prototype.hasOwnProperty.call(TEXTS, parameters.get('lang')) ? parameters.get('lang') : 'en';
     var timezone = parameters.get('tz') || 'UTC';
@@ -134,10 +149,13 @@
     var UPDATE_TEXT = UPDATE_TEXTS[language];
     var latitude = coordinate(parameters.get('lat'), -90, 90, 50.0755);
     var longitude = coordinate(parameters.get('lon'), -180, 180, 14.4378);
-    var headerInset = 64, bottomInset = 0, viewportHeight = 0;
+    var MODE_TEXT = MODE_TEXTS[language];
+    var headerInset = 0, bottomInset = 0, viewportHeight = 0;
     var MAX_FRAMES = 20, REQUEST_TIMEOUT_MS = 15000, REFRESH_INTERVAL_MS = 600000, MAX_FRAME_AGE_SECONDS = 3600;
+    var transitionDuration = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 350;
     var frames = [], frameIndex = 0, selectedTime = null;
-    var nativeActive = parameters.get('nativeActive') !== '0', selectionTouched = false, initialObservationSelected = false;
+    var nativeActive = parameters.get('nativeActive') !== '0', mode = 'forecast';
+    var modeTimes = { forecast: null, observed: null }, map = null, styleReady = false, mapUnavailable = false, sourceSequence = 0;
     var observedCache = null, forecastCache = null, forecastModels = { eu: null, global: null };
     var observedState = { request: null, token: 0, timeout: null, retryAt: 0, failed: false, attemptedAt: 0, message: '' };
     var forecastState = { request: null, token: 0, timeout: null, keys: [], message: '' };
@@ -147,27 +165,7 @@
     var timer = null, seekTimer = null, seekTarget = null, expiryTimer = null;
     var transitionTimer = null, tileTimeout = null, panTimeout = null, statusMessage = '';
 
-    function positionControls() {
-      var controlsBottom = headerInset + (document.getElementById('radar-tools').offsetHeight || 48) + 16;
-      document.documentElement.style.setProperty('--controls-bottom', controlsBottom + 'px');
-      if (viewportHeight > 0) {
-        var creditsHeight = typeof map !== 'undefined' && map ? map.attributionControl.getContainer().offsetHeight || 0 : 0;
-        var panel = document.querySelector('.panel');
-        var rowFloor = (document.querySelector('.topline').offsetHeight || 48) + (viewportHeight <= 400 ? 14 : 26);
-        panel.style.maxHeight = Math.max(rowFloor, Math.min(viewportHeight * 0.45,
-          viewportHeight - controlsBottom - creditsHeight - bottomInset - 32)) + 'px';
-        var detailsBottom = bottomInset + (panel.offsetHeight || 160) + 20;
-        var detailsHeight = viewportHeight - controlsBottom - creditsHeight - detailsBottom - 8;
-        var replacePanel = detailsHeight < 144;
-        document.body.classList.toggle('details-over-panel', replacePanel);
-        if (replacePanel) {
-          detailsBottom = bottomInset + 12;
-          detailsHeight = viewportHeight - controlsBottom - creditsHeight - detailsBottom - 16;
-        }
-        document.documentElement.style.setProperty('--details-bottom', detailsBottom + 'px');
-        document.documentElement.style.setProperty('--details-height', Math.max(48, detailsHeight) + 'px');
-      }
-    }
+    function positionControls() { if (map) map.resize(); }
     window.setAppearance = function(values) {
       if (!values || typeof values !== 'object') return;
       var roles = { bg: '--bg', surface: '--surface', text: '--text', muted: '--muted', border: '--border', accent: '--accent', onAccent: '--on-accent', variant: '--variant' };
@@ -208,14 +206,40 @@
     ['details-toggle', 'zoom-out', 'zoom-in', 'center', 'retry', 'slider'].forEach(function(id, index) {
       document.getElementById(id).setAttribute('aria-label', CONTROL_TEXT[index]);
     });
-    document.getElementById('timeline-hint').textContent = CONTROL_TEXT[6];
+    ['forecast', 'observed'].forEach(function(key) {
+      var label = FORECAST_TEXT[key === 'forecast' ? 1 : 0];
+      document.querySelector('#' + key + ' .mode-label').textContent = label;
+      document.getElementById(key).setAttribute('aria-label', label);
+      document.getElementById(key).title = label;
+    });
+    document.querySelector('.modes').setAttribute('aria-label', MODE_TEXT[3]);
+    document.getElementById('details-title').textContent = CONTROL_TEXT[0];
+    document.getElementById('details-close').setAttribute('aria-label', MODE_TEXT[2]);
+    document.getElementById('timeline-hint').textContent = MODE_TEXT[0];
 
-    function toggleDetails() {
+    function toggleDetails(open) {
       var details = document.getElementById('details');
-      details.hidden = !details.hidden;
+      details.hidden = typeof open === 'boolean' ? !open : !details.hidden;
       document.body.classList.toggle('details-open', !details.hidden);
       document.getElementById('details-toggle').setAttribute('aria-expanded', String(!details.hidden));
-      requestAnimationFrame(function() { positionControls(); map.invalidateSize(false); });
+      document.getElementById(details.hidden ? 'details-toggle' : 'details-close').focus();
+      requestAnimationFrame(positionControls);
+    }
+    document.addEventListener('keydown', function(event) {
+      if (event.key === 'Escape' && !document.getElementById('details').hidden) { event.preventDefault(); toggleDetails(false); }
+    });
+    function setMode(next) {
+      if ((next !== 'forecast' && next !== 'observed') || next === mode) return;
+      modeTimes[mode] = selectedTime;
+      mode = next; selectedTime = modeTimes[mode];
+      stopPlay(); cancelSeek(); clearRadarLayer(); setStatus('');
+      ['forecast', 'observed'].forEach(function(key) {
+        var button = document.getElementById(key);
+        button.classList.toggle('active', key === mode);
+        button.setAttribute('aria-pressed', String(key === mode));
+      });
+      document.getElementById('timeline-hint').textContent = MODE_TEXT[mode === 'forecast' ? 0 : 1];
+      ensureSourcesFresh(); rebuildTimeline();
     }
     function sizeViewport() {
       // Android WebView can resolve both % and vh to zero during attachment.
@@ -229,32 +253,56 @@
       }
     }
     sizeViewport();
-    var map = L.map('map', { maxZoom: 11, minZoom: 2, zoomControl: false }).setView([latitude, longitude], 6);
-    map.attributionControl.setPosition('topright');
-    L.circleMarker([latitude, longitude], { radius: 5, color: '#ffffff', weight: 2,
-      fillColor: '#145f79', fillOpacity: 1, interactive: false }).addTo(map);
-    map.on('moveend', function() { if (pageActive()) { ensureSourcesFresh(); loadForecast(); } });
-    window.addEventListener('resize', function() { sizeViewport(); map.invalidateSize(false); });
-    requestAnimationFrame(function() { sizeViewport(); map.invalidateSize(false); });
-    var viewportObserver = new ResizeObserver(function() { positionControls(); map.invalidateSize(false); });
-    viewportObserver.observe(map.attributionControl.getContainer());
+    function startRadar(maplibre) {
+      try {
+        map = new maplibre.Map({ container: 'map', style: { version: 8, sources: {}, layers: [] },
+          center: [longitude, latitude], zoom: 6, minZoom: 2, maxZoom: 11, maxPitch: 0,
+          attributionControl: false, dragRotate: false, touchPitch: false, renderWorldCopies: true,
+          locale: { 'Map.Title': TEXT.map } });
+        map.addControl(new maplibre.AttributionControl({ compact: false }), 'bottom-left');
+        map.touchZoomRotate.disableRotation();
+        map.on('style.load', function() {
+          styleReady = true;
+          map.addSource('location', { type: 'geojson', data: { type: 'Feature', properties: {},
+            geometry: { type: 'Point', coordinates: [longitude, latitude] } } });
+          map.addLayer({ id: 'location', type: 'circle', source: 'location', paint: {
+            'circle-radius': 5, 'circle-color': '#145f79', 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2 } });
+          updateVisibility();
+        });
+        map.on('moveend', function() { if (pageActive()) { ensureSourcesFresh(); loadForecast(); } });
+        map.on('sourcedataloading', function(event) { frameSourceEvent(event, true); });
+        map.on('sourcedata', function(event) { frameSourceEvent(event, false); });
+        map.on('error', function(event) {
+          var layer = frameSource(event.sourceId);
+          if (layer) failFrame(layer);
+        });
+      } catch (_) { mapFailed(); }
+    }
+    function mapFailed() { mapUnavailable = true; renderStatus(); }
+    window.addEventListener('resize', sizeViewport);
+    requestAnimationFrame(sizeViewport);
+    var viewportObserver = new ResizeObserver(positionControls);
     viewportObserver.observe(document.getElementById('radar-tools'));
     viewportObserver.observe(document.querySelector('.panel'));
     viewportObserver.observe(document.getElementById('map'));
-    var baseLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { minZoom: 2, maxZoom: 11,
-      maxNativeZoom: 11, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' });
-    if (pageActive()) baseLayer.addTo(map);
+    function addBase() {
+      if (map.getSource('base')) return;
+      map.addSource('base', { type: 'raster', tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+        tileSize: 256, minzoom: 2, maxzoom: 11, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' });
+      map.addLayer({ id: 'base', type: 'raster', source: 'base', paint: {
+        'raster-saturation': -0.85, 'raster-contrast': -0.15, 'raster-brightness-min': 0.12 } }, 'location');
+    }
 
     function coordinate(raw, minimum, maximum, fallback) {
       if (raw === null || String(raw).trim() === '') return fallback;
       var value = Number(raw);
       return Number.isFinite(value) && value >= minimum && value <= maximum ? value : fallback;
     }
-    function pageActive() { return nativeActive && !document.hidden; }
+    function pageActive() { return nativeActive && !document.hidden && styleReady; }
     function setStatus(message) { statusMessage = message; renderStatus(); }
     function renderStatus() {
       var status = document.getElementById('status');
-      status.textContent = statusMessage || [observedState.message, forecastState.message].filter(Boolean).join(' ');
+      status.textContent = mapUnavailable ? MODE_TEXT[4] : statusMessage || (mode === 'forecast' ? forecastState.message : observedState.message);
       status.hidden = !status.textContent;
       document.getElementById('observed-status').textContent = FORECAST_TEXT[0] + ' · ' + (observedState.message || 'RainViewer');
       document.getElementById('forecast-status').textContent = FORECAST_TEXT[1] + ' · ' + (forecastState.message ||
@@ -262,16 +310,23 @@
     }
     function clearPending() {
       clearTimeout(tileTimeout); tileTimeout = null;
-      if (pendingLayer) map.removeLayer(pendingLayer);
+      removeSource(pendingLayer);
       pendingLayer = null;
     }
+    function removeSource(layer) {
+      var id = typeof layer === 'string' ? layer : layer && layer.id;
+      if (!map || !id) return;
+      if (map.getLayer(id)) map.removeLayer(id);
+      if (map.getSource(id)) map.removeSource(id);
+    }
+    function setOpacity(layer, value) { if (layer && map.getLayer(layer.id)) map.setPaintProperty(layer.id, 'raster-opacity', value); }
     function clearRadarLayer() {
       clearPending();
       clearTimeout(panTimeout); panTimeout = null;
       clearTimeout(transitionTimer); transitionTimer = null;
-      [radarLayer, preloadLayer, retiredLayer].forEach(function(layer) { if (layer) map.removeLayer(layer); });
+      [radarLayer, preloadLayer, retiredLayer].forEach(removeSource);
       radarLayer = preloadLayer = retiredLayer = null;
-      if (coverageLayer) map.removeLayer(coverageLayer);
+      removeSource(coverageLayer); coverageLayer = null;
       updateFrameInfo(null);
     }
     function sameFrame(a, b) {
@@ -284,66 +339,75 @@
     function radarTileUrl(frame) { return tileHost + frame.path + '/512/{z}/{x}/{y}/2/1_1.png'; }
     function coverageTileUrl() { return tileHost + '/v2/coverage/0/256/{z}/{x}/{y}/0/0_0.png'; }
     function installCoverageLayer() {
-      if (!tileHost || coverageLayer) return;
-      coverageLayer = L.tileLayer(coverageTileUrl(), { minZoom: 2, maxZoom: 11, maxNativeZoom: 7,
-        opacity: 0.16, attribution: '<a href="https://www.rainviewer.com/">RainViewer</a>' });
+      if (!pageActive() || mode !== 'observed' || !tileHost || coverageLayer || !coverageVisible) return;
+      coverageLayer = { id: 'coverage' };
+      map.addSource('coverage', { type: 'raster', tiles: [coverageTileUrl()], tileSize: 256, minzoom: 2, maxzoom: 7 });
+      map.addLayer({ id: 'coverage', type: 'raster', source: 'coverage', paint: { 'raster-opacity': 0.16 } }, 'location');
     }
     function toggleCoverage() {
       coverageVisible = !coverageVisible;
       var button = document.getElementById('coverage');
       button.className = coverageVisible ? 'active' : '';
       button.setAttribute('aria-pressed', String(coverageVisible));
-      if (!coverageLayer) return;
-      if (coverageVisible && radarLayer && radarLayer.frame.type === 'observed') coverageLayer.addTo(map);
-      else map.removeLayer(coverageLayer);
+      if (coverageVisible && radarLayer && radarLayer.frame.type === 'observed') installCoverageLayer();
+      else { removeSource(coverageLayer); coverageLayer = null; }
     }
     function loadingText(frame) { return frame.type === 'forecast' ? FORECAST_TEXT[2] : TEXT.loading; }
     function unavailableText(frame) { return frame.type === 'forecast' ? FORECAST_TEXT[3] : TEXT.unavailable; }
+    function forecastTileUrl(frame) {
+      var source = RadarForecast.sources[frame.key];
+      return RadarForecast.endpoint + '?service=WMS&request=GetMap&version=1.1.1&layers=' + encodeURIComponent('dwd:' + source.layer) +
+        '&styles=' + encodeURIComponent(source.style) + '&format=image/png&transparent=true&srs=EPSG:3857&width=256&height=256&bbox={bbox-epsg-3857}' +
+        '&time=' + encodeURIComponent(new Date(frame.time * 1000).toISOString()) + '&dim_reference_time=' + encodeURIComponent(frame.reference);
+    }
     function newFrameLayer(index) {
-      var frame = frames[index], layer, className = sameSource(radarLayer && radarLayer.frame, frame) ? 'radar-frame' : '';
+      return { id: 'frame-' + ++sourceSequence, frame: frames[index], frameIndex: index, ready: false, failed: false };
+    }
+    function addFrameLayer(layer) {
+      if (map.getSource(layer.id)) return;
+      var frame = layer.frame, options;
       if (frame.type === 'forecast') {
-        var source = RadarForecast.sources[frame.key];
-        layer = L.tileLayer.wms(RadarForecast.endpoint, { layers: 'dwd:' + source.layer, styles: source.style,
-          format: 'image/png', transparent: true, version: '1.1.1', time: new Date(frame.time * 1000).toISOString(),
-          dim_reference_time: frame.reference, minZoom: 2, maxZoom: 11, tileSize: 256, keepBuffer: 0,
-          updateWhenIdle: true, opacity: 0, className: className,
-          attribution: '<a href="https://www.dwd.de/copyright">Deutscher Wetterdienst · CC BY 4.0</a>' });
+        options = { type: 'raster', tiles: [forecastTileUrl(frame)], tileSize: 256, minzoom: 2, maxzoom: 11,
+          attribution: '<a href="https://www.dwd.de/copyright">Deutscher Wetterdienst · CC BY 4.0</a>' };
       } else {
-        layer = L.tileLayer(radarTileUrl(frame), { minZoom: 2, maxZoom: 11, maxNativeZoom: 7, tileSize: 512,
-          zoomOffset: -1, keepBuffer: 0, opacity: 0, className: className,
-          attribution: '<a href="https://www.rainviewer.com/">RainViewer</a>' });
+        options = { type: 'raster', tiles: [radarTileUrl(frame)], tileSize: 512, minzoom: 2, maxzoom: 7,
+          attribution: '<a href="https://www.rainviewer.com/">RainViewer</a>' };
       }
-      layer.frame = frame; layer.frameIndex = index; layer.ready = false; layer.failed = false;
-      layer.on('loading', function() {
-        // Leaflet can retain failed tiles during another load; a new layer clears failure.
+      map.addSource(layer.id, options);
+      map.addLayer({ id: layer.id, type: 'raster', source: layer.id, paint: { 'raster-opacity': 0,
+        'raster-opacity-transition': { duration: transitionDuration }, 'raster-fade-duration': 0 } }, 'location');
+    }
+    function frameSource(id) { return [radarLayer, pendingLayer, preloadLayer, retiredLayer].find(function(layer) { return layer && layer.id === id; }); }
+    function frameSourceEvent(event, loading) {
+      var layer = frameSource(event.sourceId);
+      if (!layer || !pageActive() || !map.getSource(layer.id)) return;
+      if (loading) {
         layer.ready = false;
-        if (!pageActive()) return;
-        if (radarLayer === layer || pendingLayer === layer) setStatus(loadingText(frame));
-        if (radarLayer === layer) {
+        if (pendingLayer === layer) setStatus(loadingText(layer.frame));
+        if (radarLayer === layer && !pendingLayer) {
           clearTimeout(panTimeout);
           panTimeout = setTimeout(function() {
             if (radarLayer !== layer || layer.ready) return;
-            layer.failed = true; stopPlay(); setStatus(unavailableText(frame));
+            failFrame(layer);
           }, REQUEST_TIMEOUT_MS);
         }
-      });
-      layer.on('load', function() {
+      } else {
+        if (event.tile) layer.contentSeen = true;
+        if (!layer.contentSeen || !event.isSourceLoaded) return;
         layer.ready = !layer.failed;
         if (pendingLayer === layer && layer.ready) commitFrame(layer);
         else if (radarLayer === layer) {
           clearTimeout(panTimeout); panTimeout = null;
-          setStatus(layer.failed ? unavailableText(frame) : '');
-        }
-      });
-      function failed() {
-        layer.failed = true;
-        if (radarLayer === layer || pendingLayer === layer) {
-          stopPlay(); setStatus(unavailableText(frame));
-          if (pendingLayer === layer) { clearPending(); restoreDisplayedSelection(); }
+          if (!pendingLayer) setStatus(layer.failed ? unavailableText(layer.frame) : '');
         }
       }
-      layer.on('tileerror', failed); layer.on('error', failed);
-      return layer;
+    }
+    function failFrame(layer) {
+      layer.failed = true; layer.ready = false;
+      if (radarLayer === layer || pendingLayer === layer) {
+        stopPlay(); setStatus(unavailableText(layer.frame));
+        if (pendingLayer === layer) { clearPending(); restoreDisplayedSelection(); }
+      }
     }
     function observedIsUsable(cached) {
       var now = Date.now();
@@ -361,6 +425,7 @@
       return Date.now() >= state.retryAt && (explicit || !state.failed || Date.now() - state.attemptedAt >= REFRESH_INTERVAL_MS);
     }
     function selectedForecastKey() {
+      if (!map) return 'global';
       var bounds = map.getBounds(), europe = forecastIsUsable(forecastModels.eu) ? forecastModels.eu : null;
       return RadarForecast.sourceFor({ west: bounds.getWest(), east: bounds.getEast(),
         south: bounds.getSouth(), north: bounds.getNorth() }, europe && europe.bounds);
@@ -370,9 +435,7 @@
       return forecastIsUsable(cached) ? cached : null;
     }
     function nearestFrame(time, type) {
-      var lastObserved = frames.reduce(function(last, frame) { return frame.type === 'observed' ? frame.time : last; }, -Infinity);
-      if (time <= lastObserved) type = 'observed';
-      else {
+      if (mode === 'forecast') {
         var containing = frames.findIndex(function(frame) {
           return frame.type === 'forecast' && time > frame.time - frame.hours * 3600 && time <= frame.time;
         });
@@ -388,20 +451,13 @@
     }
     function rebuildTimeline(retryTiles) {
       forecastCache = selectedForecast();
-      frames = (observedIsUsable(observedCache) ? observedCache.frames : []).concat(forecastCache ?
-        forecastCache.frames.filter(function(frame) { return frame.time > Date.now() / 1000; }) : [])
-        .sort(function(a, b) { return a.time - b.time; })
-        .filter(function(frame, index, all) { return !index || frame.time !== all[index - 1].time; });
+      frames = mode === 'observed' ? (observedIsUsable(observedCache) ? observedCache.frames : []) :
+        (forecastCache ? forecastCache.frames.filter(function(frame) { return frame.time > Date.now() / 1000; }) : []);
       updateTimeline();
       var enabled = frames.length > 0;
       document.getElementById('play').disabled = document.getElementById('slider').disabled = !enabled;
       if (!enabled) { stopPlay(); clearRadarLayer(); setStatus(''); return; }
-      if (selectedTime === null) selectedTime = observedCache && observedIsUsable(observedCache) ?
-        observedCache.frames[observedCache.frames.length - 1].time : frames[0].time;
-      if (!initialObservationSelected && observedIsUsable(observedCache)) {
-        if (!selectionTouched) selectedTime = observedCache.frames[observedCache.frames.length - 1].time;
-        initialObservationSelected = true;
-      }
+      if (selectedTime === null) selectedTime = mode === 'forecast' ? frames[0].time : frames[frames.length - 1].time;
       var index = nearestFrame(selectedTime, selectedTime > Date.now() / 1000 && forecastCache ? 'forecast' : null), frame = frames[index];
       if (radarLayer && !frames.some(function(item) { return sameFrame(item, radarLayer.frame); })) clearRadarLayer();
       if (pendingLayer && !sameFrame(pendingLayer.frame, frame)) clearPending();
@@ -454,39 +510,39 @@
       clearTimeout(tileTimeout); tileTimeout = null;
       clearTimeout(panTimeout); panTimeout = null;
       clearTimeout(transitionTimer);
-      if (retiredLayer) map.removeLayer(retiredLayer);
+      removeSource(retiredLayer);
       var old = radarLayer;
       retiredLayer = null; radarLayer = layer; pendingLayer = null;
       frameIndex = frames.findIndex(function(frame) { return sameFrame(frame, layer.frame); });
-      layer.frameIndex = frameIndex; layer.setOpacity(0.78);
+      layer.frameIndex = frameIndex; setOpacity(layer, 0.78);
       if (old) {
         if (sameSource(old.frame, layer.frame)) {
-          retiredLayer = old; old.setOpacity(0);
+          retiredLayer = old; setOpacity(old, 0);
           transitionTimer = setTimeout(function() {
-            if (retiredLayer) map.removeLayer(retiredLayer);
+            removeSource(retiredLayer);
             retiredLayer = null; transitionTimer = null;
-          }, 350);
-        } else { map.removeLayer(old); transitionTimer = null; }
+          }, transitionDuration);
+        } else { removeSource(old); transitionTimer = null; }
       }
       updateFrameInfo(layer.frame);
       updateSlider(layer.frame);
       setStatus('');
-      if (preloadLayer) map.removeLayer(preloadLayer);
+      removeSource(preloadLayer);
       preloadLayer = null;
-      if (frames.length > 1) { preloadLayer = newFrameLayer((frameIndex + 1) % frames.length); preloadLayer.addTo(map); }
+      if (frames.length > 1) { preloadLayer = newFrameLayer((frameIndex + 1) % frames.length); addFrameLayer(preloadLayer); }
     }
     function updateFrameInfo(frame) {
       var forecast = frame && frame.type === 'forecast';
       var label = frame ? frameLabel(frame) : '—';
       document.getElementById('time').textContent = label;
+      document.getElementById('compact-time').textContent = frame ? formatTime(frame.time, false) : '—';
       document.getElementById('frame-kind').textContent = frame ? FORECAST_TEXT[forecast ? 1 : 0] : '';
       document.getElementById('slider').setAttribute('aria-valuetext', frame ? frameValueText(frame) : '—');
       document.getElementById('coverage').hidden = !frame || forecast;
       document.getElementById('observed-scale').hidden = !frame || forecast;
       document.getElementById('scale').hidden = !forecast;
-      if (coverageLayer) {
-        if (frame && !forecast && coverageVisible) coverageLayer.addTo(map); else map.removeLayer(coverageLayer);
-      }
+      if (frame && !forecast && coverageVisible) installCoverageLayer();
+      else { removeSource(coverageLayer); coverageLayer = null; }
       document.getElementById('legend').textContent = frame ? (forecast ? FORECAST_TEXT[9] : CONTROL_TEXT[7]) : '';
       var source = forecast ? RadarForecast.sources[frame.key] : null;
       document.getElementById('frame-summary').textContent = frame ? (forecast ? source.model + ' · ' + FORECAST_TEXT[5] +
@@ -536,7 +592,6 @@
       if (!Number.isFinite(time)) return;
       ensureSourcesFresh();
       if (!frames.length) return;
-      selectionTouched = true;
       stopPlay(); cancelSeek(); clearPending();
       selectedTime = frames[nearestFrame(time)].time;
       seekTarget = selectedTime;
@@ -555,7 +610,6 @@
       if (!frames.length || !Number.isFinite(index)) return;
       index = Math.max(0, Math.min(Math.round(index), frames.length - 1));
       selectedTime = frames[index].time;
-      selectionTouched = true;
       renderFrame(index);
     }
     function renderFrame(index, retryTiles) {
@@ -566,10 +620,10 @@
         frameIndex = index; updateSlider(frame); setStatus(''); return;
       }
       clearTimeout(transitionTimer); transitionTimer = null;
-      if (retiredLayer) map.removeLayer(retiredLayer);
+      removeSource(retiredLayer);
       retiredLayer = null;
       if (preloadLayer && (retryTiles || preloadLayer.failed || !sameFrame(preloadLayer.frame, frame))) {
-        map.removeLayer(preloadLayer); preloadLayer = null;
+        removeSource(preloadLayer); preloadLayer = null;
       }
       var layer = preloadLayer || newFrameLayer(index);
       preloadLayer = null;
@@ -581,7 +635,7 @@
         if (pendingLayer !== layer) return;
         clearPending(); stopPlay(); restoreDisplayedSelection(); setStatus(unavailableText(frame));
       }, REQUEST_TIMEOUT_MS);
-      layer.addTo(map);
+      addFrameLayer(layer);
     }
     function formatTime(epochSeconds, showZone) {
       return new Date(epochSeconds * 1000).toLocaleTimeString(language, { timeZone: timezone,
@@ -713,24 +767,18 @@
       stopPlay(); flushSeek(); ensureSourcesFresh(false); loadRadar(true); loadForecast(true);
     }
     function updateVisibility() {
+      if (!styleReady) return;
       if (!pageActive()) {
         stopPlay(); clearTimeout(seekTimer); seekTimer = null; clearPending();
-        clearTimeout(panTimeout); panTimeout = null;
-        clearTimeout(transitionTimer); transitionTimer = null;
-        [preloadLayer, retiredLayer].forEach(function(layer) { if (layer) map.removeLayer(layer); });
-        preloadLayer = retiredLayer = null;
-        [baseLayer, coverageLayer, radarLayer].forEach(function(layer) {
-          if (layer && layer.isLoading()) map.removeLayer(layer);
-        });
+        clearRadarLayer(); removeSource('base');
         clearTimeout(expiryTimer); expiryTimer = null;
         cancelRequest(observedState); cancelRequest(forecastState);
-        setStatus(radarLayer && radarLayer.failed ? unavailableText(radarLayer.frame) : '');
+        setStatus('');
       } else {
-        baseLayer.addTo(map);
+        addBase();
         ensureSourcesFresh();
         flushSeek(); rebuildTimeline();
         if (radarLayer && !radarLayer.ready && !pendingLayer) renderFrame(frameIndex);
-        if (coverageLayer && coverageVisible && radarLayer && radarLayer.frame.type === 'observed') coverageLayer.addTo(map);
       }
     }
     window.setNativeActive = function(active) {
@@ -745,7 +793,13 @@
       if (coordinate('91', -90, 90, 1) !== 1 || coordinate('-33.8', -90, 90, 1) !== -33.8) throw new Error('Radar coordinate self-test failed');
       if (MAX_FRAMES !== 20 || !coverageTileUrl().includes('/v2/coverage/0/')) throw new Error('Radar contract self-test failed');
     }
-    selfTest(); loadRadar(); loadForecast();
+    selfTest();
+  </script>
+  <script>
+    import('./maplibre-6.14.0/maplibre-gl.js').then(function(maplibre) {
+      maplibre.setWorkerUrl(new URL('./maplibre-6.14.0/maplibre-gl-worker.js', window.location.href).href);
+      startRadar(maplibre);
+    }).catch(mapFailed);
   </script>
 </body>
 </html>

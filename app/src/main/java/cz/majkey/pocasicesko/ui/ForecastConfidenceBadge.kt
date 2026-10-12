@@ -105,7 +105,9 @@ internal fun ConfidenceRating(level: ConfidenceLevel, modifier: Modifier = Modif
     val inactive = MaterialTheme.colorScheme.outlineVariant
     Row(modifier.semantics(mergeDescendants = true) { contentDescription = description },
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        Canvas(Modifier.size(16.dp, 14.dp).clearAndSetSemantics { }) {
+        if (level == ConfidenceLevel.LIMITED) {
+            Text("—", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.clearAndSetSemantics { })
+        } else Canvas(Modifier.size(16.dp, 14.dp).clearAndSetSemantics { }) {
             repeat(3) { index ->
                 val height = size.height * (index + 2) / 4
                 drawRoundRect(if (index < confidenceBarCount(level)) active else inactive,

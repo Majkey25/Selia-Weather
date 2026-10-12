@@ -1,11 +1,16 @@
 package cz.majkey.pocasicesko.ui
 
 import cz.majkey.pocasicesko.R
+import cz.majkey.pocasicesko.data.CurrentWeather
 import cz.majkey.pocasicesko.data.HourlyWeather
 import cz.majkey.pocasicesko.data.PrecipitationModelSpread
+import cz.majkey.pocasicesko.data.WeatherCondition
+import cz.majkey.pocasicesko.data.conditionFor
 import cz.majkey.pocasicesko.units.MeasurementSystem
 import cz.majkey.pocasicesko.units.WeatherUnitFormatter
 import java.io.File
+import java.time.Instant
+import java.time.LocalDateTime
 import java.util.Locale
 import javax.xml.parsers.DocumentBuilderFactory
 import org.junit.Assert.assertEquals
@@ -16,6 +21,35 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class HourlyDetailsTest {
+    @Test
+    fun currentHourUsesTheCurrentConditionAndDaylightAtTheLocationsTime() {
+        val now = forecastLocalTime(Instant.parse("2026-08-30T10:45:00Z"), "America/New_York", 7200)
+        val hour = hour(null, null)
+        val current = current("2026-08-30T12:30")
+        assertEquals(conditionFor(3) to true, hourlyDisplayCondition(hour, current, now))
+        val night = current.copy(weatherCode = 1, isDay = false)
+        assertEquals(conditionFor(1, false) to false, hourlyDisplayCondition(hour, night, now))
+    }
+
+    @Test
+    fun otherHoursAndUnavailableOrStaleCurrentConditionsKeepTheirForecastCondition() {
+        val now = LocalDateTime.parse("2026-08-30T12:45")
+        val hour = hour(null, null)
+        val current = current("2026-08-30T12:30")
+        val forecast = conditionFor(hour.weatherCode, hour.isDay) to hour.isDay
+        listOf("2026-08-30T11:00", "2026-08-30T13:00", "2026-08-31T12:00", "invalid").forEach { time ->
+            assertEquals(forecast, hourlyDisplayCondition(hour.copy(time = time), current, now))
+        }
+        listOf("2026-08-30T11:30", "2026-08-30T13:30", "invalid").forEach { time ->
+            assertEquals(forecast, hourlyDisplayCondition(hour, current.copy(time = time), now))
+        }
+        assertEquals(forecast, hourlyDisplayCondition(hour, null, now))
+        assertEquals(forecast, hourlyDisplayCondition(hour, current, null))
+        assertEquals(forecast, hourlyDisplayCondition(hour, current,
+            forecastLocalTime(Instant.EPOCH, "unknown", null)))
+        assertEquals(forecast, hourlyDisplayCondition(hour, current, now.withMinute(59).withSecond(59).plusSeconds(1)))
+    }
+
     @Test
     fun startingHourUsesFollowingSourceIntervalWithoutMovingInstantValues() {
         val instant = hour(18.0, 7.0).copy(time = "2026-09-09T11:00", precipitation = 0.1)
@@ -318,6 +352,24 @@ class HourlyDetailsTest {
     }
 
     @Test
+    fun displayedCurrentConditionChangesOnlyTheConditionsSummaryLabel() {
+        val dry = hour(18.0, null).copy(precipitation = 0.0, precipitationProbability = 0)
+        assertEquals("Cloudy. Feels like 18°.", summary(dry, displayCondition = conditionFor(3)))
+        assertEquals("Cloudy. Feels like 18°. Precipitation data is unavailable for this interval.",
+            summary(dry, null, displayCondition = conditionFor(3)))
+
+        val wet = dry.copy(precipitation = 1.0, precipitationProbability = 80)
+        val forecasts = listOf(wet.copy(weatherCode = 61, rain = 1.0),
+            wet.copy(weatherCode = 73, snowfall = 0.7), wet.copy(weatherCode = 66), wet.copy(weatherCode = 95),
+            dry.copy(windGusts = 70.0), dry.copy(visibilityMeters = 500.0),
+            dry.copy(apparentTemperature = 32.0), dry.copy(uvIndex = 7.0),
+            dry.copy(precipitationSpread = PrecipitationModelSpread(3, 1, 0.0, 0.3)))
+        forecasts.forEach { forecast ->
+            assertEquals(summary(forecast), summary(forecast, displayCondition = conditionFor(0)))
+        }
+    }
+
+    @Test
     fun summaryResourcesFormatInEverySupportedLanguage() {
         val wet = hour(18.0, null).copy(rain = 0.6, precipitation = 0.6, precipitationProbability = 60)
         listOf("en", "cs", "de", "es", "fr").forEach { language ->
@@ -333,6 +385,7 @@ class HourlyDetailsTest {
         precipitationHour: HourlyWeather? = hour,
         language: String = "en",
         system: MeasurementSystem = MeasurementSystem.METRIC,
+        displayCondition: WeatherCondition = conditionFor(hour.weatherCode, hour.isDay),
     ): String {
         val strings = buildMap<Int, String> {
             listOf("values", "values-$language").forEach { directory ->
@@ -351,8 +404,12 @@ class HourlyDetailsTest {
             }
         }
         val locale = Locale.forLanguageTag(language)
-        return hourlyWeatherSummary(hour, WeatherUnitFormatter(system, locale), precipitationHour, locale, strings::getValue)
+        return hourlyWeatherSummary(hour, WeatherUnitFormatter(system, locale), precipitationHour, locale,
+            strings::getValue, displayCondition)
     }
+
+    private fun current(time: String) = CurrentWeather(time, 12.0, 11.0, 80, 0.0, 3, 100,
+        1_015.0, 5.0, 180, 10.0, true)
 
     private fun hour(
         apparentTemperature: Double?,

@@ -27,6 +27,8 @@ internal data class CurrentStationObservation(
     val visibilityMeters: Double? = null,
     val cloudCoverPercent: Int? = null,
     val weatherCode: Int? = null,
+    val cloudCoverRange: IntRange? = null,
+    val isMetarReport: Boolean = false,
 ) {
     init {
         require(stationId.isNotBlank())
@@ -43,6 +45,11 @@ internal data class CurrentStationObservation(
         require(visibilityMeters == null || visibilityMeters.isFinite() && visibilityMeters >= 0)
         require(cloudCoverPercent == null || cloudCoverPercent in 0..100)
         require(weatherCode == null || weatherCode in 0..99)
+        require(
+            cloudCoverRange == null ||
+                !cloudCoverRange.isEmpty() && cloudCoverRange.first >= 0 && cloudCoverRange.last <= 100,
+        )
+        require(cloudCoverRange == null || cloudCoverPercent != null && cloudCoverPercent in cloudCoverRange)
         require(
             listOf(
                 temperature,
@@ -96,10 +103,12 @@ internal fun fuseCurrentConditions(
             Duration.between(observation.time, now).seconds <= MAX_WEATHER_AGE_SECONDS
     }
     val nearestRain = localWeather.firstOrNull { it.first.precipitation != null }?.first
-    val weatherReport = localWeather.firstOrNull { it.first.weatherCode != null }?.first
+    val weatherReport = localWeather.firstOrNull {
+        it.first.isMetarReport || it.first.weatherCode != null || it.first.cloudCoverPercent != null
+    }?.first
     // Keep the phenomenon and cloud cover from one report, even when its cloud cover is missing.
-    val cloudReport = weatherReport ?: localWeather.firstOrNull { it.first.cloudCoverPercent != null }?.first
-    val reportedCloudCover = cloudReport?.cloudCoverPercent
+    val reportedCloudCover = weatherReport?.cloudCoverRange?.let { model.cloudCover.coerceIn(it) }
+        ?: weatherReport?.cloudCoverPercent
     val reportedWeatherCode = weatherReport?.weatherCode
     val wind = nearby.mapNotNull { (observation, distance) ->
         val speed = observation.windSpeed ?: return@mapNotNull null
@@ -113,7 +122,8 @@ internal fun fuseCurrentConditions(
         hypot(east, north) to (Math.toDegrees(kotlin.math.atan2(east, north)) + 360.0) % 360.0
     }
     val (weatherCode, cloudCover) = when {
-        reportedWeatherCode != null && model.weatherCode in 0..3 ->
+        // A nearby airport cannot disprove a localized storm or its hail intensity.
+        reportedWeatherCode != null && (model.weatherCode !in 95..99 || reportedWeatherCode >= model.weatherCode) ->
             reportedWeatherCode to (reportedCloudCover ?: model.cloudCover)
         (nearestRain?.precipitation ?: 0.0) > 0.0 && (nearestRain?.temperature ?: 0.0) > 0.0 &&
             model.temperature > 0.0 && model.weatherCode in 0..3 ->
@@ -131,9 +141,9 @@ internal fun fuseCurrentConditions(
         // Sunshine duration also does not measure total or layered cloud cover.
         weatherCode = weatherCode,
         cloudCover = cloudCover,
-        cloudCoverLow = if (reportedCloudCover != null) null else model.cloudCoverLow,
-        cloudCoverMid = if (reportedCloudCover != null) null else model.cloudCoverMid,
-        cloudCoverHigh = if (reportedCloudCover != null) null else model.cloudCoverHigh,
+        cloudCoverLow = if (cloudCover == model.cloudCover) model.cloudCoverLow else null,
+        cloudCoverMid = if (cloudCover == model.cloudCover) model.cloudCoverMid else null,
+        cloudCoverHigh = if (cloudCover == model.cloudCover) model.cloudCoverHigh else null,
         windSpeed = windVector?.first ?: model.windSpeed,
         windDirection = windVector?.second?.roundToInt() ?: model.windDirection,
         dewPoint = dewPoint ?: model.dewPoint,
@@ -170,13 +180,6 @@ internal fun applyCurrentConditionsToForecastJson(json: String, current: Current
     // Current conditions and the hourly forecast have different time support.
     // Copying current values into an hour also invalidates its daily summary.
     return root.toString()
-}
-
-private fun cloudWeatherCode(cloudCover: Int): Int = when {
-    cloudCover <= 20 -> 0
-    cloudCover <= 50 -> 1
-    cloudCover <= 80 -> 2
-    else -> 3
 }
 
 private fun stationWeight(distanceKm: Double): Double =

@@ -27,7 +27,7 @@
 
 - Shows current and apparent temperature, dew point, wet-bulb temperature, precipitation, cloud layers, visibility, pressure, wind, sun, and Moon details.
 - Adds UV, freezing-level, boundary-layer, atmospheric-water, instability, showers, and ground details.
-- Shows observed precipitation through RainViewer where radar coverage exists. One timeline continues into official DWD forecast grids: hourly ICON-EU totals in Europe and six-hour ICON totals elsewhere, targeting a 48-hour outlook. It labels snapshots and forecast accumulation intervals separately and preserves the selected time during refresh. Missing or stale data stays unavailable. Forecast totals are not observed future radar.
+- Opens a MapLibre map in Forecast mode, with a separate Observed switch for RainViewer coverage. Official DWD grids provide hourly ICON-EU totals in Europe and six-hour ICON totals elsewhere, targeting a 48-hour outlook. It labels snapshots and forecast accumulation intervals separately and preserves the selected time during refresh. Missing or stale data stays unavailable. Forecast totals are not observed future radar.
 - Shows a horizontal 24-hour outlook and a four-day preview expandable to the full 14-day forecast. Weather details and history sit below the daily overview. Each day opens its hourly details and a short weather summary.
 - Supports independent Android notification categories for rain advice, cold, temperature drops, heat, wind, UV and official warnings. Thresholds are configurable; background delivery is best effort.
 - Matches official warnings to Czech locations through ČÚZK/ČHMÚ and US locations through NWS point queries. UK and other unsupported feeds are explicitly marked unavailable, with links to official sources. The app does not replace emergency-alert systems.
@@ -37,7 +37,7 @@
 - Uses nearby ČHMÚ stations in Czechia and METAR reports worldwide for available current measurements. Point-weather corrections require reports within 10 km and 30 minutes; nearby weather can still differ from the selected point. Ten-minute station totals do not replace model precipitation amounts or hourly forecasts.
 - Preserves explicit drizzle reports, does not infer clear skies from sunshine duration, and distinguishes total cloud observations from partial-height airport reports. METAR observations never invent a precipitation amount.
 - Expanded hourly details show the number of models with nonzero precipitation totals and their amount range. These are descriptive model counts, not a calibrated probability.
-- Each forecast day and hour shows High, Medium, Low, or Limited confidence. The estimate uses complete model-input agreement, lead time and download age. Tap a confidence chip for the ranges and limits. It is not a probability of accuracy, and missing inputs stay explicit.
+- Each forecast day and hour shows High, Medium, Low, or Not rated confidence. The estimate uses complete model-input agreement, lead time and download age. Nearby dry-sky categories use cloud-cover spread instead of treating a threshold crossing as a large disagreement. Tap a confidence chip for the ranges and limits. It is not a probability of accuracy, and missing inputs stay explicit.
 - Keeps the last successful forecast for offline display.
 - Includes a resizable launcher widget with per-widget colours, transparency, gradient or custom-image backgrounds, text scale, alignment, custom label, and selectable weather fields.
 - Supports Metric and Imperial display units in the app and widgets.
@@ -135,4 +135,4 @@ The legal pages use local assets, keyboard navigation and visible focus indicato
 
 ## License
 
-Source code is available under the [MIT License](LICENSE). Weather data and radar remain subject to their providers' terms.
+Source code is available under the [MIT License](LICENSE). Bundled MapLibre uses [BSD-3-Clause](app/src/main/assets/maplibre-6.14.0/LICENSE.txt). Weather data and radar remain subject to their providers' terms.

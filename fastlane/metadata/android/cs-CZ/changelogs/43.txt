@@ -1,0 +1,1 @@
+Pauza radaru nyní zachová viditelný snímek i při načítání dalšího. Přehrávání zachovává plynulé prolínání a správně se zastaví při vypršení dat. Hodiny předpovědi zůstávají dostupné, i když poskytovatel nemá pravděpodobnost deště; neznámá procenta se nezobrazují jako 0 %. Množství srážek a upozornění zůstávají zachována.

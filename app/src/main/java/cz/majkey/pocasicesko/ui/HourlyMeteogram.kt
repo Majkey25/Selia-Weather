@@ -97,7 +97,8 @@ internal fun calculateHourlyMeteogram(
     if (hours.isEmpty()) return HourlyMeteogramGeometry(emptyList())
     require(hours.all { it.temperature.isFinite() })
     require(precipitationHours.all {
-        it == null || it.precipitation.isFinite() && it.precipitation >= 0.0 && it.precipitationProbability in 0..100
+        it == null || it.precipitation.isFinite() && it.precipitation >= 0.0 &&
+            (it.precipitationProbability == null || it.precipitationProbability in 0..100)
     })
 
     val minimumTemperature = hours.minOf(HourlyWeather::temperature)
@@ -114,9 +115,9 @@ internal fun calculateHourlyMeteogram(
                     ),
                 precipitationHeight = height * 0.30f *
                     ((precipitation?.precipitation ?: 0.0) / maximumPrecipitation).toFloat().coerceIn(0f, 1f),
-                precipitationAlpha = (
-                    0.30f + (precipitation?.precipitationProbability ?: 0) / 100f * 0.70f
-                    ).coerceIn(0.30f, 1f),
+                precipitationAlpha = precipitation?.precipitationProbability?.let {
+                    (0.30f + it / 100f * 0.70f).coerceIn(0.30f, 1f)
+                } ?: 0.65f,
             )
         },
     )

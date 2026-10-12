@@ -1,0 +1,1 @@
+La pause du radar conserve l’image visible même pendant le chargement de la suivante. La lecture garde des transitions douces et s’arrête lorsque les données expirent. Les heures de prévision restent disponibles sans probabilité de pluie ; les valeurs inconnues ne sont pas affichées comme 0 %. Les cumuls de précipitations et les alertes sont conservés.

@@ -56,7 +56,11 @@ class RadarWebViewTest {
                 view.evaluateJavascript(
                     "JSON.stringify({origin:location.origin," +
                         "time:document.getElementById('time')?.textContent," +
-                        "ready:typeof radarLayer!=='undefined'&&!!radarLayer," +
+                        "ready:typeof radarLayer!=='undefined'&&!!radarLayer&&radarLayer.ready&&!radarLayer.failed&&radarLayer.contentSeen&&map.isSourceLoaded(radarLayer.id)," +
+                        "sourceId:typeof radarLayer==='undefined'||!radarLayer?'':radarLayer.id," +
+                        "playing:timer!==null&&document.getElementById('play').getAttribute('aria-pressed')==='true'," +
+                        "transitionDuration:transitionDuration," +
+                        "rendered:window.radarPlaybackProbe||null," +
                         "type:typeof radarLayer==='undefined'||!radarLayer?'':radarLayer.frame.type," +
                         "displayedTime:typeof radarLayer==='undefined'||!radarLayer?0:radarLayer.frame.time," +
                         "frame:typeof frameIndex==='undefined'?-1:frameIndex," +
@@ -120,6 +124,69 @@ class RadarWebViewTest {
                         rect.getDouble("left") >= 0 && rect.getDouble("right") <= snapshot.getDouble("width") + 1 &&
                         rect.getDouble("top") >= 0 && rect.getDouble("bottom") <= nativeHeight + 1)
             }
+        }
+        fun assertPlaybackAndPause() {
+            compose.runOnIdle {
+                view.evaluateJavascript("""
+                    window.radarPlaybackProbe = null;
+                    if (!window.radarPlaybackListener) {
+                      window.radarPlaybackListener = function() {
+                        if (!radarLayer || !radarLayer.ready || radarLayer.failed || !map.isSourceLoaded(radarLayer.id)) return;
+                        var source = map.getSource(radarLayer.id), layer = map.getLayer(radarLayer.id);
+                        if (!source || !layer || layer.type !== 'raster' || layer.source !== radarLayer.id ||
+                            map.getPaintProperty(radarLayer.id, 'raster-opacity') <= 0) return;
+                        var previous = window.radarPlaybackProbe;
+                        var same = previous && previous.id === radarLayer.id, now = performance.now();
+                        var started = same ? previous.started : now;
+                        window.radarPlaybackProbe = {id:radarLayer.id, time:radarLayer.frame.time,
+                          url:map.getStyle().sources[radarLayer.id].tiles[0],
+                          expectedUrl:radarLayer.frame.type === 'forecast' ? forecastTileUrl(radarLayer.frame) : radarTileUrl(radarLayer.frame),
+                          started:started, lastAt:now,
+                          maximumGapMs:same && now - started <= transitionDuration ?
+                            Math.max(previous.maximumGapMs, now - previous.lastAt) : same ? previous.maximumGapMs : 0,
+                          renders:same ? previous.renders + 1 : 1};
+                      };
+                      map.on('render', window.radarPlaybackListener);
+                    }
+                    document.getElementById('play').click();
+                """.trimIndent(), null)
+            }
+            val expected = listOf(state.get().getLong("firstTime"), state.get().getLong("secondTime"))
+            val initialSource = state.get().getString("sourceId")
+            for (time in expected) {
+                compose.waitUntil(30_000) {
+                    readState()
+                    val rendered = state.get().optJSONObject("rendered")
+                    state.get().optBoolean("playing") && state.get().optBoolean("ready") &&
+                        !state.get().optBoolean("pending") && state.get().optLong("displayedTime") == time &&
+                        rendered?.optLong("time") == time && rendered.optString("id") == state.get().optString("sourceId") &&
+                        rendered.optInt("renders") >= if (state.get().optInt("transitionDuration") == 0) 1 else 3
+                }
+                assertEquals(time, state.get().getLong("sliderTime"))
+                assertTrue(state.get().getString("sourceId") != initialSource)
+                val rendered = state.get().getJSONObject("rendered")
+                assertEquals(rendered.getString("expectedUrl"), rendered.getString("url"))
+                InstrumentationRegistry.getInstrumentation().sendStatus(0, Bundle().apply {
+                    putString("stream", "\nRADAR_RENDER ${state.get().getString("mode")} time=$time renders=${rendered.getInt("renders")} maximumTransitionGapMs=${rendered.getDouble("maximumGapMs")}\n")
+                })
+                assertEquals("", state.get().getString("status"))
+                assertTrue("Weather sources must remain bounded during playback", state.get().getInt("sourceCount") <= 4)
+            }
+            compose.runOnIdle { view.evaluateJavascript("document.getElementById('play').click()", null) }
+            compose.waitUntil(30_000) { readState(); !state.get().optBoolean("playing") && !state.get().optBoolean("pending") }
+            val pausedTime = state.get().getLong("displayedTime")
+            val pausedSource = state.get().getString("sourceId")
+            val pausedAt = SystemClock.elapsedRealtime()
+            compose.waitUntil(5_000) {
+                readState()
+                assertFalse(state.get().getBoolean("playing"))
+                assertEquals(pausedTime, state.get().getLong("displayedTime"))
+                assertEquals(pausedSource, state.get().getString("sourceId"))
+                SystemClock.elapsedRealtime() - pausedAt >= 2_200
+            }
+            InstrumentationRegistry.getInstrumentation().sendStatus(0, Bundle().apply {
+                putString("stream", "\nRADAR_PLAY ${state.get().getString("mode")} wrapped, rendered two loaded raster frames; pause held 2200ms\n")
+            })
         }
         compose.waitUntil(30_000) {
             readState()
@@ -243,6 +310,7 @@ class RadarWebViewTest {
         assertEquals(state.get().getLong("displayedTime"), state.get().getLong("sliderTime"))
         assertEquals("", state.get().getString("status"))
         assertEquals("eu", state.get().getString("model"))
+        assertPlaybackAndPause()
         compose.runOnIdle { view.evaluateJavascript("map.jumpTo({center:[139.6503,35.6762],zoom:6})", null) }
         compose.waitUntil(30_000) {
             readState()
@@ -261,9 +329,11 @@ class RadarWebViewTest {
         assertEquals(state.get().getLong("lastTime"), state.get().getLong("displayedTime"))
         assertEquals(state.get().getLong("displayedTime"), state.get().getLong("sliderTime"))
         assertEquals("", state.get().getString("status"))
+        compose.runOnIdle { view.evaluateJavascript("document.getElementById('play').click()", null) }
+        compose.waitUntil(10_000) { readState(); state.get().optBoolean("playing") }
         compose.runOnIdle {
             view.evaluateJavascript("""
-                setMode('observed');
+                document.getElementById('observed').click();
             """.trimIndent(), null)
         }
         compose.waitUntil(30_000) {
@@ -273,6 +343,7 @@ class RadarWebViewTest {
         }
         assertEquals(state.get().getLong("displayedTime"), state.get().getLong("sliderTime"))
         assertEquals("", state.get().getString("status"))
+        assertFalse("Changing radar mode must stop playback", state.get().getBoolean("playing"))
         val selectedTime = state.get().getLong("displayedTime")
         val selectedLabel = state.get().getString("time")
         compose.runOnIdle { view.evaluateJavascript("document.getElementById('details-toggle').click()", null) }
@@ -318,6 +389,7 @@ class RadarWebViewTest {
             assertEquals("", state.get().getString("status"))
             assertTimelineVisible()
         }
+        assertPlaybackAndPause()
     }
 
     private fun findWebView(view: View): WebView? = when (view) {

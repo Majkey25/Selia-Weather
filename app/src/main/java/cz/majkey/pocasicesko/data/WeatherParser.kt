@@ -38,7 +38,9 @@ object WeatherParser {
 
         val hourly = buildList {
             for (index in 0 until hourlyTimes.length()) {
-                if (hourlyTimes.isNull(index) || HOURLY_FIELDS.any { hourlyJson.getJSONArray(it).isNull(index) }) {
+                if (hourlyTimes.isNull(index) || HOURLY_FIELDS.any {
+                        it != "precipitation_probability" && hourlyJson.getJSONArray(it).isNull(index)
+                    }) {
                     continue
                 }
                 add(
@@ -48,8 +50,8 @@ object WeatherParser {
                             .requiredDouble(index, "temperature_2m"),
                         humidity = hourlyJson.getJSONArray("relative_humidity_2m")
                             .requiredInt(index, "relative_humidity_2m"),
-                        precipitationProbability = hourlyJson.getJSONArray("precipitation_probability")
-                            .requiredInt(index, "precipitation_probability"),
+                        precipitationProbability = hourlyJson.optionalIntAt("precipitation_probability", index)
+                            ?.takeIf { it in 0..100 },
                         precipitation = hourlyJson.getJSONArray("precipitation")
                             .requiredDouble(index, "precipitation"),
                         weatherCode = hourlyJson.getJSONArray("weather_code")

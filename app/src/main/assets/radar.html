@@ -671,8 +671,16 @@
       document.getElementById('play').setAttribute('aria-label', TEXT.play);
     }
     function togglePlay() {
+      var wasPlaying = !!timer;
       ensureSourcesFresh(); flushSeek();
-      if (timer) { stopPlay(); return; }
+      if (wasPlaying) {
+        stopPlay();
+        if (radarLayer) {
+          clearPending(); restoreDisplayedSelection();
+          setStatus(radarLayer.failed ? unavailableText(radarLayer.frame) : '');
+        }
+        return;
+      }
       if (!frames.length || !pageActive()) return;
       document.getElementById('play').setAttribute('aria-pressed', 'true');
       document.getElementById('play').setAttribute('aria-label', TEXT.pause);

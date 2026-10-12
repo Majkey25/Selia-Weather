@@ -1,0 +1,1 @@
+La pausa del radar conserva la imagen visible aunque se esté cargando la siguiente. La reproducción mantiene transiciones suaves y se detiene cuando caducan los datos. Las horas del pronóstico siguen disponibles sin probabilidad de lluvia; los valores desconocidos no se muestran como 0 %. Se conservan las cantidades de precipitación y los avisos.

@@ -74,6 +74,47 @@ class WeatherParserTest {
     }
 
     @Test
+    fun missingHourlyRainChanceKeepsTheHourAndItsAvailableWeather() {
+        val complete = WeatherParser.parseForecast(VALID_FORECAST, 123L)
+        val root = JSONObject(VALID_FORECAST)
+        val probabilities = root.getJSONObject("hourly").getJSONArray("precipitation_probability")
+        probabilities.put(1, JSONObject.NULL)
+        val parsed = WeatherParser.parseForecast(root.toString(), 123L)
+        assertEquals(complete.hourly[0], parsed.hourly[0])
+        assertEquals(2, parsed.hourly.size)
+        assertEquals(complete.hourly[1].time, parsed.hourly[1].time)
+        assertEquals(complete.hourly[1].temperature, parsed.hourly[1].temperature, 0.0)
+        assertEquals(complete.hourly[1].precipitation, parsed.hourly[1].precipitation, 0.0)
+        assertEquals(null, parsed.hourly[1].precipitationProbability)
+        assertEquals(complete.daily, parsed.daily)
+        probabilities.put(0, JSONObject.NULL)
+        assertEquals(2, WeatherParser.parseForecast(root.toString(), 123L).hourly.size)
+    }
+
+    @Test
+    fun invalidRainPercentagesStayUnknownButZeroAndHundredRemainValid() {
+        for (value in listOf(-1, 101, 0, 100)) {
+            val root = JSONObject(VALID_FORECAST)
+            root.getJSONObject("hourly").getJSONArray("precipitation_probability").put(1, value)
+            val parsed = WeatherParser.parseForecast(root.toString(), 123L)
+            assertEquals(2, parsed.hourly.size)
+            assertEquals(value.takeIf { it in 0..100 }, parsed.hourly[1].precipitationProbability)
+        }
+    }
+
+    @Test
+    fun rainChanceArrayMustStillExistAndMatchTheHourlyTimeline() {
+        for (value in listOf(JSONArray(), JSONArray().put(0))) {
+            val root = JSONObject(VALID_FORECAST)
+            root.getJSONObject("hourly").put("precipitation_probability", value)
+            assertThrows(JSONException::class.java) { WeatherParser.parseForecast(root.toString(), 123L) }
+        }
+        val root = JSONObject(VALID_FORECAST)
+        root.getJSONObject("hourly").remove("precipitation_probability")
+        assertThrows(JSONException::class.java) { WeatherParser.parseForecast(root.toString(), 123L) }
+    }
+
+    @Test
     fun optionalPrecipitationSpreadPreservesLegacyForecastsAndRawHourAlignment() {
         val legacy = WeatherParser.parseForecast(VALID_FORECAST, 123L)
         assertEquals(null, legacy.hourly[0].precipitationSpread)

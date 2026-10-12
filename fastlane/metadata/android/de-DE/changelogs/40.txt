@@ -1,0 +1,1 @@
+Noch nicht gespeicherte Farben und Darstellungseinstellungen bleiben beim Wiederherstellen des Bildschirms erhalten.

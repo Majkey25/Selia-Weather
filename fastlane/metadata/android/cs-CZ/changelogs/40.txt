@@ -1,0 +1,1 @@
+Rozepsané vlastní barvy a nastavení vzhledu zůstanou zachované při obnovení obrazovky Androidem.

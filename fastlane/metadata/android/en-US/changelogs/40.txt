@@ -1,0 +1,1 @@
+Keep your unsaved custom colours and appearance settings when Android restores the screen.

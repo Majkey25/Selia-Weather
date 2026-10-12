@@ -1147,14 +1147,16 @@ internal fun nextWetHour(hourly: List<HourlyWeather>, currentTime: String): Hour
 internal fun nextPrecipitationLabel(hour: HourlyWeather, locale: java.util.Locale): String? {
     val accumulation = listOf(hour.precipitation, hour.rain, hour.showers, hour.snowfall)
         .any { it != null && it.isFinite() && it > 0.0 }
-    if (accumulation || hour.precipitationProbability > 0) return hourlyPrecipitationInterval(hour.time, locale)
+    if (accumulation || hour.precipitationProbability?.let { it > 0 } == true) return hourlyPrecipitationInterval(hour.time, locale)
     return runCatching {
         LocalDateTime.parse(hour.time).format(DateTimeFormatter.ofPattern("d MMM uuuu, HH:mm", locale))
     }.getOrNull()
 }
 
-internal fun maximumPrecipitationProbability(hourly: List<HourlyWeather>, currentTime: String): Int? =
-    detailUpcomingHours(hourly, currentTime).maxOfOrNull(HourlyWeather::precipitationProbability)
+internal fun maximumPrecipitationProbability(hourly: List<HourlyWeather>, currentTime: String): Int? {
+    val probabilities = detailUpcomingHours(hourly, currentTime).map { it.precipitationProbability ?: return null }
+    return probabilities.maxOrNull()
+}
 
 private fun detailUpcomingHours(hourly: List<HourlyWeather>, currentTime: String): List<HourlyWeather> {
     val now = runCatching { LocalDateTime.parse(currentTime) }.getOrNull() ?: return emptyList()

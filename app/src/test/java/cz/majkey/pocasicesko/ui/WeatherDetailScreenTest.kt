@@ -93,6 +93,17 @@ class WeatherDetailScreenTest {
     }
 
     @Test
+    fun missingRainChanceCannotBecomeAnAllClearButRainEvidenceSurvives() {
+        val dry = hour("2026-08-29T20:00", 0, 0.0)
+        val unknown = dry.copy(time = "2026-08-29T21:00", precipitationProbability = null)
+        assertNull(maximumPrecipitationProbability(listOf(dry, unknown), "2026-08-29T19:30"))
+        val wet = unknown.copy(precipitation = 0.2)
+        assertEquals(wet, nextWetHour(listOf(dry, wet), "2026-08-29T19:30"))
+        assertEquals("20:00–21:00", nextPrecipitationLabel(wet, Locale.ENGLISH))
+        assertEquals(0, maximumPrecipitationProbability(listOf(dry), "2026-08-29T19:30"))
+    }
+
+    @Test
     fun keepsTheApprovedDetailHierarchy() {
         val source = File(
             System.getProperty("user.dir"),

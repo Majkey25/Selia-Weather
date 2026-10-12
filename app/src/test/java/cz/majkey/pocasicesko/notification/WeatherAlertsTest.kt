@@ -84,10 +84,14 @@ class WeatherAlertsTest {
     @Test
     fun traceRainAndDrizzleNeedUmbrellaButDryAndMissingDataDoNot() {
         listOf(hour().copy(precipitation = 0.03), hour().copy(weatherCode = 51),
-            hour().copy(precipitationProbability = 40)).forEach { wet ->
+            hour().copy(precipitationProbability = 40),
+            hour().copy(precipitationProbability = null, precipitation = 0.03),
+            hour().copy(precipitationProbability = null, weatherCode = 51)).forEach { wet ->
             assertEquals(WeatherAlertCategory.RAIN,
                 forecastAlerts(WeatherAlertSettings(), snapshot(listOf(wet)), now).single().category)
         }
+        assertTrue(forecastAlerts(WeatherAlertSettings(), snapshot(listOf(
+            hour().copy(precipitationProbability = null))), now).isEmpty())
         assertTrue(forecastAlerts(allEnabled, snapshot(listOf(hour().copy(
             temperature = Double.NaN, windSpeed = Double.NaN, precipitation = Double.NaN,
             precipitationProbability = -1, weatherCode = -1,

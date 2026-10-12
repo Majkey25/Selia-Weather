@@ -212,6 +212,17 @@ class HourlyDetailsTest {
     }
 
     @Test
+    fun missingRainChanceDoesNotHideRainOrInventAProbability() {
+        val wet = hour(18.0, null).copy(precipitationProbability = null, rain = 0.2)
+        assertEquals(HourlyRainLevel.FORECAST, hourlyRainLevel(wet))
+        assertFalse(availableHourMetricKinds(wet).contains(HourMetricKind.PRECIPITATION_PROBABILITY))
+        assertTrue(summary(wet).contains("0.2 mm"))
+        assertFalse(summary(wet).contains("%"))
+        assertEquals(HourlyRainLevel.FORECAST,
+            hourlyRainLevel(wet.copy(precipitation = 0.0, rain = 0.0, weatherCode = 51)))
+    }
+
+    @Test
     fun exposesEveryAvailableDetailedMetric() {
         val kinds = availableHourMetricKinds(
             hour(18.0, 5.0).copy(

@@ -173,6 +173,25 @@ class ForecastLayoutTest {
     }
 
     @Test
+    fun missingHourlyChanceKeepsTheRainAmountAndReadableDetails() {
+        compose.setContent {
+            WeatherTheme {
+                Box(Modifier.width(320.dp).verticalScroll(rememberScrollState())) {
+                    ExpandedHourDetails(hour(10).copy(uvIndex = 3.0), hour(11).copy(precipitationProbability = null,
+                        precipitation = 0.2, rain = 0.2), units, Locale.ENGLISH)
+                }
+            }
+        }
+        compose.onNodeWithText(context.getString(R.string.hour_summary_rain) + " " +
+            context.getString(R.string.hour_summary_amount, "0.2 mm")).assertIsDisplayed()
+        compose.onNodeWithText("null", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("0 %").assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.precipitation_probability)).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.unavailable)).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.uv_index)).performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
     fun bottomActionsShareOneRowAndDispatchClicks() {
         var selected: Destination? = null
         var aiClicks = 0

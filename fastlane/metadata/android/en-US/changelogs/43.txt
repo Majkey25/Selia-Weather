@@ -1,0 +1,1 @@
+Radar Pause now keeps the visible frame even while the next image is loading. Playback retains smooth crossfades and stops correctly at source expiry. Forecast hours remain available when a provider has no rain probability; unknown percentages are not displayed as 0%. Rain amounts and alerts are preserved.

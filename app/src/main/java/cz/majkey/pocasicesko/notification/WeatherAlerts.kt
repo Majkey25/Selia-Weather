@@ -86,7 +86,7 @@ private fun forecastHourTime(hour: HourlyWeather, zone: ZoneId): Long? {
 
 private fun rainAlertEvidence(hour: HourlyWeather, settings: WeatherAlertSettings): Boolean =
     hasPrecipitationEvidence(hour.weatherCode, hour.precipitation, hour.rain, hour.showers, hour.snowfall) ||
-        hour.precipitationProbability in settings.rainProbabilityPercent..100 ||
+        hour.precipitationProbability?.let { it in settings.rainProbabilityPercent..100 } == true ||
         hour.precipitationSpread?.let { it.wetModelCount * 2 >= it.modelCount && it.maximumMm >= 0.1 } == true
 
 internal fun nextRainAlertTime(settings: WeatherAlertSettings, snapshot: WeatherSnapshot, now: Long): Long? {

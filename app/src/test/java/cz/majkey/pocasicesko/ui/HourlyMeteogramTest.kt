@@ -80,6 +80,17 @@ class HourlyMeteogramTest {
     }
 
     @Test
+    fun missingRainChanceRetainsTheAmountBarWithoutPretendingItIsZeroPercent() {
+        val wet = hour(0, precipitation = 2.0).copy(precipitationProbability = null)
+        val geometry = calculateHourlyMeteogram(listOf(wet), 68f, 112f, 68f)
+        assertEquals(33.6f, geometry.hours.single().precipitationHeight, 0.001f)
+        assertEquals(0.65f, geometry.hours.single().precipitationAlpha, 0.001f)
+        assertThrows(IllegalArgumentException::class.java) {
+            calculateHourlyMeteogram(listOf(wet.copy(precipitationProbability = 101)), 68f, 112f, 68f)
+        }
+    }
+
+    @Test
     fun forecastPanelUsesCombinedMeteogram() {
         val source = File(
             System.getProperty("user.dir"),

@@ -185,6 +185,47 @@ test('four-frame bound, preloading and hard mode/model transitions preserve sour
   const old = app.context.radarLayer; app.context.setMode('observed'); assert.ok(!app.sources.has(old.id)); app.load(); assert.equal(app.context.retiredLayer, null);
   app.context.setMode('forecast'); app.load(); const europe = app.context.radarLayer; asia(app); app.events.moveend(); app.load(); assert.ok(!app.sources.has(europe.id)); assert.equal(app.context.radarLayer.frame.key, 'global');
 });
+test('play wraps loaded frames, crossfades retained rasters and pause cancels future steps', async () => {
+  const app = runtime(); await settled(); app.load();
+  app.context.showFrame(app.context.frames.length - 1); app.load();
+  const old = app.context.radarLayer, next = app.context.preloadLayer;
+  app.load(next); app.context.togglePlay(); [...app.intervals.values()][0]();
+  assert.equal(app.context.frameIndex, 0); assert.equal(app.context.radarLayer, next);
+  assert.equal(app.context.retiredLayer, old);
+  assert.equal(app.layers.get(next.id).paint['raster-opacity'], 0.78);
+  assert.equal(app.layers.get(old.id).paint['raster-opacity'], 0);
+  assert.equal(app.layers.get(next.id).paint['raster-opacity-transition'].duration, 350);
+  assert.equal(app.delays.get(app.context.transitionTimer), 350);
+  app.fire(app.context.transitionTimer); assert.ok(!app.sources.has(old.id));
+  app.context.togglePlay(); assert.equal(app.intervals.size, 0);
+  assert.equal(app.node('play')['aria-pressed'], 'false'); assert.equal(app.context.radarLayer, next);
+});
+test('pause during tile loading keeps the visible frame and rejects the late replacement', async () => {
+  const app = runtime(); await settled(); app.load();
+  const displayed = app.context.radarLayer;
+  app.context.togglePlay(); [...app.intervals.values()][0]();
+  const pending = app.context.pendingLayer; assert.ok(pending);
+  app.context.togglePlay();
+  assert.equal(app.context.pendingLayer, null); assert.equal(app.context.radarLayer, displayed);
+  assert.equal(app.context.tileTimeout, null);
+  assert.equal(Number(app.node('slider').value), displayed.frame.time);
+  assert.equal(app.node('status').hidden, true);
+  assert.equal(app.intervals.size, 0); app.load(pending);
+  assert.equal(app.context.radarLayer, displayed); assert.ok(!app.sources.has(pending.id));
+  app.context.togglePlay(); [...app.intervals.values()][0](); app.load();
+  assert.notEqual(app.context.radarLayer, displayed);
+});
+test('pause allows the first frame to load but expiry cannot turn pause into play', async () => {
+  const app = runtime(); await settled(); const first = app.context.pendingLayer;
+  app.context.togglePlay(); app.context.togglePlay();
+  assert.equal(app.intervals.size, 0); assert.equal(app.context.pendingLayer, first);
+  app.load(); assert.equal(app.context.radarLayer, first);
+  app.context.togglePlay(); app.advance(NOW + 8 * 3600000 + 1);
+  app.context.fetch = async () => new Response('', { status: 503 });
+  app.context.togglePlay(); await settled();
+  assert.equal(app.intervals.size, 0); assert.equal(app.node('play')['aria-pressed'], 'false');
+  assert.equal(app.context.radarLayer, null);
+});
 test('raster requests preserve correct projected WMS bbox, reference, epoch and tile sizes', async () => {
   const app = runtime(); await settled(); const layer = app.context.pendingLayer, source = app.sources.get(layer.id), url = new URL(source.tiles[0]);
   assert.equal(source.tileSize, 256); assert.equal(url.searchParams.get('srs'), 'EPSG:3857'); assert.equal(url.searchParams.get('bbox'), '{bbox-epsg-3857}');

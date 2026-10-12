@@ -540,7 +540,11 @@ internal fun HourlyGraphPanel(snapshot: WeatherSnapshot, units: WeatherUnitForma
                                 val precipitationHour = precipitationByStart[hour.time]
                                 val interval = hourlyStartingPrecipitationInterval(hour.time, locale)
                                 val precipitationLabel = "${stringResource(R.string.precipitation)} " +
-                                    (precipitationHour?.let { "${it.precipitationProbability}%, ${units.precipitation(it.precipitation)}" }
+                                    (precipitationHour?.let {
+                                        val chance = it.precipitationProbability?.let { chance -> "$chance%" }
+                                            ?: "${stringResource(R.string.precipitation_probability)} ${stringResource(R.string.unavailable)}"
+                                        "$chance, ${units.precipitation(it.precipitation)}"
+                                    }
                                         ?: stringResource(R.string.unavailable)) +
                                     (interval?.let { ", " + stringResource(R.string.precipitation_interval, it) } ?: "")
                                 val windLabel = "${stringResource(R.string.wind)} ${units.windSpeed(hour.windSpeed)}, " +
@@ -579,7 +583,7 @@ internal fun HourlyGraphPanel(snapshot: WeatherSnapshot, units: WeatherUnitForma
 internal fun HourPrecipitationColumn(precipitationHour: HourlyWeather?, units: WeatherUnitFormatter, modifier: Modifier = Modifier) {
     Column(modifier.heightIn(min = 42.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
-            text = precipitationHour?.let { "${it.precipitationProbability} %" } ?: stringResource(R.string.unavailable),
+            text = precipitationHour?.precipitationProbability?.let { "$it %" } ?: "—",
             color = MaterialTheme.colorScheme.secondary, fontSize = 11.sp, lineHeight = 15.sp, textAlign = TextAlign.Center,
         )
         if (precipitationHour != null && precipitationHour.precipitation > 0.0) {
@@ -968,7 +972,9 @@ internal fun DayDetailSheet(
                                 Text(
                                     "${stringResource(R.string.feels_like)} " +
                                         "${hour.apparentTemperature?.takeIf(Double::isFinite)?.let(units::temperature) ?: stringResource(R.string.unavailable)} · " +
-                                        (precipitationHour?.let { "${it.precipitationProbability}% · ${units.precipitation(it.precipitation)}" }
+                                        (precipitationHour?.let {
+                                            "${it.precipitationProbability?.let { chance -> "$chance%" } ?: "—"} · ${units.precipitation(it.precipitation)}"
+                                        }
                                             ?: "${stringResource(R.string.precipitation)} ${stringResource(R.string.unavailable)}") + " · " +
                                         "${units.windSpeed(hour.windSpeed)} " +
                                         stringResource(windDirectionResource(hour.windDirection)),

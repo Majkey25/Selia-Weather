@@ -140,7 +140,7 @@ internal fun availableHourMetricKinds(hour: HourlyWeather, precipitationHour: Ho
     if (hour.dewPoint != null) add(HourMetricKind.DEW_POINT)
     if (hour.wetBulbTemperature != null) add(HourMetricKind.WET_BULB)
     add(HourMetricKind.PRECIPITATION)
-    if (precipitationHour != null) add(HourMetricKind.PRECIPITATION_PROBABILITY)
+    if (precipitationHour?.precipitationProbability != null) add(HourMetricKind.PRECIPITATION_PROBABILITY)
     if (precipitationHour?.rain != null) add(HourMetricKind.RAIN)
     if (precipitationHour?.showers != null) add(HourMetricKind.SHOWERS)
     if (precipitationHour?.snowfall != null) add(HourMetricKind.SNOWFALL)
@@ -185,9 +185,9 @@ internal fun hourlyRainLevel(hour: HourlyWeather, weatherCode: Int = hour.weathe
     hour.precipitation.isFinite() && hour.precipitation >= 5.0 -> HourlyRainLevel.HEAVY
     hasPrecipitationEvidence(weatherCode, hour.precipitation, hour.rain, hour.showers, hour.snowfall) ->
         HourlyRainLevel.FORECAST
-    hour.precipitationProbability >= 70 -> HourlyRainLevel.LIKELY
-    hour.precipitationProbability >= 40 -> HourlyRainLevel.POSSIBLE
-    hour.precipitationProbability > 15 -> HourlyRainLevel.UNLIKELY
+    hour.precipitationProbability?.let { it >= 70 } == true -> HourlyRainLevel.LIKELY
+    hour.precipitationProbability?.let { it >= 40 } == true -> HourlyRainLevel.POSSIBLE
+    hour.precipitationProbability?.let { it > 15 } == true -> HourlyRainLevel.UNLIKELY
     else -> HourlyRainLevel.NONE
 }
 
@@ -258,7 +258,7 @@ internal fun ExpandedHourDetails(
             )
             HourMetricKind.PRECIPITATION_PROBABILITY -> HourMetric(
                 R.string.precipitation_probability,
-                precipitationHour?.let { "${it.precipitationProbability} %" } ?: stringResource(R.string.unavailable),
+                precipitationHour?.precipitationProbability?.let { "$it %" } ?: stringResource(R.string.unavailable),
             )
             HourMetricKind.RAIN -> HourMetric(
                 R.string.rain,
@@ -478,7 +478,7 @@ internal fun hourlyWeatherSummary(
                     text(R.string.hour_summary_water_equivalent, formatted)
                 } else formatted
             }
-            val chance = precipitation.precipitationProbability.takeIf { it in 1..100 }
+            val chance = precipitation.precipitationProbability?.takeIf { it in 1..100 }
             val detail = when {
                 amount != null && chance != null -> text(R.string.hour_summary_amount_chance, amount, chance)
                 amount != null -> text(R.string.hour_summary_amount, amount)

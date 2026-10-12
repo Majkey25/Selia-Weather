@@ -1,0 +1,1 @@
+Radar-Pause behält das sichtbare Bild bei, auch wenn das nächste geladen wird. Die Wiedergabe blendet Bilder weich über und stoppt bei abgelaufenen Daten. Vorhersagestunden bleiben ohne verfügbare Regenwahrscheinlichkeit erhalten; unbekannte Werte werden nicht als 0 % angezeigt. Niederschlagsmengen und Hinweise bleiben erhalten.

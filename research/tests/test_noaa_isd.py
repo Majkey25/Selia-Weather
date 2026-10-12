@@ -29,6 +29,7 @@ def test_isd_parses_documented_scaling_units_and_quality() -> None:
     assert by_variable["wind_direction_10m"].value == 90.0
     assert by_variable["wind_speed_10m"].value == 3.4
     assert by_variable["visibility"].value == 10_000.0
+    assert "cloud_cover" not in by_variable
     precipitation = by_variable["precipitation"]
     assert precipitation.value == 1.2
     assert precipitation.interval is not None
@@ -47,6 +48,22 @@ def test_isd_rejects_failed_quality_without_discarding_valid_fields() -> None:
 
     assert "temperature_2m" not in {observation.variable for observation in observations}
     assert "wind_speed_10m" in {observation.variable for observation in observations}
+
+
+@pytest.mark.parametrize("gf1", [
+    "00,99,5,99,9,99,9,99999,9,99,9,99,9",
+    "08,99,1,07,1,99,9,00210,1,99,9,99,9",
+    "99,99,9,08,1,99,9,99999,9,99,9,99,9",
+    "08,99,1",
+])
+def test_isd_unverified_gf1_does_not_become_cloud_truth_or_discard_scalars(gf1: str) -> None:
+    header, row = ISD_CSV.strip().splitlines()
+    raw = f'{header},"GF1"\n{row},"{gf1}"\n'
+    original = tuple(parse_isd_observations(StringIO(ISD_CSV), "a" * 64))
+    observations = tuple(parse_isd_observations(StringIO(raw), "a" * 64))
+
+    assert observations == original
+    assert "cloud_cover" not in {item.variable for item in observations}
 
 
 def test_isd_rejects_incomplete_or_invalid_station_rows() -> None:

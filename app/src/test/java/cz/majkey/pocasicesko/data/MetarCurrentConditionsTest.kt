@@ -1,10 +1,14 @@
 package cz.majkey.pocasicesko.data
 
+import java.io.IOException
 import java.time.Instant
+import java.util.concurrent.CancellationException
 import org.json.JSONArray
+import org.json.JSONException
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -44,6 +48,84 @@ class MetarCurrentConditionsTest {
         assertTrue(requestedUrl.startsWith("https://aviationweather.gov/api/data/metar?bbox="))
         assertTrue(requestedUrl.contains("&format=json&hours=2"))
     }
+
+    @Test
+    fun queryCoversNearbyHighLatitudeStationsAndKeepsEquatorialAreaSmall() {
+        for (latitude in listOf(-75.0, 0.0, 75.0)) {
+            val requested = mutableListOf<String>()
+            MetarCurrentConditionsRepository { url -> requested.add(url); "[]" }
+                .fetch(CzechLocation("Point", REGION_WORLD, latitude, 0.0))
+            val (south, west, north, east) = bounds(requested.single())
+            // At 75 degrees latitude, 1.7 degrees longitude is only 48.92 km away.
+            val nearbyLongitude = if (latitude == 0.0) 0.44966 else 1.7
+            assertTrue(west <= -nearbyLongitude && east >= nearbyLongitude)
+            assertTrue(south <= latitude - 0.44966 && north >= latitude + 0.44966)
+            assertTrue(north - south < 1.0)
+            if (latitude == 0.0) assertTrue(east - west < 1.0)
+        }
+        for (latitude in listOf(-90.0, -89.8, 89.8, 90.0)) {
+            val requested = mutableListOf<String>()
+            MetarCurrentConditionsRepository { url -> requested.add(url); "[]" }
+                .fetch(CzechLocation("Pole", REGION_WORLD, latitude, 40.0))
+            val (south, west, north, east) = bounds(requested.single())
+            assertEquals(-180.0, west, 0.0)
+            assertEquals(180.0, east, 0.0)
+            assertTrue(south >= -90.0 && north <= 90.0 && north - south < 1.0)
+        }
+    }
+
+    @Test
+    fun datelineQueriesCoverBothSidesAndKeepLatestReportPerStation() {
+        for (longitude in listOf(-180.0, -179.9, 179.9, 180.0)) {
+            val requested = mutableListOf<String>()
+            val reports = JSONArray(METAR_JSON)
+            val observations = MetarCurrentConditionsRepository { url ->
+                requested.add(url)
+                JSONArray().put(reports.getJSONObject(if (requested.size == 1) 1 else 0)).toString()
+            }.fetch(CzechLocation("Dateline", REGION_WORLD, 0.0, longitude))
+            assertEquals(2, requested.size)
+            val boxes = requested.map(::bounds)
+            for (point in listOf(-179.9, 179.9)) {
+                assertTrue(boxes.any { (_, west, _, east) -> point in west..east })
+            }
+            assertTrue(boxes.all { (south, west, north, east) ->
+                south < 0 && north > 0 && west >= -180 && east <= 180 && west < east && east - west < 1
+            })
+            assertEquals(1, observations.size)
+            assertEquals(Instant.parse("2026-08-31T20:30:00Z"), observations.single().time)
+        }
+    }
+
+    @Test
+    fun datelinePartialFailureKeepsOtherResponseAndTotalFailureRemainsExplicit() {
+        val location = CzechLocation("Dateline", REGION_WORLD, 0.0, 179.9)
+        for (failure in listOf(IOException("Unavailable"), JSONException("Malformed response"))) {
+            for (failedRequest in listOf(1, 2)) {
+                var requests = 0
+                val observations = MetarCurrentConditionsRepository {
+                    requests++
+                    if (requests == failedRequest) throw failure
+                    METAR_JSON
+                }.fetch(location)
+                assertEquals(2, requests)
+                assertEquals(listOf("VIDD", "VIDP"), observations.map { it.stationId })
+            }
+            assertThrows(failure.javaClass) {
+                MetarCurrentConditionsRepository { throw failure }.fetch(location)
+            }
+        }
+        var requests = 0
+        assertThrows(CancellationException::class.java) {
+            MetarCurrentConditionsRepository {
+                requests++
+                throw CancellationException("Cancelled")
+            }.fetch(location)
+        }
+        assertEquals(1, requests)
+    }
+
+    private fun bounds(url: String): List<Double> =
+        url.substringAfter("bbox=").substringBefore('&').split(',').map(String::toDouble)
 
     @Test
     fun rejectsNonPhysicalReportAndKeepsPreviousValidStationReport() {

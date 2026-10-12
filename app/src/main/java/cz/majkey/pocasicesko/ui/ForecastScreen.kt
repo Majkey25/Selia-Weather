@@ -198,7 +198,7 @@ internal fun ForecastScreen(
                 )
             }
             item {
-                WeatherHero(snapshot = snapshot, accent = accent, units = units, currentDate = currentDate)
+                WeatherHero(snapshot = snapshot, accent = accent, units = units, localNow = localNow)
             }
             item {
                 HourlyGraphPanel(snapshot = snapshot, units = units, localNow = localNow,
@@ -373,10 +373,10 @@ private fun LocationHeader(
 }
 
 @Composable
-internal fun WeatherHero(snapshot: WeatherSnapshot, accent: Color, units: WeatherUnitFormatter, currentDate: String?) {
+internal fun WeatherHero(snapshot: WeatherSnapshot, accent: Color, units: WeatherUnitFormatter, localNow: LocalDateTime?) {
     val condition = conditionFor(snapshot.current.weatherCode, snapshot.current.isDay)
     val conditionLabel = stringResource(condition.labelResource())
-    val today = snapshot.daily.firstOrNull { it.date == currentDate }
+    val today = snapshot.daily.firstOrNull { it.date == localNow?.toLocalDate()?.toString() }
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -399,6 +399,11 @@ internal fun WeatherHero(snapshot: WeatherSnapshot, accent: Color, units: Weathe
                 maxLines = 1)
         }
         Text(conditionLabel, fontSize = 18.sp, fontWeight = FontWeight.Normal, textAlign = TextAlign.Center)
+        if (!isCurrentForecastHour(snapshot.current.time, localNow)) {
+            Text(snapshot.current.time.replace('T', ' '), fontSize = 12.sp,
+                modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center)
+        }
         Text(
             text = (today?.let { "${units.temperature(it.temperatureMin)} / ${units.temperature(it.temperatureMax)}" }
                 ?: stringResource(R.string.unavailable)) + "  ·  " +

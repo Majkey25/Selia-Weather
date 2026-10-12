@@ -12,6 +12,132 @@ import java.time.LocalDateTime
 
 class ModelConsensusTest {
     @Test
+    fun regionalQuarterHourWindowUsesOnlyTheExactCurrentTimeAcrossARequestBoundary() {
+        val base = JSONObject(BASE).also {
+            it.getJSONObject("current").put("weather_code", 0).put("cloud_cover", 0).put("cloud_cover_low", 0)
+        }
+        val fallback = ModelBlendResult(base.toString(), ForecastCalculationMode.BEST_MATCH,
+            emptyList(), ForecastFallbackReason.PROVIDER_UNAVAILABLE)
+        val current = JSONObject().put("time", "2026-08-29T19:30")
+            .put("weather_code", 0).put("cloud_cover", 0)
+        val window = JSONObject().put("time", JSONArray(listOf("2026-08-29T19:00", "2026-08-29T19:15", "2026-08-29T19:30")))
+            .put("weather_code", JSONArray(listOf(0, 3, 0)))
+            .put("cloud_cover", JSONArray(listOf(0, 100, 0)))
+        val regional = JSONObject().put("current", current).put("minutely_15", window)
+        val result = applyRegionalCurrentSky(fallback, PRAGUE, regional.toString())
+        assertEquals("2026-08-29T19:15", JSONObject(result.json).getJSONObject("current").getString("time"))
+        assertEquals(3, JSONObject(result.json).getJSONObject("current").getInt("weather_code"))
+        assertEquals(100, JSONObject(result.json).getJSONObject("current").getInt("cloud_cover"))
+        assertFalse(JSONObject(result.json).getJSONObject("current").has("cloud_cover_low"))
+        assertEquals("chmi_aladin_seamless", result.currentSkyModelId)
+        for (invalidTimes in listOf(listOf("2026-08-29T19:00", "2026-08-29T19:30"),
+            listOf("2026-08-29T19:15", "2026-08-29T19:15"))) {
+            window.put("time", JSONArray(invalidTimes))
+            assertEquals(fallback, applyRegionalCurrentSky(fallback, PRAGUE, regional.toString()))
+        }
+        window.put("time", JSONArray(listOf("2026-08-29T19:15")))
+        window.put("cloud_cover", JSONArray(listOf(100)))
+        for (invalidCode in listOf(61, JSONObject.NULL, "3")) {
+            window.put("weather_code", JSONArray(listOf(invalidCode)))
+            assertEquals(fallback, applyRegionalCurrentSky(fallback, PRAGUE, regional.toString()))
+        }
+    }
+
+    @Test
+    fun regionalCurrentDoesNotConfuseRepeatedLocalTimesWithDifferentUtcOffsets() {
+        val base = JSONObject(BASE).put("utc_offset_seconds", 7200)
+        val fallback = ModelBlendResult(base.toString(), ForecastCalculationMode.BEST_MATCH,
+            emptyList(), ForecastFallbackReason.PROVIDER_UNAVAILABLE)
+        val regional = JSONObject().put("utc_offset_seconds", 3600).put("current",
+            JSONObject(base.getJSONObject("current").toString()).put("weather_code", 0).put("cloud_cover", 0))
+        assertEquals(fallback, applyRegionalCurrentSky(fallback, PRAGUE, regional.toString()))
+        regional.put("utc_offset_seconds", 7200)
+        assertEquals("chmi_aladin_seamless", applyRegionalCurrentSky(fallback, PRAGUE, regional.toString()).currentSkyModelId)
+    }
+
+    @Test
+    fun regionalWindowRejectsUnalignedArrayLengths() {
+        val fallback = ModelBlendResult(BASE, ForecastCalculationMode.BEST_MATCH,
+            emptyList(), ForecastFallbackReason.PROVIDER_UNAVAILABLE)
+        val regional = JSONObject().put("minutely_15", JSONObject()
+            .put("time", JSONArray(listOf("2026-08-29T19:15", "2026-08-29T19:30")))
+            .put("weather_code", JSONArray(listOf(0)))
+            .put("cloud_cover", JSONArray(listOf(0, 0))))
+        assertEquals(fallback, applyRegionalCurrentSky(fallback, PRAGUE, regional.toString()))
+    }
+
+    @Test
+    fun independentRegionalCurrentWorksDuringProviderOutageAtEveryCurrentCadence() {
+        for (minute in listOf("00", "15", "30", "45")) {
+            val time = "2026-08-29T19:$minute"
+            val base = JSONObject(BASE).also {
+                it.getJSONObject("current").put("time", time).put("weather_code", 0).put("cloud_cover", 0)
+                    .put("cloud_cover_low", 0)
+            }
+            val fallback = ModelBlendResult(base.toString(), ForecastCalculationMode.BEST_MATCH,
+                emptyList(), ForecastFallbackReason.PROVIDER_UNAVAILABLE)
+            val regional = JSONObject().put("current", JSONObject().put("time", time)
+                .put("weather_code", 3).put("cloud_cover", 100).put("cloud_cover_mid", 90)).toString()
+            val result = applyRegionalCurrentSky(fallback, PRAGUE, regional)
+            val root = JSONObject(result.json)
+            assertEquals(3, root.getJSONObject("current").getInt("weather_code"))
+            assertEquals(100, root.getJSONObject("current").getInt("cloud_cover"))
+            assertEquals(90, root.getJSONObject("current").getInt("cloud_cover_mid"))
+            assertFalse(root.getJSONObject("current").has("cloud_cover_low"))
+            assertEquals(fallback.mode, result.mode)
+            assertEquals(fallback.fallbackReason, result.fallbackReason)
+            assertEquals(fallback.contributorIds, result.contributorIds)
+            assertEquals(base.getJSONObject("hourly").toString(), root.getJSONObject("hourly").toString())
+            assertEquals(base.getJSONObject("daily").toString(), root.getJSONObject("daily").toString())
+            val calculation = ForecastCalculation(ForecastRegion.CZECHIA, result.mode,
+                listOf("chmi_aladin_seamless"), result.contributorIds, result.fallbackReason,
+                currentSkyModelId = result.currentSkyModelId)
+            assertEquals(calculation, JSONObject().putForecastCalculation(calculation).forecastCalculationOrNull())
+        }
+    }
+
+    @Test
+    fun regionalCurrentFailureAndNonCzechLocationsKeepTheFallbackUnchanged() {
+        val fallback = ModelBlendResult(BASE, ForecastCalculationMode.BEST_MATCH,
+            emptyList(), ForecastFallbackReason.PROVIDER_UNAVAILABLE)
+        for (regional in listOf(null, "not JSON", "{}", "{\"current\":null}")) {
+            assertEquals(fallback, applyRegionalCurrentSky(fallback, PRAGUE, regional))
+        }
+        val valid = JSONObject().put("current", JSONObject().put("time", "2026-08-29T19:15")
+            .put("weather_code", 0).put("cloud_cover", 0)).toString()
+        assertEquals(fallback, applyRegionalCurrentSky(fallback,
+            CzechLocation("Berlin", "Berlin", 52.52, 13.405, "DE"), valid))
+        for (precipitation in listOf(0.1, JSONObject.NULL, "0")) {
+            val base = JSONObject(BASE).also { it.getJSONObject("current").put("precipitation", precipitation) }
+            val wet = fallback.copy(json = base.toString())
+            assertEquals(wet, applyRegionalCurrentSky(wet, PRAGUE, valid))
+        }
+    }
+
+    @Test
+    fun regionalCurrentSurvivesInsufficientOrUnalignedHourlyModels() {
+        val location = CzechLocation("Praha", REGION_PRAGUE, 50.0755, 14.4378, "CZ")
+        val regional = JSONObject().put("current", JSONObject().put("time", "2026-08-29T19:15")
+            .put("weather_code", 3).put("cloud_cover", 100)).toString()
+        val base = JSONObject(BASE).also {
+            it.getJSONObject("current").put("weather_code", 0).put("cloud_cover", 0)
+        }
+        val unaligned = JSONObject(MODELS).also {
+            it.getJSONObject("hourly").put("time", JSONArray())
+        }.toString()
+        for (models in listOf(ONE_MODEL, unaligned)) {
+            val result = applyRegionalCurrentSky(blendModelForecast(base.toString(), models, location), location, regional)
+            val current = JSONObject(result.json).getJSONObject("current")
+            assertEquals(3, current.getInt("weather_code"))
+            assertEquals(100, current.getInt("cloud_cover"))
+            assertEquals("chmi_aladin_seamless", result.currentSkyModelId)
+            assertEquals(ForecastCalculationMode.BEST_MATCH, result.mode)
+            assertEquals(ForecastFallbackReason.INSUFFICIENT_CONTRIBUTORS, result.fallbackReason)
+            assertEquals(base.getJSONObject("daily").toString(), JSONObject(result.json).getJSONObject("daily").toString())
+        }
+    }
+
+    @Test
     fun regionalSkyIsNotOutvotedByUnvalidatedGlobalClearForecasts() {
         val source = JSONObject(MODELS)
         val inputs = source.getJSONObject("hourly")
@@ -33,7 +159,7 @@ class ModelConsensusTest {
             it.getJSONObject("daily").put("sunrise", JSONArray(listOf("2026-08-29T06:00")))
                 .put("sunset", JSONArray(listOf("2026-08-29T20:00")))
         }
-        val root = JSONObject(blendModelForecast(base.toString(), source.toString(), location, regionalCurrentJson = source.toString()).json)
+        val root = JSONObject(applyRegionalCurrentSky(blendModelForecast(base.toString(), source.toString(), location), location, source.toString()).json)
         assertEquals(3, root.getJSONObject("current").getInt("weather_code"))
         assertEquals(100, root.getJSONObject("current").getInt("cloud_cover"))
         assertEquals(3, root.getJSONObject("hourly").getJSONArray("weather_code").getInt(0))
@@ -60,7 +186,7 @@ class ModelConsensusTest {
             val hazardous = JSONObject(base.toString())
             hazardous.getJSONObject("current").put("weather_code", hazard)
             hazardous.getJSONObject("hourly").getJSONArray("weather_code").put(0, hazard)
-            val retained = JSONObject(blendModelForecast(hazardous.toString(), source.toString(), location, regionalCurrentJson = source.toString()).json)
+            val retained = JSONObject(applyRegionalCurrentSky(blendModelForecast(hazardous.toString(), source.toString(), location), location, source.toString()).json)
             assertEquals(hazard, retained.getJSONObject("current").getInt("weather_code"))
             assertEquals(hazard, retained.getJSONObject("hourly").getJSONArray("weather_code").getInt(0))
         }
@@ -69,16 +195,16 @@ class ModelConsensusTest {
         assertEquals(0, nonCzech.getJSONObject("current").getInt("weather_code"))
         assertEquals(0, nonCzech.getJSONObject("hourly").getJSONArray("weather_code").getInt(0))
         source.getJSONObject("current").put("weather_code", 61)
-        assertEquals(0, JSONObject(blendModelForecast(base.toString(), source.toString(), location,
-            regionalCurrentJson = source.toString()).json).getJSONObject("current").getInt("weather_code"))
+        assertEquals(0, JSONObject(applyRegionalCurrentSky(blendModelForecast(base.toString(), source.toString(), location),
+            location, source.toString()).json).getJSONObject("current").getInt("weather_code"))
         source.getJSONObject("current").put("weather_code", 3)
         source.getJSONObject("current").put("time", "2026-08-29T18:15")
-        assertEquals(0, JSONObject(blendModelForecast(base.toString(), source.toString(), location, regionalCurrentJson = source.toString()).json)
+        assertEquals(0, JSONObject(applyRegionalCurrentSky(blendModelForecast(base.toString(), source.toString(), location), location, source.toString()).json)
             .getJSONObject("current").getInt("weather_code"))
         source.getJSONObject("current").put("time", "2026-08-29T19:15")
         for (invalid in listOf(JSONObject.NULL, "3")) {
             source.getJSONObject("current").put("weather_code", invalid)
-            val result = blendModelForecast(base.toString(), source.toString(), location, regionalCurrentJson = source.toString())
+            val result = applyRegionalCurrentSky(blendModelForecast(base.toString(), source.toString(), location), location, source.toString())
             assertEquals(ForecastCalculationMode.DIAGNOSTIC_MEDIAN, result.mode)
             assertEquals(null, result.currentSkyModelId)
         }

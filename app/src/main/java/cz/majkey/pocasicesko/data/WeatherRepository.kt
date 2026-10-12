@@ -128,7 +128,7 @@ class WeatherRepository(context: Context) {
         } catch (_: IOException) { null } else null
         checkActive()
         val requestedModels = forecastApiModelsFor(location)
-        val blend = try {
+        val modelBlend = try {
             val modelsJson = loggedForecastStage(ForecastFetchStage.MODELS) {
                 request(modelForecastUrl(location))
             }
@@ -144,7 +144,6 @@ class WeatherRepository(context: Context) {
                     location,
                     calibration = calibration?.artifact,
                     calibratedValues = calibration?.values.orEmpty(),
-                    regionalCurrentJson = regionalCurrent,
                 )
             }
         } catch (_: IOException) {
@@ -163,6 +162,8 @@ class WeatherRepository(context: Context) {
             )
         }
         checkActive()
+        // A usable current source does not depend on the separate hourly blend succeeding.
+        val blend = applyRegionalCurrentSky(modelBlend, location, regionalCurrent)
         val calculation = ForecastCalculation(
             region = forecastRegionFor(location),
             mode = blend.mode,
@@ -327,7 +328,9 @@ class WeatherRepository(context: Context) {
         internal fun regionalCurrentUrl(location: CzechLocation): String =
             "https://api.open-meteo.com/v1/forecast?latitude=${location.latitude}&longitude=${location.longitude}" +
                 "&timezone=auto&models=chmi_aladin_seamless" +
-                "&current=weather_code,cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high"
+                "&current=weather_code,cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high" +
+                "&minutely_15=weather_code,cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high" +
+                "&past_minutely_15=4&forecast_minutely_15=4"
 
         internal fun forecastUrl(location: CzechLocation): String =
             "https://api.open-meteo.com/v1/forecast?latitude=${location.latitude}" +

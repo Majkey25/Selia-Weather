@@ -1,0 +1,1 @@
+Les catégories de ciel partagées par les modèles sont conservées, sans reclassement selon le pourcentage de nuages. Écart de vent corrigé sans augmenter artificiellement la confiance. Icônes horaires colorées et panneaux encadrés. Bruine et pluie ont des icônes distinctes. Captures étendues pour valider les prévisions ; aucun poids non validé activé.

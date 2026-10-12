@@ -465,7 +465,7 @@ internal fun HourlyGraphPanel(snapshot: WeatherSnapshot, units: WeatherUnitForma
                                             isDay = iconIsDay,
                                             contentDescription = null,
                                             modifier = Modifier.size(25.dp),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            tint = weatherAccent(condition.kind, iconIsDay),
                                         )
                                     }
                                 }

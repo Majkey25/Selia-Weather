@@ -211,7 +211,9 @@ private fun modelAgreement(source: JSONObject, suffixes: List<String>, index: In
     val conditions = rows.groupingBy { it.condition }.eachCount()
     val dominant = conditions.entries.sortedBy { it.key.ordinal }.maxBy { it.value }
     return HourlyModelAgreement(rows.size, rows.maxOf { it.temperature } - rows.minOf { it.temperature },
-        hypot(rows.maxOf { it.eastWind } - rows.minOf { it.eastWind }, rows.maxOf { it.northWind } - rows.minOf { it.northWind }),
+        rows.maxOf { first -> rows.maxOf { second ->
+            hypot(first.eastWind - second.eastWind, first.northWind - second.northWind)
+        } },
         rows.maxOf { it.cloud } - rows.minOf { it.cloud },
         dominant.value, rows.count { it.precipitation > 0 }, rows.minOf { it.precipitation }, rows.maxOf { it.precipitation }, dominant.key,
         allSkyConditions = rows.all { it.condition in SKY_CONDITION_KINDS })
@@ -346,7 +348,7 @@ private fun deriveCondition(
         // Cloud-only evidence updates sky classes, never disproves drizzle or other hazards.
         // A provider's preceding-hour rain total is not an instantaneous condition.
         if (fallbackCode !in 0..3) return false
-        cloudWeatherCode(cloudCover)
+        majoritySkyCode(codes) ?: cloudWeatherCode(cloudCover)
     }
     target.optJSONArray("weather_code")?.put(targetIndex, code)
     return true
@@ -382,8 +384,14 @@ private fun deriveWeatherCode(
     if (codes.size < MINIMUM_MODELS && fallbackCode != null && fallbackCode !in 0..3) return fallbackCode
     return when {
         precipitation >= WET_THRESHOLD_MM -> 61
-        else -> cloudWeatherCode(cloudCover)
+        else -> majoritySkyCode(codes) ?: cloudWeatherCode(cloudCover)
     }
+}
+
+private fun majoritySkyCode(codes: List<Int>): Int? {
+    if (codes.size < MINIMUM_MODELS) return null
+    // Provider sky categories need not use the same cloud-percentage thresholds.
+    return (0..3).firstOrNull { code -> codes.count { it == code } > codes.size / 2 }
 }
 
 private fun updateCurrent(root: JSONObject, hourly: JSONObject, times: JSONArray) {
@@ -578,7 +586,7 @@ private const val WET_THRESHOLD_MM = 0.1
 private val DRIZZLE_CODES = setOf(51, 53, 55)
 private val MODEL_WEATHER_CODES = setOf(
     0, 1, 2, 3, 45, 48, 51, 53, 55, 56, 57, 61, 63, 65, 66, 67,
-    71, 73, 75, 77, 80, 81, 82, 85, 86, 95, 96, 99,
+    71, 73, 75, 77, 80, 81, 82, 85, 86, 95, 96, 97, 99,
 )
 // Interval totals and wind need their own interval/vector contracts, not scalar substitution.
 private val CALIBRATION_UNITS = mapOf(

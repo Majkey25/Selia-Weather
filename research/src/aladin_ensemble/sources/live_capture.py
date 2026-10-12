@@ -33,6 +33,11 @@ from aladin_ensemble.worldwide import WORLD_VARIABLES
 
 MAX_RESPONSE_BYTES = 2_000_000
 MAX_HOURLY_ROWS = 72
+CAPTURE_VARIABLES = (*WORLD_VARIABLES, "cloud_cover", "weather_code")
+WEATHER_CODES = frozenset({
+    0, 1, 2, 3, 45, 48, 51, 53, 55, 56, 57, 61, 63, 65, 66, 67,
+    71, 73, 75, 77, 80, 81, 82, 85, 86, 95, 96, 97, 99,
+})
 # Tolerate rounded station catalog coordinates, not a nearby station or model grid cell.
 MAX_STATION_COORDINATE_DISTANCE_KM = 1.0
 HEIGHT_ELEMENTS = {
@@ -59,7 +64,9 @@ class CaptureError:
     forecast_value: float | None
     observed_value: float | None
     absolute_error: float | None
-    status: Literal["paired", "missing_truth", "missing_forecast", "incompatible_truth"]
+    status: Literal[
+        "paired", "missing_truth", "missing_forecast", "incompatible_truth", "unscored_categorical",
+    ]
     truth_checksum: str | None
 
 
@@ -68,7 +75,7 @@ def compare_capture_models(rows: tuple[CaptureError, ...]) -> dict[str, JsonValu
     models = sorted({row.model_id for row in rows})
     grouped: dict[tuple[str, str], list[CaptureError]] = defaultdict(list)
     for row in rows:
-        if row.status == "paired":
+        if row.status == "paired" and row.variable != "weather_code":
             grouped[row.variable, row.valid_time].append(row)
     errors: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
     actuals: dict[str, list[float]] = defaultdict(list)
@@ -138,7 +145,10 @@ def evaluate_capture(
         raise ValueError("capture source endpoint is invalid")
     query = parse_qs(urlsplit(source_url).query)
     models = tuple(query.get("models", [""])[0].split(","))
-    records = future_values(raw, models, captured_at)
+    if len(query.get("hourly", [])) != 1:
+        raise ValueError("capture hourly variables are missing or ambiguous")
+    variables = tuple(query["hourly"][0].split(","))
+    records = future_values(raw, models, captured_at, variables=variables)
     if manifest.get("values") != [asdict(record) for record in records]:
         raise ValueError("capture values differ from immutable raw data")
     point = _mapping(manifest.get("requested_point"))
@@ -172,6 +182,14 @@ def evaluate_capture(
     for record in records:
         valid_time = datetime.fromisoformat(record.valid_time)
         variable = _variable(record.variable)
+        if variable == "weather_code":
+            # Provider codes are categories, not an ordinal numerical error scale.
+            errors.append(CaptureError(
+                record.model_id, variable, record.valid_time,
+                (valid_time - captured_at).total_seconds(), record.value, None, None,
+                "missing_forecast" if record.value is None else "unscored_categorical", None,
+            ))
+            continue
         forecast = canonical_value(variable, record.value, record.unit)
         candidates = indexed.get((station_id, valid_time, variable), [])
         height_element = HEIGHT_ELEMENTS.get(variable)
@@ -248,8 +266,10 @@ def _text(value: JsonValue) -> str:
 
 def future_values(
     raw: bytes, models: tuple[str, ...], captured_at: datetime,
+    *, variables: tuple[str, ...] = WORLD_VARIABLES,
 ) -> tuple[CapturedValue, ...]:
     _utc(captured_at)
+    _validate_variables(variables)
     root = _mapping(json.loads(raw))
     hourly = _mapping(root.get("hourly"))
     units = _mapping(root.get("hourly_units"))
@@ -271,7 +291,7 @@ def future_values(
         raise ValueError("capture timestamps must be unique consecutive hours")
     records: list[CapturedValue] = []
     for model_id in models:
-        for variable in WORLD_VARIABLES:
+        for variable in variables:
             field = f"{variable}_{model_id}"
             values = hourly.get(field)
             unit = units.get(field)
@@ -280,6 +300,10 @@ def future_values(
                 or not isinstance(unit, str) or not unit
             ):
                 raise ValueError(f"capture response is incomplete for {field}")
+            if variable in {"cloud_cover", "weather_code"} and unit != (
+                "%" if variable == "cloud_cover" else "wmo code"
+            ):
+                raise ValueError(f"unsupported unit {unit!r} for {variable}")
             interval = 3600 if variable == "precipitation" else 0
             for valid_time, value in zip(valid_times, values, strict=True):
                 if value is not None and (
@@ -287,6 +311,11 @@ def future_values(
                     or not isfinite(value)
                 ):
                     raise ValueError(f"capture value is invalid for {field}")
+                if value is not None and (
+                    variable == "cloud_cover" and not 0 <= value <= 100
+                    or variable == "weather_code" and value not in WEATHER_CODES
+                ):
+                    raise ValueError(f"capture value is outside its valid range for {field}")
                 if captured_at >= valid_time - timedelta(seconds=interval):
                     continue
                 records.append(CapturedValue(
@@ -298,11 +327,19 @@ def future_values(
     return tuple(records)
 
 
+def _validate_variables(variables: tuple[str, ...]) -> None:
+    if not variables or len(set(variables)) != len(variables) or any(
+        variable not in CAPTURE_VARIABLES for variable in variables
+    ):
+        raise ValueError("capture variables must be non-empty, unique and supported")
+
+
 def capture(
     point: ForecastPoint,
     models: tuple[str, ...],
     output: Path,
     *,
+    variables: tuple[str, ...] = CAPTURE_VARIABLES,
     fetch: Callable[[str], bytes] | None = None,
     now: Callable[[], datetime] = lambda: datetime.now(UTC),
 ) -> Path:
@@ -310,9 +347,10 @@ def capture(
         re.fullmatch(r"[a-z0-9_]{1,64}", model) is None for model in models
     ):
         raise ValueError("capture needs two through twelve unique provider model IDs")
+    _validate_variables(variables)
     parameters = {
         "latitude": str(point.latitude), "longitude": str(point.longitude),
-        "models": ",".join(models), "hourly": ",".join(WORLD_VARIABLES),
+        "models": ",".join(models), "hourly": ",".join(variables),
         "forecast_days": "3", "timezone": "GMT", "timeformat": "unixtime",
     }
     url = f"{FORECAST_URL}?{urlencode(parameters)}"
@@ -325,7 +363,7 @@ def capture(
     _utc(captured_at)
     if captured_at < started_at or len(raw) > MAX_RESPONSE_BYTES:
         raise ValueError("capture clock or response size is invalid")
-    records = future_values(raw, models, captured_at)
+    records = future_values(raw, models, captured_at, variables=variables)
     checksum = hashlib.sha256(raw).hexdigest()
     manifest: dict[str, JsonValue] = {
         "schema_version": 1, "kind": "prospective_forecast_capture",
@@ -371,12 +409,15 @@ def main(argv: Sequence[str] | None = None) -> None:
     parser.add_argument("--latitude", type=float, required=True)
     parser.add_argument("--longitude", type=float, required=True)
     parser.add_argument("--models", nargs="+", required=True)
+    parser.add_argument("--variables", nargs="+", choices=CAPTURE_VARIABLES,
+                        default=CAPTURE_VARIABLES)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
     point = ForecastPoint(
         cast(str, args.station_id), cast(float, args.latitude), cast(float, args.longitude),
     )
-    path = capture(point, tuple(cast(list[str], args.models)), cast(Path, args.output))
+    path = capture(point, tuple(cast(list[str], args.models)), cast(Path, args.output),
+                   variables=tuple(cast(Sequence[str], args.variables)))
     print(path)
 
 

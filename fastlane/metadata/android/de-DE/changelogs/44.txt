@@ -1,0 +1,1 @@
+Übereinstimmende Wetterkategorien der Modelle bleiben erhalten, statt aus Wolkenanteilen neu abgeleitet zu werden. Korrigierte Windabweichung ohne künstlich höhere Zuversicht. Farbige Stundensymbole und umrandete Übersicht. Nieselregen und Regen haben unterschiedliche Symbole. Erweiterte Erfassung für die Prognoseprüfung; keine ungeprüften Modellgewichte.

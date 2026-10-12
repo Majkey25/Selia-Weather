@@ -1,0 +1,1 @@
+Se conserva el acuerdo de los modelos sobre el cielo, sin reclasificarlo por el porcentaje de nubes. Corregida la discrepancia del viento sin elevar artificialmente la confianza. Vuelven los iconos horarios de colores y se mantienen los paneles con bordes. Llovizna y lluvia tienen iconos distintos. Capturas ampliadas para validar pronósticos; sin activar pesos no validados.

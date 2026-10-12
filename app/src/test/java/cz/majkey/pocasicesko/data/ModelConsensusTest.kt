@@ -55,6 +55,29 @@ class ModelConsensusTest {
     }
 
     @Test
+    fun windAgreementUsesActualModelPairsRatherThanBoundingBoxCorners() {
+        val base = JSONObject(BASE).also { root ->
+            root.getJSONObject("current").put("is_day", 1)
+            root.getJSONObject("daily").put("sunrise", JSONArray(listOf("2026-08-29T06:00")))
+                .put("sunset", JSONArray(listOf("2026-08-29T20:00")))
+        }
+        val models = JSONObject(MODELS).also { root ->
+            val source = root.getJSONObject("hourly")
+            listOf(0, 90, 180, 270).forEachIndexed { index, direction ->
+                mapOf("temperature_2m" to 20, "wind_speed_10m" to 10,
+                    "wind_direction_10m" to direction, "cloud_cover" to 0,
+                    "weather_code" to 0, "precipitation" to 0).forEach { (field, value) ->
+                    source.put("${field}_${'a' + index}", JSONArray(listOf(value, value)))
+                }
+            }
+        }
+        val snapshot = WeatherParser.parseForecast(blendModelForecast(base.toString(), models.toString()).json, 0L)
+        assertEquals(20.0, requireNotNull(snapshot.hourly.first().modelAgreement).windRangeKmh, 1e-9)
+        assertEquals(ConfidenceLevel.MODERATE, hourlyForecastConfidence(snapshot.hourly.first(), snapshot.hourly[1],
+            LocalDateTime.parse("2026-08-29T18:00"), 0).level)
+    }
+
+    @Test
     fun missingComparisonFieldsDoNotBorrowGlobalContributorCounts() {
         val models = JSONObject(MODELS)
         models.getJSONObject("hourly").remove("cloud_cover_c")
@@ -207,6 +230,25 @@ class ModelConsensusTest {
     }
 
     @Test
+    fun drySkyQuorumKeepsModelClassificationInsteadOfReclassifyingCloudPercentages() {
+        listOf(1, 2, 3).forEach { code ->
+            listOf(false, true).forEach { cloudOnly ->
+                val models = JSONObject(MODELS).also { root ->
+                    val hourly = root.getJSONObject("hourly")
+                    listOf("a", "b", "c").forEach { suffix ->
+                        hourly.getJSONArray("weather_code_$suffix").put(0, code)
+                        if (cloudOnly) hourly.remove("precipitation_$suffix")
+                    }
+                }
+                val hourly = JSONObject(blendModelForecast(BASE, models.toString()).json)
+                    .getJSONObject("hourly")
+                assertEquals("code=$code cloudOnly=$cloudOnly", code, hourly.getJSONArray("weather_code").getInt(0))
+                assertEquals(10, hourly.getJSONArray("cloud_cover").getInt(0))
+            }
+        }
+    }
+
+    @Test
     fun explicitPhenomenonQuorumDoesNotRequireCloudTotals() {
         listOf(45, 51, 56, 61, 66, 71, 80, 95).forEach { code ->
             val result = phenomenonFixture(listOf(code, code, code), setOf("cloud_cover"))
@@ -229,6 +271,13 @@ class ModelConsensusTest {
                 assertTrue(hourly.getJSONArray(PRECIPITATION_SPREAD_KEY).isNull(0))
             }
         }
+    }
+
+    @Test
+    fun documentedHeavyThunderstormCodesContributeToStormConsensus() {
+        val hourly = phenomenonFixture(listOf(97, 97, 97), setOf("cloud_cover", "precipitation"))
+            .getJSONObject("hourly")
+        assertEquals(95, hourly.getJSONArray("weather_code").getInt(0))
     }
 
     @Test
@@ -754,7 +803,7 @@ class ModelConsensusTest {
     }
 
     @Test
-    fun blendedCloudCoverUpdatesBenignSkyCodeWhenPrecipitationContributorsAreMissing() {
+    fun blendedCloudCoverUpdatesBenignSkyCodeWhenCodesAndPrecipitationContributorsAreMissing() {
         listOf(10 to 0, 40 to 1, 70 to 2, 95 to 3).forEach { (cloudCover, expectedCode) ->
             val base = JSONObject(BASE).also { root ->
                 root.getJSONObject("hourly").apply {
@@ -770,6 +819,7 @@ class ModelConsensusTest {
                     getJSONArray("precipitation_c").put(0, JSONObject.NULL)
                     listOf("a", "b", "c").forEach { suffix ->
                         getJSONArray("cloud_cover_$suffix").put(0, cloudCover)
+                        remove("weather_code_$suffix")
                     }
                 }
             }
@@ -873,7 +923,7 @@ class ModelConsensusTest {
         )).json).getJSONObject("hourly")
         assertEquals(30.0, hourly.getJSONArray("cloud_cover").getDouble(0), 0.0)
         assertEquals(100.0, hourly.getJSONArray("cloud_cover_high").getDouble(0), 0.0)
-        assertEquals(1, hourly.getJSONArray("weather_code").getInt(0))
+        assertEquals(3, hourly.getJSONArray("weather_code").getInt(0))
     }
 
     private fun cloudBase(): JSONObject = JSONObject(BASE).also { root ->

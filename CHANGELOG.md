@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.2] - 2026-10-12
+
+- Preserve a strict majority of the models' dry-sky weather categories instead of replacing their classification with generic cloud-percentage thresholds. Keep precipitation and hazard safeguards.
+- Include the provider's documented heavy-thunderstorm code in model comparisons instead of excluding those reports.
+- Calculate wind disagreement from actual model pairs, not artificial corners formed by combining unrelated extremes. Keep confidence thresholds unchanged.
+- Restore weather-coloured hourly icons while retaining the light/dark gradients, bordered panels and saved appearance settings. Drizzle uses dotted drops; rain uses streaks.
+- Capture cloud cover and weather categories for future forecast validation. Replay legacy captures unchanged and keep categorical codes out of scalar error scores. No new learned forecast weights are enabled without validation.
+
 ## [0.6.2] - 2026-10-12
 
 - Keep daily wind summaries valid when model inputs are incomplete. Do not display a provider's wet duration for a daily rainfall total recalculated from different model inputs.

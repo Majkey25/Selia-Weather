@@ -42,6 +42,14 @@ limit. It requests three days for one station and between two and twelve model I
 schedule future requests. Raw responses and capture manifests are content-addressed and never
 overwritten. A changed or corrupt existing file causes an error.
 
+New captures also request total `cloud_cover` in percent and the provider's `weather_code`,
+validated against the [Open-Meteo field units and WMO categories](https://open-meteo.com/en/docs).
+`--variables` can restrict the requested fields. Replay uses the exact `hourly` variables saved
+in the source URL, so legacy six-variable schema-1 captures retain their original records.
+Cloud fractions are converted with the existing unit adapter. Weather codes remain unscored
+categories, never MAE or arithmetic blend inputs. The current ČHMÚ and NOAA ISD parsers do not
+extract independent total cloud cover, so capturing it alone cannot establish cloud accuracy.
+
 Only timestamps after capture are eligible records. For hourly precipitation, the entire
 accumulation interval must start after capture. The collector never copies current or fused app
 conditions into an observation. Captures contain `truth: null` and `calibration_eligible: false`.

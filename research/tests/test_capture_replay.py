@@ -34,3 +34,10 @@ def test_replay_does_not_compute_a_linear_average_of_directions() -> None:
     assert compare_capture_models((first,)) == {"wind_direction": {
         "matched_hours": 1, "nonzero_observation_hours": 1, "observed_sum": None, "mae": {"a": 2},
     }}
+
+
+def test_replay_never_scores_weather_categories_as_scalar_values() -> None:
+    first = CaptureError(
+        "a", "weather_code", "2026-09-06T00:00:00Z", 3600, 3, 0, 3, "paired", None,
+    )
+    assert compare_capture_models((first, replace(first, model_id="b", forecast_value=95))) == {}

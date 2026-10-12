@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="confidence_hour_hint">Touchez une heure pour les détails et la confiance des prévisions</string>
-    <string name="confidence_label">Confiance · %1$s</string>
+    <string name="confidence_label">Confiance de la prévision · %1$s</string>
     <string name="confidence_high">Haute</string>
     <string name="confidence_moderate">Moyenne</string>
     <string name="confidence_low">Faible</string>
-    <string name="confidence_limited">Limitée</string>
+    <string name="confidence_limited">Non évaluée</string>
     <string name="confidence_agreement">Les modèles comparés concordent globalement pour cette période.</string>
     <string name="confidence_disagreement">Les données divergent sur la pluie, les nuages, la température ou le vent.</string>
     <string name="confidence_long_range">Cette période est plus lointaine. Les détails peuvent changer avec de nouvelles prévisions.</string>
     <string name="confidence_old_fetch">La prévision a été téléchargée il y a un certain temps. Actualisez pour vérifier les données récentes.</string>
-    <string name="confidence_missing">Cette heure manque de données complètes de modèles pour une comparaison.</string>
+    <string name="confidence_missing">Cette période manque de données complètes de modèles pour une comparaison.</string>
     <string name="confidence_partial_day">Seule une partie du jour dispose de données suffisantes pour comparer.</string>
     <string name="confidence_historical">Les valeurs passées ne mesurent pas la précision d’une ancienne prévision.</string>
     <string name="confidence_models">%1$d jeux complets de modèles comparés</string>
@@ -19,5 +19,5 @@
     <string name="confidence_cloud_spread">Écart de couverture nuageuse · %1$d%%</string>
     <string name="confidence_day_coverage">%1$d heures restantes sur %2$d comparées</string>
     <string name="confidence_day_method">L’heure comparée la moins certaine détermine la note du jour.</string>
-    <string name="confidence_method">Estimation fondée sur l’accord des modèles, l’échéance et l’âge du téléchargement. Pas une probabilité de précision. Des modèles concordants peuvent se tromper; l’âge de leurs calculs est indisponible.</string>
+    <string name="confidence_method">Évalue la prévision, pas les observations actuelles des stations. Utilise l’accord des modèles, l’échéance et l’âge du téléchargement. Pas une probabilité de précision. Des modèles concordants peuvent se tromper; l’âge de leurs calculs est indisponible.</string>
 </resources>

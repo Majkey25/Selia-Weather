@@ -72,7 +72,7 @@ private val EUROPE_SOURCES = GLOBAL_SOURCES + "dwd-icon-eu"
 private val GLOBAL_API_MODELS = listOf(
     "icon_seamless",
     "ecmwf_ifs025",
-    "ecmwf_aifs025",
+    "ecmwf_aifs025_single",
     "gfs_seamless",
     "gem_seamless",
     "meteofrance_seamless",

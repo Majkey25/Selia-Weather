@@ -213,7 +213,8 @@ private fun modelAgreement(source: JSONObject, suffixes: List<String>, index: In
     return HourlyModelAgreement(rows.size, rows.maxOf { it.temperature } - rows.minOf { it.temperature },
         hypot(rows.maxOf { it.eastWind } - rows.minOf { it.eastWind }, rows.maxOf { it.northWind } - rows.minOf { it.northWind }),
         rows.maxOf { it.cloud } - rows.minOf { it.cloud },
-        dominant.value, rows.count { it.precipitation > 0 }, rows.minOf { it.precipitation }, rows.maxOf { it.precipitation }, dominant.key)
+        dominant.value, rows.count { it.precipitation > 0 }, rows.minOf { it.precipitation }, rows.maxOf { it.precipitation }, dominant.key,
+        allSkyConditions = rows.all { it.condition in SKY_CONDITION_KINDS })
 }
 
 private data class AgreementInput(val temperature: Double, val eastWind: Double, val northWind: Double,
@@ -345,7 +346,7 @@ private fun deriveCondition(
         // Cloud-only evidence updates sky classes, never disproves drizzle or other hazards.
         // A provider's preceding-hour rain total is not an instantaneous condition.
         if (fallbackCode !in 0..3) return false
-        skyWeatherCode(cloudCover)
+        cloudWeatherCode(cloudCover)
     }
     target.optJSONArray("weather_code")?.put(targetIndex, code)
     return true
@@ -381,15 +382,8 @@ private fun deriveWeatherCode(
     if (codes.size < MINIMUM_MODELS && fallbackCode != null && fallbackCode !in 0..3) return fallbackCode
     return when {
         precipitation >= WET_THRESHOLD_MM -> 61
-        else -> skyWeatherCode(cloudCover)
+        else -> cloudWeatherCode(cloudCover)
     }
-}
-
-private fun skyWeatherCode(cloudCover: Int): Int = when {
-    cloudCover <= 20 -> 0
-    cloudCover <= 50 -> 1
-    cloudCover <= 80 -> 2
-    else -> 3
 }
 
 private fun updateCurrent(root: JSONObject, hourly: JSONObject, times: JSONArray) {

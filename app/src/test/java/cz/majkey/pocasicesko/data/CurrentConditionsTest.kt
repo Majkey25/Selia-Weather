@@ -4,6 +4,7 @@ import java.time.Instant
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class CurrentConditionsTest {
@@ -166,6 +167,23 @@ class CurrentConditionsTest {
     }
 
     @Test
+    fun observedCloudCoverUsesProviderSkyCategoryBoundaries() {
+        val now = Instant.parse("2026-08-29T09:10:00Z")
+        val model = current(weatherCode = 0, precipitation = 0.0, cloudCover = 0)
+        for ((cloudCover, expectedCode) in listOf(19 to 0, 20 to 1, 49 to 1, 50 to 2, 79 to 2, 80 to 3)) {
+            val fused = fuseCurrentConditions(
+                model,
+                CzechLocation("Point", REGION_PRAGUE, 50.0, 14.0),
+                listOf(observation(50.001, 14.0, now.minusSeconds(300)).copy(cloudCoverPercent = cloudCover)),
+                now,
+            )
+            assertEquals("cloudCover=$cloudCover", expectedCode, fused.weatherCode)
+            assertEquals(cloudCover, fused.cloudCover)
+            assertEquals(model.precipitation, fused.precipitation, 0.0)
+        }
+    }
+
+    @Test
     fun observedTotalCloudCoverInvalidatesModeledLayersThroughJson() {
         val now = Instant.parse("2026-08-29T09:10:00Z")
         val original = JSONObject(FORECAST_WITH_CLOUD_LAYERS)
@@ -197,7 +215,7 @@ class CurrentConditionsTest {
     }
 
     @Test
-    fun explicitWeatherReportKeepsItsOwnCloudCover() {
+    fun nearestSkyReportDoesNotBorrowFartherPresentWeather() {
         val now = Instant.parse("2026-08-29T09:10:00Z")
         val clearStation = observation(50.001, 14.0, now.minusSeconds(300)).copy(
             precipitation = null, cloudCoverPercent = 0,
@@ -212,8 +230,8 @@ class CurrentConditionsTest {
                 reports,
                 now,
             )
-            assertEquals(51, fused.weatherCode)
-            assertEquals(100, fused.cloudCover)
+            assertEquals(0, fused.weatherCode)
+            assertEquals(0, fused.cloudCover)
             assertEquals(0.0, fused.precipitation, 0.0)
         }
     }
@@ -229,10 +247,10 @@ class CurrentConditionsTest {
             CzechLocation("Point", REGION_PRAGUE, 50.0, 14.0),
             listOf(
                 observation(50.001, 14.0, now.minusSeconds(300)).copy(
-                    precipitation = null, cloudCoverPercent = 0,
+                    precipitation = null, weatherCode = 51,
                 ),
                 observation(50.01, 14.0, now.minusSeconds(300)).copy(
-                    precipitation = null, weatherCode = 51,
+                    precipitation = null, cloudCoverPercent = 0,
                 ),
             ),
             now,
@@ -349,6 +367,155 @@ class CurrentConditionsTest {
         }
     }
 
+    @Test
+    fun explicitFreshWeatherReportOverridesModeledPhenomenaWithoutInventingAmounts() {
+        val now = Instant.parse("2026-09-07T13:18:00Z")
+        val location = CzechLocation("Point", REGION_PRAGUE, 50.0, 14.0)
+        val report = observation(50.001, 14.0, now.minusSeconds(300)).copy(
+            precipitation = null, cloudCoverPercent = 75,
+        )
+        for ((modelCode, reportedCode) in listOf(61 to 95, 45 to 73, 73 to 66, 95 to 96)) {
+            val model = current(weatherCode = modelCode, precipitation = 0.4, cloudCover = 100)
+            val fused = fuseCurrentConditions(model, location, listOf(report.copy(weatherCode = reportedCode)), now)
+
+            assertEquals(reportedCode, fused.weatherCode)
+            assertEquals(75, fused.cloudCover)
+            assertEquals(model.precipitation, fused.precipitation, 0.0)
+        }
+    }
+
+    @Test
+    fun lowerAirportWeatherReportDoesNotDowngradeModeledStormOrHail() {
+        val now = Instant.parse("2026-10-12T10:35:00Z")
+        val location = CzechLocation("Point", REGION_PRAGUE, 50.0, 14.0)
+        for ((modelCode, reportedCode) in listOf(95 to 45, 96 to 61, 99 to 95)) {
+            val model = current(modelCode, 0.4, 100)
+            val report = observation(50.001, 14.0, now.minusSeconds(300)).copy(
+                precipitation = null, weatherCode = reportedCode,
+            )
+            val fused = fuseCurrentConditions(model, location, listOf(report), now)
+            assertEquals(modelCode, fused.weatherCode)
+            assertEquals(model.precipitation, fused.precipitation, 0.0)
+        }
+    }
+
+    @Test
+    fun cloudOnlyStaleOrDistantReportsDoNotReplaceModeledPhenomena() {
+        val now = Instant.parse("2026-09-07T13:18:00Z")
+        val location = CzechLocation("Point", REGION_PRAGUE, 50.0, 14.0)
+        val report = observation(50.001, 14.0, now.minusSeconds(300)).copy(
+            precipitation = null, cloudCoverPercent = 0, weatherCode = 95,
+        )
+        for (modelCode in listOf(45, 61, 73, 95)) {
+            val model = current(weatherCode = modelCode, precipitation = 0.4, cloudCover = 100)
+            for (unsupported in listOf(
+                report.copy(weatherCode = null),
+                report.copy(time = now.minusSeconds(1_801)),
+                report.copy(latitude = 50.1),
+            )) {
+                val fused = fuseCurrentConditions(model, location, listOf(unsupported), now)
+                assertEquals(modelCode, fused.weatherCode)
+                assertEquals(model.precipitation, fused.precipitation, 0.0)
+            }
+        }
+    }
+
+    @Test
+    fun partialManualCloudReportsDoNotCapModeledTotalOrRemoveUnchangedLayers() {
+        val now = Instant.parse("2026-10-12T10:35:00Z")
+        for (cover in listOf("FEW", "SCT", "BKN")) {
+            val report = JSONObject(METAR_CLOUD_REPORT).put("cover", cover)
+            val observation = parseMetarCurrentConditions("[$report]").single()
+            for (cloudCover in listOf(85, 100)) {
+                val model = current(3, 0.0, cloudCover).copy(
+                    cloudCoverLow = 40, cloudCoverMid = 60, cloudCoverHigh = 85,
+                )
+                val fused = fuseCurrentConditions(
+                    model, CzechLocation("Point", REGION_PRAGUE, 50.0, 14.0), listOf(observation), now,
+                )
+                assertEquals(cover, cloudCover, fused.cloudCover)
+                assertEquals(cover, 3, fused.weatherCode)
+                assertEquals(model.cloudCoverLow, fused.cloudCoverLow)
+                assertEquals(model.cloudCoverMid, fused.cloudCoverMid)
+                assertEquals(model.cloudCoverHigh, fused.cloudCoverHigh)
+            }
+        }
+    }
+
+    @Test
+    fun manualBrokenCloudCategorySetsOnlyALowerBoundOnTotalCloudAmount() {
+        val now = Instant.parse("2026-10-12T10:35:00Z")
+        val report = JSONObject(METAR_CLOUD_REPORT).put("cover", "BKN")
+        val observation = parseMetarCurrentConditions("[$report]").single()
+        for ((modelCover, expected) in listOf(0 to (63 to 2), 100 to (100 to 3))) {
+            val fused = fuseCurrentConditions(
+                current(weatherCode = 0, precipitation = 0.0, cloudCover = modelCover),
+                CzechLocation("Point", REGION_PRAGUE, 50.0, 14.0),
+                listOf(observation),
+                now,
+            )
+            assertEquals(expected.first, fused.cloudCover)
+            assertEquals(expected.second, fused.weatherCode)
+        }
+    }
+
+    @Test
+    fun automatedPartialCloudsRaiseCloudFloorWithoutErasingModeledOvercast() {
+        val now = Instant.parse("2026-10-12T10:35:00Z")
+        for ((cover, lowerBound) in listOf("FEW" to 13, "SCT" to 38, "BKN" to 63)) {
+            val report = JSONObject(METAR_CLOUD_REPORT).put("cover", cover)
+                .put("rawOb", "METAR LKPR 121030Z AUTO 29008KT 9999 $cover 12/05 Q1021")
+            val observation = parseMetarCurrentConditions("[$report]").single()
+            for (modelCover in listOf(0, 85)) {
+                val model = current(if (modelCover == 0) 0 else 3, 0.0, modelCover).copy(cloudCoverHigh = modelCover)
+                val fused = fuseCurrentConditions(
+                    model, CzechLocation("Point", REGION_PRAGUE, 50.0, 14.0), listOf(observation), now,
+                )
+                assertEquals(maxOf(modelCover, lowerBound), fused.cloudCover)
+                if (modelCover == 85) {
+                    assertEquals(3, fused.weatherCode)
+                    assertEquals(85, fused.cloudCoverHigh)
+                } else {
+                    assertEquals(null, fused.cloudCoverHigh)
+                }
+            }
+        }
+    }
+
+    @Test
+    fun ambiguousNearestMetarDoesNotBorrowFartherPresentWeatherOrClouds() {
+        val now = Instant.parse("2026-10-12T10:35:00Z")
+        val model = current(2, 0.0, 50).copy(cloudCoverHigh = 20)
+        val farther = observation(50.01, 14.0, now.minusSeconds(300)).copy(
+            precipitation = null, weatherCode = 95, cloudCoverPercent = 100,
+        )
+        for (encoded in listOf("", "VCTS", "-RASN", "UP")) {
+            val report = JSONObject(METAR_CLOUD_REPORT).put("lat", 50.001)
+                .put("cover", "CAVOK").put("wxString", encoded)
+            val nearest = parseMetarCurrentConditions("[$report]").single()
+            for (reports in listOf(listOf(nearest, farther), listOf(farther, nearest))) {
+                val fused = fuseCurrentConditions(
+                    model, CzechLocation("Point", REGION_PRAGUE, 50.0, 14.0), reports, now,
+                )
+                assertEquals(encoded, model.weatherCode, fused.weatherCode)
+                assertEquals(encoded, model.cloudCover, fused.cloudCover)
+                assertEquals(model.cloudCoverHigh, fused.cloudCoverHigh)
+            }
+        }
+    }
+
+    @Test
+    fun cloudCoverRangesAreBoundedAndContainTheNominalMeasurement() {
+        val report = observation(50.0, 14.0, Instant.EPOCH)
+        for ((nominal, range) in listOf(
+            75 to (88..63), 75 to (-1..75), 75 to (75..101), 75 to (63..74), null to (63..88),
+        )) {
+            assertThrows(IllegalArgumentException::class.java) {
+                report.copy(cloudCoverPercent = nominal, cloudCoverRange = range)
+            }
+        }
+    }
+
     private fun current(
         weatherCode: Int,
         precipitation: Double,
@@ -388,6 +555,8 @@ class CurrentConditionsTest {
     )
 
     companion object {
+        private const val METAR_CLOUD_REPORT =
+            """{"icaoId":"LKPR","obsTime":1791801000,"temp":12,"qcField":16,"lat":50.0,"lon":14.0}"""
         private val FORECAST_WITH_CLOUD_LAYERS = """
             {
               "timezone":"Europe/Prague","utc_offset_seconds":7200,

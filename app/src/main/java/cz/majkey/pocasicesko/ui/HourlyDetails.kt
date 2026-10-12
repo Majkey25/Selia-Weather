@@ -42,7 +42,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cz.majkey.pocasicesko.R
+import cz.majkey.pocasicesko.data.CurrentWeather
 import cz.majkey.pocasicesko.data.HourlyWeather
+import cz.majkey.pocasicesko.data.WeatherCondition
 import cz.majkey.pocasicesko.data.WeatherKind
 import cz.majkey.pocasicesko.data.conditionFor
 import cz.majkey.pocasicesko.data.hasPrecipitationEvidence
@@ -50,6 +52,18 @@ import cz.majkey.pocasicesko.units.WeatherUnitFormatter
 import java.util.Locale
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+
+internal fun hourlyDisplayCondition(
+    hour: HourlyWeather,
+    current: CurrentWeather?,
+    localNow: LocalDateTime?,
+): Pair<WeatherCondition, Boolean> {
+    val currentHour = current?.takeIf {
+        isCurrentForecastHour(it.time, localNow) && isCurrentForecastHour(hour.time, localNow)
+    }
+    val isDay = currentHour?.isDay ?: hour.isDay
+    return conditionFor(currentHour?.weatherCode ?: hour.weatherCode, isDay) to isDay
+}
 
 internal fun toggleExpandedHour(current: String?, clicked: String): String? {
     require(clicked.isNotBlank())
@@ -209,6 +223,8 @@ internal fun ExpandedHourDetails(
     units: WeatherUnitFormatter,
     locale: Locale,
     modifier: Modifier = Modifier,
+    displayCondition: WeatherCondition = conditionFor(hour.weatherCode, hour.isDay),
+    displayIsDay: Boolean = hour.isDay,
 ) {
     val resources = LocalContext.current.resources
     var showPrecipitationHelp by rememberSaveable(hour.time) { mutableStateOf(false) }
@@ -371,12 +387,12 @@ internal fun ExpandedHourDetails(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.Top,
             ) {
-                val condition = conditionFor(hour.weatherCode, hour.isDay)
-                WeatherIcon(condition.kind, hour.isDay, contentDescription = null,
+                WeatherIcon(displayCondition.kind, displayIsDay, contentDescription = null,
                     modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary,
-                    conditionKey = condition.key)
+                    conditionKey = displayCondition.key)
                 Text(
-                    text = hourlyWeatherSummary(hour, units, precipitationHour, locale, resources::getString),
+                    text = hourlyWeatherSummary(hour, units, precipitationHour, locale, resources::getString,
+                        displayCondition),
                     color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 14.sp,
                     lineHeight = 21.sp,
@@ -432,6 +448,7 @@ internal fun hourlyWeatherSummary(
     precipitationHour: HourlyWeather?,
     locale: Locale,
     resourceText: (Int) -> String,
+    displayCondition: WeatherCondition = conditionFor(hour.weatherCode, hour.isDay),
 ): String {
     fun text(resource: Int, vararg arguments: Any): String =
         String.format(locale, resourceText(resource), *arguments)
@@ -488,7 +505,7 @@ internal fun hourlyWeatherSummary(
         HourlyHighlight.UV -> text(R.string.hourly_uv_summary, requireNotNull(hour.uvIndex))
         HourlyHighlight.CONDITIONS -> text(
             if (hour.apparentTemperature != null) R.string.hour_summary_conditions else R.string.hour_summary_temperature,
-            text(conditionFor(hour.weatherCode, hour.isDay).labelResource()),
+            text(displayCondition.labelResource()),
             units.temperature(hourlyApparentTemperature(hour)),
         )
     }

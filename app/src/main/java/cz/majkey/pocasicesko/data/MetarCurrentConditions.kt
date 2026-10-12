@@ -39,7 +39,10 @@ private fun parseMetarObservation(value: JSONObject): CurrentStationObservation?
     val visibility = value.textNumberOrNull("visib")?.times(STATUTE_MILES_TO_METRES)
     // AWC distinguishes sea-level pressure from the altimeter setting (altim/QNH).
     val pressure = value.numberOrNull("slp")
-    val cloudCover = CLOUD_COVER[value.optString("cover")]
+    val cover = value.optString("cover")
+    val automatic = value.optString("rawOb").split(Regex("\\s+")).contains("AUTO")
+    // Automated sky sensors cannot rule out clouds above their reporting height.
+    val cloudCover = CLOUD_COVER[cover]?.takeUnless { automatic && it == 0 }
     return try {
         CurrentStationObservation(
             stationId = stationId,
@@ -57,6 +60,8 @@ private fun parseMetarObservation(value: JSONObject): CurrentStationObservation?
             visibilityMeters = visibility,
             cloudCoverPercent = cloudCover,
             weatherCode = parseMetarWeatherCode(value.opt("wxString") as? String),
+            cloudCoverRange = if (cloudCover != null) CLOUD_COVER_RANGES[cover] else null,
+            isMetarReport = true,
         )
     } catch (_: IllegalArgumentException) {
         null
@@ -74,9 +79,10 @@ private fun parseMetarWeatherCode(encoded: String?): Int? {
     }) return null
     val codes = groups.mapNotNull(METAR_WEATHER_CODES::get)
     val phases = listOf(
-        codes.any { it in 51..55 || it in 61..65 || it in 80..82 },
+        codes.any { it in 51..55 || it in 61..65 || it in 80..82 } ||
+            groups.any { it in setOf("-TSRA", "TSRA", "+TSRA", "+TSRAGR") },
         codes.any { it in 56..57 || it in 66..67 },
-        codes.any { it in 71..77 || it in 85..86 },
+        codes.any { it in 71..77 || it in 85..86 } || "TSSN" in groups,
     )
     if (phases.count { it } > 1) return null
     return codes.maxOrNull()
@@ -108,6 +114,15 @@ private val CLOUD_COVER = mapOf(
     "OVC" to 100,
     "VV" to 100,
 )
+// METAR layer groups can omit higher clouds that are not significant for aviation.
+private val CLOUD_COVER_RANGES = mapOf(
+    "SKC" to (0..0),
+    "FEW" to (13..100),
+    "SCT" to (38..100),
+    "BKN" to (63..100),
+    "OVC" to (100..100),
+    "VV" to (100..100),
+)
 // FAA METAR present-weather codes; WMO intensity classes. No amount or probability inference.
 private val METAR_WEATHER_CODES = mapOf(
     "-DZ" to 51, "DZ" to 53, "+DZ" to 55,
@@ -117,8 +132,10 @@ private val METAR_WEATHER_CODES = mapOf(
     "-FZRA" to 66, "FZRA" to 67, "+FZRA" to 67,
     "-SN" to 71, "SN" to 73, "+SN" to 75,
     "-SHSN" to 85, "SHSN" to 86, "+SHSN" to 86,
-    "FG" to 45, "FZFG" to 48,
+    "FG" to 45, "BCFG" to 45, "MIFG" to 45, "PRFG" to 45, "FZFG" to 48,
     "TS" to 95, "-TSRA" to 95, "TSRA" to 95, "+TSRA" to 95,
+    // The + in +TSRAGR describes rain intensity, not heavy hail.
+    "TSSN" to 95, "TSGR" to 96, "+TSRAGR" to 96,
 )
 // Exact tokens only: FAA JO 7900.5E section 13.13 / Appendix E (VC),
 // EU 2017/373 Annex V Appendix 1 METAR template (RE). These never supply local weather.

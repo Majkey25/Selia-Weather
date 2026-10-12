@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="confidence_hour_hint">Klepněte na hodinu pro podrobnosti a spolehlivost předpovědi</string>
-    <string name="confidence_label">Jistota · %1$s</string>
+    <string name="confidence_label">Jistota předpovědi · %1$s</string>
     <string name="confidence_high">Vysoká</string>
     <string name="confidence_moderate">Střední</string>
     <string name="confidence_low">Nízká</string>
-    <string name="confidence_limited">Omezená</string>
+    <string name="confidence_limited">Nevyhodnoceno</string>
     <string name="confidence_agreement">Porovnané modely se na tomto období většinou shodují.</string>
     <string name="confidence_disagreement">Podklady se liší v dešti, oblačnosti, teplotě nebo větru.</string>
     <string name="confidence_long_range">Toto období je vzdálenější. S novými předpověďmi se podrobnosti mohou změnit.</string>
     <string name="confidence_old_fetch">Předpověď byla stažena před delší dobou. Obnovte ji pro kontrolu novějších dat.</string>
-    <string name="confidence_missing">Pro tuto hodinu není dost úplných podkladů z modelů.</string>
+    <string name="confidence_missing">Pro toto období není dost úplných podkladů z modelů.</string>
     <string name="confidence_partial_day">Dost podkladů pro porovnání má jen část tohoto dne.</string>
     <string name="confidence_historical">Minulé hodnoty neříkají, jak přesná byla tehdejší předpověď.</string>
     <string name="confidence_models">Porovnáno %1$d úplných modelových podkladů</string>
@@ -19,5 +19,5 @@
     <string name="confidence_cloud_spread">Rozpětí oblačnosti · %1$d%%</string>
     <string name="confidence_day_coverage">Porovnáno %1$d z %2$d zbývajících hodin</string>
     <string name="confidence_day_method">Hodnocení dne určuje nejméně jistá porovnaná hodina.</string>
-    <string name="confidence_method">Odhad podle shody modelů, předstihu a stáří stažení. Nejde o pravděpodobnost přesnosti. Modely se mohou shodnout a přesto se mýlit; stáří modelových běhů není dostupné.</string>
+    <string name="confidence_method">Hodnotí předpověď, ne aktuální pozorování stanic. Vychází ze shody modelů, předstihu a stáří stažení. Nejde o pravděpodobnost přesnosti. Modely se mohou shodnout a přesto se mýlit; stáří modelových běhů není dostupné.</string>
 </resources>

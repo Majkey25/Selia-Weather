@@ -8,8 +8,38 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalDateTime
 
 class ModelConsensusTest {
+    @Test
+    fun adjacentDrySkyCategoriesDoNotHideMinorityRainOrFog() {
+        val base = JSONObject(BASE)
+        base.getJSONObject("current").put("is_day", 1)
+        base.getJSONObject("daily").put("sunrise", JSONArray(listOf("2026-08-29T06:00")))
+            .put("sunset", JSONArray(listOf("2026-08-29T20:00")))
+        for (minorityCode in listOf<Int?>(null, 45, 61, 95)) {
+            val models = JSONObject(MODELS)
+            val source = models.getJSONObject("hourly")
+            repeat(11) { index ->
+                val code = if (index == 10 && minorityCode != null) minorityCode else if (index < 5) 0 else 1
+                mapOf("temperature_2m" to 20.0, "wind_speed_10m" to 10.0, "wind_direction_10m" to 180.0,
+                    "cloud_cover" to if (index < 5) 19.0 else 21.0, "weather_code" to code.toDouble(),
+                    "precipitation" to 0.0).forEach { (field, value) ->
+                    source.put("${field}_${'a' + index}", JSONArray(listOf(value, value)))
+                }
+            }
+            val blended = blendModelForecast(base.toString(), models.toString()).json
+            val snapshot = WeatherParser.parseForecast(blended, 0L)
+            val confidence = hourlyForecastConfidence(snapshot.hourly.first(), snapshot.hourly[1],
+                LocalDateTime.parse("2026-08-29T18:00"), 0)
+            assertEquals(if (minorityCode == null) ConfidenceLevel.HIGH else ConfidenceLevel.LOW, confidence.level)
+            val metadata = JSONObject(blended).getJSONObject("hourly").getJSONArray(MODEL_AGREEMENT_KEY).getJSONObject(0)
+            assertEquals(11, metadata.getInt("model_count"))
+            assertEquals(2.0, metadata.getDouble("cloud_range_percent"), 0.0)
+            assertEquals(minorityCode == null, metadata.getBoolean("all_sky_conditions"))
+        }
+    }
+
     @Test
     fun hourlyAgreementUsesActualCompleteContributorsAndSurvivesJson() {
         val hourly = JSONObject(blendModelForecast(BASE, MODELS).json).getJSONObject("hourly")
@@ -125,6 +155,11 @@ class ModelConsensusTest {
             CzechLocation("New York", "New York", 40.7128, -74.006, "US"),
         ).joinToString(",")}"))
         assertFalse(newYork.contains("kma_seamless"))
+        listOf(prague, newYork).forEach { url ->
+            val models = url.substringAfter("&models=").split(",")
+            assertTrue("ecmwf_aifs025_single" in models)
+            assertFalse("ecmwf_aifs025" in models)
+        }
     }
 
     @Test

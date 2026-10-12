@@ -46,6 +46,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.Map
+import androidx.compose.material.icons.rounded.Radar
 import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Star
@@ -350,17 +351,20 @@ fun WeatherApp(
                     ).sorted()
                 }
             }
-            val content = latestState as? WeatherUiState.Content
-            if (event == Lifecycle.Event.ON_RESUME && content != null && shouldRefreshWeatherOnResume(
-                    content.snapshot.updatedAtEpochMillis,
-                    lastRefreshAttemptMillis,
-                    content.refreshing,
-                    System.currentTimeMillis(),
-                )
-            ) reloadKey++
         }
         lifecycle?.addObserver(observer)
         onDispose { lifecycle?.removeObserver(observer) }
+    }
+
+    LaunchedEffect(warningsLifecycle) {
+        warningsLifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            while (isActive) {
+                val content = latestState as? WeatherUiState.Content
+                if (content != null && shouldRefreshWeatherOnResume(content.snapshot.updatedAtEpochMillis,
+                        lastRefreshAttemptMillis, content.refreshing, System.currentTimeMillis())) reloadKey++
+                delay(60_000L)
+            }
+        }
     }
 
     LaunchedEffect(location, reloadKey) {
@@ -752,7 +756,7 @@ internal fun FloatingNavigation(
                 NavigationItem(
                     selected = destination == Destination.MAPS,
                     label = stringResource(R.string.nav_maps),
-                    icon = { Icon(Icons.Rounded.Map, contentDescription = null) },
+                    icon = { Icon(Icons.Rounded.Radar, contentDescription = null) },
                     modifier = if (destination == Destination.MAPS) Modifier.weight(1f) else Modifier.width(48.dp),
                     onClick = { onDestination(Destination.MAPS) },
                 )
@@ -761,7 +765,7 @@ internal fun FloatingNavigation(
                         selected = destination == Destination.AI,
                         label = askAiLabel,
                         displayLabel = stringResource(R.string.nav_ai),
-                        icon = { Icon(painterResource(R.drawable.ic_ai), contentDescription = null, modifier = Modifier.size(28.dp)) },
+                        icon = { Icon(painterResource(R.drawable.ic_ai), contentDescription = null, modifier = Modifier.size(24.dp)) },
                         modifier = if (destination == Destination.AI) Modifier.weight(1f) else Modifier.width(48.dp),
                         onClick = onAskAi,
                     )

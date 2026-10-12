@@ -69,7 +69,52 @@ class MetarCurrentConditionsTest {
     fun limitedHeightCloudReportsDoNotClaimZeroTotalCloudCover() {
         listOf("CLR" to null, "CAVOK" to null, "SKC" to 0, "OVC" to 100).forEach { (cover, expected) ->
             val report = JSONArray(METAR_JSON).getJSONObject(0).put("cover", cover)
-            assertEquals(expected, parseMetarCurrentConditions(JSONArray().put(report).toString()).single().cloudCoverPercent)
+            val observation = parseMetarCurrentConditions(JSONArray().put(report).toString()).single()
+            assertEquals(expected, observation.cloudCoverPercent)
+            if (expected == null) assertNull(observation.cloudCoverRange)
+        }
+    }
+
+    @Test
+    fun manualCloudCategoriesKeepNominalAmountsAndConservativeTotalCloudBounds() {
+        listOf(
+            "SKC" to (0 to (0..0)), "FEW" to (13 to (13..100)), "SCT" to (38 to (38..100)),
+            "BKN" to (75 to (63..100)), "OVC" to (100 to (100..100)), "VV" to (100 to (100..100)),
+        ).forEach { (cover, expected) ->
+            val report = JSONArray(METAR_JSON).getJSONObject(0).put("cover", cover)
+            val observation = parseMetarCurrentConditions(JSONArray().put(report).toString()).single()
+            assertEquals(cover, expected.first, observation.cloudCoverPercent)
+            assertEquals(cover, expected.second, observation.cloudCoverRange)
+        }
+    }
+
+    @Test
+    fun automatedCloudReportsKeepLowerBoundsWithoutLosingPresentWeather() {
+        listOf(
+            "SKC" to (null to null), "FEW" to (13 to (13..100)), "SCT" to (38 to (38..100)),
+            "BKN" to (75 to (63..100)), "OVC" to (100 to (100..100)), "VV" to (100 to (100..100)),
+            "CLR" to (null to null), "CAVOK" to (null to null),
+        ).forEach { (cover, expected) ->
+            val report = JSONArray(METAR_JSON).getJSONObject(0)
+                .put("cover", cover)
+                .put("rawOb", "METAR VIDP 312030Z AUTO 25005KT 9999 -RA $cover 30/23 Q1003")
+                .put("wxString", "-RA")
+            val observation = parseMetarCurrentConditions(JSONArray().put(report).toString()).single()
+            assertEquals(cover, expected.first, observation.cloudCoverPercent)
+            assertEquals(cover, expected.second, observation.cloudCoverRange)
+            assertEquals(61, observation.weatherCode)
+            assertEquals(30.0, requireNotNull(observation.temperature), 0.0)
+        }
+    }
+
+    @Test
+    fun automaticMarkerMustBeAnExactWhitespaceDelimitedToken() {
+        listOf("RMK AUTOTEST" to 0, "\tAUTO\n" to null).forEach { (marker, expected) ->
+            val report = JSONArray(METAR_JSON).getJSONObject(0)
+                .put("cover", "SKC")
+                .put("rawOb", "METAR VIDP 312030Z $marker 25005KT SKC 30/23 Q1003")
+            val observation = parseMetarCurrentConditions(JSONArray().put(report).toString()).single()
+            assertEquals(marker, expected, observation.cloudCoverPercent)
         }
     }
 
@@ -80,6 +125,8 @@ class MetarCurrentConditionsTest {
             "-FZDZ" to 56, "FZDZ" to 57, "-FZRA" to 66, "+FZRA" to 67,
             "-SN" to 71, "SN" to 73, "+SN" to 75, "SHRA" to 81, "+SHRA" to 81, "-SHSN" to 85,
             "FG" to 45, "FZFG" to 48, "TSRA" to 95, "RA FG" to 63,
+            "BCFG" to 45, "MIFG" to 45, "PRFG" to 45, "-RA BCFG" to 61,
+            "TSSN" to 95, "TSSN SN" to 95, "TSGR" to 96, "+TSRAGR" to 96,
         ).forEach { (encoded, expected) ->
             val report = JSONArray(METAR_JSON).getJSONObject(0).put("wxString", encoded)
             val observation = parseMetarCurrentConditions(JSONArray().put(report).toString()).single()
@@ -113,6 +160,8 @@ class MetarCurrentConditionsTest {
             "-RA VCUNKNOWN", "-RA REUNKNOWN", "-RA +VCSH", "-RA VCSHRA",
             "-RA RE-RA", "-RA REFG", "-RA UP VCSH", "RA SN VCSH",
             "FZRA RA RETS", "-RASN VCSH", "-RA VCSH BR HZ",
+            "TSRA SN", "TSSN RA", "TSSN FZRA", "+TSRAGR SN",
+            "TSGR UP", "-RA BCUNKNOWN", "TSSNRA", "TSUNKNOWN",
         ).forEach { encoded ->
             val report = JSONArray(METAR_JSON).getJSONObject(0).put("wxString", encoded)
             val observation = parseMetarCurrentConditions(JSONArray().put(report).toString()).single()

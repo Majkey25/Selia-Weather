@@ -14,6 +14,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -31,6 +32,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
@@ -304,10 +306,86 @@ class ForecastLayoutTest {
 
     @Test
     fun currentHourLabelsFit() {
-        showDay()
+        showDay(largeText = true)
         compose.onNodeWithText("10:00", useUnmergedTree = true).performScrollTo()
         assertTextFits("10:00")
         assertTextFits(context.getString(R.string.now))
+    }
+
+    @Test
+    fun currentDayRowAndExpandedSummaryUseTheSameCurrentSkyUntilTheHourChanges() {
+        val now = mutableStateOf(LocalDateTime.parse("2026-09-12T10:45"))
+        val current = snapshot().current.copy(weatherCode = 3, cloudCover = 100)
+        compose.setContent {
+            WeatherTheme {
+                DayDetailSheet(listOf(day), listOf(hour(10), hour(11)), 0, now.value, units, {}, current = current)
+            }
+        }
+        val cloudy = context.getString(R.string.condition_cloudy)
+        compose.onNodeWithText("10:00", useUnmergedTree = true).performScrollTo().performTouchInput { click() }
+        compose.onNodeWithText(cloudy, useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.hour_summary_conditions, cloudy, units.temperature(19.0)))
+            .performScrollTo().assertIsDisplayed()
+        compose.runOnIdle { now.value = LocalDateTime.parse("2026-09-12T11:05") }
+        compose.onNode(hasScrollToNodeAction() and
+            SemanticsMatcher.keyIsDefined(SemanticsProperties.VerticalScrollAxisRange))
+            .performScrollToNode(hasText("10:00"))
+        val previousHour = compose.onNode(hasText("10:00") and hasClickAction())
+        previousHour.assertIsDisplayed().assert(hasText(context.getString(R.string.condition_clear_day)))
+        previousHour.assert(hasText(cloudy).not())
+        compose.onNodeWithText(context.getString(R.string.hour_summary_conditions,
+            context.getString(R.string.condition_clear_day), units.temperature(19.0)))
+            .performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun currentDayUsesNewObservationWithoutChangingTheHourlyForecast() {
+        val current = mutableStateOf(snapshot().current.copy(weatherCode = 3, cloudCover = 100))
+        val hours = listOf(hour(10), hour(11))
+        compose.setContent {
+            WeatherTheme {
+                DayDetailSheet(listOf(day), hours, 0, LocalDateTime.parse("2026-09-12T10:45"), units, {},
+                    current = current.value)
+            }
+        }
+        val cloudy = context.getString(R.string.condition_cloudy)
+        compose.onNodeWithText("10:00", useUnmergedTree = true).performScrollTo().performTouchInput { click() }
+        compose.onNode(hasText("10:00") and hasClickAction()).assert(hasText(cloudy))
+        compose.runOnIdle { current.value = current.value.copy(weatherCode = 0, cloudCover = 0) }
+        compose.onNode(hasText("10:00") and hasClickAction())
+            .assert(hasText(context.getString(R.string.condition_clear_day))).assert(hasText(cloudy).not())
+        compose.onNodeWithText(context.getString(R.string.hour_summary_conditions,
+            context.getString(R.string.condition_clear_day), units.temperature(19.0)))
+            .performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun currentHourHighlightMovesWhenLocalTimeChanges() {
+        val now = mutableStateOf(LocalDateTime.parse("2026-09-12T10:45"))
+        compose.setContent {
+            WeatherTheme {
+                DayDetailSheet(listOf(day), listOf(hour(10), hour(11)), 0, now.value, units, {})
+            }
+        }
+        fun backgroundAtHour(time: String): Int {
+            compose.onNode(hasScrollToNodeAction() and
+                SemanticsMatcher.keyIsDefined(SemanticsProperties.VerticalScrollAxisRange))
+                .performScrollToNode(hasText(time))
+            val row = compose.onNode(hasText(time) and hasClickAction())
+            val density = context.resources.displayMetrics.density
+            assertTrue("Hour click target smaller than 48dp", row.fetchSemanticsNode().boundsInRoot.height >= 48 * density)
+            val image = row.captureToImage().asAndroidBitmap()
+            return image.getPixel(image.width - 1, 1)
+        }
+        val highlighted = backgroundAtHour("10:00")
+        val ordinary = backgroundAtHour("11:00")
+        assertTrue("Current hour has no distinct background", highlighted != ordinary)
+        compose.runOnIdle { now.value = LocalDateTime.parse("2026-09-12T11:05") }
+        compose.waitForIdle()
+        compose.onNode(hasText("11:00") and hasClickAction()).assert(hasText(context.getString(R.string.now)))
+        assertEquals(highlighted, backgroundAtHour("11:00"))
+        assertEquals(ordinary, backgroundAtHour("10:00"))
+        compose.onNode(hasText("10:00") and hasClickAction()).assert(hasText(context.getString(R.string.now)).not())
     }
 
     @Test

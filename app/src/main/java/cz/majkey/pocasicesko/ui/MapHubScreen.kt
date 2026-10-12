@@ -2,6 +2,7 @@ package cz.majkey.pocasicesko.ui
 
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Arrangement
@@ -23,14 +24,10 @@ import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -58,22 +55,12 @@ internal fun MapHubScreen(
     val navigate by rememberUpdatedState(onNavigate)
     val density = LocalDensity.current
     val swipeThreshold = with(density) { 48.dp.toPx() }
-    var headerInset by remember { mutableIntStateOf(64) }
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(padding),
     ) {
-        ChmiWebScreen(
-            localizedRadarUrl(languageTag, location.latitude, location.longitude, location.isInCzechia()),
-            active = active,
-            topInsetDp = headerInset,
-            bottomInsetDp = if (fullscreen) 0 else bottomInsetDp,
-            timezone = timezone,
-        )
-        Row(Modifier.fillMaxWidth().onSizeChanged {
-            headerInset = kotlin.math.ceil(it.height / density.density).toInt()
-        }.padding(8.dp).testTag("radar-header").then(
+        Row(Modifier.fillMaxWidth().padding(8.dp).testTag("radar-header").then(
             if (fullscreen) Modifier else Modifier.pointerInput(swipeThreshold) {
                 var distance = 0f
                 detectHorizontalDragGestures(
@@ -106,5 +93,13 @@ internal fun MapHubScreen(
                 }
             }
         }
+        ChmiWebScreen(
+            localizedRadarUrl(languageTag, location.latitude, location.longitude, location.isInCzechia()),
+            modifier = Modifier.weight(1f),
+            active = active,
+            topInsetDp = 0,
+            bottomInsetDp = if (fullscreen) 0 else bottomInsetDp,
+            timezone = timezone,
+        )
     }
 }

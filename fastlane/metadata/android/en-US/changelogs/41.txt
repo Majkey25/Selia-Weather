@@ -1,0 +1,1 @@
+Fix daily wind summaries and inconsistent rainfall duration when combining forecast models.

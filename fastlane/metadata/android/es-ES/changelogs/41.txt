@@ -1,0 +1,1 @@
+Corregidos los resúmenes diarios de viento y la duración incoherente de lluvia al combinar modelos meteorológicos.

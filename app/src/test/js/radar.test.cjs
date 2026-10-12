@@ -148,7 +148,7 @@ test('displayed source remains failed on later data; panned timeout and retry wo
   assert.equal(old.failed, true); assert.equal(old.ready, false); app.context.showFrame(app.context.frameIndex); app.load(); assert.equal(app.node('status').hidden, true);
   const current = app.context.radarLayer; app.loading(); app.fire(app.context.panTimeout); app.load(current); assert.equal(current.failed, true);
 });
-test('pan refills stay quiet, retain deadlines and do not clear a pending-frame loading status', async () => {
+test('pending playback stays quiet with a visible raster and still reports failures', async () => {
   const app = runtime(); await settled(); app.load();
   const current = app.context.radarLayer;
   app.loading();
@@ -158,12 +158,21 @@ test('pan refills stay quiet, retain deadlines and do not clear a pending-frame 
   app.load(current);
   assert.equal(app.context.panTimeout, null);
   app.context.showFrame(4);
-  assert.match(app.node('status').textContent, /Loading model forecast/);
+  assert.equal(app.node('status').hidden, true);
+  assert.equal(app.node('status').textContent, '');
+  assert.equal(app.node('slider')['aria-busy'], 'true');
   app.loading(current); app.load(current);
-  assert.match(app.node('status').textContent, /Loading model forecast/);
+  assert.equal(app.node('status').hidden, true);
+  assert.equal(app.node('slider')['aria-busy'], 'true');
   app.load();
+  assert.equal(app.node('slider')['aria-busy'], 'false');
   app.loading(); app.fire(app.context.panTimeout);
   assert.match(app.node('status').textContent, /unavailable/);
+  app.context.showFrame(5);
+  assert.match(app.node('status').textContent, /Loading model forecast/);
+  app.fail();
+  assert.match(app.node('status').textContent, /unavailable/);
+  assert.equal(app.node('slider')['aria-busy'], 'false');
 });
 test('scrubbing coalesces final epoch and ignores obsolete source callbacks', async () => {
   const app = runtime(); await settled(); app.load(); const displayed = app.context.radarLayer; app.context.showFrame(4); const obsolete = app.context.pendingLayer;
@@ -208,6 +217,7 @@ test('pause during tile loading keeps the visible frame and rejects the late rep
   app.context.togglePlay();
   assert.equal(app.context.pendingLayer, null); assert.equal(app.context.radarLayer, displayed);
   assert.equal(app.context.tileTimeout, null);
+  assert.equal(app.node('slider')['aria-busy'], 'false');
   assert.equal(Number(app.node('slider').value), displayed.frame.time);
   assert.equal(app.node('status').hidden, true);
   assert.equal(app.intervals.size, 0); app.load(pending);
@@ -309,5 +319,15 @@ test('in-flow geometry reserves insets, 48px controls and explicit close/Escape 
   assert.match(html, /body\.short \.panel\s*\{[^}]*flex:\s*0 0 auto[^}]*max-height:\s*none[^}]*padding:\s*0 12px/);
   assert.match(html, /body\.short \.topline\s*\{[^}]*grid-template-columns:\s*48px auto minmax\(0, 1fr\) 48px/);
   assert.match(html, /body\.short \.modes \.mode-label\s*\{\s*display:\s*none/);
+  assert.match(html, /body\.short \.mode-short\s*\{[^}]*display:\s*block/);
+  assert.match(html, /\.mode-label, \.mode-short\s*\{[^}]*display:\s*block[^}]*overflow:\s*hidden[^}]*text-overflow:\s*ellipsis[^}]*white-space:\s*nowrap/);
+  assert.equal(app.document.querySelector('#forecast .mode-short').textContent, 'Future');
+  assert.equal(app.document.querySelector('#observed .mode-short').textContent, 'Radar');
+  assert.equal(app.node('forecast')['aria-label'], 'Forecast');
+  assert.equal(app.node('observed')['aria-label'], 'Observed');
+  assert.doesNotMatch(html.match(/<div class="panel">([\s\S]*?)<div id="details"/)[1], /timeline-hint|frame-kind/);
+  assert.match(html, /<div class="detail-controls">\s*<button id="center"/);
+  assert.match(html, /\.details-header\s*\{[^}]*position:\s*sticky/);
+  assert.match(html, /\.details-header h2\s*\{[^}]*min-width:\s*0[^}]*text-overflow:\s*ellipsis[^}]*white-space:\s*nowrap/);
   assert.doesNotMatch(html, /body\.short \.topline\s*\{[^}]*order:\s*-1/);
 });

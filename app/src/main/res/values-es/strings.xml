@@ -413,7 +413,7 @@
     <string name="legal_refunds">Política de reembolsos</string>
     <string name="legal_cookies">Política de cookies</string>
     <string name="hourly_source_precipitation_summary">Pronóstico: %1$s. %2$s en el intervalo indicado (%3$d%% de probabilidad).</string>
-    <string name="precipitation_interval">Intervalo de precipitación: %1$s</string>
+    <string name="precipitation_interval">Intervalo del pronóstico: %1$s</string>
     <string name="precipitation_probability_note">La probabilidad procede de un pronóstico por conjuntos separado y se refiere a más de 0,1 mm (~0,004 in) en el intervalo, no a cada gota. Puede diferir del pronóstico de cantidad. La temperatura y las condiciones corresponden a la hora indicada.</string>
     <string name="hourly_precipitation_models">%1$d de %2$d modelos calculan una cantidad de precipitación mayor que cero. Rango: %3$s.</string>
     <string name="widget_date_time_format">Formatos de fecha y hora</string>
@@ -428,7 +428,7 @@
     <string name="widget_time_12">12 horas</string>
     <string name="widget_time_24">24 horas</string>
     <string name="hourly_precipitation_unavailable">No hay datos de precipitación para este intervalo.</string>
-    <string name="precipitation_help">Sobre la precipitación</string>
+    <string name="precipitation_help">Sobre este pronóstico</string>
     <string name="advanced_details">Datos avanzados</string>
     <string name="hourly_model_disagreement">No se descarta precipitación local: %1$d de %2$d modelos prevén cantidades superiores a cero, hasta %3$s. Esta discrepancia no es una probabilidad de lluvia calibrada.</string>
 </resources>

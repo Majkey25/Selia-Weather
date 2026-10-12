@@ -13,6 +13,50 @@ class ForecastConfidenceTest {
         modelAgreement = evidence)
 
     @Test
+    fun confidenceExplainsCloudConflictAndChecksTheActuallyDisplayedCondition() {
+        val cloudy = hour().copy(modelAgreement = evidence.copy(cloudRangePercent = 100.0))
+        assertEquals(listOf(ForecastDisagreement.CLOUDS), hourlyForecastConfidence(cloudy, hour(), now, 0).disagreements)
+        val displayed = hourlyForecastConfidence(hour(), hour(), now, 0, WeatherKind.CLOUDY)
+        assertEquals(ConfidenceLevel.LOW, displayed.level)
+        assertEquals(listOf(ForecastDisagreement.DISPLAYED_CONDITION), displayed.disagreements)
+        val missing = hourlyForecastConfidence(hour().copy(modelAgreement = null, skySourceModelId = "chmi_aladin_seamless"), hour(), now, 0)
+        assertEquals("chmi_aladin_seamless", missing.skySourceModelId)
+        assertNull(hourlyForecastConfidence(hour().copy(skySourceModelId = "chmi_aladin_seamless"), hour(), now, 0,
+            WeatherKind.CLOUDY, skySourceModelId = null).skySourceModelId)
+    }
+
+    @Test
+    fun dayConfidenceIncludesTheCurrentConditionActuallyShown() {
+        val hours = (12..23).map { hour("2026-10-07T${it}:00") }
+        val rain = hours.associate { it.time to hour() }
+        val observed = CurrentWeather("2026-10-07T12:15", 20.0, 20.0, 50, 0.0, 3, 100,
+            1013.0, 10.0, 180, 10.0, true)
+        assertEquals(ConfidenceLevel.HIGH, dailyForecastConfidence("2026-10-07", hours, rain, now, 0).level)
+        val displayed = dailyForecastConfidence("2026-10-07", hours, rain, now, 0, observed)
+        assertEquals(ConfidenceLevel.LOW, displayed.level)
+        assertEquals(listOf(ForecastDisagreement.DISPLAYED_CONDITION), displayed.disagreements)
+        assertEquals("chmi_aladin_seamless",
+            dailyForecastConfidence("2026-10-07", hours, rain, now, 0, observed, "chmi_aladin_seamless").skySourceModelId)
+    }
+
+    @Test
+    fun legacyMetadataLoadsButInvalidOrDuplicateModelRowsDoNot() {
+        val legacy = evidence.toJson().put("schema_version", 1).also { it.remove("model_inputs") }
+        assertEquals(evidence, legacy.modelAgreementOrNull())
+        val rows = evidence.copy(modelInputs = List(5) { index ->
+            HourlyModelInput("model_$index", 20.0, 10.0, 180.0, 0.0, 0, 0.0)
+        }).toJson()
+        assertEquals(5, requireNotNull(rows.modelAgreementOrNull()).modelInputs.size)
+        val duplicate = JSONObject(rows.toString())
+        duplicate.getJSONArray("model_inputs").getJSONObject(1).put("model_id", "model_0")
+        assertNull(duplicate.modelAgreementOrNull())
+        val invalid = JSONObject(rows.toString())
+        invalid.getJSONArray("model_inputs").getJSONObject(0).put("cloud_cover_percent", "0")
+        assertNull(invalid.modelAgreementOrNull())
+        assertNull(rows.put("model_count", 4).modelAgreementOrNull())
+    }
+
+    @Test
     fun agreementIsCappedForDistanceAndOlderDownloads() {
         assertEquals(ConfidenceLevel.HIGH, hourlyForecastConfidence(hour(), hour(), now, 0).level)
         assertEquals(ConfidenceLevel.MODERATE, hourlyForecastConfidence(hour("2026-10-10T13:00"), hour(), now, 0).level)

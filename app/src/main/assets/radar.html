@@ -13,16 +13,15 @@
     body { display: flex; flex-direction: column; padding-top: var(--header-inset); padding-bottom: var(--bottom-inset); overflow: hidden; color: var(--text); font: 16px/1.4 system-ui, sans-serif; }
     #map { flex: 1 1 auto; min-height: 0; width: 100%; position: relative; }
     .maplibregl-map { background: #e4e8e9; }
-    .panel, .details { flex: 0 1 auto; min-height: 0; padding: 12px 16px; border-top: 1px solid var(--border); background: var(--surface); overflow: auto; }
+    .panel, .details { flex: 0 1 auto; min-height: 0; padding: 8px 16px; border-top: 1px solid var(--border); background: var(--surface); overflow: auto; }
     .panel { max-height: 42%; }
     .details { max-height: 55%; }
     body.details-open .panel { display: none !important; }
-    .meta { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; }
-    .time { font-size: 18px; font-weight: 650; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-    .kind { color: var(--accent); font-size: 14px; font-weight: 650; }
+    .meta { margin-bottom: 4px; }
+    .time { display: block; max-width: 100%; overflow-x: auto; white-space: nowrap; font-size: 18px; font-weight: 650; font-variant-numeric: tabular-nums; }
     .topline { display: grid; grid-template-columns: 48px minmax(0, 1fr) 48px; align-items: center; gap: 12px; }
     .source, .legend, .status, #frame-summary, #timeline-hint, .availability { color: var(--muted); font-size: 14px; line-height: 1.5; }
-    button { min-width: 48px; min-height: 48px; border: 0; border-radius: 50%; background: var(--variant); color: var(--text); font: inherit; cursor: pointer; touch-action: manipulation; }
+    button { min-width: 48px; min-height: 48px; border: 0; border-radius: 50%; background: var(--variant); color: var(--text); font: inherit; line-height: 1; cursor: pointer; touch-action: manipulation; }
     button:disabled { opacity: 0.45; }
     button.active, #play { background: var(--accent); color: var(--on-accent); }
     button:active:not(:disabled) { background: var(--accent); color: var(--on-accent); }
@@ -33,10 +32,12 @@
     #play[aria-pressed=true] #pause-icon { display: inline; }
     .tools { display: flex; flex: 0 0 auto; align-items: center; padding: 8px 12px; gap: 8px; background: var(--surface); border-bottom: 1px solid var(--border); }
     .modes { display: flex; flex: 1; min-width: 0; gap: 4px; }
-    .modes button { flex: 1; border-radius: 16px; padding: 8px; font-size: 14px; font-weight: 650; }
-    .modes svg, #compact-time { display: none; }
-    .details-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-    .details-header h2 { margin: 0; font-size: 18px; }
+    .modes button { flex: 1; border-radius: 16px; padding: 4px 8px; font-size: 14px; font-weight: 650; }
+    .mode-label, .mode-short { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mode-short, #compact-time { display: none; }
+    .details-header { display: flex; position: sticky; top: -8px; z-index: 1; align-items: center; justify-content: space-between; gap: 12px; background: var(--surface); }
+    .details-header h2 { min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 18px; }
+    #details-close { flex: 0 0 48px; }
     .timeline { position: relative; min-width: 0; }
     input[type=range] { display: block; width: 100%; min-width: 0; height: 48px; margin: 0; accent-color: var(--accent); }
     #timeline-marks { position: absolute; height: 5px; bottom: 1px; left: 8px; right: 8px; pointer-events: none; }
@@ -46,6 +47,8 @@
     .range { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 13px; margin: 4px 0; }
     #timeline-hint { margin-top: 4px; }
     .status { margin-top: 6px; }
+    .status, .time { scrollbar-width: none; }
+    .status::-webkit-scrollbar, .time::-webkit-scrollbar { display: none; }
     .status[hidden] { display: none !important; }
     .maplibregl-ctrl-attrib { max-width: calc(100vw - 24px); font-size: 10px; line-height: 1.4; background: var(--surface); color: var(--muted); }
     .maplibregl-ctrl-attrib a { color: var(--accent); }
@@ -59,25 +62,25 @@
     #scale { max-width: 100%; margin-top: 8px; background: white; }
     [hidden] { display: none !important; }
     body.short .tools { padding-top: 4px; padding-bottom: 4px; }
+    body.short .modes button { padding: 4px; }
     body.short .modes .mode-label { display: none; }
-    body.short .modes svg { display: inline; }
+    body.short .mode-short { display: block; }
     body.short .panel { flex: 0 0 auto; max-height: none; padding: 0 12px; }
     body.short .topline { grid-template-columns: 48px auto minmax(0, 1fr) 48px; gap: 8px; }
-    body.short #compact-time { display: inline; white-space: nowrap; font-size: 18px; font-variant-numeric: tabular-nums; }
-    body.short .meta, body.short .range, body.short #timeline-hint { display: none; }
-    body.short .status { margin-top: 0; white-space: nowrap; overflow-x: auto; }
+    body.short #compact-time { display: inline; white-space: nowrap; font-size: 16px; line-height: 1; font-variant-numeric: tabular-nums; }
+    body.short .meta, body.short .range { display: none; }
+    body.short .status { margin-top: 0; line-height: 1.2; white-space: nowrap; overflow-x: auto; }
     @media (min-width: 700px) { .panel, .details { padding-left: max(16px, calc((100% - 680px) / 2)); padding-right: max(16px, calc((100% - 680px) / 2)); } }
   </style>
 </head>
 <body>
   <div id="radar-tools" class="tools">
-    <div class="modes" role="group" aria-label="Precipitation mode"><button id="forecast" class="active" type="button" aria-pressed="true" onclick="setMode('forecast')"><span class="mode-label">Forecast</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 17H7a4 4 0 1 1 1-7 5 5 0 0 1 9-2"/><circle cx="17" cy="15" r="5"/><path d="M17 12v3l2 1"/></svg></button><button id="observed" type="button" aria-pressed="false" onclick="setMode('observed')"><span class="mode-label">Observed</span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><path d="m12 12 6-6M12 4v8"/></svg></button></div>
-    <button id="center" type="button" aria-label="Show selected location" onclick="map && map.jumpTo({center: [longitude, latitude]})"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg></button>
+    <div class="modes" role="group" aria-label="Precipitation mode"><button id="forecast" class="active" type="button" aria-pressed="true" onclick="setMode('forecast')"><span class="mode-label">Forecast</span><span class="mode-short" aria-hidden="true">Future</span></button><button id="observed" type="button" aria-pressed="false" onclick="setMode('observed')"><span class="mode-label">Observed</span><span class="mode-short" aria-hidden="true">Radar</span></button></div>
     <button id="details-toggle" type="button" aria-label="Layers and details" aria-expanded="false" aria-controls="details" onclick="toggleDetails()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 8 9-5 9 5-9 5Zm0 4 9 5 9-5m-18 4 9 5 9-5"/></svg></button>
   </div>
   <div id="map" aria-label="Precipitation map"></div>
   <div class="panel">
-    <div class="meta"><span id="frame-kind" class="kind"></span><span id="time" class="time">—</span></div>
+    <div class="meta"><span id="time" class="time">—</span></div>
     <div class="topline">
       <button id="play" type="button" aria-label="Play" aria-pressed="false" onclick="togglePlay()" disabled><svg id="play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 11 7-11 7Z" fill="currentColor" stroke="none"/></svg><svg id="pause-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14" stroke-width="3"/></svg></button>
       <span id="compact-time" aria-hidden="true">—</span>
@@ -85,14 +88,15 @@
       <button id="retry" type="button" aria-label="Refresh precipitation" onclick="refreshMap()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2 6M20 4v7h-7"/></svg></button>
     </div>
     <div class="range"><span id="range-start">—</span><span id="range-end">—</span></div>
-    <div id="timeline-hint"></div>
     <div id="status" class="status" role="status">Loading precipitation…</div>
   </div>
   <div id="details" class="details" hidden>
     <div class="details-header"><h2 id="details-title">Layers and details</h2><button id="details-close" type="button" aria-label="Close details" onclick="toggleDetails(false)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
     <div id="frame-summary"></div>
+    <div id="timeline-hint"></div>
     <div id="source" class="source">RainViewer · Deutscher Wetterdienst</div>
     <div class="detail-controls">
+      <button id="center" type="button" aria-label="Show selected location" onclick="map && map.jumpTo({center: [longitude, latitude]})"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg></button>
       <button id="coverage" class="active" type="button" aria-pressed="true" onclick="toggleCoverage()">Coverage</button>
       <button id="zoom-out" type="button" aria-label="Zoom out" onclick="map && map.zoomOut()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button>
       <button id="zoom-in" type="button" aria-label="Zoom in" onclick="map && map.zoomIn()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14"/></svg></button>
@@ -209,6 +213,8 @@
     ['forecast', 'observed'].forEach(function(key) {
       var label = FORECAST_TEXT[key === 'forecast' ? 1 : 0];
       document.querySelector('#' + key + ' .mode-label').textContent = label;
+      document.querySelector('#' + key + ' .mode-short').textContent = key === 'forecast' ?
+        { en: 'Future', cs: 'Model', de: 'Modell', es: 'Futuro', fr: 'Futur' }[language] : 'Radar';
       document.getElementById(key).setAttribute('aria-label', label);
       document.getElementById(key).title = label;
     });
@@ -302,8 +308,11 @@
     function setStatus(message) { statusMessage = message; renderStatus(); }
     function renderStatus() {
       var status = document.getElementById('status');
-      status.textContent = mapUnavailable ? MODE_TEXT[4] : statusMessage || (mode === 'forecast' ? forecastState.message : observedState.message);
+      var message = mapUnavailable ? MODE_TEXT[4] : statusMessage || (mode === 'forecast' ? forecastState.message : observedState.message);
+      var loading = message === (mode === 'forecast' ? FORECAST_TEXT[2] : TEXT.loading);
+      status.textContent = loading && radarLayer && !radarLayer.failed ? '' : message;
       status.hidden = !status.textContent;
+      document.getElementById('slider').setAttribute('aria-busy', String(!!pendingLayer));
       document.getElementById('observed-status').textContent = FORECAST_TEXT[0] + ' · ' + (observedState.message || 'RainViewer');
       document.getElementById('forecast-status').textContent = FORECAST_TEXT[1] + ' · ' + (forecastState.message ||
         (forecastCache ? RadarForecast.sources[forecastCache.key].model : 'Deutscher Wetterdienst'));
@@ -312,6 +321,7 @@
       clearTimeout(tileTimeout); tileTimeout = null;
       removeSource(pendingLayer);
       pendingLayer = null;
+      document.getElementById('slider').setAttribute('aria-busy', 'false');
     }
     function removeSource(layer) {
       var id = typeof layer === 'string' ? layer : layer && layer.id;
@@ -536,7 +546,6 @@
       var label = frame ? frameLabel(frame) : '—';
       document.getElementById('time').textContent = label;
       document.getElementById('compact-time').textContent = frame ? formatTime(frame.time, false) : '—';
-      document.getElementById('frame-kind').textContent = frame ? FORECAST_TEXT[forecast ? 1 : 0] : '';
       document.getElementById('slider').setAttribute('aria-valuetext', frame ? frameValueText(frame) : '—');
       document.getElementById('coverage').hidden = !frame || forecast;
       document.getElementById('observed-scale').hidden = !frame || forecast;

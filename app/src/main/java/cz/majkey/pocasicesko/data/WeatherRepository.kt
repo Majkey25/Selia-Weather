@@ -123,6 +123,10 @@ class WeatherRepository(context: Context) {
             request(forecastUri(location).toString())
         }
         checkActive()
+        val regionalCurrent = if (location.isInCzechia()) try {
+            loggedForecastStage(ForecastFetchStage.REGIONAL_SKY) { request(regionalCurrentUrl(location), REGIONAL_SKY_TIMEOUT_MILLIS) }
+        } catch (_: IOException) { null } else null
+        checkActive()
         val requestedModels = forecastApiModelsFor(location)
         val blend = try {
             val modelsJson = loggedForecastStage(ForecastFetchStage.MODELS) {
@@ -140,6 +144,7 @@ class WeatherRepository(context: Context) {
                     location,
                     calibration = calibration?.artifact,
                     calibratedValues = calibration?.values.orEmpty(),
+                    regionalCurrentJson = regionalCurrent,
                 )
             }
         } catch (_: IOException) {
@@ -171,6 +176,7 @@ class WeatherRepository(context: Context) {
             calibrationAppliedAt = blend.calibrationAppliedAt,
             calibrationVariable = blend.calibrationVariable,
             calibratedValueCount = blend.calibratedValueCount,
+            currentSkyModelId = blend.currentSkyModelId,
         )
         val forecastJson = JSONObject(blend.json).putForecastCalculation(calculation).toString()
         val updatedAt = System.currentTimeMillis()
@@ -184,8 +190,12 @@ class WeatherRepository(context: Context) {
             // Count station network time toward observation age; keep updatedAt unchanged.
             now = Instant.now(),
         )
-        val correctedJson = applyCurrentConditionsToForecastJson(forecastJson, observedCurrent)
-        val snapshot = modelSnapshot.copy(current = observedCurrent)
+        val observedCalculation = if (observedCurrent.weatherCode == modelSnapshot.current.weatherCode &&
+            observedCurrent.cloudCover == modelSnapshot.current.cloudCover) calculation else calculation.copy(currentSkyModelId = null)
+        val correctedJson = applyCurrentConditionsToForecastJson(
+            JSONObject(blend.json).putForecastCalculation(observedCalculation).toString(), observedCurrent,
+        )
+        val snapshot = modelSnapshot.copy(current = observedCurrent, calculation = observedCalculation)
         synchronized(PERSISTENCE_LOCK) {
             checkActive()
             if (location.matches(lastLocation())) {
@@ -285,12 +295,12 @@ class WeatherRepository(context: Context) {
         kotlin.math.abs(latitude - other.latitude) <= COORDINATE_EPSILON &&
             kotlin.math.abs(longitude - other.longitude) <= COORDINATE_EPSILON
 
-    private fun request(url: String): String {
+    private fun request(url: String, readTimeoutMillis: Int = READ_TIMEOUT_MILLIS): String {
         ensureForecastThreadActive()
         val connection = URL(url).openConnection() as HttpURLConnection
         return try {
-            connection.connectTimeout = CONNECT_TIMEOUT_MILLIS
-            connection.readTimeout = READ_TIMEOUT_MILLIS
+            connection.connectTimeout = minOf(CONNECT_TIMEOUT_MILLIS, readTimeoutMillis)
+            connection.readTimeout = readTimeoutMillis
             connection.setRequestProperty("Accept", "application/json")
             connection.setRequestProperty("User-Agent", USER_AGENT)
             val responseCode = connection.responseCode
@@ -313,6 +323,11 @@ class WeatherRepository(context: Context) {
                 "&longitude=${location.longitude}&forecast_days=14&past_days=7" +
                 "&timezone=auto&hourly=$MODEL_VARIABLES" +
                 "&models=${forecastApiModelsFor(location).joinToString(",")}"
+
+        internal fun regionalCurrentUrl(location: CzechLocation): String =
+            "https://api.open-meteo.com/v1/forecast?latitude=${location.latitude}&longitude=${location.longitude}" +
+                "&timezone=auto&models=chmi_aladin_seamless" +
+                "&current=weather_code,cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high"
 
         internal fun forecastUrl(location: CzechLocation): String =
             "https://api.open-meteo.com/v1/forecast?latitude=${location.latitude}" +
@@ -360,6 +375,7 @@ class WeatherRepository(context: Context) {
         private const val MINIMUM_SEARCH_LENGTH = 2
         private const val CONNECT_TIMEOUT_MILLIS = 10_000
         private const val READ_TIMEOUT_MILLIS = 15_000
+        private const val REGIONAL_SKY_TIMEOUT_MILLIS = 5_000
         private const val MAX_JSON_BYTES = 5_000_000
         private val USER_AGENT = "Selia-Weather/${BuildConfig.VERSION_NAME} (Android; https://github.com/Majkey25/Selia-Weather)"
 
@@ -398,7 +414,7 @@ class WeatherRepository(context: Context) {
     }
 }
 
-internal enum class ForecastFetchStage { BEST_MATCH, MODELS, CALIBRATION, BLEND, METAR, CHMI }
+internal enum class ForecastFetchStage { BEST_MATCH, MODELS, REGIONAL_SKY, CALIBRATION, BLEND, METAR, CHMI }
 
 internal class WeatherHttpException(val statusCode: Int) : IOException("Server odpověděl kódem $statusCode.")
 

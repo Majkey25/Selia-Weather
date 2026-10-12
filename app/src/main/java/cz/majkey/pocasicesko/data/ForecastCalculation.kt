@@ -30,12 +30,14 @@ data class ForecastCalculation(
     val calibrationAppliedAt: String? = null,
     val calibrationVariable: String? = null,
     val calibratedValueCount: Int = 0,
+    val currentSkyModelId: String? = null,
 ) {
     init {
         require(requestedModelIds.isNotEmpty() && requestedModelIds.size <= MAX_FORECAST_MODEL_IDS)
         require(requestedModelIds.all(::isModelId) && requestedModelIds.distinct() == requestedModelIds)
         require(contributorIds.all(::isModelId) && contributorIds.distinct() == contributorIds)
         require(contributorIds.all(requestedModelIds::contains))
+        require(currentSkyModelId == null || currentSkyModelId in requestedModelIds)
         require(weights.keys.all(::isModelId) && weights.values.all { it.isFinite() && it > 0 })
         require(calibratedValueCount >= 0) { "Calibrated value count cannot be negative." }
         if (calibratedValueCount == 0) {
@@ -93,7 +95,8 @@ internal fun JSONObject.putForecastCalculation(calculation: ForecastCalculation)
         .put("weights", JSONObject(calculation.weights))
         .put("calibration_applied_at", calculation.calibrationAppliedAt ?: JSONObject.NULL)
         .put("calibration_variable", calculation.calibrationVariable ?: JSONObject.NULL)
-        .put("calibrated_value_count", calculation.calibratedValueCount),
+        .put("calibrated_value_count", calculation.calibratedValueCount)
+        .put("current_sky_model_id", calculation.currentSkyModelId ?: JSONObject.NULL),
 )
 
 internal fun JSONObject.forecastCalculationOrNull(): ForecastCalculation? {
@@ -145,6 +148,7 @@ internal fun JSONObject.forecastCalculationOrNull(): ForecastCalculation? {
                 require(count is Number && count.toDouble() == count.toInt().toDouble()) { "Calibrated value count must be an integer." }
                 count.toInt()
             },
+            currentSkyModelId = if (value.isNull("current_sky_model_id")) null else value.getString("current_sky_model_id"),
         )
     } catch (error: IllegalArgumentException) {
         throw JSONException(error.message ?: "Invalid forecast calculation metadata.")
@@ -157,7 +161,7 @@ private fun JSONObject.modelWeights(): Map<String, Double> = keys().asSequence()
     getDouble(it)
 }
 
-private fun isModelId(value: String): Boolean = MODEL_ID.matches(value)
+internal fun isModelId(value: String): Boolean = MODEL_ID.matches(value)
 
 private const val CALCULATION_KEY = "_selia_calculation"
 private const val LEGACY_CALCULATION_SCHEMA_VERSION = 1

@@ -413,7 +413,7 @@
     <string name="legal_refunds">Erstattungsrichtlinie</string>
     <string name="legal_cookies">Cookie-Richtlinie</string>
     <string name="hourly_source_precipitation_summary">Vorhersage: %1$s. %2$s im angegebenen Zeitraum (%3$d%% Wahrscheinlichkeit).</string>
-    <string name="precipitation_interval">Niederschlagszeitraum: %1$s</string>
+    <string name="precipitation_interval">Vorhersagezeitraum: %1$s</string>
     <string name="precipitation_probability_note">Die Wahrscheinlichkeit stammt aus einer separaten Ensembleprognose und gilt für mehr als 0,1 mm (~0,004 in) im Zeitraum, nicht für jeden Tropfen. Sie kann von der Mengenprognose abweichen. Temperatur und Wetterzustand gelten für den angezeigten Zeitpunkt.</string>
     <string name="hourly_precipitation_models">%1$d von %2$d Modellen berechnen eine Niederschlagsmenge über null. Modellspanne: %3$s.</string>
     <string name="widget_date_time_format">Datums- und Zeitformate</string>
@@ -428,7 +428,7 @@
     <string name="widget_time_12">12 Stunden</string>
     <string name="widget_time_24">24 Stunden</string>
     <string name="hourly_precipitation_unavailable">Für diesen Zeitraum sind keine Niederschlagsdaten verfügbar.</string>
-    <string name="precipitation_help">Über die Niederschlagsdaten</string>
+    <string name="precipitation_help">Über diese Vorhersage</string>
     <string name="advanced_details">Erweiterte Details</string>
     <string name="hourly_model_disagreement">Lokaler Niederschlag ist nicht ausgeschlossen: %1$d von %2$d Modellen erwarten Niederschlag, bis zu %3$s. Diese Abweichung ist keine kalibrierte Regenwahrscheinlichkeit.</string>
 </resources>

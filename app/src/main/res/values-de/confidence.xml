@@ -19,5 +19,18 @@
     <string name="confidence_cloud_spread">Bewölkungsspanne · %1$d%%</string>
     <string name="confidence_day_coverage">%1$d von %2$d verbleibenden Stunden verglichen</string>
     <string name="confidence_day_method">Die unsicherste verglichene Stunde bestimmt die Tagesbewertung.</string>
-    <string name="confidence_method">Bewertet die Vorhersage, nicht aktuelle Stationsbeobachtungen. Nutzt Modellübereinstimmung, Vorlauf und Downloadalter. Keine Genauigkeitswahrscheinlichkeit. Modelle können gemeinsam falsch liegen; das Alter der Modellläufe ist nicht verfügbar.</string>
+    <string name="confidence_method">Prüft Modellübereinstimmung, Vorlauf, Downloadalter und den angezeigten Wetterzustand. Aktuelle Bedingungen können Meldungen naher Stationen enthalten; deren Messgenauigkeit wird hier nicht bewertet. Dies ist keine Genauigkeitswahrscheinlichkeit. Modelle können gemeinsam falsch liegen; das Alter der Modellläufe ist nicht verfügbar.</string>
+    <string name="confidence_conflict_temperature">Die Temperaturprognosen unterscheiden sich um mehr als 5 °C.</string>
+    <string name="confidence_conflict_wind">Die Windvektoren der Modelle unterscheiden sich um mehr als 25 km/h.</string>
+    <string name="confidence_conflict_clouds">Die Bewölkungsprognosen unterscheiden sich um mehr als 60 Prozentpunkte.</string>
+    <string name="confidence_conflict_conditions">Weniger als 60 % der Modelle stimmen beim Wetterzustand überein.</string>
+    <string name="confidence_conflict_rain">Die Modelle sind sich uneinig, ob Niederschlag fällt.</string>
+    <string name="confidence_conflict_amount">Die vorhergesagten Niederschlagsmengen unterscheiden sich deutlich.</string>
+    <string name="confidence_conflict_displayed_sky">Das angezeigte Wetter weicht vom überwiegenden Modellergebnis ab.</string>
+    <string name="confidence_conflict_displayed_rain">Die angezeigte Niederschlagsmenge liegt außerhalb des Modellbereichs.</string>
+    <string name="confidence_model_values">Vorhersage jedes Modells</string>
+    <string name="confidence_model_values_missing">Einzelne Modelle können für diese Stunde nicht verglichen werden. Daten können fehlen oder aus verschiedenen Läufen stammen.</string>
+    <string name="confidence_regional_sky">Der Himmel in dieser Stunde basiert auf %1$s. Diese Auswahl gilt nur für die nächsten 48 Stunden und ersetzt weder Niederschlag noch andere Phänomene. Sie basiert nicht auf validierten lokalen Genauigkeitsgewichten.</string>
+    <string name="forecast_current_sky_source">Quelle des aktuellen Modellhimmels</string>
+    <string name="confidence_time_support">Himmel, Temperatur und Wind gelten zum angezeigten Zeitpunkt. Niederschlagsmengen gelten für das Vorhersageintervall. Dies sind Vorhersagen, keine Messungen an diesem Punkt.</string>
 </resources>

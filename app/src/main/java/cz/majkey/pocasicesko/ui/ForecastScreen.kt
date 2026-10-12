@@ -170,8 +170,9 @@ internal fun ForecastScreen(
     val currentDayIndex = forecastStartIndex(snapshot.daily, currentDate)
     val precipitationByStart = remember(snapshot.hourly) { hourlyPrecipitationByStart(snapshot.hourly) }
     val fetchedAge = System.currentTimeMillis() - snapshot.updatedAtEpochMillis
-    val dailyConfidence = remember(snapshot.hourly, snapshot.daily, localNow, snapshot.updatedAtEpochMillis) {
-        snapshot.daily.associate { it.date to dailyForecastConfidence(it.date, snapshot.hourly, precipitationByStart, localNow, fetchedAge) }
+    val dailyConfidence = remember(snapshot, localNow) {
+        snapshot.daily.associate { it.date to dailyForecastConfidence(it.date, snapshot.hourly, precipitationByStart, localNow, fetchedAge,
+            snapshot.current, snapshot.calculation?.currentSkyModelId) }
     }
     var selectedDayIndex by rememberSaveable(location.latitude, location.longitude) { mutableStateOf<Int?>(null) }
     var selectedHourTime by rememberSaveable(location.latitude, location.longitude) { mutableStateOf<String?>(null) }
@@ -250,6 +251,7 @@ internal fun ForecastScreen(
             updatedAtEpochMillis = snapshot.updatedAtEpochMillis,
             initialHourTime = selectedHourTime,
             current = snapshot.current,
+            currentSkyModelId = snapshot.calculation?.currentSkyModelId,
         )
     }
     if (showDetails) {
@@ -417,7 +419,10 @@ internal fun HourlyGraphPanel(snapshot: WeatherSnapshot, units: WeatherUnitForma
     val hours = upcomingHours(snapshot.hourly, currentHour)
     val confidenceByTime = remember(snapshot, localNow) {
         val age = System.currentTimeMillis() - snapshot.updatedAtEpochMillis
-        hours.associate { it.time to hourlyForecastConfidence(it, precipitationByStart[it.time], localNow, age) }
+        hours.associate { it.time to hourlyForecastConfidence(it, precipitationByStart[it.time], localNow, age,
+            hourlyDisplayCondition(it, snapshot.current, localNow).first.kind,
+            if (isCurrentForecastHour(it.time, localNow) && isCurrentForecastHour(snapshot.current.time, localNow))
+                snapshot.calculation?.currentSkyModelId else it.skySourceModelId) }
     }
     val scrollState = rememberScrollState()
     val itemWidth = maxOf(68.dp, 56.dp * LocalDensity.current.fontScale)
@@ -814,6 +819,7 @@ internal fun DayDetailSheet(
     updatedAtEpochMillis: Long = System.currentTimeMillis(),
     initialHourTime: String? = null,
     current: CurrentWeather? = null,
+    currentSkyModelId: String? = null,
 ) {
     if (days.isEmpty()) return
     val latestLocalNow = rememberUpdatedState(localNow)
@@ -905,7 +911,7 @@ internal fun DayDetailSheet(
                         )
                         DayAvailableDetails(day, units, locale)
                         ForecastConfidenceBadge(dailyForecastConfidence(day.date, hourly, precipitationByStart, dayNow,
-                            System.currentTimeMillis() - updatedAtEpochMillis), units)
+                            System.currentTimeMillis() - updatedAtEpochMillis, current, currentSkyModelId), units)
                     }
                     itemsIndexed(hours, key = { index, hour -> "${hour.time}-$index" }) { _, hour ->
                         val hourNow = latestLocalNow.value
@@ -914,7 +920,9 @@ internal fun DayDetailSheet(
                         val (condition, iconIsDay) = hourlyDisplayCondition(hour, current, hourNow)
                         val conditionLabel = stringResource(condition.labelResource())
                         val hourConfidence = hourlyForecastConfidence(hour, precipitationHour, hourNow,
-                            System.currentTimeMillis() - updatedAtEpochMillis)
+                            System.currentTimeMillis() - updatedAtEpochMillis, condition.kind,
+                            if (isCurrentForecastHour(hour.time, hourNow) && current?.time?.let { isCurrentForecastHour(it, hourNow) } == true)
+                                currentSkyModelId else hour.skySourceModelId)
                         val expanded = expandedHourTime == hour.time
                         val expansionState = stringResource(
                             if (expanded) R.string.hour_expanded else R.string.hour_collapsed,
@@ -994,6 +1002,7 @@ internal fun DayDetailSheet(
                                     modifier = Modifier.padding(top = 12.dp, bottom = 8.dp),
                                     displayCondition = condition,
                                     displayIsDay = iconIsDay,
+                                    confidence = hourConfidence,
                                 )
                             }
                         }

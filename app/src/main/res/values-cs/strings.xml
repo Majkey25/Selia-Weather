@@ -417,7 +417,7 @@
     <string name="legal_refunds">Vrácení plateb</string>
     <string name="legal_cookies">Zásady cookies</string>
     <string name="hourly_source_precipitation_summary">Předpověď: %1$s. %2$s za uvedený interval (pravděpodobnost %3$d%%).</string>
-    <string name="precipitation_interval">Interval srážek: %1$s</string>
+    <string name="precipitation_interval">Interval předpovědi: %1$s</string>
     <string name="precipitation_probability_note">Pravděpodobnost pochází ze samostatné skupiny modelových simulací a znamená více než 0,1 mm (~0,004 in) za interval, ne každou kapku. S předpovědí množství se může rozcházet. Teplota a stav počasí platí pro zobrazený čas.</string>
     <string name="hourly_precipitation_models">%1$d z %2$d modelů počítá s množstvím srážek nad nulou. Rozpětí: %3$s.</string>
     <string name="widget_date_time_format">Formát data a času</string>
@@ -432,7 +432,7 @@
     <string name="widget_time_12">12hodinový</string>
     <string name="widget_time_24">24hodinový</string>
     <string name="hourly_precipitation_unavailable">Údaje o srážkách pro tento interval nejsou dostupné.</string>
-    <string name="precipitation_help">O údajích o srážkách</string>
+    <string name="precipitation_help">O údajích předpovědi</string>
     <string name="advanced_details">Pokročilé údaje</string>
     <string name="hourly_model_disagreement">Místní srážky nelze vyloučit: %1$d z %2$d modelů předpovídá nenulové množství, až %3$s. Neshoda modelů není kalibrovanou pravděpodobností deště.</string>
 </resources>

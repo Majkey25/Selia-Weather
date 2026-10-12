@@ -8,6 +8,7 @@ import android.view.ViewGroup
 import android.webkit.WebView
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.ComposeTimeoutException
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
@@ -188,10 +189,14 @@ class RadarWebViewTest {
                 putString("stream", "\nRADAR_PLAY ${state.get().getString("mode")} wrapped, rendered two loaded raster frames; pause held 2200ms\n")
             })
         }
-        compose.waitUntil(30_000) {
-            readState()
-            state.get().optBoolean("ready") && !state.get().optBoolean("pending") &&
-                state.get().optString("type") == "forecast"
+        try {
+            compose.waitUntil(30_000) {
+                readState()
+                state.get().optBoolean("ready") && !state.get().optBoolean("pending") &&
+                    state.get().optString("type") == "forecast"
+            }
+        } catch (failure: ComposeTimeoutException) {
+            throw AssertionError("Initial forecast raster did not load: ${state.get()}", failure)
         }
         val visibleHeight = view.height.toDouble() * state.get().getDouble("width") / view.width
         assertTrue("Radar controls must stay onscreen: ${state.get()}, height=$visibleHeight",
@@ -312,10 +317,14 @@ class RadarWebViewTest {
         assertEquals("eu", state.get().getString("model"))
         assertPlaybackAndPause()
         compose.runOnIdle { view.evaluateJavascript("map.jumpTo({center:[139.6503,35.6762],zoom:6})", null) }
-        compose.waitUntil(30_000) {
-            readState()
-            state.get().optString("model") == "global" && state.get().optString("type") == "forecast" &&
-                state.get().optBoolean("ready") && !state.get().optBoolean("pending")
+        try {
+            compose.waitUntil(30_000) {
+                readState()
+                state.get().optString("model") == "global" && state.get().optString("type") == "forecast" &&
+                    state.get().optBoolean("ready") && !state.get().optBoolean("pending")
+            }
+        } catch (failure: ComposeTimeoutException) {
+            throw AssertionError("Tokyo forecast raster did not load: ${state.get()}", failure)
         }
         assertTrue(state.get().getDouble("horizon") >= 48.0)
         compose.runOnIdle {

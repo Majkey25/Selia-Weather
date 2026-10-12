@@ -40,6 +40,10 @@ import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.data.CurrentWeather
 import cz.majkey.pocasicesko.data.DailyWeather
 import cz.majkey.pocasicesko.data.HourlyWeather
+import cz.majkey.pocasicesko.data.HourlyModelAgreement
+import cz.majkey.pocasicesko.data.HourlyModelInput
+import cz.majkey.pocasicesko.data.WeatherKind
+import cz.majkey.pocasicesko.data.hourlyForecastConfidence
 import cz.majkey.pocasicesko.data.PrecipitationModelSpread
 import cz.majkey.pocasicesko.data.WeatherSnapshot
 import cz.majkey.pocasicesko.notification.WeatherAlertCategory
@@ -63,6 +67,34 @@ class ForecastLayoutTest {
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
     private val day = DailyWeather("2026-09-12", 95, 22.0, 12.0, "06:00", "18:00", 123.4, 85, 123.0,
         apparentTemperatureMin = 9.0, apparentTemperatureMax = 23.0)
+
+    @Test
+    fun forecastHelpShowsNamedModelInputsAndSpecificConfidenceReason() {
+        val inputs = listOf(
+            HourlyModelInput("chmi_aladin_seamless", 20.0, 10.0, 180.0, 100.0, 3, 0.0),
+            HourlyModelInput("icon_seamless", 20.0, 10.0, 180.0, 0.0, 0, 0.0),
+            HourlyModelInput("gfs_seamless", 20.0, 10.0, 180.0, 0.0, 0, 0.0),
+        )
+        val agreement = HourlyModelAgreement(3, 0.0, 0.0, 100.0, 2, 0, 0.0, 0.0, WeatherKind.CLEAR,
+            allSkyConditions = true, modelInputs = inputs)
+        val selected = hour(10).copy(weatherCode = 0, modelAgreement = agreement)
+        val following = hour(11).copy(precipitation = 0.0, modelAgreement = agreement)
+        val confidence = hourlyForecastConfidence(selected, following, LocalDateTime.parse(selected.time), 0)
+        compose.setContent {
+            TestSurface {
+                Box(Modifier.verticalScroll(rememberScrollState())) {
+                    ExpandedHourDetails(selected, following, units, Locale.ENGLISH, confidence = confidence)
+                }
+            }
+        }
+        compose.onNodeWithText(context.getString(R.string.precipitation_help)).performScrollTo().performClick()
+        compose.onNodeWithText(context.getString(R.string.confidence_conflict_clouds), substring = true)
+            .performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("ČHMÚ ALADIN seamless", substring = true).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("DWD ICON seamless", substring = true).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("NOAA GFS seamless", substring = true).performScrollTo().assertIsDisplayed()
+        assertTextFits(context.getString(R.string.confidence_time_support))
+    }
 
     @Test
     fun notificationCategoriesToggleIndependentlyAndShowSystemBlocking() {

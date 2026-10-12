@@ -19,5 +19,18 @@
     <string name="confidence_cloud_spread">Cloud-cover spread · %1$d%%</string>
     <string name="confidence_day_coverage">%1$d of %2$d remaining hours compared</string>
     <string name="confidence_day_method">The least certain compared hour determines this day’s rating.</string>
-    <string name="confidence_method">Rates the forecast, not current station observations. Uses model agreement, lead time and download age. It is not a probability of accuracy. Models can agree and still be wrong; provider run ages are unavailable.</string>
+    <string name="confidence_method">Checks model agreement, lead time, download age and the displayed condition. Current conditions may include nearby station reports; their measurement accuracy is not rated here. This is not a probability of accuracy. Models can agree and still be wrong; provider run ages are unavailable.</string>
+    <string name="confidence_conflict_temperature">Temperature predictions differ by more than 5°C.</string>
+    <string name="confidence_conflict_wind">Model wind vectors differ by more than 25 km/h.</string>
+    <string name="confidence_conflict_clouds">Cloud-cover predictions differ by more than 60 percentage points.</string>
+    <string name="confidence_conflict_conditions">Fewer than 60% of the models agree on the weather condition.</string>
+    <string name="confidence_conflict_rain">Models disagree on whether precipitation occurs.</string>
+    <string name="confidence_conflict_amount">Predicted precipitation amounts differ substantially.</string>
+    <string name="confidence_conflict_displayed_sky">Displayed weather differs from the dominant model condition.</string>
+    <string name="confidence_conflict_displayed_rain">Displayed precipitation is outside the compared model range.</string>
+    <string name="confidence_model_values">What each model predicts</string>
+    <string name="confidence_model_values_missing">Per-model comparison is unavailable for this hour. Some inputs may be missing or from different runs.</string>
+    <string name="confidence_regional_sky">Sky conditions use %1$s in this hour. This selection applies only within the next 48 hours and never overrides precipitation or other phenomena. It is not based on validated local accuracy weights.</string>
+    <string name="forecast_current_sky_source">Current model sky source</string>
+    <string name="confidence_time_support">Sky, temperature and wind refer to the displayed time. Precipitation totals cover the forecast interval. These are forecasts, not measurements at this point.</string>
 </resources>

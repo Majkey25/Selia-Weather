@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.data.CurrentWeather
+import cz.majkey.pocasicesko.data.ForecastConfidence
 import cz.majkey.pocasicesko.data.HourlyWeather
 import cz.majkey.pocasicesko.data.WeatherCondition
 import cz.majkey.pocasicesko.data.WeatherKind
@@ -225,12 +226,13 @@ internal fun ExpandedHourDetails(
     modifier: Modifier = Modifier,
     displayCondition: WeatherCondition = conditionFor(hour.weatherCode, hour.isDay),
     displayIsDay: Boolean = hour.isDay,
+    confidence: ForecastConfidence? = null,
 ) {
     val resources = LocalContext.current.resources
-    var showPrecipitationHelp by rememberSaveable(hour.time) { mutableStateOf(false) }
+    var showForecastHelp by rememberSaveable(hour.time) { mutableStateOf(false) }
     var showAdvanced by rememberSaveable(hour.time) { mutableStateOf(false) }
     val helpExpansionState = stringResource(
-        if (showPrecipitationHelp) R.string.hour_expanded else R.string.hour_collapsed,
+        if (showForecastHelp) R.string.hour_expanded else R.string.hour_collapsed,
     )
     val advancedState = stringResource(if (showAdvanced) R.string.hour_expanded else R.string.hour_collapsed)
     val kinds = BASIC_HOUR_METRICS + availableHourMetricKinds(hour, precipitationHour).filterNot { it in BASIC_HOUR_METRICS }
@@ -413,14 +415,15 @@ internal fun ExpandedHourDetails(
             if (showAdvanced) HourMetricGrid(metrics.drop(BASIC_HOUR_METRICS.size))
         }
         TextButton(
-            onClick = { showPrecipitationHelp = !showPrecipitationHelp },
+            onClick = { showForecastHelp = !showForecastHelp },
             modifier = Modifier.heightIn(min = 48.dp).semantics { stateDescription = helpExpansionState },
         ) {
             Icon(Icons.Rounded.Info, contentDescription = null, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(6.dp))
             Text(stringResource(R.string.precipitation_help), fontSize = 13.sp, lineHeight = 18.sp)
         }
-        if (showPrecipitationHelp) {
+        if (showForecastHelp) {
+            confidence?.let { ForecastModelComparison(it, units, displayIsDay) }
             precipitationHour?.precipitationSpread?.let { spread ->
                 val minimum = units.precipitation(spread.minimumMm)
                 val maximum = units.precipitation(spread.maximumMm)

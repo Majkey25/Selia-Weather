@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.3] - 2026-10-12
+
+- Explain hourly confidence with named model predictions, cloud cover, wind, temperature and rainfall for the displayed forecast interval. Keep confidence thresholds unchanged and include the condition actually shown for the current hour.
+- Use an explicit Czech ALADIN seamless source for eligible short-range sky conditions instead of an unvalidated global dry-sky vote. Preserve wet forecasts, fog and hazards, reject incomplete intervals, and retain sky-source information through the cache. This is a regional baseline, not a demonstrated accuracy improvement.
+- Compact radar controls on small screens and put secondary controls in the details drawer. Preserve the last valid raster on loading failures and avoid healthy-frame status messages shifting the map.
+
 ## [0.7.2] - 2026-10-12
 
 - Preserve a strict majority of the models' dry-sky weather categories instead of replacing their classification with generic cloud-percentage thresholds. Keep precipitation and hazard safeguards.

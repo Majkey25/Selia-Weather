@@ -48,7 +48,11 @@ validated against the [Open-Meteo field units and WMO categories](https://open-m
 in the source URL, so legacy six-variable schema-1 captures retain their original records.
 Cloud fractions are converted with the existing unit adapter. Weather codes remain unscored
 categories, never MAE or arithmetic blend inputs. The current ČHMÚ and NOAA ISD parsers do not
-extract independent total cloud cover, so capturing it alone cannot establish cloud accuracy.
+extract verified independent total cloud cover, so capturing it alone cannot establish cloud
+accuracy. ISD `GF1` can encode height-limited automated airport reports; a numeric total or
+`FM-12` report type alone does not establish full-sky measurement provenance. It stays in the
+original raw payload, not calibration observations. See
+[the source audit](../docs/research/2026-10-12-current-source-reliability.md).
 
 Only timestamps after capture are eligible records. For hourly precipitation, the entire
 accumulation interval must start after capture. The collector never copies current or fused app

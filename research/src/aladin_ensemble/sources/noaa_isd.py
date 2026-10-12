@@ -345,6 +345,7 @@ def _row_observations(
     )
     visibility = _parts(row["VIS"], "VIS", 4)
     add("visibility", _component(visibility[0], visibility[1], "999999", 1.0, 0.0, 160_000.0), "m")
+    # GF1 can contain height-limited automated sky reports, not verified total-sky truth.
     precipitation = _precipitation(row["AA1"])
     if precipitation is not None:
         value, quality, interval = precipitation

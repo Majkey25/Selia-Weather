@@ -35,7 +35,6 @@ internal fun blendModelForecast(
     calibration: CalibrationArtifact? = null,
     calibratedValues: List<StaticModelValue> = emptyList(),
     now: Instant = Instant.now(),
-    regionalCurrentJson: String? = null,
 ): ModelBlendResult {
     val root = JSONObject(bestMatchJson)
     val target = root.getJSONObject("hourly")
@@ -179,8 +178,6 @@ internal fun blendModelForecast(
         )
     }
     updateCurrent(root, target, targetTimes)
-    val regionalCurrent = regionalCurrentJson?.let { runCatching { JSONObject(it).getJSONObject("current") }.getOrNull() }
-    val currentSkyModelId = regionalSkyModel?.takeIf { it in suffixes && applyRegionalCurrentSky(root.getJSONObject("current"), regionalCurrent) }
     updateDaily(root, target, targetTimes, precipitationBlendedIndices)
     val appliedWeights = firstCalibration?.weights.orEmpty()
     val contributorIds = firstCalibration?.weights?.keys?.toList() ?: diagnosticContributors
@@ -202,7 +199,6 @@ internal fun blendModelForecast(
         calibrationAppliedAt,
         calibrationVariable,
         calibratedValueCount,
-        currentSkyModelId,
     )
 }
 
@@ -249,21 +245,43 @@ private fun modelAgreement(source: JSONObject, suffixes: List<String>, index: In
         allSkyConditions = rows.all { it.condition in SKY_CONDITION_KINDS }, modelInputs = rows)
 }
 
-private fun applyRegionalCurrentSky(current: JSONObject, regional: JSONObject?): Boolean {
-    if (regional == null || regional.optString("time") != current.getString("time")) return false
-    val code = (regional.opt("weather_code") as? Number)?.toDouble() ?: return false
-    val cloud = (regional.opt("cloud_cover") as? Number)?.toDouble() ?: return false
-    if (!isValidModelValue("weather_code", code) || code.toInt() !in 0..3 || !cloud.isFinite() || cloud !in 0.0..100.0) return false
-    val originalCode = (current.opt("weather_code") as? Number)?.toDouble() ?: return false
-    val precipitation = (current.opt("precipitation") as? Number)?.toDouble() ?: return false
+internal fun applyRegionalCurrentSky(
+    blend: ModelBlendResult,
+    location: CzechLocation,
+    regionalCurrentJson: String?,
+): ModelBlendResult {
+    if (!location.isInCzechia() || regionalCurrentJson == null) return blend
+    val regionalRoot = runCatching { JSONObject(regionalCurrentJson) }.getOrNull() ?: return blend
+    val root = JSONObject(blend.json)
+    if (regionalRoot.opt("utc_offset_seconds") != root.opt("utc_offset_seconds")) return blend
+    val current = root.getJSONObject("current")
+    val time = current.getString("time")
+    val regional = regionalRoot.optJSONObject("current")?.takeIf { it.optString("time") == time } ?: run {
+        // Separate requests can cross a quarter-hour boundary; never round either instant.
+        val window = regionalRoot.optJSONObject("minutely_15") ?: return blend
+        val times = window.optJSONArray("time") ?: return blend
+        val index = (0 until times.length()).filter { times.opt(it) == time }.singleOrNull() ?: return blend
+        JSONObject().put("time", time).also { matched ->
+            listOf("weather_code", "cloud_cover", "cloud_cover_low", "cloud_cover_mid", "cloud_cover_high").forEach { field ->
+                val values = window.optJSONArray(field)?.takeIf { it.length() == times.length() }
+                val value = (values?.opt(index) as? Number)?.takeIf { it.toDouble().isFinite() }
+                matched.put(field, value ?: JSONObject.NULL)
+            }
+        }
+    }
+    val code = (regional.opt("weather_code") as? Number)?.toDouble() ?: return blend
+    val cloud = (regional.opt("cloud_cover") as? Number)?.toDouble() ?: return blend
+    if (!isValidModelValue("weather_code", code) || code.toInt() !in 0..3 || !cloud.isFinite() || cloud !in 0.0..100.0) return blend
+    val originalCode = (current.opt("weather_code") as? Number)?.toDouble() ?: return blend
+    val precipitation = (current.opt("precipitation") as? Number)?.toDouble() ?: return blend
     if (!isValidModelValue("weather_code", originalCode) || originalCode.toInt() !in 0..3 ||
-        !precipitation.isFinite() || precipitation !in 0.0..<WET_THRESHOLD_MM) return false
+        !precipitation.isFinite() || precipitation !in 0.0..<WET_THRESHOLD_MM) return blend
     current.put("weather_code", code.toInt()).put("cloud_cover", cloud)
     listOf("cloud_cover_low", "cloud_cover_mid", "cloud_cover_high").forEach { field ->
         val value = (regional.opt(field) as? Number)?.toDouble()?.takeIf { it.isFinite() && it in 0.0..100.0 }
         if (value == null) current.remove(field) else current.put(field, value)
     }
-    return true
+    return blend.copy(json = root.toString(), currentSkyModelId = "chmi_aladin_seamless")
 }
 
 private fun blendPrecipitation(

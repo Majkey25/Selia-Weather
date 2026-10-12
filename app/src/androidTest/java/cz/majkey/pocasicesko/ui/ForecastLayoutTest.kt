@@ -293,9 +293,23 @@ class ForecastLayoutTest {
     fun longHeroTemperatureFitsAtLargeFont() {
         val forecast = snapshot().let { it.copy(current = it.current.copy(temperature = -100.0)) }
         compose.setContent {
-            TestSurface { WeatherHero(forecast, androidx.compose.ui.graphics.Color.Blue, units, day.date) }
+            TestSurface { WeatherHero(forecast, androidx.compose.ui.graphics.Color.Blue, units, LocalDateTime.parse("2026-09-12T10:45")) }
         }
         assertTextFits(units.temperature(-100.0))
+    }
+
+    @Test
+    fun staleHeroShowsItsValidTimeAndFreshHeroDoesNotAddAStaleLabel() {
+        val now = mutableStateOf(LocalDateTime.parse("2026-09-12T11:45"))
+        val forecast = snapshot()
+        compose.setContent {
+            TestSurface { WeatherHero(forecast, androidx.compose.ui.graphics.Color.Blue, units, now.value) }
+        }
+        val timestamp = forecast.current.time.replace('T', ' ')
+        compose.onNodeWithText(timestamp).assertIsDisplayed()
+        assertTextFits(timestamp)
+        compose.runOnIdle { now.value = LocalDateTime.parse("2026-09-12T10:45") }
+        compose.onNodeWithText(timestamp).assertDoesNotExist()
     }
 
     @Test

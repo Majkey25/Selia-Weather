@@ -421,6 +421,10 @@ private fun updateDaily(root: JSONObject, hourly: JSONObject, times: JSONArray, 
         listOf("precipitation", "rain", "snowfall").forEach { field ->
             val sum = hourly.values(field, precipitationIndices)
                 .takeIf { completePrecipitationDay && it.size == 24 }?.sum()
+            if (field == "precipitation" && sum != null && precipitationIndices.any { it in precipitationBlendedIndices }) {
+                // Provider wet duration does not describe the blended precipitation inputs.
+                daily.optJSONArray("precipitation_hours")?.put(dayIndex, JSONObject.NULL)
+            }
             if (field != "precipitation" && precipitationIndices.any { it in precipitationBlendedIndices }) {
                 daily.optJSONArray("${field}_sum")?.put(dayIndex, sum ?: JSONObject.NULL)
             } else {
@@ -433,8 +437,8 @@ private fun updateDaily(root: JSONObject, hourly: JSONObject, times: JSONArray, 
             hourly.values("precipitation_probability", precipitationIndices)
                 .takeIf { completePrecipitationDay && it.size == 24 }?.maxOrNull(),
         )
-        daily.putAt("wind_speed_10m_max", dayIndex, hourly.values("wind_speed_10m", indices).maxOrNull())
-        daily.putAt("wind_gusts_10m_max", dayIndex, hourly.values("wind_gusts_10m", indices).maxOrNull())
+        daily.putAt("wind_speed_10m_max", dayIndex, hourly.values("wind_speed_10m", indices).filter { it >= 0 }.maxOrNull())
+        daily.putAt("wind_gusts_10m_max", dayIndex, hourly.values("wind_gusts_10m", indices).filter { it >= 0 }.maxOrNull())
         daily.putAt("wind_direction_10m_dominant", dayIndex, hourly.windDirection(indices))
         val codes = hourly.values("weather_code", indices).map(Double::roundToInt)
         daily.putAt("weather_code", dayIndex, codes.maxByOrNull(::weatherSeverity))
@@ -447,6 +451,7 @@ private fun JSONObject.windDirection(indices: List<Int>): Int? {
     val vectors = indices.mapNotNull { index ->
         val speed = speeds.numberOrNull(index) ?: return@mapNotNull null
         val direction = directions.numberOrNull(index) ?: return@mapNotNull null
+        if (speed < 0 || direction !in 0.0..360.0) return@mapNotNull null
         speed to Math.toRadians(direction)
     }
     if (vectors.isEmpty()) return null

@@ -382,7 +382,39 @@ class ModelConsensusTest {
         }
     }
 
-    private fun dailyPrecipitationFixture(date: String, amounts: List<Double?>): JSONObject {
+    @Test
+    fun blendedDailyRainDoesNotRetainUnrelatedProviderWetDuration() {
+        val dry = dailyPrecipitationFixture("2026-08-29", List(25) { 0.0 }).getJSONObject("daily")
+        assertEquals(0.0, dry.getJSONArray("precipitation_sum").getDouble(0), 0.0)
+        assertTrue(dry.getJSONArray("precipitation_hours").isNull(0))
+        assertEquals(12.0, dry.getJSONArray("precipitation_hours").getDouble(1), 0.0)
+        val incomplete = dailyPrecipitationFixture("2026-08-29", List(24) { 0.0 }).getJSONObject("daily")
+        assertEquals(12.0, incomplete.getJSONArray("precipitation_hours").getDouble(0), 0.0)
+        val providerOnly = dailyPrecipitationFixture("2026-08-29", List(25) { 0.0 }, blendRain = false).getJSONObject("daily")
+        assertEquals(12.0, providerOnly.getJSONArray("precipitation_hours").getDouble(0), 0.0)
+    }
+
+    @Test
+    fun invalidFallbackWindCannotReplaceValidDailyProviderValues() {
+        listOf(-10.0 to 0.0, 10.0 to 400.0).forEach { (speed, direction) ->
+            val base = JSONObject(BASE)
+            base.getJSONObject("hourly").put("wind_speed_10m", JSONArray(listOf(speed, speed)))
+                .put("wind_direction_10m", JSONArray(listOf(direction, direction)))
+                .put("wind_gusts_10m", JSONArray(listOf(-15.0, -15.0)))
+            val models = JSONObject(MODELS)
+            listOf("a", "b", "c").forEach { suffix ->
+                models.getJSONObject("hourly").remove("wind_speed_10m_$suffix")
+                models.getJSONObject("hourly").remove("wind_direction_10m_$suffix")
+                models.getJSONObject("hourly").remove("wind_gusts_10m_$suffix")
+            }
+            val daily = JSONObject(blendModelForecast(base.toString(), models.toString()).json).getJSONObject("daily")
+            assertEquals(90, daily.getJSONArray("wind_direction_10m_dominant").getInt(0))
+            assertEquals(if (speed < 0) 5.0 else speed, daily.getJSONArray("wind_speed_10m_max").getDouble(0), 0.0)
+            assertEquals(8.0, daily.getJSONArray("wind_gusts_10m_max").getDouble(0), 0.0)
+        }
+    }
+
+    private fun dailyPrecipitationFixture(date: String, amounts: List<Double?>, blendRain: Boolean = true): JSONObject {
         val start = LocalDate.parse(date).atStartOfDay()
         val times = JSONArray(List(amounts.size) { start.plusHours(it.toLong()).toString() })
         val base = precipitationBase().put("utc_offset_seconds", 3600)
@@ -403,6 +435,7 @@ class ModelConsensusTest {
             daily.put(field, JSONArray(listOf(100.0, 100.0)))
         }
         daily.put("precipitation_probability_max", JSONArray(listOf(80, 80)))
+        daily.put("precipitation_hours", JSONArray(listOf(12.0, 12.0)))
         base.getJSONObject("hourly").put("snowfall", JSONArray(amounts.map { if (it == null) null else 0.0 }))
         listOf("a", "b", "c").forEach { suffix ->
             listOf("precipitation", "rain").forEach { field ->
@@ -411,6 +444,7 @@ class ModelConsensusTest {
             }
             models.getJSONObject("hourly").put("snowfall_$suffix",
                 JSONArray(amounts.map { if (it == null) null else 0.0 }))
+            if (!blendRain) models.getJSONObject("hourly").remove("precipitation_$suffix")
         }
         return JSONObject(blendModelForecast(base.toString(), models.toString()).json)
     }

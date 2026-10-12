@@ -1,0 +1,1 @@
+Opravené denní souhrny větru a nekonzistentní délka srážek při kombinování předpovědních modelů.

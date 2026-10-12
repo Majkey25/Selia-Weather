@@ -1,0 +1,1 @@
+Korrigierte tägliche Windübersichten und inkonsistente Niederschlagsdauer beim Kombinieren von Vorhersagemodellen.

@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.6.2] - 2026-10-12
+
+- Keep daily wind summaries valid when model inputs are incomplete. Do not display a provider's wet duration for a daily rainfall total recalculated from different model inputs.
+
 ## [0.6.1] - 2026-10-12
 
 - Preserve unsaved custom appearance colours, text size and corner settings when Android restores the screen.

@@ -419,7 +419,7 @@
     <string name="legal_terms">Terms of use</string>
     <string name="legal_refunds">Refund policy</string>
     <string name="legal_cookies">Cookie policy</string>
-    <string name="precipitation_interval">Precipitation interval: %1$s</string>
+    <string name="precipitation_interval">Forecast interval: %1$s</string>
     <string name="precipitation_probability_note">Chance comes from a separate ensemble forecast and means more than 0.1 mm (~0.004 in) in this interval, not every drop. It can disagree with forecast amounts. Temperature and conditions refer to the displayed time.</string>
     <string name="hourly_precipitation_models">%1$d of %2$d models calculate precipitation above zero. Amount range: %3$s.</string>
     <string name="widget_date_time_format">Date and time formats</string>
@@ -434,7 +434,7 @@
     <string name="widget_time_12">12-hour</string>
     <string name="widget_time_24">24-hour</string>
     <string name="hourly_precipitation_unavailable">Precipitation data is unavailable for this interval.</string>
-    <string name="precipitation_help">About precipitation</string>
+    <string name="precipitation_help">About this forecast</string>
     <string name="advanced_details">Advanced details</string>
     <string name="hourly_model_disagreement">Local precipitation cannot be ruled out: %1$d of %2$d models show nonzero amounts, up to %3$s. This disagreement is not a calibrated rain probability.</string>
 </resources>

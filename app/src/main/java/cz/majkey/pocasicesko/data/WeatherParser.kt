@@ -17,6 +17,8 @@ object WeatherParser {
             ?.takeIf { it.length() == hourlyTimes.length() }
         val modelAgreements = hourlyJson.optJSONArray(MODEL_AGREEMENT_KEY)
             ?.takeIf { it.length() == hourlyTimes.length() }
+        val skyModels = hourlyJson.optJSONArray(SKY_SOURCE_MODEL_KEY)
+            ?.takeIf { it.length() == hourlyTimes.length() }
 
         val dailyTimes = dailyJson.getJSONArray("time")
         validateLengths(
@@ -115,6 +117,7 @@ object WeatherParser {
                         showers = hourlyJson.optionalFiniteDoubleAt("showers", index),
                         precipitationSpread = precipitationSpreads?.optJSONObject(index)?.precipitationSpreadOrNull(),
                         modelAgreement = modelAgreements?.optJSONObject(index)?.modelAgreementOrNull(),
+                        skySourceModelId = (skyModels?.opt(index) as? String)?.takeIf(::isModelId),
                     ),
                 )
             }

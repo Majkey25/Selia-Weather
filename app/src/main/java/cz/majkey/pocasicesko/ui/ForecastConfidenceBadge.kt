@@ -6,12 +6,14 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,6 +35,8 @@ import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.data.ConfidenceLevel
 import cz.majkey.pocasicesko.data.ConfidenceReason
 import cz.majkey.pocasicesko.data.ForecastConfidence
+import cz.majkey.pocasicesko.data.ForecastDisagreement
+import cz.majkey.pocasicesko.data.conditionFor
 import cz.majkey.pocasicesko.units.WeatherUnitFormatter
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -52,15 +56,6 @@ internal fun ForecastConfidenceBadge(confidence: ForecastConfidence, units: Weat
         text = {
             Column(Modifier.heightIn(max = LocalConfiguration.current.screenHeightDp.dp * 0.65f)
                 .verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(stringResource(when (confidence.reason) {
-                    ConfidenceReason.AGREEMENT -> R.string.confidence_agreement
-                    ConfidenceReason.DISAGREEMENT -> R.string.confidence_disagreement
-                    ConfidenceReason.LONG_RANGE -> R.string.confidence_long_range
-                    ConfidenceReason.FETCH_AGE -> R.string.confidence_old_fetch
-                    ConfidenceReason.MISSING_MODELS -> R.string.confidence_missing
-                    ConfidenceReason.PARTIAL_DAY -> R.string.confidence_partial_day
-                    ConfidenceReason.HISTORICAL -> R.string.confidence_historical
-                }))
                 confidence.expectedHours?.let { expected ->
                     Text(stringResource(R.string.confidence_day_coverage, confidence.coveredHours ?: 0, expected))
                 }
@@ -83,8 +78,75 @@ internal fun ForecastConfidenceBadge(confidence: ForecastConfidence, units: Weat
                 }
                 Text(stringResource(R.string.confidence_method), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
+                ForecastModelComparison(confidence, units)
             }
         }, confirmButton = { TextButton(onClick = { show = false }) { Text(stringResource(android.R.string.ok)) } })
+}
+
+@Composable
+internal fun ForecastModelComparison(confidence: ForecastConfidence, units: WeatherUnitFormatter, isDay: Boolean = true) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(stringResource(R.string.confidence_label, stringResource(confidence.level.labelResource())),
+            style = MaterialTheme.typography.titleSmall)
+        Text(stringResource(when (confidence.reason) {
+            ConfidenceReason.AGREEMENT -> R.string.confidence_agreement
+            ConfidenceReason.DISAGREEMENT -> R.string.confidence_disagreement
+            ConfidenceReason.LONG_RANGE -> R.string.confidence_long_range
+            ConfidenceReason.FETCH_AGE -> R.string.confidence_old_fetch
+            ConfidenceReason.MISSING_MODELS -> R.string.confidence_missing
+            ConfidenceReason.PARTIAL_DAY -> R.string.confidence_partial_day
+            ConfidenceReason.HISTORICAL -> R.string.confidence_historical
+        }), style = MaterialTheme.typography.bodySmall)
+        confidence.disagreements.forEach { disagreement ->
+            Text("• " + stringResource(when (disagreement) {
+                ForecastDisagreement.TEMPERATURE -> R.string.confidence_conflict_temperature
+                ForecastDisagreement.WIND -> R.string.confidence_conflict_wind
+                ForecastDisagreement.CLOUDS -> R.string.confidence_conflict_clouds
+                ForecastDisagreement.CONDITIONS -> R.string.confidence_conflict_conditions
+                ForecastDisagreement.RAIN_OCCURRENCE -> R.string.confidence_conflict_rain
+                ForecastDisagreement.RAIN_AMOUNT -> R.string.confidence_conflict_amount
+                ForecastDisagreement.DISPLAYED_CONDITION -> R.string.confidence_conflict_displayed_sky
+                ForecastDisagreement.DISPLAYED_PRECIPITATION -> R.string.confidence_conflict_displayed_rain
+            }), style = MaterialTheme.typography.bodySmall)
+        }
+        val inputs = confidence.evidence?.modelInputs.orEmpty()
+        if (inputs.isEmpty()) {
+            Text(stringResource(R.string.confidence_model_values_missing), style = MaterialTheme.typography.bodySmall)
+        } else {
+            Text(stringResource(R.string.confidence_model_values), style = MaterialTheme.typography.titleSmall)
+            val precipitation = confidence.precipitationEvidence?.modelInputs.orEmpty().associateBy { it.modelId }
+            inputs.forEach { input ->
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Text("${forecastModelName(input.modelId)} · ${stringResource(conditionFor(input.weatherCode, isDay).labelResource())}",
+                    style = MaterialTheme.typography.labelLarge)
+                Text("${units.temperature(input.temperatureCelsius)} · ${stringResource(R.string.cloud_cover)} ${input.cloudCoverPercent.toInt()}% · " +
+                    "${stringResource(R.string.wind)} ${units.windSpeed(input.windSpeedKmh)} ${stringResource(windDirectionResource(input.windDirectionDegrees.toInt()))}",
+                    style = MaterialTheme.typography.bodySmall)
+                Text("${stringResource(R.string.precipitation)} · " + (precipitation[input.modelId]?.let {
+                    units.precipitation(it.precipitationMm)
+                } ?: stringResource(R.string.unavailable)), style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        confidence.skySourceModelId?.let { Text(stringResource(R.string.confidence_regional_sky, forecastModelName(it)),
+            style = MaterialTheme.typography.bodySmall) }
+        Text(stringResource(R.string.confidence_time_support), style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+internal fun forecastModelName(id: String): String = when (id) {
+    "chmi_aladin_seamless" -> "ČHMÚ ALADIN seamless"
+    "icon_seamless" -> "DWD ICON seamless"
+    "ecmwf_ifs025" -> "ECMWF IFS"
+    "ecmwf_aifs025_single" -> "ECMWF AIFS"
+    "gfs_seamless" -> "NOAA GFS seamless"
+    "gem_seamless" -> "ECCC GEM seamless"
+    "meteofrance_seamless" -> "Météo-France seamless"
+    "ukmo_seamless" -> "UK Met Office seamless"
+    "cma_grapes_global" -> "CMA GRAPES"
+    "jma_seamless" -> "JMA seamless"
+    "bom_access_global" -> "BOM ACCESS"
+    else -> id
 }
 
 internal data class ConfidenceEvidenceContext(val validTime: String, val precipitationInterval: String)

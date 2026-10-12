@@ -19,5 +19,18 @@
     <string name="confidence_cloud_spread">Rozpětí oblačnosti · %1$d%%</string>
     <string name="confidence_day_coverage">Porovnáno %1$d z %2$d zbývajících hodin</string>
     <string name="confidence_day_method">Hodnocení dne určuje nejméně jistá porovnaná hodina.</string>
-    <string name="confidence_method">Hodnotí předpověď, ne aktuální pozorování stanic. Vychází ze shody modelů, předstihu a stáří stažení. Nejde o pravděpodobnost přesnosti. Modely se mohou shodnout a přesto se mýlit; stáří modelových běhů není dostupné.</string>
+    <string name="confidence_method">Porovnává shodu modelů, předstih, stáří stažení a zobrazený stav počasí. Aktuální stav může zahrnovat hlášení blízkých stanic; přesnost jejich měření zde není hodnocena. Nejde o pravděpodobnost přesnosti. Modely se mohou shodnout a přesto se mýlit; stáří modelových běhů není dostupné.</string>
+    <string name="confidence_conflict_temperature">Předpovědi teplot se liší o více než 5 °C.</string>
+    <string name="confidence_conflict_wind">Modelové vektory větru se liší o více než 25 km/h.</string>
+    <string name="confidence_conflict_clouds">Předpovědi oblačnosti se liší o více než 60 procentních bodů.</string>
+    <string name="confidence_conflict_conditions">Na stavu počasí se shoduje méně než 60 % modelů.</string>
+    <string name="confidence_conflict_rain">Modely se neshodují na tom, zda budou srážky.</string>
+    <string name="confidence_conflict_amount">Předpovězené úhrny srážek se výrazně liší.</string>
+    <string name="confidence_conflict_displayed_sky">Zobrazené počasí se liší od převažujícího výsledku modelů.</string>
+    <string name="confidence_conflict_displayed_rain">Zobrazený úhrn srážek je mimo rozpětí porovnaných modelů.</string>
+    <string name="confidence_model_values">Co předpovídá každý model</string>
+    <string name="confidence_model_values_missing">Porovnání jednotlivých modelů není pro tuto hodinu dostupné. Některé podklady mohou chybět nebo pocházet z různých běhů.</string>
+    <string name="confidence_regional_sky">Obloha v této hodině vychází z %1$s. Tento výběr platí pouze pro příštích 48 hodin a nepřepisuje srážky ani jiné jevy. Nevychází z ověřených místních vah přesnosti.</string>
+    <string name="forecast_current_sky_source">Zdroj aktuální modelové oblohy</string>
+    <string name="confidence_time_support">Obloha, teplota a vítr platí pro zobrazený čas. Úhrny srážek pokrývají interval předpovědi. Jde o předpovědi, ne měření v tomto bodě.</string>
 </resources>

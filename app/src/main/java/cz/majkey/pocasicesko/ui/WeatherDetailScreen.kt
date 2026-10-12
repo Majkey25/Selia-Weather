@@ -649,6 +649,9 @@ private fun ForecastCalculationSection(calculation: ForecastCalculation) {
             ),
             stringResource(calculation.mode.labelResource()),
         )
+        calculation.currentSkyModelId?.let { id ->
+            DetailRow(stringResource(R.string.forecast_current_sky_source), forecastModelName(id))
+        }
         DetailRow(
             stringResource(R.string.forecast_calculation_models),
             stringResource(

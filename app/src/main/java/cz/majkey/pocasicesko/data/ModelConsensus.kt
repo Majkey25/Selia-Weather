@@ -25,6 +25,7 @@ internal data class ModelBlendResult(
     val calibrationAppliedAt: String? = null,
     val calibrationVariable: String? = null,
     val calibratedValueCount: Int = 0,
+    val currentSkyModelId: String? = null,
 )
 
 internal fun blendModelForecast(
@@ -34,10 +35,12 @@ internal fun blendModelForecast(
     calibration: CalibrationArtifact? = null,
     calibratedValues: List<StaticModelValue> = emptyList(),
     now: Instant = Instant.now(),
+    regionalCurrentJson: String? = null,
 ): ModelBlendResult {
     val root = JSONObject(bestMatchJson)
     val target = root.getJSONObject("hourly")
     val source = JSONObject(modelsJson).getJSONObject("hourly")
+    val regionalSkyModel = "chmi_aladin_seamless".takeIf { location?.isInCzechia() == true }
     val suffixes = source.keys().asSequence()
         .filter { it.startsWith("temperature_2m_") }
         .map { it.removePrefix("temperature_2m_") }
@@ -58,7 +61,9 @@ internal fun blendModelForecast(
     val targetTimes = target.getJSONArray("time")
     target.put(PRECIPITATION_SPREAD_KEY, JSONArray(List(targetTimes.length()) { JSONObject.NULL }))
     target.put(MODEL_AGREEMENT_KEY, JSONArray(List(targetTimes.length()) { JSONObject.NULL }))
+    target.put(SKY_SOURCE_MODEL_KEY, JSONArray(List(targetTimes.length()) { JSONObject.NULL }))
     val currentTargetIndex = currentIndex(root, targetTimes)
+    val currentTime = LocalDateTime.parse(root.getJSONObject("current").getString("time"))
     val region = location?.let(::forecastRegionFor)
     // Open-Meteo writes every ISO timestamp using this response offset, not device timezone rules.
     val zone: ZoneId? = runCatching {
@@ -85,9 +90,7 @@ internal fun blendModelForecast(
     val precipitationBlendedIndices = mutableSetOf<Int>()
     for (targetIndex in 0 until targetTimes.length()) {
         val sourceIndex = sourceIndices[targetTimes.getString(targetIndex)] ?: continue
-        modelAgreement(source, suffixes, sourceIndex)?.let {
-            target.getJSONArray(MODEL_AGREEMENT_KEY).put(targetIndex, it.toJson())
-        }
+        val agreement = modelAgreement(source, suffixes, sourceIndex)
         val localTime = LocalDateTime.parse(targetTimes.getString(targetIndex))
         var calibratedThisHour = false
         // Legacy responses without an offset cannot disambiguate daylight-saving transitions.
@@ -120,13 +123,33 @@ internal fun blendModelForecast(
                 }
             }
         }
-        // Static calibrated values have a different run contract from the live comparison inputs.
-        if (calibratedThisHour) target.getJSONArray(MODEL_AGREEMENT_KEY).put(targetIndex, JSONObject.NULL)
         if (blendPrecipitation(source, target, suffixes, sourceIndex, targetIndex)) {
             precipitationBlendedIndices.add(targetIndex)
             blendedAny = true
         }
-        blendedAny = blendCloudCover(source, target, suffixes, sourceIndex, targetIndex) || blendedAny
+        // Seamless uses a global fallback later; only use the regional sky for the next 48 hours.
+        val regionalHourSky = regionalSkyModel?.takeIf { id ->
+            val lead = zone?.takeIf { it.rules.getValidOffsets(currentTime).size == 1 && it.rules.getValidOffsets(localTime).size == 1 }
+                ?.let { Duration.between(currentTime.atZone(it), localTime.atZone(it)) }
+            val originalCode = target.optJSONArray("weather_code").numberOrNull(targetIndex)?.toInt()
+            val code = source.optJSONArray("weather_code_$id").numberOrNull(sourceIndex)
+            val cloud = source.optJSONArray("cloud_cover_$id").numberOrNull(sourceIndex)
+            lead != null && lead >= Duration.ofHours(-1) && lead <= Duration.ofHours(48) && originalCode in 0..3 &&
+                code != null && isValidModelValue("weather_code", code) && code.toInt() in 0..3 &&
+                cloud != null && cloud in 0.0..100.0 &&
+                (0..1).all { offset ->
+                    val nextTime = localTime.plusHours(offset.toLong()).toString()
+                    val nextSource = sourceIndices[nextTime]
+                    val nextTarget = targetIndex + offset
+                    targetTimes.optString(nextTarget) == nextTime && nextSource != null &&
+                        target.optJSONArray("precipitation").numberOrNull(nextTarget)?.let { it in 0.0..<WET_THRESHOLD_MM } == true &&
+                        source.optJSONArray("precipitation_$id").numberOrNull(nextSource)?.let { it in 0.0..<WET_THRESHOLD_MM } == true &&
+                        modelValues(source, suffixes, "precipitation", nextSource).takeIf { it.size >= MINIMUM_MODELS }
+                            ?.median()?.let { it in 0.0..<WET_THRESHOLD_MM } == true
+                } &&
+                phenomenonWeatherCode(modelValues(source, suffixes, "weather_code", sourceIndex).map(Double::toInt)) == null
+        }
+        blendedAny = blendCloudCover(source, target, suffixes, sourceIndex, targetIndex, regionalHourSky) || blendedAny
         blendedAny = blendWind(
             source,
             target,
@@ -140,7 +163,12 @@ internal fun blendModelForecast(
             suffixes,
             sourceIndex,
             targetIndex,
+            regionalHourSky,
         ) || blendedAny
+        // Static calibration has a different run contract from the live comparison inputs.
+        target.getJSONArray(SKY_SOURCE_MODEL_KEY).put(targetIndex, regionalHourSky ?: JSONObject.NULL)
+        if (!calibratedThisHour && agreement != null) target.getJSONArray(MODEL_AGREEMENT_KEY)
+            .put(targetIndex, agreement.toJson())
     }
     if (!blendedAny) {
         return ModelBlendResult(
@@ -151,6 +179,8 @@ internal fun blendModelForecast(
         )
     }
     updateCurrent(root, target, targetTimes)
+    val regionalCurrent = regionalCurrentJson?.let { runCatching { JSONObject(it).getJSONObject("current") }.getOrNull() }
+    val currentSkyModelId = regionalSkyModel?.takeIf { it in suffixes && applyRegionalCurrentSky(root.getJSONObject("current"), regionalCurrent) }
     updateDaily(root, target, targetTimes, precipitationBlendedIndices)
     val appliedWeights = firstCalibration?.weights.orEmpty()
     val contributorIds = firstCalibration?.weights?.keys?.toList() ?: diagnosticContributors
@@ -172,6 +202,7 @@ internal fun blendModelForecast(
         calibrationAppliedAt,
         calibrationVariable,
         calibratedValueCount,
+        currentSkyModelId,
     )
 }
 
@@ -201,8 +232,7 @@ private fun modelAgreement(source: JSONObject, suffixes: List<String>, index: In
         val cloud = value("cloud_cover") ?: return@mapNotNull null
         val code = value("weather_code")?.toInt() ?: return@mapNotNull null
         val precipitation = value("precipitation") ?: return@mapNotNull null
-        val angle = Math.toRadians(direction)
-        AgreementInput(temperature, wind * sin(angle), wind * cos(angle), cloud, conditionFor(code).kind, precipitation)
+        HourlyModelInput(suffix, temperature, wind, direction, cloud, code, precipitation)
     }
     if (rows.size !in MINIMUM_MODELS..MAX_FORECAST_MODEL_IDS) return null
     // Do not describe only a complete subset while partial inputs still affect the displayed blend.
@@ -210,17 +240,31 @@ private fun modelAgreement(source: JSONObject, suffixes: List<String>, index: In
         .any { modelValues(source, suffixes, it, index).size != rows.size }) return null
     val conditions = rows.groupingBy { it.condition }.eachCount()
     val dominant = conditions.entries.sortedBy { it.key.ordinal }.maxBy { it.value }
-    return HourlyModelAgreement(rows.size, rows.maxOf { it.temperature } - rows.minOf { it.temperature },
+    return HourlyModelAgreement(rows.size, rows.maxOf { it.temperatureCelsius } - rows.minOf { it.temperatureCelsius },
         rows.maxOf { first -> rows.maxOf { second ->
             hypot(first.eastWind - second.eastWind, first.northWind - second.northWind)
         } },
-        rows.maxOf { it.cloud } - rows.minOf { it.cloud },
-        dominant.value, rows.count { it.precipitation > 0 }, rows.minOf { it.precipitation }, rows.maxOf { it.precipitation }, dominant.key,
-        allSkyConditions = rows.all { it.condition in SKY_CONDITION_KINDS })
+        rows.maxOf { it.cloudCoverPercent } - rows.minOf { it.cloudCoverPercent },
+        dominant.value, rows.count { it.precipitationMm > 0 }, rows.minOf { it.precipitationMm }, rows.maxOf { it.precipitationMm }, dominant.key,
+        allSkyConditions = rows.all { it.condition in SKY_CONDITION_KINDS }, modelInputs = rows)
 }
 
-private data class AgreementInput(val temperature: Double, val eastWind: Double, val northWind: Double,
-    val cloud: Double, val condition: WeatherKind, val precipitation: Double)
+private fun applyRegionalCurrentSky(current: JSONObject, regional: JSONObject?): Boolean {
+    if (regional == null || regional.optString("time") != current.getString("time")) return false
+    val code = (regional.opt("weather_code") as? Number)?.toDouble() ?: return false
+    val cloud = (regional.opt("cloud_cover") as? Number)?.toDouble() ?: return false
+    if (!isValidModelValue("weather_code", code) || code.toInt() !in 0..3 || !cloud.isFinite() || cloud !in 0.0..100.0) return false
+    val originalCode = (current.opt("weather_code") as? Number)?.toDouble() ?: return false
+    val precipitation = (current.opt("precipitation") as? Number)?.toDouble() ?: return false
+    if (!isValidModelValue("weather_code", originalCode) || originalCode.toInt() !in 0..3 ||
+        !precipitation.isFinite() || precipitation !in 0.0..<WET_THRESHOLD_MM) return false
+    current.put("weather_code", code.toInt()).put("cloud_cover", cloud)
+    listOf("cloud_cover_low", "cloud_cover_mid", "cloud_cover_high").forEach { field ->
+        val value = (regional.opt(field) as? Number)?.toDouble()?.takeIf { it.isFinite() && it in 0.0..100.0 }
+        if (value == null) current.remove(field) else current.put(field, value)
+    }
+    return true
+}
 
 private fun blendPrecipitation(
     source: JSONObject,
@@ -268,14 +312,20 @@ private fun blendCloudCover(
     suffixes: List<String>,
     sourceIndex: Int,
     targetIndex: Int,
+    regionalSkyModel: String?,
 ): Boolean {
     val ranked = suffixes.mapNotNull { suffix ->
         source.optJSONArray("cloud_cover_$suffix").numberOrNull(sourceIndex)
             ?.takeIf { it in 0.0..100.0 }?.let { suffix to it }
     }.sortedWith(compareBy<Pair<String, Double>> { it.second }.thenBy { it.first })
-    if (ranked.size < MINIMUM_MODELS) return false
     val total = target.optJSONArray("cloud_cover") ?: return false
-    val selected = ranked.subList((ranked.size - 1) / 2, ranked.size / 2 + 1)
+    val regional = ranked.firstOrNull { it.first == regionalSkyModel &&
+        source.optJSONArray("weather_code_${it.first}").numberOrNull(sourceIndex)?.let { code ->
+            isValidModelValue("weather_code", code)
+        } == true }
+    if (regional == null && ranked.size < MINIMUM_MODELS) return false
+    // An unvalidated global median must not outvote the Czech high-resolution sky baseline.
+    val selected = regional?.let(::listOf) ?: ranked.subList((ranked.size - 1) / 2, ranked.size / 2 + 1)
     total.put(targetIndex, selected.map { it.second }.average())
     // Layer definitions differ by provider. Preserve the selected sources, not a union formula.
     listOf("cloud_cover_low", "cloud_cover_mid", "cloud_cover_high").forEach { field ->
@@ -323,11 +373,19 @@ private fun deriveCondition(
     suffixes: List<String>,
     sourceIndex: Int,
     targetIndex: Int,
+    regionalSkyModel: String?,
 ): Boolean {
     val codes = modelValues(source, suffixes, "weather_code", sourceIndex).map(Double::toInt)
     val explicitCode = phenomenonWeatherCode(codes)
     if (explicitCode != null) {
         target.optJSONArray("weather_code")?.put(targetIndex, explicitCode)
+        return true
+    }
+    val regionalCode = regionalSkyModel?.let { id ->
+        source.optJSONArray("weather_code_$id").numberOrNull(sourceIndex)?.toInt()
+    }
+    if (regionalCode != null) {
+        target.optJSONArray("weather_code")?.put(targetIndex, regionalCode)
         return true
     }
     val precipitation = modelValues(source, suffixes, "precipitation", sourceIndex)
@@ -379,9 +437,8 @@ private fun deriveWeatherCode(
     cloudCover: Int,
     fallbackCode: Int?,
 ): Int {
-    if (fallbackCode != null && hasPrecipitationEvidence(fallbackCode)) return fallbackCode
-    // Missing codes cannot disprove a provider's snow, freezing rain, fog, or storm forecast.
-    if (codes.size < MINIMUM_MODELS && fallbackCode != null && fallbackCode !in 0..3) return fallbackCode
+    // An unvalidated dry sky vote cannot disprove a provider's rain, fog, or other phenomenon.
+    if (fallbackCode != null && fallbackCode !in 0..3) return fallbackCode
     return when {
         precipitation >= WET_THRESHOLD_MM -> 61
         else -> majoritySkyCode(codes) ?: cloudWeatherCode(cloudCover)

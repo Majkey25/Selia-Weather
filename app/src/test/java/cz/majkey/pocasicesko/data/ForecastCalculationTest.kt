@@ -31,6 +31,16 @@ class ForecastCalculationTest {
     }
 
     @Test
+    fun currentSkySourceSurvivesCacheAndMustBeARequestedModel() {
+        val calculation = calibrated.copy(currentSkyModelId = "c")
+        assertEquals(calculation, JSONObject().putForecastCalculation(calculation).forecastCalculationOrNull())
+        assertThrows(IllegalArgumentException::class.java) { calibrated.copy(currentSkyModelId = "unrequested") }
+        val legacy = JSONObject().putForecastCalculation(calibrated)
+        legacy.getJSONObject("_selia_calculation").remove("current_sky_model_id")
+        assertEquals(calibrated, legacy.forecastCalculationOrNull())
+    }
+
+    @Test
     fun legacySchemaTwoWithoutSampleFieldsStillLoads() {
         val root = JSONObject().putForecastCalculation(calibrated)
         val value = root.getJSONObject("_selia_calculation")

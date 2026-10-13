@@ -66,6 +66,28 @@ def test_aligns_station_truth_by_valid_utc_hour_and_converts_units() -> None:
     assert aligned[0].elevation_difference_m == 50.0
 
 
+@pytest.mark.parametrize("value", [68.0, -40.0, None])
+def test_alignment_rejects_noncanonical_forecast_temperature(value: float | None) -> None:
+    forecast = replace(_forecast(variable="temperature", value=value), unit="°F")
+    observation = replace(_observation(variable="temperature_2m", value=20.0), unit="°C")
+
+    with pytest.raises(ValueError, match="forecast unit must be canonical"):
+        align_station_forecasts((forecast,), (observation,))
+
+
+@pytest.mark.parametrize("value", [20.0, None])
+def test_alignment_preserves_canonical_temperature_and_missing(value: float | None) -> None:
+    forecast = replace(_forecast(variable="temperature", value=value), unit="°C")
+    observation = replace(_observation(variable="temperature_2m", value=20.0), unit="°C")
+
+    aligned = align_station_forecasts((forecast,), (observation,))
+
+    assert len(aligned) == 1
+    assert aligned[0].forecast is forecast
+    assert aligned[0].truth_value == 20.0
+    assert aligned[0].unit == "°C"
+
+
 def test_alignment_maps_canonical_variable_and_keeps_requested_station() -> None:
     forecast = ForecastValue(
         "dwd_icon_eu",

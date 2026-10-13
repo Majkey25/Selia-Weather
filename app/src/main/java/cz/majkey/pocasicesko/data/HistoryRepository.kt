@@ -34,9 +34,15 @@ internal class HistoryRepository(
         try {
             val json = fetchText(url(location, start, end))
             currentCoroutineContext().ensureActive()
+            val bytes = json.toByteArray(Charsets.UTF_8)
+            if (bytes.size > MAX_RESPONSE_BYTES) throw IOException("History response exceeds cache limit.")
             val archive = parsePowerHistory(json, location, requestedAt.toEpochMilli())
             currentCoroutineContext().ensureActive()
-            writeCache(cache, json, requestedAt.toEpochMilli())
+            try {
+                writeCache(cache, bytes, requestedAt.toEpochMilli())
+            } catch (_: IOException) {
+                // Cache failures must not discard a valid downloaded archive.
+            }
             archive
         } catch (error: IOException) {
             readCacheOrNull(cache, location) ?: readCacheOrNull(legacyCache, location) ?: throw error
@@ -64,7 +70,7 @@ internal class HistoryRepository(
         }
     }
 
-    private fun writeCache(file: File, json: String, modifiedAtEpochMillis: Long) = synchronized(CACHE_LOCK) {
+    private fun writeCache(file: File, bytes: ByteArray, modifiedAtEpochMillis: Long) = synchronized(CACHE_LOCK) {
         if (!cacheDirectory.isDirectory && !cacheDirectory.mkdirs()) {
             throw IOException("History cache directory could not be created.")
         }
@@ -74,8 +80,6 @@ internal class HistoryRepository(
             .orEmpty().forEach { Files.deleteIfExists(it.toPath()) }
         val temporary = Files.createTempFile(cacheDirectory.toPath(), ".power_", ".tmp")
         try {
-            val bytes = json.toByteArray(Charsets.UTF_8)
-            if (bytes.size > MAX_RESPONSE_BYTES) throw IOException("History response exceeds cache limit.")
             temporary.toFile().outputStream().use { output ->
                 output.write(bytes)
                 output.fd.sync()

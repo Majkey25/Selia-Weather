@@ -6,7 +6,7 @@ from math import asin, cos, radians, sin, sqrt
 from typing import Literal
 
 from aladin_ensemble.sources.chmi_station import STATION_SOURCE, chmi_truth_usable
-from aladin_ensemble.sources.open_meteo_runs import canonical_value
+from aladin_ensemble.sources.open_meteo_runs import canonical_unit, canonical_value
 from aladin_ensemble.types import ForecastValue, Observation, SpatialObservation
 
 
@@ -131,6 +131,8 @@ def validate_spatial_precipitation(
 def _validate_forecasts(forecasts: tuple[ForecastValue, ...]) -> None:
     seen: set[tuple[str, datetime, datetime, float, float, str]] = set()
     for forecast in forecasts:
+        if forecast.unit != canonical_unit(forecast.variable):
+            raise ValueError(f"forecast unit must be canonical for {forecast.variable}")
         if any(
             (
                 forecast.valid_time.minute,

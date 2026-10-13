@@ -74,6 +74,31 @@ class WeatherParserTest {
     }
 
     @Test
+    fun invalidCloudLayerPercentagesStayUnknownWithoutLosingTheForecast() {
+        val fields = listOf("cloud_cover_low", "cloud_cover_mid", "cloud_cover_high")
+        for (value in listOf(-1.0, -0.1, 100.1, 255.0, 0.0, 12.8, 100.0)) {
+            val root = JSONObject(VALID_FORECAST)
+            fields.forEach { field ->
+                root.getJSONObject("current").put(field, value)
+                root.getJSONObject("hourly").put(field, JSONArray().put(value).put(JSONObject.NULL))
+            }
+            val parsed = WeatherParser.parseForecast(root.toString(), 123L)
+            val expected = value.takeIf { it in 0.0..100.0 }?.toInt()
+            assertEquals(listOf(expected, expected, expected), listOf(
+                parsed.current.cloudCoverLow, parsed.current.cloudCoverMid, parsed.current.cloudCoverHigh,
+            ))
+            assertEquals(listOf(expected, expected, expected), listOf(
+                parsed.hourly[0].cloudCoverLow, parsed.hourly[0].cloudCoverMid, parsed.hourly[0].cloudCoverHigh,
+            ))
+            assertEquals(listOf(null, null, null), listOf(
+                parsed.hourly[1].cloudCoverLow, parsed.hourly[1].cloudCoverMid, parsed.hourly[1].cloudCoverHigh,
+            ))
+            assertEquals(2, parsed.hourly.size)
+            assertEquals(WeatherParser.parseForecast(VALID_FORECAST, 123L).daily, parsed.daily)
+        }
+    }
+
+    @Test
     fun missingHourlyRainChanceKeepsTheHourAndItsAvailableWeather() {
         val complete = WeatherParser.parseForecast(VALID_FORECAST, 123L)
         val root = JSONObject(VALID_FORECAST)

@@ -37,7 +37,7 @@ class ForecastRegionTest {
     @Test
     fun routesEveryWorldwideDetailLocation() {
         assertEquals(
-            ForecastRegion.NORTHERN_ASIA,
+            ForecastRegion.EUROPE,
             forecastRegionFor(CzechLocation("Moscow", "Moscow", 55.7558, 37.6173, "RU")),
         )
         assertEquals(
@@ -63,9 +63,40 @@ class ForecastRegionTest {
     }
 
     @Test
+    fun distinguishesEuropeanRussiaFromAsianAndDatelineRussia() {
+        listOf(
+            CzechLocation("Kaliningrad", REGION_WORLD, 54.7104, 20.4522, "RU") to ForecastRegion.EUROPE,
+            CzechLocation("Novosibirsk", REGION_WORLD, 55.0084, 82.9357, "RU") to ForecastRegion.NORTHERN_ASIA,
+            CzechLocation("Anadyr", REGION_WORLD, 64.7333, 177.5167, "RU") to ForecastRegion.NORTHERN_ASIA,
+            CzechLocation("Uelen", REGION_WORLD, 66.1597, -169.8092, "RU") to ForecastRegion.NORTHERN_ASIA,
+            CzechLocation("Russian Arctic", REGION_WORLD, 75.0, 40.0, "RU") to ForecastRegion.NORTHERN_ASIA,
+        ).forEach { (location, expected) ->
+            assertEquals(location.name, expected, forecastRegionFor(location))
+        }
+    }
+
+    @Test
+    fun routesIranOutsideOverlappingAfricanBoundsWithoutMovingAfricanLocations() {
+        assertEquals(
+            ForecastRegion.SOUTH_CENTRAL_ASIA,
+            forecastRegionFor(CzechLocation("Tehran", REGION_WORLD, 35.7, 51.4, "IR")),
+        )
+        listOf(
+            CzechLocation("Cairo", REGION_WORLD, 30.0444, 31.2357, "EG"),
+            CzechLocation("Rabat", REGION_WORLD, 34.0209, -6.8416, "MA"),
+        ).forEach { location ->
+            assertEquals(location.name, ForecastRegion.AFRICA, forecastRegionFor(location))
+        }
+    }
+
+    @Test
     fun keepsGlobalProviderFamiliesAtEveryWorldwideDetailLocation() {
         val locations = listOf(
             CzechLocation("Moscow", "Moscow", 55.7558, 37.6173, "RU"),
+            CzechLocation("Kaliningrad", REGION_WORLD, 54.7104, 20.4522, "RU"),
+            CzechLocation("Novosibirsk", REGION_WORLD, 55.0084, 82.9357, "RU"),
+            CzechLocation("Uelen", REGION_WORLD, 66.1597, -169.8092, "RU"),
+            CzechLocation("Tehran", REGION_WORLD, 35.7, 51.4, "IR"),
             CzechLocation("Delhi", "Delhi", 28.6139, 77.209, "IN"),
             CzechLocation("Lagos", "Lagos", 6.5244, 3.3792, "NG"),
             CzechLocation("Nairobi", "Nairobi", -1.2921, 36.8219, "KE"),
@@ -73,9 +104,11 @@ class ForecastRegionTest {
             CzechLocation("Pacific", REGION_WORLD, 0.0, -140.0),
             CzechLocation("Arctic", REGION_WORLD, 82.0, 20.0),
         )
+        val globalModels = forecastApiModelsFor(CzechLocation("New York", REGION_WORLD, 40.7128, -74.006, "US"))
 
         locations.forEach { location ->
             val models = forecastApiModelsFor(location)
+            assertEquals(location.name, globalModels, models)
             assertTrue(models.size >= 3)
             assertEquals(models.size, models.distinct().size)
             assertFalse("chmi_aladin_seamless" in models)

@@ -161,3 +161,35 @@ After the unit-boundary fix, the frozen September cloud replay produced the same
 SHA-256 `05440970e5b79ed857b7485d9f8dcdfb6f5f540c73a7e0c9ecf1aa7513805d92`.
 Its validation gate still fails. These fixes do not establish a cloud/rain accuracy
 gain or enable learned production weights.
+
+## 0.7.8 total-cloud boundary follow-up
+
+The total-cloud fields still converted values to integers before validation. Raw
+`-0.1` and `100.1` could therefore become believable zero and 100 percent. The
+mandatory current total also had no range check. Validate the raw total first:
+invalid optional hourly data remains unknown, while invalid mandatory current data
+raises the existing JSON error. Valid fractional display conversion is unchanged.
+
+The new host regression failed before the fix. The complete host suite then passed
+515 tests with no failures, errors or skips. Debug/test APKs, both lint variants and
+signed APK/AAB builds passed. A focused independent review found no concrete blocker.
+
+Huawei Android 10 passed six native tests on the code-50 debug build: both total/layer
+cloud boundaries, model-consensus regressions and real-network radar. Forecast and
+observed playback each rendered two loaded rasters, wrapped their timeline and held
+pause for 2,200 ms. The largest measured transition gap was 21.9 ms in this run, not
+a universal frame-rate guarantee. The earlier 0.7.7 widget/layout checks were not
+rerun for this two-field parser change.
+
+The main phone installation was still 0.5.0 before these release checks; new debug
+builds were a separate package. Direct-distribution signing could not update the
+Google Play installation. A Console-downloaded Play-signed APK installed in place,
+but its automatic protection required a legitimate Play installation. After 0.7.7
+became available, the actual Play Store's Update from Play flow restored code 49,
+installer `com.android.vending` and a normal app launch with Březnice retained.
+No uninstall, data wipe or protection bypass was used. All ADB was released at
+19:29 UTC with Home delivered and no pending commands.
+
+These are software and release-verification results, not a measured improvement in
+cloud or rainfall prediction. Frozen validation decisions and production weights
+remain unchanged.

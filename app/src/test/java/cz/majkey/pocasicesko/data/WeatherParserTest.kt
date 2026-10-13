@@ -74,6 +74,26 @@ class WeatherParserTest {
     }
 
     @Test
+    fun totalCloudBoundsUseRawValuesBeforeIntegerConversion() {
+        val values = listOf(-1.0, -0.1, 100.1, 255.0, 0.0, 12.8, 100.0)
+        val expected = listOf(null, null, null, null, 0, 12, 100)
+        values.forEachIndexed { index, value ->
+            val root = JSONObject(VALID_FORECAST)
+            root.getJSONObject("hourly").put("cloud_cover", JSONArray().put(value).put(JSONObject.NULL))
+            val parsed = WeatherParser.parseForecast(root.toString(), 123L)
+            assertEquals(expected[index], parsed.hourly[0].cloudCover)
+            assertEquals(null, parsed.hourly[1].cloudCover)
+            assertEquals(2, parsed.hourly.size)
+            root.getJSONObject("current").put("cloud_cover", value)
+            if (index < 4) {
+                assertThrows(JSONException::class.java) { WeatherParser.parseForecast(root.toString(), 123L) }
+            } else {
+                assertEquals(expected[index], WeatherParser.parseForecast(root.toString(), 123L).current.cloudCover)
+            }
+        }
+    }
+
+    @Test
     fun invalidCloudLayerPercentagesStayUnknownWithoutLosingTheForecast() {
         val fields = listOf("cloud_cover_low", "cloud_cover_mid", "cloud_cover_high")
         for (value in listOf(-1.0, -0.1, 100.1, 255.0, 0.0, 12.8, 100.0)) {

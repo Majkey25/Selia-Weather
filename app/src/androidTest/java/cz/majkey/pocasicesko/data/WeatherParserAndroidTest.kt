@@ -2,10 +2,30 @@ package cz.majkey.pocasicesko.data
 
 import org.json.JSONArray
 import org.json.JSONObject
+import org.json.JSONException
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class WeatherParserAndroidTest {
+    @Test
+    fun totalCloudBoundsUseTheRawNumberOnAndroid() {
+        val values = listOf(-1.0, -0.1, 100.1, 255.0, 0.0, 12.8, 100.0)
+        val expected = listOf(null, null, null, null, 0, 12, 100)
+        values.forEachIndexed { index, value ->
+            val root = JSONObject(FORECAST)
+            root.getJSONObject("hourly").put("cloud_cover", JSONArray(listOf(value)))
+            val snapshot = WeatherParser.parseForecast(root.toString(), 1L)
+            assertEquals(expected[index], snapshot.hourly.single().cloudCover)
+            root.getJSONObject("current").put("cloud_cover", value)
+            if (index < 4) {
+                assertThrows(JSONException::class.java) { WeatherParser.parseForecast(root.toString(), 1L) }
+            } else {
+                assertEquals(expected[index], WeatherParser.parseForecast(root.toString(), 1L).current.cloudCover)
+            }
+        }
+    }
+
     @Test
     fun cloudLayerBoundsUseTheRawNumberOnAndroid() {
         val values = listOf(-1.0, -0.1, 100.1, 255.0, 0.0, 12.8, 100.0)

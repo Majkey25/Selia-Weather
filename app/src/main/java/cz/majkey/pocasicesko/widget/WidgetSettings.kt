@@ -207,7 +207,7 @@ internal fun WidgetSettings.editableBackgroundColors(): List<String> = when (bac
     else -> emptyList()
 }
 
-internal fun widgetColorInput(value: String): String = value.take(MAX_WIDGET_COLOR_INPUT_LENGTH)
+internal fun widgetColorInput(value: String): String = value.trim().take(MAX_WIDGET_COLOR_INPUT_LENGTH)
 
 internal fun normalizedWidgetColor(value: String, fallback: String): String {
     return widgetHexOrNull(value) ?: fallback

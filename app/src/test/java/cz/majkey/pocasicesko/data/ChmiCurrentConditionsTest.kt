@@ -146,7 +146,7 @@ class ChmiCurrentConditionsTest {
     }
 
     @Test
-    fun latestWetGaugeRemainsUsableWithoutHumidity() {
+    fun latestWetGaugeWithoutHumidityPreservesAccumulationWithoutInventingCurrentRain() {
         val station = CurrentStation("0-203-0-11775", "Station", 49.2, 17.7, 250.0, false)
         val model = CurrentWeather(
             time = "2026-08-29T11:05", temperature = 22.0, feelsLike = 22.0,
@@ -166,7 +166,8 @@ class ChmiCurrentConditionsTest {
             val fused = fuseCurrentConditions(model,
                 CzechLocation("Point", REGION_ZLIN, 49.2, 17.7), listOf(observation),
                 Instant.parse("2026-08-29T09:05:00Z"))
-            assertEquals(61, fused.weatherCode)
+            assertEquals(model.weatherCode, fused.weatherCode)
+            assertEquals(model.cloudCover, fused.cloudCover)
             assertEquals(50, fused.humidity)
             assertEquals(0.0, fused.precipitation, 0.0)
         }

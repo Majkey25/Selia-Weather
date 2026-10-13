@@ -338,6 +338,7 @@ class RadarWebViewTest {
         assertEquals(state.get().getLong("lastTime"), state.get().getLong("displayedTime"))
         assertEquals(state.get().getLong("displayedTime"), state.get().getLong("sliderTime"))
         assertEquals("", state.get().getString("status"))
+        assertPlaybackAndPause()
         compose.runOnIdle { view.evaluateJavascript("document.getElementById('play').click()", null) }
         compose.waitUntil(10_000) { readState(); state.get().optBoolean("playing") }
         compose.runOnIdle {

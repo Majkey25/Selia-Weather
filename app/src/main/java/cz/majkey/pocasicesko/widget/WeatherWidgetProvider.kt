@@ -42,7 +42,7 @@ import kotlin.math.roundToInt
 class WeatherWidgetProvider : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
-        if (isWidgetLocaleChange(intent.action)) runBroadcastWork { updateAllNow(context) }
+        if (isWidgetDisplayChange(intent.action)) runBroadcastWork { updateAllNow(context) }
     }
 
     override fun onUpdate(context: Context, manager: AppWidgetManager, appWidgetIds: IntArray) {
@@ -854,8 +854,9 @@ internal fun widgetConditionKey(value: String?): WeatherConditionKey = runCatchi
     WeatherConditionKey.valueOf(value.orEmpty())
 }.getOrDefault(WeatherConditionKey.UNKNOWN)
 
-internal fun isWidgetLocaleChange(action: String?): Boolean = action == Intent.ACTION_APPLICATION_LOCALE_CHANGED ||
-    action == Intent.ACTION_LOCALE_CHANGED
+internal fun isWidgetDisplayChange(action: String?): Boolean = action == Intent.ACTION_APPLICATION_LOCALE_CHANGED ||
+    action == Intent.ACTION_LOCALE_CHANGED || action == Intent.ACTION_TIME_CHANGED ||
+    action == Intent.ACTION_TIMEZONE_CHANGED
 
 internal fun widgetIconFor(kind: WeatherKind, isDay: Boolean, key: WeatherConditionKey? = null): Int = when (kind) {
     WeatherKind.CLEAR -> if (isDay) R.drawable.ic_weather_clear else R.drawable.ic_weather_moon

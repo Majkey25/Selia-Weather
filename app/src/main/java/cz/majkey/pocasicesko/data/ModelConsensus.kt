@@ -638,6 +638,7 @@ private val NON_NEGATIVE_FIELDS = setOf(
     "visibility",
     "pressure_msl",
     "surface_pressure",
+    "wind_speed_10m",
     "wind_gusts_10m",
 )
 private const val MINIMUM_MODELS = 3

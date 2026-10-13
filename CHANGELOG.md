@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.7.6] - 2026-10-13
+
+- Compare current conditions with hourly model agreement only when their valid times match. Show both times in the model comparison when a newer quarter-hour condition is displayed. Genuine model disagreement and confidence thresholds are unchanged.
+- Stop treating a nearby station's ten-minute rainfall total as proof that rain is falling now. Preserve its measured amount and timestamp; explicit METAR rain and drizzle reports still correct current conditions.
+- Exclude negative model wind speeds from agreement metadata as well as the calculated speed. An invalid extra source no longer hides the comparison of valid models.
+- Average nearby stations' scalar wind speeds without cancelling opposing directions into false calm. Preserve the existing station selection, distance weights and circular direction calculation.
+- Skip only the malformed METAR report when its timestamp is outside the supported range, retaining other stations and an earlier valid report instead of failing the forecast refresh.
+- Apply regional radar metadata as soon as it arrives instead of waiting for an unrelated global request. Keep valid forecast playback running when an inactive observations cache expires, and retain a still-valid raster while a replacement model run loads.
+- Preserve pasted RGB/ARGB widget colours with surrounding whitespace. Refresh cached widget displays after the device time or timezone changes without fetching weather again.
+- Keep a delayed morning forecast preparation from rescheduling today's notification to tomorrow. Preparation refreshes data without replacing the independently scheduled delivery alarm.
+
 ## [0.7.5] - 2026-10-13
 
 - Keep instantaneous weather conditions separate from preceding-hour rainfall totals. Preserve a strict liquid-precipitation majority when models disagree between drizzle, rain and showers instead of turning it into dry sky.

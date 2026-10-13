@@ -98,6 +98,38 @@ test('future forecast default survives slow observation arrival and user selecti
   app.context.showFrame(3); const selected = app.context.selectedTime; finish(); await settled(); assert.equal(app.context.selectedTime, selected);
   assert.equal(app.context.pendingLayer.frame.type, 'forecast'); assert.ok(app.calls.every(call => call.options.cache === 'no-store'));
 });
+test('healthy regional forecast renders before unrelated global metadata arrives', async () => {
+  let finishGlobal;
+  const app = runtime({ fetch: (url, _options, context) => url.includes('Icon_reg025_')
+    ? new Promise(resolve => { finishGlobal = () => resolve(new Response(forecastPayload(context, 'global'))); })
+    : Promise.resolve(new Response(url.includes('maps.dwd.de') ? forecastPayload(context) : JSON.stringify(manifest()))) });
+  await settled();
+  assert.equal(app.context.pendingLayer?.frame.key, 'eu');
+  app.load(); const displayed = app.context.radarLayer;
+  assert.equal(displayed.frame.key, 'eu');
+  finishGlobal(); await settled();
+  assert.equal(app.context.radarLayer, displayed);
+  assert.equal(app.context.pendingLayer, null);
+  assert.ok(app.context.forecastModels.global);
+});
+test('global fallback survives cancellation of a slower regional response', async () => {
+  let finishRegional, regionalSignal;
+  const app = runtime({ fetch: (url, options, context) => url.includes('Icon-eu_')
+    ? new Promise(resolve => { regionalSignal = options.signal; finishRegional = () => resolve(new Response(forecastPayload(context))); })
+    : Promise.resolve(new Response(url.includes('maps.dwd.de') ? forecastPayload(context, 'global') : JSON.stringify(manifest()))) });
+  await settled(); assert.equal(app.context.pendingLayer.frame.key, 'global'); app.load();
+  const global = app.context.forecastModels.global, selected = app.context.selectedTime;
+  app.context.window.setNativeActive(false);
+  assert.equal(regionalSignal.aborted, true);
+  finishRegional(); await settled();
+  assert.equal(app.context.forecastModels.eu, null);
+  assert.equal(app.context.forecastModels.global, global);
+  assert.equal(app.context.radarLayer, null);
+  app.context.fetch = async url => new Response(forecastPayload(app.context, url.includes('Icon-eu_') ? 'eu' : 'global'));
+  app.context.window.setNativeActive(true); await settled(); app.load();
+  assert.equal(app.context.radarLayer.frame.key, 'eu');
+  assert.equal(app.context.radarLayer.frame.time, selected);
+});
 test('modes preserve separate epochs, timelines, legends and coverage', async () => {
   const app = runtime(); await settled(); app.load(); app.context.showFrame(4); app.load(); const future = app.context.selectedTime;
   assert.equal(app.node('coverage').hidden, true); assert.equal(app.node('scale').hidden, false); assert.match(app.node('frame-summary').textContent, /ICON-EU.*mm \/ 1 h/);
@@ -194,6 +226,32 @@ test('four-frame bound, preloading and hard mode/model transitions preserve sour
   const old = app.context.radarLayer; app.context.setMode('observed'); assert.ok(!app.sources.has(old.id)); app.load(); assert.equal(app.context.retiredLayer, null);
   app.context.setMode('forecast'); app.load(); const europe = app.context.radarLayer; asia(app); app.events.moveend(); app.load(); assert.ok(!app.sources.has(europe.id)); assert.equal(app.context.radarLayer.frame.key, 'global');
 });
+for (const action of ['commit', 'frame expiry', 'run expiry', 'foreign coverage', 'mode change']) test('new run retains usable raster until ' + action, async () => {
+  const app = runtime(); await settled(); app.load(); app.context.showFrame(action === 'frame expiry' ? 6 : 8); app.load();
+  const displayed = app.context.radarLayer;
+  app.advance(NOW + 6 * 3600000); app.context.loadForecast(true); await settled();
+  assert.equal(app.context.radarLayer, displayed);
+  assert.ok(app.sources.has(displayed.id));
+  const replacement = app.context.pendingLayer;
+  assert.notEqual(replacement.frame.reference, displayed.frame.reference);
+  assert.equal(replacement.frame.key, displayed.frame.key);
+  assert.equal(Number(app.node('slider').value), displayed.frame.time);
+  if (action === 'commit') {
+    app.load(); assert.equal(app.context.radarLayer, replacement); assert.equal(app.context.retiredLayer, null);
+  } else if (action === 'foreign coverage') {
+    asia(app); app.events.moveend(); assert.equal(app.context.radarLayer, null); assert.equal(app.context.pendingLayer.frame.key, 'global');
+  } else if (action === 'mode change') {
+    app.context.setMode('observed'); assert.equal(app.context.radarLayer, null);
+  } else {
+    app.advance(action === 'frame expiry' ? displayed.frame.time * 1000 + 1 : Date.parse(displayed.frame.reference) + 12 * 3600000 + 1);
+    app.context.fetch = async () => new Response('', { status: 503 });
+    app.fire(app.context.expiryTimer); await settled();
+    assert.ok(app.context.forecastIsUsable(app.context.forecastCache));
+    assert.equal(app.context.radarLayer, null);
+  }
+  assert.ok(!app.sources.has(displayed.id));
+  assert.ok([...app.sources.keys()].filter(id => id.startsWith('frame-')).length <= 4);
+});
 test('play wraps loaded frames, crossfades retained rasters and pause cancels future steps', async () => {
   const app = runtime(); await settled(); app.load();
   app.context.showFrame(app.context.frames.length - 1); app.load();
@@ -278,6 +336,22 @@ test('failed due refresh retains healthy forecast and enforces automatic retry d
   const app = runtime(); await settled(); app.load(); const displayed = app.context.radarLayer; app.advance(NOW + 600001); let calls = 0;
   app.context.fetch = async () => { calls++; return new Response('', { status: 503 }); }; app.context.ensureSourcesFresh(); await settled(); assert.equal(calls, 3); assert.equal(app.context.radarLayer, displayed);
   assert.match(app.node('status').textContent, /previous forecast/); assert.doesNotMatch(app.node('status').textContent, /previous snapshot/); app.context.ensureSourcesFresh(); app.events.moveend(); assert.equal(calls, 3);
+});
+test('expired inactive observations do not stop usable forecast playback', async () => {
+  const app = runtime(); await settled(); app.load(); app.context.showFrame(8); app.load();
+  const displayed = app.context.radarLayer;
+  app.context.togglePlay(); app.advance(NOW + 3600000);
+  app.context.fetch = async url => url.includes('maps.dwd.de')
+    ? new Response(forecastPayload(app.context, url.includes('Icon-eu_') ? 'eu' : 'global')) : new Response('', { status: 503 });
+  app.context.ensureSourcesFresh(); await settled();
+  assert.equal(app.context.observedCache, null);
+  assert.equal(app.context.radarLayer, displayed);
+  assert.ok(app.context.forecastIsUsable(app.context.forecastCache));
+  assert.equal(app.intervals.size, 1);
+  const nextTime = app.context.frames[app.context.frameIndex + 1].time;
+  [...app.intervals.values()][0](); app.load();
+  assert.equal(app.context.radarLayer.frame.time, nextTime);
+  assert.equal(app.node('status').hidden, true);
 });
 test('429 cooldown survives explicit refresh and online while healthy observation remains selectable', async () => {
   const app = runtime({ fetch: (url, _options, context) => Promise.resolve(url.includes('maps.dwd.de') ? new Response('', { status: 429 }) : new Response(JSON.stringify(manifest()))) });

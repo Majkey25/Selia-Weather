@@ -139,6 +139,18 @@ class MetarCurrentConditionsTest {
     }
 
     @Test
+    fun invalidObservationTimeKeepsOtherStationsAndPreviousValidReport() {
+        val reports = JSONArray(METAR_JSON)
+        reports.getJSONObject(0).put("obsTime", Double.MAX_VALUE)
+        val observations = parseMetarCurrentConditions(reports.toString())
+
+        assertEquals(listOf("VIDD", "VIDP"), observations.map { it.stationId })
+        val delhi = observations.last { it.stationId == "VIDP" }
+        assertEquals(29.0, requireNotNull(delhi.temperature), 0.0)
+        assertEquals(Instant.parse("2026-08-31T20:00:00Z"), delhi.time)
+    }
+
+    @Test
     fun seaLevelPressureDoesNotUseTheAltimeterSetting() {
         val report = JSONArray(METAR_JSON).getJSONObject(0).put("slp", 1008.2)
         val observation = parseMetarCurrentConditions(JSONArray().put(report).toString()).single()

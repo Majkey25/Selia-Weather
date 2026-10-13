@@ -4,7 +4,6 @@ import java.time.Duration
 import java.time.Instant
 import kotlin.math.asin
 import kotlin.math.cos
-import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlin.math.sin
@@ -102,7 +101,6 @@ internal fun fuseCurrentConditions(
         distance <= MAX_WEATHER_DISTANCE_KM &&
             Duration.between(observation.time, now).seconds <= MAX_WEATHER_AGE_SECONDS
     }
-    val nearestRain = localWeather.firstOrNull { it.first.precipitation != null }?.first
     val weatherReport = localWeather.firstOrNull {
         it.first.isMetarReport || it.first.weatherCode != null || it.first.cloudCoverPercent != null
     }?.first
@@ -119,15 +117,13 @@ internal fun fuseCurrentConditions(
         val totalWeight = values.sumOf { it.third }
         val east = values.sumOf { (speed, angle, weight) -> speed * sin(angle) * weight } / totalWeight
         val north = values.sumOf { (speed, angle, weight) -> speed * cos(angle) * weight } / totalWeight
-        hypot(east, north) to (Math.toDegrees(kotlin.math.atan2(east, north)) + 360.0) % 360.0
+        val speed = values.sumOf { (speed, _, weight) -> speed * weight } / totalWeight
+        speed to (Math.toDegrees(kotlin.math.atan2(east, north)) + 360.0) % 360.0
     }
     val (weatherCode, cloudCover) = when {
         // A nearby airport cannot disprove a localized storm or its hail intensity.
         reportedWeatherCode != null && (model.weatherCode !in 95..99 || reportedWeatherCode >= model.weatherCode) ->
             reportedWeatherCode to (reportedCloudCover ?: model.cloudCover)
-        (nearestRain?.precipitation ?: 0.0) > 0.0 && (nearestRain?.temperature ?: 0.0) > 0.0 &&
-            model.temperature > 0.0 && model.weatherCode in 0..3 ->
-            61 to (reportedCloudCover ?: model.cloudCover)
         reportedCloudCover != null && model.weatherCode in 0..3 -> {
             cloudWeatherCode(reportedCloudCover) to reportedCloudCover
         }

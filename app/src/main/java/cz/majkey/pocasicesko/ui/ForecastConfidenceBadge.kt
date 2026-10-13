@@ -86,6 +86,13 @@ internal fun ForecastConfidenceBadge(confidence: ForecastConfidence, units: Weat
 @Composable
 internal fun ForecastModelComparison(confidence: ForecastConfidence, units: WeatherUnitFormatter, isDay: Boolean = true) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        val locale = LocalConfiguration.current.locales[0]
+        val forecastTime = confidenceEvidenceContext(confidence.validTime, locale)?.validTime
+        val shownTime = confidenceEvidenceContext(confidence.shownConditionTime, locale)?.validTime
+        if (forecastTime != null && shownTime != null && shownTime != forecastTime) {
+            Text("${stringResource(R.string.now)} · $shownTime", style = MaterialTheme.typography.bodySmall)
+            Text("${stringResource(R.string.forecast)} · $forecastTime", style = MaterialTheme.typography.titleSmall)
+        }
         Text(stringResource(R.string.confidence_label, stringResource(confidence.level.labelResource())),
             style = MaterialTheme.typography.titleSmall)
         Text(stringResource(when (confidence.reason) {

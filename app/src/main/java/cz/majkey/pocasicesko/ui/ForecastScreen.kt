@@ -424,10 +424,15 @@ internal fun HourlyGraphPanel(snapshot: WeatherSnapshot, units: WeatherUnitForma
     val hours = upcomingHours(snapshot.hourly, currentHour)
     val confidenceByTime = remember(snapshot, localNow) {
         val age = System.currentTimeMillis() - snapshot.updatedAtEpochMillis
-        hours.associate { it.time to hourlyForecastConfidence(it, precipitationByStart[it.time], localNow, age,
-            hourlyDisplayCondition(it, snapshot.current, localNow).first.kind,
-            if (isCurrentForecastHour(it.time, localNow) && isCurrentForecastHour(snapshot.current.time, localNow))
-                snapshot.calculation?.currentSkyModelId else it.skySourceModelId) }
+        hours.associate { hour ->
+            val shownCurrent = snapshot.current.takeIf {
+                isCurrentForecastHour(hour.time, localNow) && isCurrentForecastHour(it.time, localNow)
+            }
+            hour.time to hourlyForecastConfidence(hour, precipitationByStart[hour.time], localNow, age,
+                hourlyDisplayCondition(hour, shownCurrent, localNow).first.kind,
+                if (shownCurrent != null) snapshot.calculation?.currentSkyModelId else hour.skySourceModelId,
+                shownConditionTime = shownCurrent?.time ?: hour.time)
+        }
     }
     val scrollState = rememberScrollState()
     val itemWidth = maxOf(68.dp, 56.dp * LocalDensity.current.fontScale)
@@ -922,12 +927,13 @@ internal fun DayDetailSheet(
                         val hourNow = latestLocalNow.value
                         val precipitationHour = precipitationByStart[hour.time]
                         val currentHour = isCurrentForecastHour(hour.time, hourNow)
-                        val (condition, iconIsDay) = hourlyDisplayCondition(hour, current, hourNow)
+                        val shownCurrent = current?.takeIf { currentHour && isCurrentForecastHour(it.time, hourNow) }
+                        val (condition, iconIsDay) = hourlyDisplayCondition(hour, shownCurrent, hourNow)
                         val conditionLabel = stringResource(condition.labelResource())
                         val hourConfidence = hourlyForecastConfidence(hour, precipitationHour, hourNow,
                             System.currentTimeMillis() - updatedAtEpochMillis, condition.kind,
-                            if (isCurrentForecastHour(hour.time, hourNow) && current?.time?.let { isCurrentForecastHour(it, hourNow) } == true)
-                                currentSkyModelId else hour.skySourceModelId)
+                            if (shownCurrent != null) currentSkyModelId else hour.skySourceModelId,
+                            shownConditionTime = shownCurrent?.time ?: hour.time)
                         val expanded = expandedHourTime == hour.time
                         val expansionState = stringResource(
                             if (expanded) R.string.hour_expanded else R.string.hour_collapsed,

@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.7.8] - 2026-10-13
+
+- Validate total cloud cover before integer conversion, matching the cloud-layer checks. Invalid optional hourly totals remain unknown; an invalid mandatory current total is rejected explicitly. Valid fractional values retain their existing display conversion.
+- Forecast weights and confidence thresholds are unchanged. This boundary fix does not establish a meteorological accuracy gain.
+
 ## [0.7.7] - 2026-10-13
 
 - Reject cloud-layer percentages outside 0–100 before integer conversion. Invalid layer readings remain unknown without discarding valid forecast hours or days.

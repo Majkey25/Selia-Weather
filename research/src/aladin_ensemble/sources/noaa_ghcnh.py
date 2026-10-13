@@ -29,7 +29,7 @@ STATION_ID = re.compile(r"[A-Z]{2}[A-Z0-9-]{9}")
 LEGACY_ISD_SOURCES = frozenset({"313", "314", "315", "322", "335", "343", "344", "346"})
 LEGACY_METAR_SOURCES = frozenset({"220", "221", "222", "223", "347", "348"})
 # NCEI ghcnh-source-list.pdf identifies these as surface station observations, not reanalysis.
-DOCUMENTED_STATION_SOURCES = LEGACY_ISD_SOURCES | LEGACY_METAR_SOURCES | {"83"}
+DOCUMENTED_STATION_SOURCES = LEGACY_ISD_SOURCES | LEGACY_METAR_SOURCES | {"83", "412", "413"}
 
 
 @dataclass(frozen=True, slots=True)

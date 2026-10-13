@@ -205,6 +205,9 @@ that count to 13 without changing any input checksum. Wind-vector leads 24 and 4
 passed. Five temperature leads, five precipitation-occurrence leads, and precipitation amount at
 168 hours also passed. All other evaluations still select their recorded fallback.
 
+These historical amount scores used the pre-0.7.5 weighted-median predictor. They require a
+rerun with the corrected linear predictor before being cited as precipitation skill evidence.
+
 The region guard compares each region with the global training-selected fallback and disables the
 blend where training error is not lower. The diagnostic report records every protected region.
 July remains development evidence because its holdout had already been inspected. The untouched

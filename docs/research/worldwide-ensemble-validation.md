@@ -70,6 +70,9 @@ holdout row contained the full trained predictor set. At 96 hours, neither the b
 training-selected fallback had a holdout sample. The report records null scores for that unavailable
 evaluation instead of numeric zero.
 
+Historical amount evaluations used the pre-0.7.5 weighted-median predictor. Rerun with the
+corrected linear predictor before citing those scores; this does not enable any runtime weights.
+
 These aggregate results are not runtime regional weights. A runtime selector needs a separate
 locked evaluation for its region. The report also rejects any lead that fails significance, fold
 stability, source-count, fallback, or maximum regional-degradation rules.

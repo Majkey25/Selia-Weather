@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from math import isclose, isfinite
+from types import SimpleNamespace
+from unittest.mock import Mock
 
+import numpy as np
 import pytest
 
 from aladin_ensemble.fallback import ExclusionReason, FitFailure
@@ -87,6 +90,39 @@ def test_scalar_fit_reports_insufficient_samples_and_rejects_bad_boundary_data()
         )
 
 
+@pytest.mark.parametrize(("third_weight", "has_third_source"), (
+    (2.78e-17, False), (1e-12, False), (1e-9, True),
+))
+def test_solver_dust_cannot_supply_a_third_source(
+    third_weight: float, has_third_source: bool, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("aladin_ensemble.train._minimize", Mock(return_value=SimpleNamespace(
+        success=True, message="",
+        x=np.array([0.75 - third_weight, 0.25, third_weight, 4.86e-17]),
+    )))
+    fit = fit_positive_amount_weights(
+        ("a", "b", "c", "d"),
+        ((1.0, 5.0, 9.0, 12.0),) * 3,
+        (2.0,) * 3,
+        eligible_models=frozenset({"a", "b", "c", "d"}),
+        regularization=0.0,
+        minimum_positive_samples=3,
+    )
+
+    assert isinstance(fit, WeightFit)
+    assert fit.weights["d"] == 0.0
+    assert isclose(sum(fit.weights.values()), 1.0)
+    assert isclose(fit.weights["a"], 0.75 - third_weight)
+    assert isclose(fit.weights["b"], 0.25)
+    prediction = blend_scalar_available(fit, {"a": 1.0, "b": 5.0, "c": 9.0, "d": 12.0}, 3)
+    if has_third_source:
+        assert isclose(fit.weights["c"], third_weight)
+        assert prediction is not None
+    else:
+        assert fit.weights["c"] == 0.0
+        assert prediction is None
+
+
 def test_wind_fit_uses_components_instead_of_averaging_degrees() -> None:
     fit = fit_wind_vector_weights(
         ("accurate", "opposite"),
@@ -165,7 +201,7 @@ def test_occurrence_calibration_selects_regularization_inside_training_folds() -
     assert 0 <= predict_occurrence(first, {"useful": 0.1, "wrong": 0.9}) <= 1
 
 
-def test_positive_amount_fit_ignores_zero_events_and_blends_weighted_median() -> None:
+def test_positive_amount_fit_ignores_zero_events_and_uses_trained_blend() -> None:
     fit = fit_positive_amount_weights(
         ("accurate", "wet"),
         ((0.0, 0.0), (1.0, 5.0), (2.0, 8.0), (3.0, 9.0)),
@@ -178,7 +214,7 @@ def test_positive_amount_fit_ignores_zero_events_and_blends_weighted_median() ->
     assert isinstance(fit, WeightFit)
     assert fit.sample_count == 3
     assert fit.weights["accurate"] > 0.99
-    assert blend_positive_amount(fit, {"accurate": 2.0, "wet": 10.0}) == 2.0
+    assert isclose(blend_positive_amount(fit, {"accurate": 2.0, "wet": 10.0}), 2.0, abs_tol=1e-6)
 
     no_rain = fit_positive_amount_weights(
         ("accurate", "wet"),
@@ -188,3 +224,20 @@ def test_positive_amount_fit_ignores_zero_events_and_blends_weighted_median() ->
         minimum_positive_samples=1,
     )
     assert no_rain == FitFailure(ExclusionReason.INSUFFICIENT_SAMPLES, "0 < 1")
+
+
+def test_positive_amount_prediction_matches_fitted_linear_objective() -> None:
+    fit = fit_positive_amount_weights(
+        ("dry", "wet"),
+        ((1.0, 9.0),) * 3,
+        (3.0,) * 3,
+        eligible_models=frozenset({"dry", "wet"}),
+        regularization=0.0,
+        minimum_positive_samples=3,
+    )
+
+    assert isinstance(fit, WeightFit)
+    assert fit.objective < 1e-10
+    assert isclose(blend_positive_amount(fit, {"dry": 1.0, "wet": 9.0}), 3.0, abs_tol=1e-6)
+    with pytest.raises(ValueError, match="non-negative"):
+        blend_positive_amount(fit, {"dry": -1.0, "wet": 9.0})

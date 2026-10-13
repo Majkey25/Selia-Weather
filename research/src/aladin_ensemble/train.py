@@ -11,7 +11,6 @@ from numpy.typing import NDArray
 from scipy import optimize
 
 from aladin_ensemble.fallback import ExclusionReason, FitFailure
-from aladin_ensemble.metrics import weighted_median
 
 
 class _OptimizeResult(Protocol):
@@ -291,7 +290,7 @@ def blend_positive_amount(fit: WeightFit, values: Mapping[str, float]) -> float:
     model_values = tuple(_model_value(values, model_id) for model_id in fit.weights)
     if any(value < 0 for value in model_values):
         raise ValueError("precipitation amount must be non-negative")
-    return weighted_median(model_values, tuple(fit.weights.values()))
+    return blend_scalar(fit, values)
 
 
 def predict_occurrence(calibration: OccurrenceCalibration, values: Mapping[str, float]) -> float:
@@ -337,17 +336,20 @@ def _fit_constrained(
     def sum_constraint(weights: NDArray[np.float64]) -> float:
         return float(np.sum(weights) - 1.0)
 
+    tolerance = 1e-12
     result = _minimize(
         objective,
         initial,
         method="SLSQP",
         bounds=[(0.0, 1.0)] * len(model_ids),
         constraints={"type": "eq", "fun": sum_constraint},
-        options={"ftol": 1e-12, "maxiter": 1_000},
+        options={"ftol": tolerance, "maxiter": 1_000},
     )
     if not result.success:
         return FitFailure(ExclusionReason.UNSTABLE_FIT, str(result.message))
     weights = np.clip(np.asarray(result.x, dtype=np.float64), 0.0, 1.0)
+    # Solver noise must not count as independent contributors.
+    weights[weights <= tolerance] = 0.0
     weights /= np.sum(weights)
     return WeightFit(
         {model_id: float(weights[index]) for index, model_id in enumerate(model_ids)},

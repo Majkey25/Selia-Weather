@@ -329,6 +329,17 @@ class ModelConsensusTest {
     }
 
     @Test
+    fun invalidOnlyWindInputCannotEraseAgreementBetweenValidModels() {
+        val models = JSONObject(MODELS)
+        models.getJSONObject("hourly").put("wind_speed_10m_d", JSONArray(listOf(-1, -1)))
+        val hourly = JSONObject(blendModelForecast(BASE, models.toString()).json).getJSONObject("hourly")
+        assertEquals(10.0, hourly.getJSONArray("wind_speed_10m").getDouble(0), 0.0)
+        val agreement = hourly.getJSONArray(MODEL_AGREEMENT_KEY)
+        assertFalse("Invalid-only wind input must not erase valid model evidence", agreement.isNull(0))
+        assertEquals(3, agreement.getJSONObject(0).getInt("model_count"))
+    }
+
+    @Test
     fun partialInputsThatInfluenceTheBlendCannotBeHiddenFromConfidence() {
         val models = JSONObject(MODELS)
         val source = models.getJSONObject("hourly")

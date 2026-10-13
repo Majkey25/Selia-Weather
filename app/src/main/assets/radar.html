@@ -371,7 +371,8 @@
         '&time=' + encodeURIComponent(new Date(frame.time * 1000).toISOString()) + '&dim_reference_time=' + encodeURIComponent(frame.reference);
     }
     function newFrameLayer(index) {
-      return { id: 'frame-' + ++sourceSequence, frame: frames[index], frameIndex: index, ready: false, failed: false };
+      return { id: 'frame-' + ++sourceSequence, frame: frames[index], frameIndex: index, ready: false, failed: false,
+        forecastMetadata: frames[index].type === 'forecast' ? forecastCache : null };
     }
     function addFrameLayer(layer) {
       if (map.getSource(layer.id)) return;
@@ -430,6 +431,10 @@
         now / 1000 - cached.run <= 12 * 3600 && cached.frames.length >= 3 && cached.frames.length <= RadarForecast.maxFrames &&
         cached.frames[cached.frames.length - 1].time >= now / 1000 + 12 * 3600;
     }
+    function forecastLayerIsUsable(layer) {
+      return layer && layer.frame.type === 'forecast' && !layer.failed && layer.contentSeen &&
+        layer.frame.time > Date.now() / 1000 && forecastIsUsable(layer.forecastMetadata);
+    }
     function refreshDue(cached) { return !cached || Date.now() - cached.loadedAt >= REFRESH_INTERVAL_MS; }
     function requestAllowed(state, explicit) {
       return Date.now() >= state.retryAt && (explicit || !state.failed || Date.now() - state.attemptedAt >= REFRESH_INTERVAL_MS);
@@ -469,11 +474,13 @@
       if (!enabled) { stopPlay(); clearRadarLayer(); setStatus(''); return; }
       if (selectedTime === null) selectedTime = mode === 'forecast' ? frames[0].time : frames[frames.length - 1].time;
       var index = nearestFrame(selectedTime, selectedTime > Date.now() / 1000 && forecastCache ? 'forecast' : null), frame = frames[index];
-      if (radarLayer && !frames.some(function(item) { return sameFrame(item, radarLayer.frame); })) clearRadarLayer();
+      var retainForecast = mode === 'forecast' && forecastLayerIsUsable(radarLayer) && radarLayer.frame.key === frame.key;
+      if (radarLayer && !retainForecast && !frames.some(function(item) { return sameFrame(item, radarLayer.frame); })) clearRadarLayer();
       if (pendingLayer && !sameFrame(pendingLayer.frame, frame)) clearPending();
       frameIndex = index;
       if (radarLayer && sameFrame(radarLayer.frame, frame) && !retryTiles) {
-        radarLayer.frame = frame; radarLayer.frameIndex = index; updateSlider(frame);
+        radarLayer.frame = frame; radarLayer.frameIndex = index;
+        radarLayer.forecastMetadata = mode === 'forecast' ? forecastCache : null; updateSlider(frame);
       } else if (pageActive() && !seekTimer && (!pendingLayer || retryTiles)) renderFrame(index, retryTiles);
       renderStatus();
     }
@@ -485,27 +492,37 @@
         return Math.max(cached ? cached.loadedAt + REFRESH_INTERVAL_MS : Date.now(), state.retryAt,
           state.failed ? state.attemptedAt + REFRESH_INTERVAL_MS : 0);
       }
+      function forecastDeadline(cached) {
+        return Math.min((cached.run + 12 * 3600) * 1000, cached.frames[cached.frames.length - 1].time * 1000 - 12 * 3600000);
+      }
       if (observedIsUsable(observedCache)) deadlines.push((observedCache.frames[observedCache.frames.length - 1].time + MAX_FRAME_AGE_SECONDS) * 1000);
       if (!observedState.request) deadlines.push(refreshDeadline(observedCache, observedState));
       ['eu', 'global'].forEach(function(key) {
         var cached = forecastModels[key];
-        if (forecastIsUsable(cached)) deadlines.push(Math.min(
-          (cached.run + 12 * 3600) * 1000, cached.frames[cached.frames.length - 1].time * 1000 - 12 * 3600000));
+        if (forecastIsUsable(cached)) deadlines.push(forecastDeadline(cached));
         if (!forecastState.request) deadlines.push(refreshDeadline(cached, forecastStates[key]));
       });
+      if (radarLayer && radarLayer.forecastMetadata && radarLayer.forecastMetadata !== forecastCache) {
+        deadlines.push(Math.min(radarLayer.frame.time * 1000, forecastDeadline(radarLayer.forecastMetadata)));
+      }
       if (deadlines.length) expiryTimer = setTimeout(ensureSourcesFresh, Math.max(0, Math.min.apply(null, deadlines) - Date.now()) + 1);
     }
     function ensureSourcesFresh(fetchMissing) {
-      var changed = false;
+      var changed = false, activeChanged = false;
       if (observedCache && !observedIsUsable(observedCache)) {
+        activeChanged = mode === 'observed';
         observedCache = null; changed = true;
       }
       ['eu', 'global'].forEach(function(key) {
         if (forecastModels[key] && !forecastIsUsable(forecastModels[key])) {
+          if (mode === 'forecast' && forecastCache === forecastModels[key]) activeChanged = true;
           forecastModels[key] = null; changed = true;
         }
       });
-      if (changed) { stopPlay(); rebuildTimeline(); }
+      if (radarLayer && radarLayer.forecastMetadata && radarLayer.forecastMetadata !== forecastCache && !forecastLayerIsUsable(radarLayer)) {
+        clearRadarLayer(); changed = activeChanged = true;
+      }
+      if (changed) { if (activeChanged) stopPlay(); rebuildTimeline(); }
       if (pageActive() && fetchMissing !== false) {
         if (refreshDue(observedCache)) loadRadar();
         loadForecast();
@@ -764,19 +781,18 @@
           return RadarForecast.read(response);
         }).then(function(xml) {
           var parsed = RadarForecast.parse(xml, key, Date.now() / 1000); parsed.loadedAt = Date.now(); return parsed;
-        }).catch(function() { return null; });
-      })).then(function(models) {
-        if (token !== state.token) return;
-        keys.forEach(function(key, index) {
-          forecastStates[key].failed = !models[index];
-          if (models[index]) { forecastModels[key] = models[index]; forecastStates[key].retryAt = 0; }
+        }).catch(function() { return null; }).then(function(parsed) {
+          if (token !== state.token) return;
+          state.keys = state.keys.filter(function(pendingKey) { return pendingKey !== key; });
+          forecastStates[key].failed = !parsed;
+          if (parsed) { forecastModels[key] = parsed; forecastStates[key].retryAt = 0; }
           else if (!forecastIsUsable(forecastModels[key])) forecastModels[key] = null;
+          var wanted = selectedForecastKey(), selectedState = forecastStates[wanted];
+          state.message = state.keys.includes(wanted) ? FORECAST_TEXT[2] : selectedState.failed ?
+            Date.now() < selectedState.retryAt ? FORECAST_TEXT[8] : selectedForecast() ? UPDATE_TEXT[1] : FORECAST_TEXT[3] : '';
+          rebuildTimeline(retryTiles && key === wanted); scheduleExpiry();
         });
-        var selectedState = forecastStates[selectedForecastKey()];
-        state.message = selectedState.failed ? Date.now() < selectedState.retryAt ? FORECAST_TEXT[8] :
-          selectedForecast() ? UPDATE_TEXT[1] : FORECAST_TEXT[3] : '';
-        rebuildTimeline(retryTiles); scheduleExpiry();
-      }).finally(function() {
+      })).finally(function() {
         if (token === state.token) { clearTimeout(state.timeout); state.timeout = null; state.request = null; state.keys = []; renderStatus(); scheduleExpiry(); }
       });
     }

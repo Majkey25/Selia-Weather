@@ -72,6 +72,7 @@ internal data class ForecastConfidence(
     val precipitationEvidence: HourlyModelAgreement? = null,
     val disagreements: List<ForecastDisagreement> = emptyList(),
     val skySourceModelId: String? = null,
+    val shownConditionTime: String? = null,
 )
 
 internal fun hourlyForecastConfidence(
@@ -81,25 +82,28 @@ internal fun hourlyForecastConfidence(
     fetchedAgeMillis: Long,
     shownCondition: WeatherKind = conditionFor(hour.weatherCode, hour.isDay).kind,
     skySourceModelId: String? = hour.skySourceModelId,
+    shownConditionTime: String = hour.time,
 ): ForecastConfidence {
     val time = runCatching { LocalDateTime.parse(hour.time) }.getOrNull()
-    if (time == null || localNow == null || fetchedAgeMillis < 0 || time.minute != 0 || time.second != 0 || time.nano != 0 ||
+    val shownTime = runCatching { LocalDateTime.parse(shownConditionTime) }.getOrNull()
+    if (time == null || shownTime == null || localNow == null || fetchedAgeMillis < 0 || time.minute != 0 || time.second != 0 || time.nano != 0 ||
         !hour.temperature.isFinite() || hour.temperature !in -100.0..70.0 || !hour.windSpeed.isFinite() || hour.windSpeed !in 0.0..500.0) {
         return ForecastConfidence(ConfidenceLevel.LIMITED, ConfidenceReason.MISSING_MODELS)
     }
     val lead = Duration.between(localNow, time).toHours()
     if (time < localNow.minusHours(1)) return ForecastConfidence(ConfidenceLevel.LIMITED, ConfidenceReason.HISTORICAL)
     val evidence = hour.modelAgreement ?: return ForecastConfidence(ConfidenceLevel.LIMITED, ConfidenceReason.MISSING_MODELS,
-        skySourceModelId = skySourceModelId)
+        validTime = hour.time, skySourceModelId = skySourceModelId, shownConditionTime = shownConditionTime)
     val rain = precipitationHour?.modelAgreement ?: return ForecastConfidence(ConfidenceLevel.LIMITED, ConfidenceReason.MISSING_MODELS,
-        evidence = evidence, validTime = hour.time, skySourceModelId = skySourceModelId)
+        evidence = evidence, validTime = hour.time, skySourceModelId = skySourceModelId, shownConditionTime = shownConditionTime)
     if (!precipitationHour.precipitation.isFinite() || precipitationHour.precipitation < 0) {
         return ForecastConfidence(ConfidenceLevel.LIMITED, ConfidenceReason.MISSING_MODELS)
     }
     val count = minOf(evidence.modelCount, rain.modelCount)
     val wetShare = rain.wetModelCount.toDouble() / rain.modelCount
     val conditionShare = evidence.agreeingConditionCount.toDouble() / evidence.modelCount
-    val conditionMismatch = shownCondition != evidence.dominantCondition
+    // Current conditions can describe a later quarter-hour than the forecast evidence.
+    val conditionMismatch = shownTime == time && shownCondition != evidence.dominantCondition
     val strongMismatch = conditionMismatch && (shownCondition !in SKY_CONDITION_KINDS || evidence.dominantCondition !in SKY_CONDITION_KINDS ||
         kotlin.math.abs(SKY_CONDITION_KINDS.indexOf(shownCondition) - SKY_CONDITION_KINDS.indexOf(evidence.dominantCondition)) > 1)
     val wetMismatch = precipitationHour.precipitation < rain.minimumPrecipitationMm - 1e-6 ||
@@ -132,7 +136,7 @@ internal fun hourlyForecastConfidence(
         else -> ConfidenceLevel.MODERATE to ConfidenceReason.AGREEMENT
     }
     return ForecastConfidence(level, reason, count, evidence, validTime = hour.time, precipitationEvidence = rain,
-        disagreements = disagreements, skySourceModelId = skySourceModelId)
+        disagreements = disagreements, skySourceModelId = skySourceModelId, shownConditionTime = shownConditionTime)
 }
 
 internal fun dailyForecastConfidence(
@@ -149,18 +153,19 @@ internal fun dailyForecastConfidence(
     if (day < localNow.toLocalDate()) return ForecastConfidence(ConfidenceLevel.LIMITED, ConfidenceReason.HISTORICAL)
     val firstHour = if (day == localNow.toLocalDate()) localNow.hour else 0
     val expected = 24 - firstHour
-    val currentKind = current?.takeIf {
+    val currentHour = current?.takeIf {
         val time = runCatching { LocalDateTime.parse(it.time) }.getOrNull()
         time != null && time.toLocalDate() == localNow.toLocalDate() && time.hour == localNow.hour
-    }?.let { conditionFor(it.weatherCode, it.isDay).kind }
+    }
     val ratings = hourly.filter { hour ->
         val time = runCatching { LocalDateTime.parse(hour.time) }.getOrNull()
         time != null && time.toLocalDate() == day && time.hour >= firstHour
     }.distinctBy { it.time }.map { hour ->
-        val shownCurrent = currentKind?.takeIf { hour.time.take(13) == localNow.toString().take(13) }
+        val shownCurrent = currentHour?.takeIf { hour.time.take(13) == localNow.toString().take(13) }
         hourlyForecastConfidence(hour, precipitationByStart[hour.time], localNow, fetchedAgeMillis,
-            shownCurrent ?: conditionFor(hour.weatherCode, hour.isDay).kind,
-            if (shownCurrent != null) currentSkyModelId else hour.skySourceModelId)
+            shownCurrent?.let { conditionFor(it.weatherCode, it.isDay).kind } ?: conditionFor(hour.weatherCode, hour.isDay).kind,
+            if (shownCurrent != null) currentSkyModelId else hour.skySourceModelId,
+            shownConditionTime = shownCurrent?.time ?: hour.time)
     }
     val covered = ratings.filter { it.level != ConfidenceLevel.LIMITED }
     if (covered.size * 4 < expected * 3) return ForecastConfidence(ConfidenceLevel.LIMITED, ConfidenceReason.PARTIAL_DAY,

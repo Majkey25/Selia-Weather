@@ -1,5 +1,6 @@
 package cz.majkey.pocasicesko.data
 
+import java.time.DateTimeException
 import java.time.Instant
 import kotlin.math.exp
 import kotlin.math.roundToInt
@@ -64,6 +65,8 @@ private fun parseMetarObservation(value: JSONObject): CurrentStationObservation?
             isMetarReport = true,
         )
     } catch (_: IllegalArgumentException) {
+        null
+    } catch (_: DateTimeException) {
         null
     }
 }

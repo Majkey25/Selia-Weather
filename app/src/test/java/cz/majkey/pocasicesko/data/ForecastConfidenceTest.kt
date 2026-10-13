@@ -29,7 +29,7 @@ class ForecastConfidenceTest {
     fun dayConfidenceIncludesTheCurrentConditionActuallyShown() {
         val hours = (12..23).map { hour("2026-10-07T${it}:00") }
         val rain = hours.associate { it.time to hour() }
-        val observed = CurrentWeather("2026-10-07T12:15", 20.0, 20.0, 50, 0.0, 3, 100,
+        val observed = CurrentWeather("2026-10-07T12:00", 20.0, 20.0, 50, 0.0, 3, 100,
             1013.0, 10.0, 180, 10.0, true)
         assertEquals(ConfidenceLevel.HIGH, dailyForecastConfidence("2026-10-07", hours, rain, now, 0).level)
         val displayed = dailyForecastConfidence("2026-10-07", hours, rain, now, 0, observed)
@@ -37,6 +37,44 @@ class ForecastConfidenceTest {
         assertEquals(listOf(ForecastDisagreement.DISPLAYED_CONDITION), displayed.disagreements)
         assertEquals("chmi_aladin_seamless",
             dailyForecastConfidence("2026-10-07", hours, rain, now, 0, observed, "chmi_aladin_seamless").skySourceModelId)
+    }
+
+    @Test
+    fun laterCurrentSkyDoesNotCreateAnHourlyConditionConflict() {
+        val hours = (12..23).map { hour("2026-10-07T${it}:00") }
+        val rain = hours.associate { it.time to hour() }
+        val observed = CurrentWeather("2026-10-07T12:45", 20.0, 20.0, 50, 0.0, 3, 100,
+            1013.0, 10.0, 180, 10.0, true)
+        val result = dailyForecastConfidence("2026-10-07", hours, rain, now.plusMinutes(45), 0, observed)
+        assertEquals(ConfidenceLevel.HIGH, result.level)
+        assertEquals(emptyList<ForecastDisagreement>(), result.disagreements)
+        assertEquals("2026-10-07T12:00", result.validTime)
+        assertEquals(observed.time, result.shownConditionTime)
+        val aligned = hourlyForecastConfidence(hours.first(), hour(), now.plusMinutes(45), 0,
+            WeatherKind.CLOUDY, shownConditionTime = "2026-10-07T12:00:00")
+        assertEquals(listOf(ForecastDisagreement.DISPLAYED_CONDITION), aligned.disagreements)
+        assertEquals(ConfidenceLevel.LIMITED, hourlyForecastConfidence(hours.first(), hour(), now, 0,
+            WeatherKind.CLOUDY, shownConditionTime = "invalid").level)
+    }
+
+    @Test
+    fun laterCurrentSkyDoesNotHideRealModelConflicts() {
+        val hours = (12..23).map { hour("2026-10-07T${it}:00") }
+        val observed = CurrentWeather("2026-10-07T12:45", 20.0, 20.0, 50, 0.0, 3, 100,
+            1013.0, 10.0, 180, 10.0, true)
+        val cases = listOf(
+            evidence.copy(cloudRangePercent = 76.0) to ForecastDisagreement.CLOUDS,
+            evidence.copy(windRangeKmh = 26.0) to ForecastDisagreement.WIND,
+            evidence.copy(temperatureRangeCelsius = 6.0) to ForecastDisagreement.TEMPERATURE,
+            evidence.copy(wetModelCount = 2, maximumPrecipitationMm = 1.0) to ForecastDisagreement.RAIN_OCCURRENCE,
+        )
+        for ((conflict, reason) in cases) {
+            val conflictingHours = hours.map { it.copy(modelAgreement = conflict) }
+            val rain = conflictingHours.associate { it.time to it }
+            val result = dailyForecastConfidence("2026-10-07", conflictingHours, rain, now.plusMinutes(45), 0, observed)
+            assertEquals(ConfidenceLevel.LOW, result.level)
+            assertEquals(listOf(reason), result.disagreements)
+        }
     }
 
     @Test

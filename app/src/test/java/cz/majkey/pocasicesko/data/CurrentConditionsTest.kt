@@ -31,22 +31,49 @@ class CurrentConditionsTest {
     }
 
     @Test
-    fun freshMeasuredRainOverridesFalseClearSky() {
+    fun recentGaugeTotalsDoNotReplaceCurrentSkyOrModelIntervalAmount() {
         val now = Instant.parse("2026-08-29T09:10:00Z")
+        val model = current(weatherCode = 2, precipitation = 0.4, cloudCover = 50)
+        val observations = listOf(
+            observation(50.08, 14.44, now.minusSeconds(300), precipitation = 0.3),
+            observation(50.10, 14.40, now.minusSeconds(600), precipitation = 0.2),
+        )
         val fused = fuseCurrentConditions(
-            model = current(weatherCode = 0, precipitation = 0.0, cloudCover = 0),
+            model = model,
             location = CzechLocation("Praha", REGION_PRAGUE, 50.0755, 14.4378),
-            observations = listOf(
-                observation(50.08, 14.44, now.minusSeconds(300), precipitation = 0.3),
-                observation(50.10, 14.40, now.minusSeconds(600), precipitation = 0.2),
-            ),
+            observations = observations,
             now = now,
         )
 
-        assertEquals(61, fused.weatherCode)
-        assertEquals(0, fused.cloudCover)
+        assertEquals(model.weatherCode, fused.weatherCode)
+        assertEquals(model.cloudCover, fused.cloudCover)
         // A ten-minute station total is not the model's fifteen-minute total.
-        assertEquals(0.0, fused.precipitation, 0.0)
+        assertEquals(model.precipitation, fused.precipitation, 0.0)
+        assertEquals(listOf(0.3, 0.2), observations.map { it.precipitation })
+        assertEquals(listOf(now.minusSeconds(300), now.minusSeconds(600)), observations.map { it.time })
+    }
+
+    @Test
+    fun olderGaugeTotalDoesNotOverrideNewerDryMetar() {
+        val now = Instant.parse("2026-10-12T10:35:00Z")
+        val model = current(weatherCode = 0, precipitation = 0.0, cloudCover = 0)
+            .copy(time = "2026-10-12T12:30")
+        val gauge = observation(50.002, 14.0, now.minusSeconds(1_800), precipitation = 0.3)
+        val report = JSONObject(METAR_CLOUD_REPORT).put("cover", "SKC")
+            .put("wxString", JSONObject.NULL)
+            .put("rawOb", "METAR LKPR 121030Z 27005KT 9999 SKC 12/08 Q1015")
+        val clearMetar = parseMetarCurrentConditions("[$report]").single()
+
+        for (reports in listOf(listOf(clearMetar, gauge), listOf(gauge, clearMetar))) {
+            val fused = fuseCurrentConditions(
+                model, CzechLocation("Point", REGION_PRAGUE, 50.0, 14.0), reports, now,
+            )
+            assertEquals(0, fused.weatherCode)
+            assertEquals(0, fused.cloudCover)
+            assertEquals(model.precipitation, fused.precipitation, 0.0)
+            assertEquals(0.3, requireNotNull(gauge.precipitation), 0.0)
+            assertEquals(Instant.parse("2026-10-12T10:05:00Z"), gauge.time)
+        }
     }
 
     @Test
@@ -286,6 +313,27 @@ class CurrentConditionsTest {
     }
 
     @Test
+    fun opposingStationWindsKeepScalarSpeedAndExcludeDirectionlessReports() {
+        val now = Instant.parse("2026-08-29T09:10:00Z")
+        val model = current(weatherCode = 0, precipitation = 0.0, cloudCover = 0)
+        val location = CzechLocation("Point", REGION_PRAGUE, 50.0, 14.0)
+        val north = observation(50.001, 14.0, now).copy(windSpeed = 10.0, windDirection = 0.0)
+        val south = observation(50.002, 14.0, now).copy(windSpeed = 10.0, windDirection = 180.0)
+        val directionless = observation(50.003, 14.0, now).copy(windSpeed = 100.0)
+
+        for (reports in listOf(listOf(north, south, directionless), listOf(directionless, south, north))) {
+            val fused = fuseCurrentConditions(model, location, reports, now)
+            assertEquals(10.0, fused.windSpeed, 1e-9)
+        }
+        val single = fuseCurrentConditions(model, location, listOf(north, directionless), now)
+        assertEquals(10.0, single.windSpeed, 1e-9)
+        assertEquals(0, single.windDirection)
+        val unsupported = fuseCurrentConditions(model, location, listOf(directionless), now)
+        assertEquals(model.windSpeed, unsupported.windSpeed, 0.0)
+        assertEquals(model.windDirection, unsupported.windDirection)
+    }
+
+    @Test
     fun correctedJsonPreservesTheWholeHourlyForecast() {
         val corrected = JSONObject(
             applyCurrentConditionsToForecastJson(
@@ -305,20 +353,24 @@ class CurrentConditionsTest {
     }
 
     @Test
-    fun nearbyTraceRainIsNotDilutedByDryStations() {
+    fun newlyCompletedTraceGaugeTotalDoesNotInferCurrentRain() {
         val now = Instant.parse("2026-09-07T13:18:00Z")
         val model = current(weatherCode = 0, precipitation = 0.0, cloudCover = 0)
+        val trace = observation(50.001, 14.0, now, precipitation = 0.1)
         val fused = fuseCurrentConditions(
             model,
             CzechLocation("Point", REGION_PRAGUE, 50.0, 14.0),
             listOf(
-                observation(50.001, 14.0, now.minusSeconds(300), precipitation = 0.1),
+                trace,
                 observation(50.01, 14.0, now.minusSeconds(300), precipitation = 0.0),
             ),
             now,
         )
-        assertEquals(61, fused.weatherCode)
+        assertEquals(model.weatherCode, fused.weatherCode)
+        assertEquals(model.cloudCover, fused.cloudCover)
         assertEquals(model.precipitation, fused.precipitation, 0.0)
+        assertEquals(0.1, requireNotNull(trace.precipitation), 0.0)
+        assertEquals(now, trace.time)
     }
 
     @Test

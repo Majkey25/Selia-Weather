@@ -1,6 +1,8 @@
 package cz.majkey.pocasicesko.notification
 
 import android.app.job.JobScheduler
+import android.app.job.JobInfo
+import android.content.ComponentName
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
@@ -10,7 +12,9 @@ import cz.majkey.pocasicesko.data.WeatherRepository
 import java.util.Locale
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.ZoneId
+import java.util.concurrent.TimeUnit
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -24,6 +28,50 @@ class NotificationRecoveryTest {
     private val context get() = object : ContextWrapper(base) {
         override fun getSharedPreferences(name: String, mode: Int) =
             super.getSharedPreferences("notification_recovery_test_$name", mode)
+    }
+
+    @Test
+    fun delayedPreparationDoesNotRescheduleTheMorningDelivery() {
+        check(base.packageName.endsWith(".debug"))
+        var alarmReads = 0
+        val context = object : ContextWrapper(base) {
+            override fun getApplicationContext(): Context = this
+            override fun getSharedPreferences(name: String, mode: Int) =
+                super.getSharedPreferences("notification_prepare_test_$name", mode)
+            override fun getSystemService(name: String): Any? {
+                if (name == Context.ALARM_SERVICE) {
+                    alarmReads++
+                    assertEquals("PREPARE must not reschedule the morning alarm after rain sync", 1, alarmReads)
+                }
+                return super.getSystemService(name)
+            }
+        }
+        val scheduler = base.getSystemService(JobScheduler::class.java)
+        val jobIds = intArrayOf(7003, WeatherAlertScheduler.JOB_ID)
+        val previousJobs = jobIds.map(scheduler::getPendingJob).filterNotNull()
+        val preferences = listOf("weather_alert_settings", "daily_briefing", "weather_refresh")
+            .map { context.getSharedPreferences(it, Context.MODE_PRIVATE) }
+        try {
+            preferences.forEach { it.edit().clear().commit() }
+            WeatherAlertSettings(backgroundAlertsAllowed = true, rainEnabled = false,
+                officialWarningsEnabled = false).save(context)
+            val time = LocalTime.now().minusMinutes(1)
+            context.getSharedPreferences("daily_briefing", Context.MODE_PRIVATE).edit()
+                .putBoolean("enabled", true).putInt("time_minutes", time.hour * 60 + time.minute).commit()
+            assertEquals(JobScheduler.RESULT_SUCCESS, scheduler.schedule(
+                JobInfo.Builder(7003, ComponentName(base, WeatherRefreshJob::class.java))
+                    .setMinimumLatency(TimeUnit.DAYS.toMillis(1)).build(),
+            ))
+
+            DailyBriefingReceiver().onReceive(context, Intent(DailyBriefingScheduler.ACTION_REFRESH))
+
+            assertEquals(1, alarmReads)
+        } finally {
+            preferences.forEach { it.edit().clear().commit() }
+            jobIds.forEach(scheduler::cancel)
+            previousJobs.forEach { scheduler.schedule(it) }
+            WeatherAlertScheduler.sync(base)
+        }
     }
 
     @Test

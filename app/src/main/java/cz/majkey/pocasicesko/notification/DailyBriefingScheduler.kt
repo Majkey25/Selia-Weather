@@ -129,6 +129,7 @@ class DailyBriefingReceiver : BroadcastReceiver() {
             }
         } else if (intent.action == DailyBriefingScheduler.ACTION_REFRESH) {
             WeatherRefreshScheduler.request(context)
+            return
         }
         DailyBriefingScheduler.schedule(context)
     }

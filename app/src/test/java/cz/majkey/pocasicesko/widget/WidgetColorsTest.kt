@@ -19,6 +19,13 @@ class WidgetColorsTest {
     }
 
     @Test
+    fun editorKeepsAllColorChannelsWhenPastingWhitespace() {
+        assertEquals("#80112233", normalizedWidgetColor(widgetColorInput(" \t#80112233\n"), "#000000"))
+        assertEquals("#ABCDEF", normalizedWidgetColor(widgetColorInput(" abcdef "), "#000000"))
+        assertEquals("#80112233", widgetColorInput(" #8011223344 "))
+    }
+
+    @Test
     fun lightAndWhiteSolidBackgroundsHaveReadableTextWithoutChangingSavedColors() {
         for (settings in listOf(WidgetSettings(backgroundMode = WidgetBackgroundMode.LIGHT),
             WidgetSettings(backgroundMode = WidgetBackgroundMode.SOLID, backgroundStart = "#FFFFFF"))) {

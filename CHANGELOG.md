@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.7.7] - 2026-10-13
+
+- Reject cloud-layer percentages outside 0–100 before integer conversion. Invalid layer readings remain unknown without discarding valid forecast hours or days.
+- Correct regional metadata for European Russia and Iran. Keep the available API model list unchanged, including Russian locations across the date line.
+- Keep the radar playback button's localized accessible name constant while its pressed state identifies active playback.
+- Allow applying automatic widget text colours after an invalid manual HEX draft is replaced by valid rendered colours. Keep validation for accents, backgrounds and manual colours.
+- Show the actual morning-briefing enablement state when background-coordinate consent is absent, without changing that consent.
+- Keep a successfully downloaded weather archive available when optional local cache storage fails. Preserve response limits and the offline fallback for failed downloads.
+- Reject mismatched forecast units before comparison with station observations in the research pipeline. The frozen September cloud replay remains unchanged; this release does not enable learned forecast weights or claim a measured cloud/rain accuracy gain.
+
 ## [0.7.6] - 2026-10-13
 
 - Compare current conditions with hourly model agreement only when their valid times match. Show both times in the model comparison when a newer quarter-hour condition is displayed. Genuine model disagreement and confidence thresholds are unchanged.

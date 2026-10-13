@@ -694,7 +694,6 @@
     function stopPlay() {
       clearInterval(timer); timer = null;
       document.getElementById('play').setAttribute('aria-pressed', 'false');
-      document.getElementById('play').setAttribute('aria-label', TEXT.play);
     }
     function togglePlay() {
       var wasPlaying = !!timer;
@@ -709,7 +708,6 @@
       }
       if (!frames.length || !pageActive()) return;
       document.getElementById('play').setAttribute('aria-pressed', 'true');
-      document.getElementById('play').setAttribute('aria-label', TEXT.pause);
       timer = setInterval(function() {
         if (ensureSourcesFresh() && !pendingLayer) showFrame((frameIndex + 1) % frames.length);
       }, 1000);

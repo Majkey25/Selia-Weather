@@ -21,6 +21,22 @@ class HistoryRepositoryTest {
     private val now = Instant.parse("2026-08-30T12:00:00Z")
 
     @Test
+    fun successfulFetchSurvivesCacheDirectoryFailure() = runBlocking {
+        val directory = Files.createTempDirectory("history-cache-failure").toFile()
+        try {
+            val cache = directory.resolve("history").apply { writeText("keep") }
+            val archive = HistoryRepository(cache, fetchText = { SAMPLE_JSON }, now = { now }).fetch(location)
+
+            assertEquals(2, archive.days.size)
+            assertEquals(-0.77, archive.days.first().temperatureMeanC!!, 0.0)
+            assertEquals(now.toEpochMilli(), archive.accessedAtEpochMillis)
+            assertEquals("keep", cache.readText())
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
     fun cancelledRefreshPreservesTheLastUsableArchive() = runBlocking {
         val directory = Files.createTempDirectory("history-cancel").toFile()
         try {

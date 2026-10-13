@@ -22,6 +22,9 @@ import androidx.core.content.FileProvider
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasScrollToNodeAction
@@ -31,6 +34,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.platform.app.InstrumentationRegistry
 import cz.majkey.pocasicesko.R
@@ -178,6 +182,31 @@ class WidgetRenderTest {
         assertEquals(false, saved.automaticTextColors)
         assertEquals(expectedPrimary, Color.parseColor(saved.primaryColor))
         assertEquals(expectedSecondary, Color.parseColor(saved.secondaryColor))
+    }
+
+    @Test
+    fun enablingAutomaticColorsAllowsApplyAfterAnInvalidManualHex() {
+        var applied: WidgetSettings? = null
+        compose.setContent {
+            CompositionLocalProvider(LocalContext provides context) {
+                WeatherTheme {
+                    WidgetEditorScreen(WidgetSettings(backgroundMode = WidgetBackgroundMode.LIGHT,
+                        automaticTextColors = false), null, {}, {}, { applied = it })
+                }
+            }
+        }
+        val primaryLabel = context.getString(R.string.widget_color_primary)
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(primaryLabel))
+        compose.onNodeWithText(primaryLabel).performScrollTo().performTextReplacement("#12")
+        compose.onNodeWithText(context.getString(R.string.widget_apply)).assertIsNotEnabled()
+        compose.onNodeWithText(context.getString(R.string.widget_automatic_text_colors))
+            .performScrollTo().performTouchInput { click() }
+        compose.onNodeWithText(primaryLabel).performScrollTo().assertTextContains("#FF000000")
+        compose.onNodeWithText(context.getString(R.string.widget_color_secondary))
+            .performScrollTo().assertTextContains("#CC000000")
+        compose.onNodeWithText(context.getString(R.string.widget_apply)).assertIsEnabled()
+            .performTouchInput { click() }
+        assertEquals(true, requireNotNull(applied).automaticTextColors)
     }
 
     @Test

@@ -622,7 +622,7 @@ def parse_previous_run_values(
 def canonical_value(variable: str, value: float | None, unit: str) -> float | None:
     if value is None:
         return None
-    canonical = _canonical_unit(variable)
+    canonical = canonical_unit(variable)
     if unit == canonical:
         converted = value
     elif variable in {"temperature", "dew_point"} and unit == "°F":
@@ -748,7 +748,7 @@ def _timestamps(
     return tuple(timestamps)
 
 
-def _canonical_unit(variable: str) -> str:
+def canonical_unit(variable: str) -> str:
     if variable in {"temperature", "dew_point"}:
         return "°C"
     if variable in {"sea_level_pressure", "surface_pressure"}:

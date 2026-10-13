@@ -98,7 +98,7 @@ behaviour was not tested.
 
 ## Review limits
 
-The Antigravity review matrix contained 100 bounded tasks, not 100 proven completed
+The initial 0.7.6 Antigravity review phase used a 100-task matrix, not 100 completed
 audits. Sixteen usable Gemini/Opus responses were retained before provider quota errors.
 Every proposed change was checked against callers and tests; unsupported regional-code,
 empty-median and 360-degree-wind claims were rejected. Review counts and agreement
@@ -106,3 +106,58 @@ ratings are not evidence of meteorological accuracy.
 
 See [cloud and precipitation diagnosis](2026-10-13-cloud-rain-diagnosis.md) for the
 actual source disagreements, station support limits and unchanged validation gates.
+
+## 0.7.7 follow-up
+
+The continued Antigravity run retained 80 usable bounded responses before the Opus
+and Gemini High quotas stopped further calls. Source packets were capped at 8,000
+characters and explicitly marked when truncated. These are advisory reviews, not
+80 full-repository audits. Full-caller checks and independent Astra reviews rejected
+unsupported cache, radar, HEX-fallback and notification claims before implementation.
+
+Confirmed fixes:
+
+- Cloud layers accepted invalid percentages, including negative fractions truncated
+  to zero. Validate the raw number before conversion; preserve unknown values and
+  the remaining forecast.
+- European Russian locations were assigned to northern Asia, and Iran fell inside
+  an overlapping African bounding box. Correct regional metadata without changing
+  the live API model list or assigning new forecast weights.
+- Station comparisons did not reject noncanonical forecast units. Require the
+  existing canonical unit before pairing. Normal provider parsers already converted
+  both value and unit; no corrupted frozen scores were demonstrated.
+- The radar mixed a changing Play/Pause accessible name with a toggle's pressed
+  state. Keep the localized name constant and the pressed state explicit.
+- Switching from invalid manual widget HEX to automatic colours left a hidden draft
+  blocking Apply. Validate the colours actually displayed; retain other validation.
+- Morning-briefing UI could show ON while background-coordinate consent was OFF and
+  the scheduler was disabled. Read back the scheduler state without changing consent.
+- A cache-write failure could discard a successfully downloaded archive. Treat the
+  write as optional after validating the response, retaining atomic storage, limits,
+  cancellation and offline fallback behaviour.
+
+Local checks passed 514 Android unit tests, 48 JavaScript tests, 423 research tests,
+Ruff and strict Pyright. Debug/test APK builds, debug/release lint and signed release
+APK/AAB builds passed for version 0.7.7, code 49. Existing lint warnings remain.
+
+The 18:30–18:40 UTC Huawei window passed 45 native tests: Android JSON parsing,
+model-consensus regressions, real-network radar, eight widget tests, 23 forecast
+layout tests, notification recovery and blocked-channel UI. The new widget test
+first failed at Apply's disabled state, then passed after the two-line fix. Radar
+rendered European/global future rasters and observed snapshots, held pause for
+2,200 ms, preserved source/time identity and kept at most four weather sources.
+The largest measured transition frame gap in this run was 28.5 ms; no universal
+frame-rate guarantee follows from this measurement.
+
+The actual app also reproduced Morning ON with background consent OFF. After the
+fix, tapping Morning kept both UI switches OFF and the stored consent false.
+Original debug briefing/alert preferences were restored and byte-compared before
+temporary backup removal; the app was reopened and left at Home. All ADB access
+was explicitly released at 18:38 UTC. Production data and system services were
+not changed. Android 13's permission-result branch was reviewed, not exercised on
+this Android 10 device.
+
+After the unit-boundary fix, the frozen September cloud replay produced the same
+SHA-256 `05440970e5b79ed857b7485d9f8dcdfb6f5f540c73a7e0c9ecf1aa7513805d92`.
+Its validation gate still fails. These fixes do not establish a cloud/rain accuracy
+gain or enable learned production weights.

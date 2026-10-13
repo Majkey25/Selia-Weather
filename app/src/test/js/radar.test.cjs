@@ -220,6 +220,20 @@ test('play and keyboard walk real frames and mode change cancels both', async ()
   assert.equal(Number(app.node('slider').value), app.context.frames[1].time); key('End'); assert.equal(Number(app.node('slider').value), app.context.frames.at(-1).time); key('Tab'); assert.equal(prevented, 3);
   app.context.setMode('observed'); assert.equal(app.context.timer, null); assert.equal(app.context.seekTimer, null);
 });
+test('play toggle keeps its localized accessible label constant', async () => {
+  const app = runtime({ search: '?lang=cs' }); await settled(); app.load();
+  const play = app.node('play');
+  const assertState = pressed => {
+    assert.equal(play['aria-label'], 'Přehrát');
+    assert.equal(play['aria-pressed'], String(pressed));
+  };
+  assertState(false);
+  app.context.togglePlay(); assertState(true);
+  app.context.togglePlay(); assertState(false);
+  app.context.togglePlay(); app.context.setMode('observed'); assertState(false);
+  app.context.togglePlay(); assertState(true);
+  app.fail(); assertState(false);
+});
 test('four-frame bound, preloading and hard mode/model transitions preserve source provenance', async () => {
   const app = runtime(); await settled(); app.load();
   for (let index = 1; index < 12; index++) { app.context.showFrame(index); app.load(); assert.ok([...app.sources.keys()].filter(id => id.startsWith('frame-')).length <= 4); }

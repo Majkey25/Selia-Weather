@@ -77,8 +77,8 @@ internal fun WidgetEditorScreen(
         }
     }
     val invalidColors = listOf(
-        settings.primaryColor,
-        settings.secondaryColor,
+        displayedColors.primaryColor,
+        displayedColors.secondaryColor,
         settings.accentColor,
     ).plus(settings.editableBackgroundColors()).any { !isWidgetColor(it) }
     val invalidDatePattern = remember(settings.dateFormat, settings.customDatePattern, locale) {

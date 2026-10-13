@@ -278,7 +278,7 @@ fun WeatherApp(
     ) { granted ->
         if (granted) {
             DailyBriefingScheduler.setEnabled(context, true)
-            dailyBriefingEnabled = true
+            dailyBriefingEnabled = DailyBriefingScheduler.isEnabled(context)
         }
         notificationsAllowed = WeatherAlertScheduler.notificationsAllowed(context)
         navigationScope.launch { syncAlerts() }
@@ -316,7 +316,7 @@ fun WeatherApp(
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         } else {
             DailyBriefingScheduler.setEnabled(context, true)
-            dailyBriefingEnabled = true
+            dailyBriefingEnabled = DailyBriefingScheduler.isEnabled(context)
         }
     }
 

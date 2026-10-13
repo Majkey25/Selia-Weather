@@ -15,7 +15,8 @@ enum class ForecastRegion {
 
 internal fun forecastRegionFor(location: CzechLocation): ForecastRegion = when {
     location.isInCzechia() -> ForecastRegion.CZECHIA
-    location.countryCode == "RU" -> ForecastRegion.NORTHERN_ASIA
+    location.countryCode == "RU" &&
+        (location.latitude !in EUROPE_LATITUDE || location.longitude !in EUROPE_LONGITUDE) -> ForecastRegion.NORTHERN_ASIA
     location.countryCode in SOUTH_CENTRAL_ASIA_COUNTRIES -> ForecastRegion.SOUTH_CENTRAL_ASIA
     location.countryCode in AFRICA_COUNTRIES -> ForecastRegion.AFRICA
     location.countryCode in SOUTH_AMERICA_COUNTRIES -> ForecastRegion.SOUTH_AMERICA
@@ -100,7 +101,7 @@ private val OCEANIA_LATITUDE = -50.0..5.0
 private val OCEANIA_LONGITUDE = 110.0..180.0
 
 private val SOUTH_CENTRAL_ASIA_COUNTRIES = setOf(
-    "AF", "BD", "BT", "IN", "KG", "KZ", "LK", "MV", "NP", "PK", "TJ", "TM", "UZ",
+    "AF", "BD", "BT", "IN", "IR", "KG", "KZ", "LK", "MV", "NP", "PK", "TJ", "TM", "UZ",
 )
 private val AFRICA_COUNTRIES = setOf(
     "AO", "BF", "BI", "BJ", "BW", "CD", "CF", "CG", "CI", "CM", "CV", "DJ", "DZ",

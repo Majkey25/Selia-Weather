@@ -60,6 +60,7 @@ class RadarWebViewTest {
                         "ready:typeof radarLayer!=='undefined'&&!!radarLayer&&radarLayer.ready&&!radarLayer.failed&&radarLayer.contentSeen&&map.isSourceLoaded(radarLayer.id)," +
                         "sourceId:typeof radarLayer==='undefined'||!radarLayer?'':radarLayer.id," +
                         "playing:timer!==null&&document.getElementById('play').getAttribute('aria-pressed')==='true'," +
+                        "playLabel:document.getElementById('play').getAttribute('aria-label')," +
                         "transitionDuration:transitionDuration," +
                         "rendered:window.radarPlaybackProbe||null," +
                         "type:typeof radarLayer==='undefined'||!radarLayer?'':radarLayer.frame.type," +
@@ -127,6 +128,8 @@ class RadarWebViewTest {
             }
         }
         fun assertPlaybackAndPause() {
+            val playLabel = state.get().getString("playLabel")
+            assertTrue(playLabel.isNotBlank())
             compose.runOnIdle {
                 view.evaluateJavascript("""
                     window.radarPlaybackProbe = null;
@@ -164,6 +167,7 @@ class RadarWebViewTest {
                         rendered.optInt("renders") >= if (state.get().optInt("transitionDuration") == 0) 1 else 3
                 }
                 assertEquals(time, state.get().getLong("sliderTime"))
+                assertEquals(playLabel, state.get().getString("playLabel"))
                 assertTrue(state.get().getString("sourceId") != initialSource)
                 val rendered = state.get().getJSONObject("rendered")
                 assertEquals(rendered.getString("expectedUrl"), rendered.getString("url"))
@@ -176,6 +180,7 @@ class RadarWebViewTest {
             compose.runOnIdle { view.evaluateJavascript("document.getElementById('play').click()", null) }
             compose.waitUntil(30_000) { readState(); !state.get().optBoolean("playing") && !state.get().optBoolean("pending") }
             val pausedTime = state.get().getLong("displayedTime")
+            assertEquals(playLabel, state.get().getString("playLabel"))
             val pausedSource = state.get().getString("sourceId")
             val pausedAt = SystemClock.elapsedRealtime()
             compose.waitUntil(5_000) {

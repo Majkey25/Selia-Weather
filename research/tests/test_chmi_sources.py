@@ -13,6 +13,7 @@ from aladin_ensemble.sources.chmi_station import (
     ElementMetadata,
     Station,
     build_source_manifest,
+    parse_cloud_observations,
     parse_element_metadata,
     parse_station_metadata,
     parse_station_observations,
@@ -199,6 +200,38 @@ def test_preserves_missing_flag_and_quality_without_zero_substitution() -> None:
     assert missing.value is None
     assert missing.flag == "M"
     assert missing.quality == 4
+
+
+def test_cloud_octas_require_good_quality_and_unique_hour() -> None:
+    station = _stations()["0-20000-0-11502"]
+    rows: list[list[str | int | float]] = [
+        [station.wigos_id, "N", f"2026-09-01T{hour:02d}:00:00Z", value, flag, quality]
+        for hour, (value, flag, quality) in enumerate(
+            ((0, "", 0), (7, "", 0), (8, "", 0), (9, "", 0), (8, "", 5),
+             ("", "", 4), (8, "M", 0))
+        )
+    ]
+
+    def parse() -> tuple[Observation, ...]:
+        source = StringIO(json.dumps({
+            "datumVytvoreni": "2026-10-02T22:00:00Z",
+            "data": {"data": {
+                "header": "STATION,ELEMENT,DT,VAL,FLAG,QUALITY", "values": rows,
+            }},
+        }))
+        return parse_cloud_observations(source, station, "a" * 64)
+
+    observations = parse()
+    assert tuple(item.value for item in observations) == (0.0, 0.875, 1.0)
+    assert all(item.variable == "cloud_cover" and item.unit == "1" for item in observations)
+    assert all(item.quality == 0 and item.source_checksum == "a" * 64 for item in observations)
+
+    rows.append([station.wigos_id, "N", "2026-09-01T00:00:00+00:00", 0, "", 0])
+    with pytest.raises(ValueError, match="duplicate"):
+        parse()
+    rows[-1] = [station.wigos_id, "N", "2026-09-01T07:00:00Z", 1.5, "", 0]
+    with pytest.raises(ValueError, match="integer octas"):
+        parse()
 
 
 def test_observation_preserves_negative_relative_sensor_height() -> None:

@@ -339,6 +339,52 @@ def parse_station_observations(
         )
 
 
+def parse_cloud_observations(
+    source: TextIO, station: Station, source_checksum: str,
+) -> tuple[Observation, ...]:
+    """Parse hourly SYNOP N octas; QC0 only, with code 9 excluded as unobservable."""
+    _, fields, rows = _collection(source)
+    if fields != ("STATION", "ELEMENT", "DT", "VAL", "FLAG", "QUALITY"):
+        raise ValueError("ČHMÚ cloud observation columns are invalid")
+    observations: list[Observation] = []
+    seen: set[datetime] = set()
+    for row in rows:
+        values = _row_values(row, fields)
+        if values["ELEMENT"] != "N":
+            continue
+        if values["STATION"] != station.wigos_id:
+            raise ValueError("ČHMÚ cloud observation station does not match")
+        valid_time = _timestamp(values["DT"], "DT")
+        if valid_time.minute or valid_time.second or valid_time.microsecond:
+            raise ValueError("ČHMÚ cloud observation must be a UTC hour")
+        if valid_time in seen:
+            raise ValueError("duplicate ČHMÚ cloud observation")
+        seen.add(valid_time)
+        quality = _quality(values["QUALITY"])
+        flag = _optional_flag(values["FLAG"])
+        if quality != 0 or flag is not None or values["VAL"] in ("", None):
+            continue
+        octas = _number(values["VAL"], "N")
+        if not octas.is_integer() or not 0 <= octas <= 9:
+            raise ValueError("ČHMÚ N must be integer octas 0–8 or unknown code 9")
+        if octas == 9:
+            continue
+        observations.append(Observation(
+            source=STATION_SOURCE,
+            station_id=station.wigos_id,
+            valid_time=valid_time,
+            latitude=station.latitude,
+            longitude=station.longitude,
+            elevation_m=station.elevation_m,
+            variable="cloud_cover",
+            value=octas / 8,
+            unit="1",
+            quality=quality,
+            source_checksum=source_checksum,
+        ))
+    return tuple(observations)
+
+
 def _variable(element_name: str, variable: str, height_m: float | None) -> str:
     if element_name in {"D", "F"} and uses_standard_measurement_height(
         element_name, height_m

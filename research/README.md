@@ -47,9 +47,10 @@ validated against the [Open-Meteo field units and WMO categories](https://open-m
 `--variables` can restrict the requested fields. Replay uses the exact `hourly` variables saved
 in the source URL, so legacy six-variable schema-1 captures retain their original records.
 Cloud fractions are converted with the existing unit adapter. Weather codes remain unscored
-categories, never MAE or arithmetic blend inputs. The current ČHMÚ and NOAA ISD parsers do not
-extract verified independent total cloud cover, so capturing it alone cannot establish cloud
-accuracy. ISD `GF1` can encode height-limited automated airport reports; a numeric total or
+categories, never MAE or arithmetic blend inputs. The separate ČHMÚ monthly cloud parser accepts
+quality-0 whole-sky `N` observations with a blank flag and integer octas 0–8; code 9 is excluded.
+This does not make current app conditions or the NOAA ISD layer calibration truth.
+ISD `GF1` can encode height-limited automated airport reports; a numeric total or
 `FM-12` report type alone does not establish full-sky measurement provenance. It stays in the
 original raw payload, not calibration observations. See
 [the source audit](../docs/research/2026-10-12-current-source-reliability.md).
@@ -88,6 +89,26 @@ only through `15:00 UTC`. The first captured forecast at `17:00 UTC` therefore s
 truth and no error score. That response is preserved by SHA-256
 `6b674a7e671611d6863a986ebee7f8ff4bfaaba8ab290272c76f5c6e16513e81` under the local capture
 archive's `truth` directory. No retry or scheduled check was created.
+
+## Frozen September cloud replay
+
+From the repository root, with the existing research environment:
+
+```powershell
+uv run --project research python research/scripts/cloud_confirmation_replay.py --study-dir .reference/tmp/cloud-validation-20261013 --output .reference/tmp/cloud-validation-20261013/new-replay.json
+```
+
+The script reconstructs the already-inspected September study from its 26 cached forecast
+responses and three ČHMÚ monthly files. It verifies the pinned report, source hashes, request
+identities, UTC hours, units, returned grids and paired coverage before recomputing scores.
+The original report is a provenance/cohort contract, not a source of computed scores. These
+local raw inputs are not bundled; missing or changed inputs fail without a network fallback.
+An existing output is never replaced.
+
+The reconstructed 2,614 pairs retain the original NO-GO: the 24-hour mean-minus-median daily
+95% interval reaches `+0.013223424351708845` percentage points. This is a reconstruction,
+not another untouched holdout or permission to export weights. See
+[cloud and precipitation diagnosis](../docs/research/2026-10-13-cloud-rain-diagnosis.md).
 
 ## Research environment
 

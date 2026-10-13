@@ -68,12 +68,19 @@ The delayed-preparation regression first failed on the phone at the unwanted ala
 reschedule, then passed after the one-line receiver fix. Its delayed holding job
 prevents the regression from starting an unrelated immediate weather refresh.
 
-A separate opt-in background probe used the real cached forecast. With the activity
-left behind Home, the delivery-day marker advanced and the pending briefing was
-cleared. The process was still present, so this is not cold-process proof. No active
-notification record or notification-shade rendering was verified; the UI dump
-returned a null root. Visible delivery remains unconfirmed. The probe's preferences
-and original disabled background consent were restored before releasing the phone.
+An earlier opt-in probe advanced the delivery-day marker, but retained the process
+and did not verify a visible notification. It was not cold-process proof.
+
+A subsequent 13:50–14:00 UTC Huawei window verified the natural scheduled path.
+Through the app's actual Notifications UI, background delivery was enabled and the
+briefing set to 15:57 local time. After Home and a scoped `am kill` of the debug app,
+`pidof` was empty. AlarmManager retained the exact 15:57 delivery alarm. After the
+alarm, a new process and an active notification record (ID 7001, channel
+`daily_weather_briefing`) appeared without opening the app. The notification shade
+visibly displayed Březnice's briefing and clothing/umbrella advice. This verifies
+delivery, not the forecast's meteorological accuracy or delivery under every OEM
+power-saving mode. Original debug preferences and disabled background consent were
+restored exactly; no production settings, accounts or system services were changed.
 
 ## Archive and AI sharing
 

@@ -158,6 +158,13 @@ Raw payloads and their hashes remain in the local research cache. Seven transpor
 requests were retried with unchanged parameters before scoring; successful bodies were
 reused. September is now examined data, not a future untouched validation period.
 
+The cache-only [replay script](../../research/scripts/cloud_confirmation_replay.py)
+reconstructs this inspected study from the verified raw responses, not the paired CSV
+or saved scores. It reproduced all 2,614 paired cases, the mean/median false-clear
+counts of 2/8 and 1/8, and the exact positive daily interval bound above. The original
+scripts are unavailable; this is a tested reconstruction, not recovery of those
+scripts or another independent validation. No weights or Android assets are exported.
+
 ## Verification contract
 
 Regression tests cover dry instantaneous codes with positive preceding-hour amounts,

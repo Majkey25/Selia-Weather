@@ -217,7 +217,10 @@ class ModelConsensusTest {
             "precipitation" to 0.0, "wind_speed_10m" to 10, "wind_direction_10m" to 180).forEach { (field, value) ->
             source.put("${field}_chmi_aladin_seamless", JSONArray(listOf(value, value)))
         }
-        listOf("a", "b", "c").forEach { id -> source.put("precipitation_$id", JSONArray(listOf(0.2, 0.2))) }
+        listOf("a", "b", "c").forEach { id ->
+            source.put("precipitation_$id", JSONArray(listOf(0.2, 0.2)))
+            source.put("weather_code_$id", JSONArray(listOf(61, 61)))
+        }
         val location = CzechLocation("Březnice", "Zlín", 49.18643, 17.66277, "CZ")
         val wet = JSONObject(blendModelForecast(BASE, JSONObject().put("hourly", source).toString(), location).json)
             .getJSONObject("hourly")
@@ -431,6 +434,30 @@ class ModelConsensusTest {
     }
 
     @Test
+    fun windSpeedDoesNotDisappearWhenModelDirectionsDisagree() {
+        for (directions in listOf(listOf(0, 90, 180, 270), listOf(350, 0, 10))) {
+            val base = JSONObject(BASE)
+            base.getJSONObject("current").put("time", "2026-08-29T19:00")
+            val models = JSONObject().put("time", JSONArray(listOf("2026-08-29T19:00")))
+            directions.forEachIndexed { index, direction ->
+                models.put("temperature_2m_m$index", JSONArray(listOf(20)))
+                    .put("wind_speed_10m_m$index", JSONArray(listOf(10)))
+                    .put("wind_direction_10m_m$index", JSONArray(listOf(direction)))
+            }
+            val result = JSONObject(blendModelForecast(
+                base.toString(), JSONObject().put("hourly", models).toString(),
+            ).json)
+
+            assertEquals(10.0, result.getJSONObject("hourly").getJSONArray("wind_speed_10m").getDouble(0), 1e-9)
+            assertEquals(10.0, result.getJSONObject("current").getDouble("wind_speed_10m"), 1e-9)
+            assertEquals(10.0, result.getJSONObject("daily").getJSONArray("wind_speed_10m_max").getDouble(0), 1e-9)
+            if (directions.size == 3) {
+                assertEquals(0, result.getJSONObject("hourly").getJSONArray("wind_direction_10m").getInt(0))
+            }
+        }
+    }
+
+    @Test
     fun blendsContinuousValuesAndDerivesConditionsLocally() {
         val result = blendModelForecast(BASE, MODELS)
         val root = JSONObject(result.json)
@@ -597,8 +624,8 @@ class ModelConsensusTest {
     }
 
     @Test
-    fun rainConditionUsesBlendedAmountRatherThanTieOfWetModelVotes() {
-        listOf(0.1 to 3, 0.4 to 61).forEach { (wetAmount, expectedCode) ->
+    fun precedingHourRainDoesNotOverrideInstantaneousDryConditions() {
+        listOf(0.1, 0.4).forEach { wetAmount ->
             val models = JSONObject(MODELS).also { root ->
                 val hourly = root.getJSONObject("hourly")
                 listOf("a", "b", "c", "d").forEachIndexed { index, suffix ->
@@ -612,9 +639,41 @@ class ModelConsensusTest {
             val hourly = result.getJSONObject("hourly")
 
             assertEquals(wetAmount / 2, hourly.getJSONArray("precipitation").getDouble(1), 0.0)
-            assertEquals(expectedCode, hourly.getJSONArray("weather_code").getInt(1))
+            assertEquals(3, hourly.getJSONArray("weather_code").getInt(1))
             assertEquals(0, hourly.getJSONArray("precipitation_probability").getInt(1))
         }
+    }
+
+    @Test
+    fun mixedLiquidConditionMajorityDoesNotBecomeDrySky() {
+        for (amount in listOf(0.0, 0.2)) {
+            val models = JSONObject(MODELS).also { root ->
+                val hourly = root.getJSONObject("hourly")
+                listOf(51, 51, 61, 80).forEachIndexed { index, code ->
+                    val suffix = listOf("a", "b", "c", "d")[index]
+                    hourly.put("weather_code_$suffix", JSONArray(listOf(code, code)))
+                        .put("precipitation_$suffix", JSONArray(listOf(amount, amount)))
+                }
+            }
+            val result = JSONObject(blendModelForecast(BASE, models.toString()).json)
+                .getJSONObject("hourly")
+            assertEquals("amount=$amount", 51, result.getJSONArray("weather_code").getInt(0))
+            assertEquals("amount=$amount", amount, result.getJSONArray("precipitation").getDouble(0), 0.0)
+        }
+    }
+
+    @Test
+    fun modelTimesWithDifferentOrInvalidUtcOffsetsKeepTheProviderForecast() {
+        val base = JSONObject(BASE).put("utc_offset_seconds", 7200).toString()
+        for (offset in listOf(3600, JSONObject.NULL, "7200", 7200.5, 64801)) {
+            val models = JSONObject(MODELS).put("utc_offset_seconds", offset).toString()
+            val result = blendModelForecast(base, models)
+            assertEquals(base, result.json)
+            assertEquals(ForecastCalculationMode.BEST_MATCH, result.mode)
+            assertEquals(ForecastFallbackReason.PROVIDER_UNAVAILABLE, result.fallbackReason)
+        }
+        val valid = JSONObject(MODELS).put("utc_offset_seconds", 7200.0).toString()
+        assertEquals(ForecastCalculationMode.DIAGNOSTIC_MEDIAN, blendModelForecast(base, valid).mode)
     }
 
     @Test

@@ -38,7 +38,15 @@ internal fun blendModelForecast(
 ): ModelBlendResult {
     val root = JSONObject(bestMatchJson)
     val target = root.getJSONObject("hourly")
-    val source = JSONObject(modelsJson).getJSONObject("hourly")
+    val modelsRoot = JSONObject(modelsJson)
+    val sourceOffset = modelsRoot.opt("utc_offset_seconds")
+    if (modelsRoot.has("utc_offset_seconds") && (sourceOffset !is Number ||
+        sourceOffset.toDouble() != sourceOffset.toInt().toDouble() || sourceOffset.toInt() !in -64800..64800 ||
+        (root.opt("utc_offset_seconds") as? Number)?.toDouble() != sourceOffset.toDouble())) {
+        return ModelBlendResult(bestMatchJson, ForecastCalculationMode.BEST_MATCH, emptyList(),
+            ForecastFallbackReason.PROVIDER_UNAVAILABLE)
+    }
+    val source = modelsRoot.getJSONObject("hourly")
     val regionalSkyModel = "chmi_aladin_seamless".takeIf { location?.isInCzechia() == true }
     val suffixes = source.keys().asSequence()
         .filter { it.startsWith("temperature_2m_") }
@@ -377,7 +385,8 @@ private fun blendWind(
     if (vectors.size < MINIMUM_MODELS) return false
     val east = vectors.sumOf { vector -> vector.speed * sin(vector.angle) } / vectors.size
     val north = vectors.sumOf { vector -> vector.speed * cos(vector.angle) } / vectors.size
-    target.optJSONArray("wind_speed_10m")?.put(targetIndex, hypot(east, north))
+    // Direction disagreement is uncertainty, not evidence of calm wind.
+    target.optJSONArray("wind_speed_10m")?.put(targetIndex, vectors.map { it.speed }.median())
     target.optJSONArray("wind_direction_10m")?.put(
         targetIndex,
         ((Math.toDegrees(atan2(east, north)) + 360.0) % 360.0).roundToInt() % 360,
@@ -406,26 +415,14 @@ private fun deriveCondition(
         target.optJSONArray("weather_code")?.put(targetIndex, regionalCode)
         return true
     }
-    val precipitation = modelValues(source, suffixes, "precipitation", sourceIndex)
     val clouds = modelValues(source, suffixes, "cloud_cover", sourceIndex)
     if (clouds.size < MINIMUM_MODELS) return false
     val cloudCover = target.optJSONArray("cloud_cover").numberOrNull(targetIndex)
         ?.roundToInt()?.coerceIn(0, 100) ?: return false
     val fallbackCode = target.optJSONArray("weather_code").numberOrNull(targetIndex)?.roundToInt()
-    val code = if (precipitation.size >= MINIMUM_MODELS) {
-        val amount = target.optJSONArray("precipitation").numberOrNull(targetIndex) ?: return false
-        deriveWeatherCode(
-            codes,
-            amount,
-            cloudCover,
-            fallbackCode,
-        )
-    } else {
-        // Cloud-only evidence updates sky classes, never disproves drizzle or other hazards.
-        // A provider's preceding-hour rain total is not an instantaneous condition.
-        if (fallbackCode !in 0..3) return false
-        majoritySkyCode(codes) ?: cloudWeatherCode(cloudCover)
-    }
+    // Preceding-hour totals cannot establish rain at this instant or disprove a provider's phenomenon.
+    if (fallbackCode != null && fallbackCode !in 0..3) return false
+    val code = majoritySkyCode(codes) ?: cloudWeatherCode(cloudCover)
     target.optJSONArray("weather_code")?.put(targetIndex, code)
     return true
 }
@@ -433,6 +430,7 @@ private fun deriveCondition(
 private fun phenomenonWeatherCode(codes: List<Int>): Int? {
     if (codes.size < MINIMUM_MODELS) return null
     val required = codes.size / 2 + 1
+    val liquidCodes = codes.filter { it in DRIZZLE_CODES || it in 61..65 || it in 80..82 }
     return when {
         codes.count { it in 95..99 } >= required -> 95
         codes.count { it in 66..67 } >= required -> 66
@@ -445,21 +443,8 @@ private fun phenomenonWeatherCode(codes: List<Int>): Int? {
             (80..82).firstOrNull { code -> codes.count { it == code } >= required } ?: 80
         codes.count { it in 61..65 || it in 80..82 } >= required ->
             listOf(61, 63, 65).firstOrNull { code -> codes.count { it == code } >= required } ?: 61
+        liquidCodes.size >= required -> liquidCodes.sorted().groupingBy { it }.eachCount().maxBy { it.value }.key
         else -> null
-    }
-}
-
-private fun deriveWeatherCode(
-    codes: List<Int>,
-    precipitation: Double,
-    cloudCover: Int,
-    fallbackCode: Int?,
-): Int {
-    // An unvalidated dry sky vote cannot disprove a provider's rain, fog, or other phenomenon.
-    if (fallbackCode != null && fallbackCode !in 0..3) return fallbackCode
-    return when {
-        precipitation >= WET_THRESHOLD_MM -> 61
-        else -> majoritySkyCode(codes) ?: cloudWeatherCode(cloudCover)
     }
 }
 
@@ -642,7 +627,6 @@ private val CONTINUOUS_FIELDS = listOf(
     "visibility",
 )
 // Keep current sky and interval aggregates at the provider's current validity time.
-// Hourly conditions are derived partly from the preceding hour's precipitation.
 private val CURRENT_FIELDS = CONTINUOUS_FIELDS - "wind_gusts_10m" + listOf(
     "wind_speed_10m",
     "wind_direction_10m",

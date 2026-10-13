@@ -129,13 +129,16 @@ not claim a winning blend before a locked holdout passes.
 `train` fits deterministic constrained scalar weights and wind-vector weights in east/north
 components. Precipitation occurrence uses non-negative logistic calibration whose regularisation
 is selected only through supplied training folds; positive amounts use separately fitted weights
-and a weighted median. `fallback` implements the approved sparse-segment hierarchy and records an
-explicit reason for every excluded fit. Holdout acceptance is still a separate gate.
+and the same linear blend optimized during training. `fallback` implements the approved
+sparse-segment hierarchy and records an explicit reason for every excluded fit. Holdout acceptance
+is still a separate gate.
 
 The first 90-day training plus 30-day holdout run is complete. Six scalar lead segments passed, but
 nationwide temperature/wind truth coverage and every precipitation segment did not. No production
 weights were exported. The exact production gate and results are recorded in
 [`docs/research/czech-ensemble-validation.md`](../docs/research/czech-ensemble-validation.md).
+Historical precipitation amount scores used the pre-0.7.5 weighted median and need a rerun
+with the corrected linear predictor before supporting a skill claim.
 The current model registry is complete with 15 eligible candidates and 2 definitive exclusions.
 The export code still refuses any future registry whose status is not `complete`.
 [`model-contracts.json`](model-contracts.json) records the checked grid resolution and update

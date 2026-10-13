@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.7.5] - 2026-10-13
+
+- Keep instantaneous weather conditions separate from preceding-hour rainfall totals. Preserve a strict liquid-precipitation majority when models disagree between drizzle, rain and showers instead of turning it into dry sky.
+- Reject model-response time joins with incompatible UTC offsets. Keep the provider forecast when the timestamps cannot be safely matched.
+- Show uncertainty in the next-rain outlook when a minority model predicts trace precipitation, rather than promising a rain-free next 24 hours. Preserve the provider's precipitation probability; model vote counts are not calibrated rain probabilities.
+- Calculate hourly wind speed from the median of valid model speeds instead of cancelling opposing model directions. Keep circular direction handling, minimum-source safeguards and confidence thresholds unchanged. On the September six-station comparison, wind-speed MAE fell by 5.4% at nominal 24 hours and 7.1% at 48 hours. This is not a worldwide or all-weather accuracy claim.
+- Recognize documented modern NOAA station sources in the independent observation validation pipeline. Keep unknown sources and failed quality checks excluded.
+- Use the trained linear estimator for research precipitation amounts instead of applying linear weights to a different, weighted-median estimator. No learned production weights are enabled by this correction.
+- Remove numerical-zero optimizer weights before counting fitted sources. Floating-point residue must not pass the research minimum-source gate as another model.
+
 ## [0.7.3] - 2026-10-12
 
 - Explain hourly confidence with named model predictions, cloud cover, wind, temperature and rainfall for the displayed forecast interval. Keep confidence thresholds unchanged and include the condition actually shown for the current hour.

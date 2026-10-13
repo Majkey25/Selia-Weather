@@ -1074,7 +1074,7 @@ private fun AtAGlanceSection(
     val maximumProbability = maximumPrecipitationProbability(snapshot.hourly, referenceTime)
         ?.let { "$it %" }
     val nextRain = nextWetHour(snapshot.hourly, referenceTime)?.let { nextPrecipitationLabel(it, locale) }
-        ?: stringResource(if (maximumProbability == null) R.string.unavailable else R.string.no_rain_next_24h)
+        ?: stringResource(precipitationOutlookResource(snapshot.hourly, referenceTime))
     val condition = conditionFor(snapshot.current.weatherCode, snapshot.current.isDay)
     DetailSection(stringResource(R.string.at_a_glance)) {
         Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
@@ -1146,6 +1146,13 @@ internal fun nextWetHour(hourly: List<HourlyWeather>, currentTime: String): Hour
     detailUpcomingHours(hourly, currentTime).firstOrNull { hour ->
         hourlyRainLevel(hour) != HourlyRainLevel.NONE
     }
+
+internal fun precipitationOutlookResource(hourly: List<HourlyWeather>, currentTime: String): Int = when {
+    detailUpcomingHours(hourly, currentTime).any { (it.precipitationSpread?.wetModelCount ?: 0) > 0 } ->
+        R.string.hour_summary_uncertain
+    maximumPrecipitationProbability(hourly, currentTime) == null -> R.string.unavailable
+    else -> R.string.no_rain_next_24h
+}
 
 internal fun nextPrecipitationLabel(hour: HourlyWeather, locale: java.util.Locale): String? {
     val accumulation = listOf(hour.precipitation, hour.rain, hour.showers, hour.snowfall)

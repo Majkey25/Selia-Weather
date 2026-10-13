@@ -73,6 +73,8 @@ def test_psv_preserves_celsius_utc_minute_station_id_and_actual_elevation() -> N
     ("0", "223", False), ("3", "223", False), ("n", "83", False),
     ("4", "313", True), ("9", "313", True), ("1", "unknown", False),
     ("", "999", False), ("", "ERA5", False),
+    ("", "412", True), ("", "413", True), ("n", "412", False),
+    ("s", "413", False), ("1", "412", False), ("1", "413", False),
 ])
 def test_quality_codes_are_source_specific(quality: str, source: str, accepted: bool) -> None:
     text = (HEADER + ROW).replace("|1|223|", f"|{quality}|{source}|")

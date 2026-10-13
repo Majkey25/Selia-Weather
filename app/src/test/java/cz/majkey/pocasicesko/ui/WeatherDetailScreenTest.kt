@@ -1,6 +1,8 @@
 package cz.majkey.pocasicesko.ui
 
+import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.data.HourlyWeather
+import cz.majkey.pocasicesko.data.PrecipitationModelSpread
 import java.io.File
 import java.util.Locale
 import org.junit.Assert.assertEquals
@@ -48,6 +50,22 @@ class WeatherDetailScreenTest {
         assertEquals(trace, nextWetHour(listOf(meaningful, trace), reference))
         val drizzle = minimal.copy(weatherCode = 51)
         assertEquals(drizzle, nextWetHour(listOf(meaningful, drizzle), reference))
+    }
+
+    @Test
+    fun minorityTraceKeepsOutlookUncertainWithoutInventingRainArrivalOrProbability() {
+        val reference = "2026-08-29T18:30"
+        val dry = hour("2026-08-29T19:00", probability = 0, precipitation = 0.0)
+            .copy(precipitationSpread = PrecipitationModelSpread(9, 0, 0.0, 0.0))
+        assertEquals(R.string.no_rain_next_24h, precipitationOutlookResource(listOf(dry), reference))
+
+        val minorityTrace = dry.copy(precipitationSpread = PrecipitationModelSpread(9, 1, 0.0, 0.03))
+        assertNull(nextWetHour(listOf(minorityTrace), reference))
+        assertEquals(0, maximumPrecipitationProbability(listOf(minorityTrace), reference))
+        assertEquals(R.string.hour_summary_uncertain, precipitationOutlookResource(listOf(minorityTrace), reference))
+        assertEquals(R.string.no_rain_next_24h, precipitationOutlookResource(listOf(dry,
+            minorityTrace.copy(time = "2026-08-29T18:00"),
+            minorityTrace.copy(time = "2026-08-30T19:00")), reference))
     }
 
     @Test

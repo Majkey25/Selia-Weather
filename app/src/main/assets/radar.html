@@ -264,6 +264,11 @@
         map = new maplibre.Map({ container: 'map', style: { version: 8, sources: {}, layers: [] },
           center: [longitude, latitude], zoom: 6, minZoom: 2, maxZoom: 11, maxPitch: 0,
           attributionControl: false, dragRotate: false, touchPitch: false, renderWorldCopies: true,
+          transformRequest: function(url, type) {
+            var retry = type === 'Tile' && pendingLayer && pendingLayer.retried ?
+              forecastTileUrl(pendingLayer.frame).split('{bbox-epsg-3857}') : null;
+            return { url: url, cache: retry && url.startsWith(retry[0]) && url.endsWith(retry[1]) ? 'reload' : 'default' };
+          },
           locale: { 'Map.Title': TEXT.map } });
         map.addControl(new maplibre.AttributionControl({ compact: false }), 'bottom-left');
         map.touchZoomRotate.disableRotation();
@@ -280,7 +285,7 @@
         map.on('sourcedata', function(event) { frameSourceEvent(event, false); });
         map.on('error', function(event) {
           var layer = frameSource(event.sourceId);
-          if (layer) failFrame(layer);
+          if (layer) failFrame(layer, event.error && event.error.message === 'The source image could not be decoded.');
         });
       } catch (_) { mapFailed(); }
     }
@@ -403,7 +408,10 @@
           }, REQUEST_TIMEOUT_MS);
         }
       } else {
-        if (event.tile) layer.contentSeen = true;
+        if (event.tile) {
+          layer.contentSeen = true;
+          if (pendingLayer === layer) waitForFrame(layer);
+        }
         if (!layer.contentSeen || !event.isSourceLoaded) return;
         layer.ready = !layer.failed;
         if (pendingLayer === layer && layer.ready) commitFrame(layer);
@@ -413,8 +421,12 @@
         }
       }
     }
-    function failFrame(layer) {
+    function failFrame(layer, decodeError) {
       layer.failed = true; layer.ready = false;
+      if (decodeError && pendingLayer === layer && !layer.retried && layer.frame.type === 'forecast' && pageActive()) {
+        var index = frames.findIndex(function(frame) { return sameFrame(frame, layer.frame); });
+        if (index >= 0) { renderFrame(index, true, true); return; }
+      }
       if (radarLayer === layer || pendingLayer === layer) {
         stopPlay(); setStatus(unavailableText(layer.frame));
         if (pendingLayer === layer) { clearPending(); restoreDisplayedSelection(); }
@@ -638,7 +650,7 @@
       selectedTime = frames[index].time;
       renderFrame(index);
     }
-    function renderFrame(index, retryTiles) {
+    function renderFrame(index, retryTiles, retried) {
       var frame = frames[index];
       if (!frame || !pageActive()) return;
       clearPending();
@@ -652,16 +664,21 @@
         removeSource(preloadLayer); preloadLayer = null;
       }
       var layer = preloadLayer || newFrameLayer(index);
+      layer.retried = !!retried;
       preloadLayer = null;
       pendingLayer = layer;
       updateSlider(frame);
       if (layer.ready) { commitFrame(layer); return; }
       setStatus(loadingText(frame));
+      waitForFrame(layer);
+      addFrameLayer(layer);
+    }
+    function waitForFrame(layer) {
+      clearTimeout(tileTimeout);
       tileTimeout = setTimeout(function() {
         if (pendingLayer !== layer) return;
-        clearPending(); stopPlay(); restoreDisplayedSelection(); setStatus(unavailableText(frame));
+        clearPending(); stopPlay(); restoreDisplayedSelection(); setStatus(unavailableText(layer.frame));
       }, REQUEST_TIMEOUT_MS);
-      addFrameLayer(layer);
     }
     function formatTime(epochSeconds, showZone) {
       return new Date(epochSeconds * 1000).toLocaleTimeString(language, { timeZone: timezone,

@@ -24,6 +24,7 @@ data class HourlyModelInput(
     internal val eastWind get() = windSpeedKmh * kotlin.math.sin(Math.toRadians(windDirectionDegrees))
     internal val northWind get() = windSpeedKmh * kotlin.math.cos(Math.toRadians(windDirectionDegrees))
     internal val condition get() = conditionFor(weatherCode).kind
+    internal val conditionGroup get() = condition to (weatherCode in 56..57 || weatherCode in 66..67)
 }
 
 internal val SKY_CONDITION_KINDS = listOf(WeatherKind.CLEAR, WeatherKind.MAINLY_CLEAR, WeatherKind.PARTLY_CLOUDY, WeatherKind.CLOUDY)
@@ -101,7 +102,9 @@ internal fun hourlyForecastConfidence(
     }
     val count = minOf(evidence.modelCount, rain.modelCount)
     val wetShare = rain.wetModelCount.toDouble() / rain.modelCount
-    val conditionShare = evidence.agreeingConditionCount.toDouble() / evidence.modelCount
+    val conditionCount = evidence.modelInputs.takeIf { it.isNotEmpty() }
+        ?.groupingBy { it.conditionGroup }?.eachCount()?.values?.maxOrNull() ?: evidence.agreeingConditionCount
+    val conditionShare = conditionCount.toDouble() / evidence.modelCount
     // Current conditions can describe a later quarter-hour than the forecast evidence.
     val conditionMismatch = shownTime == time && shownCondition != evidence.dominantCondition
     val strongMismatch = conditionMismatch && (shownCondition !in SKY_CONDITION_KINDS || evidence.dominantCondition !in SKY_CONDITION_KINDS ||

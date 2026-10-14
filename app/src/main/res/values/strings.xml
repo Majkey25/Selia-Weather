@@ -437,4 +437,17 @@
     <string name="precipitation_help">About this forecast</string>
     <string name="advanced_details">Advanced details</string>
     <string name="hourly_model_disagreement">Local precipitation cannot be ruled out: %1$d of %2$d models show nonzero amounts, up to %3$s. This disagreement is not a calibrated rain probability.</string>
+    <string name="condition_light_drizzle">Light drizzle</string>
+    <string name="condition_moderate_drizzle">Moderate drizzle</string>
+    <string name="condition_dense_drizzle">Dense drizzle</string>
+    <string name="condition_light_freezing_drizzle">Light freezing drizzle</string>
+    <string name="condition_dense_freezing_drizzle">Dense freezing drizzle</string>
+    <string name="condition_light_rain">Light rain</string>
+    <string name="condition_moderate_rain">Moderate rain</string>
+    <string name="condition_heavy_rain">Heavy rain</string>
+    <string name="condition_light_freezing_rain">Light freezing rain</string>
+    <string name="condition_heavy_freezing_rain">Heavy freezing rain</string>
+    <string name="condition_light_showers">Light rain showers</string>
+    <string name="condition_moderate_showers">Moderate rain showers</string>
+    <string name="condition_violent_showers">Violent rain showers</string>
 </resources>

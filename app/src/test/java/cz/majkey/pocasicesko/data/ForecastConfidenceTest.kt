@@ -170,6 +170,19 @@ class ForecastConfidenceTest {
     }
 
     @Test
+    fun ordinaryAndFreezingRainAreNotUnanimousConditionAgreement() {
+        val inputs = listOf(61, 61, 67, 67, 67).mapIndexed { index, code ->
+            HourlyModelInput("model_$index", 0.0, 10.0, 180.0, 100.0, code, 0.3)
+        }
+        val rain = evidence.copy(dominantCondition = WeatherKind.RAIN, wetModelCount = 5,
+            minimumPrecipitationMm = 0.3, maximumPrecipitationMm = 0.3, modelInputs = inputs)
+        val wet = hour().copy(weatherCode = 67, precipitation = 0.3, modelAgreement = rain)
+        assertEquals(ConfidenceLevel.MODERATE, hourlyForecastConfidence(wet, wet, now, 0).level)
+        val unanimous = wet.copy(modelAgreement = rain.copy(modelInputs = inputs.map { it.copy(weatherCode = 67) }))
+        assertEquals(ConfidenceLevel.HIGH, hourlyForecastConfidence(unanimous, unanimous, now, 0).level)
+    }
+
+    @Test
     fun sparseDayCannotInheritAHighRatingFromOneHour() {
         val hours = listOf(hour())
         val result = dailyForecastConfidence("2026-10-07", hours, mapOf(hours.single().time to hour()), now, 0)

@@ -175,6 +175,79 @@ test('failed replacement and timeout restore actual provenance; new-source retry
     app.context.showFrame(4); assert.notEqual(app.context.pendingLayer, failed); app.load(); assert.equal(app.node('status').hidden, true);
   }
 });
+
+test('pending raster timeout measures stalled loading, not time spent making tile progress', async () => {
+  const app = runtime(); await settled(); app.load();
+  const displayed = app.context.radarLayer;
+  app.context.showFrame(4);
+  const pending = app.context.pendingLayer, deadline = app.context.tileTimeout;
+  app.events.sourcedata({ sourceId: pending.id, tile: {}, isSourceLoaded: false });
+  assert.equal(app.timeouts.has(deadline), false);
+  assert.notEqual(app.context.tileTimeout, deadline);
+  assert.equal(app.context.pendingLayer, pending);
+  assert.equal(app.context.radarLayer, displayed);
+  app.fire(app.context.tileTimeout);
+  assert.equal(app.context.pendingLayer, null);
+  assert.equal(app.context.radarLayer, displayed);
+  assert.match(app.node('status').textContent, /unavailable/);
+});
+
+test('forecast image decode failure retries once without cache, then preserves the last valid frame', async () => {
+  const app = runtime(); await settled(); app.load();
+  const displayed = app.context.radarLayer;
+  app.context.showFrame(4);
+  const failed = app.context.pendingLayer;
+  app.events.error({ sourceId: failed.id, error: new Error('The source image could not be decoded.') });
+  const retry = app.context.pendingLayer;
+  assert.ok(retry && retry !== failed);
+  assert.equal(retry.frame, failed.frame);
+  const tile = app.context.forecastTileUrl(retry.frame).replace('{bbox-epsg-3857}', '0,0,1,1');
+  assert.equal(app.events.options.transformRequest(tile, 'Tile').cache, 'reload');
+  assert.ok(!app.sources.has(failed.id));
+  app.events.error({ sourceId: retry.id, error: new Error('The source image could not be decoded.') });
+  assert.equal(app.context.pendingLayer, null);
+  assert.equal(app.context.radarLayer, displayed);
+  assert.match(app.node('status').textContent, /unavailable/);
+  app.context.showFrame(4); app.load();
+  assert.equal(app.context.radarLayer.frame, failed.frame);
+  assert.equal(app.node('status').hidden, true);
+});
+
+test('transient forecast decode failure recovers during playback without disabling normal tile caching', async () => {
+  const app = runtime(); await settled(); app.load();
+  const displayedTile = app.context.forecastTileUrl(app.context.radarLayer.frame).replace('{bbox-epsg-3857}', '0,0,1,1');
+  assert.equal(app.events.options.transformRequest(displayedTile, 'Tile').cache, 'default');
+  app.context.togglePlay();
+  [...app.intervals.values()][0]();
+  const failed = app.context.pendingLayer;
+  const tile = app.context.forecastTileUrl(failed.frame).replace('{bbox-epsg-3857}', '0,0,1,1');
+  app.events.error({ sourceId: failed.id, error: new Error('The source image could not be decoded.') });
+  assert.equal(app.events.options.transformRequest(tile, 'Tile').cache, 'reload');
+  assert.equal(app.events.options.transformRequest(displayedTile, 'Tile').cache, 'default');
+  assert.equal(app.events.options.transformRequest(tile, 'Image').cache, 'default');
+  assert.equal(app.events.options.transformRequest('https://tile.openstreetmap.org/6/30/20.png', 'Tile').cache, 'default');
+  app.load(failed);
+  assert.notEqual(app.context.radarLayer, failed);
+  app.load();
+  assert.equal(app.context.radarLayer.frame, failed.frame);
+  assert.equal(app.node('status').hidden, true);
+  assert.equal(app.node('play')['aria-pressed'], 'true');
+  assert.equal(app.events.options.transformRequest(tile, 'Tile').cache, 'default');
+  assert.ok(app.sources.size <= 6); // Four weather sources, base and location.
+});
+
+test('HTTP failures and observed image errors do not trigger the forecast decode retry', async () => {
+  const app = runtime(); await settled(); app.load();
+  app.context.showFrame(4);
+  const sequence = app.context.sourceSequence;
+  app.events.error({ sourceId: app.context.pendingLayer.id, error: { status: 429, message: 'Too Many Requests' } });
+  assert.equal(app.context.pendingLayer, null);
+  assert.equal(app.context.sourceSequence, sequence);
+  app.context.setMode('observed');
+  app.events.error({ sourceId: app.context.pendingLayer.id, error: new Error('The source image could not be decoded.') });
+  assert.equal(app.context.pendingLayer, null);
+  assert.match(app.node('status').textContent, /Observed radar is unavailable/);
+});
 test('displayed source remains failed on later data; panned timeout and retry work', async () => {
   const app = runtime(); await settled(); app.load(); const old = app.context.radarLayer; app.loading(); app.fail(old); app.load(old); app.loading(); app.load(old);
   assert.equal(old.failed, true); assert.equal(old.ready, false); app.context.showFrame(app.context.frameIndex); app.load(); assert.equal(app.node('status').hidden, true);

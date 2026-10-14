@@ -3,12 +3,32 @@ package cz.majkey.pocasicesko.widget
 import android.appwidget.AppWidgetManager
 import android.content.Intent
 import cz.majkey.pocasicesko.data.WeatherConditionKey
+import cz.majkey.pocasicesko.data.WeatherKind
+import cz.majkey.pocasicesko.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class WidgetConditionKeyTest {
+    @Test
+    fun preciseConditionLabelsUseCachedWeatherCode() {
+        assertEquals(R.string.condition_light_rain, widgetConditionLabelResource("RAIN", WeatherKind.RAIN, 61))
+        assertEquals(R.string.condition_heavy_rain, widgetConditionLabelResource("RAIN", WeatherKind.RAIN, 65))
+        assertEquals(R.string.condition_light_freezing_drizzle,
+            widgetConditionLabelResource("DRIZZLE", WeatherKind.RAIN, 56))
+    }
+
+    @Test
+    fun oldWidgetCacheKeepsGenericLabelsAndPlaceholder() {
+        assertEquals(R.string.condition_rain, widgetConditionLabelResource("RAIN", WeatherKind.RAIN))
+        assertEquals(R.string.condition_drizzle, widgetConditionLabelResource("DRIZZLE", WeatherKind.RAIN))
+        assertEquals(R.string.condition_showers, widgetConditionLabelResource("SHOWERS", WeatherKind.RAIN))
+        assertEquals(R.string.condition_rain, widgetConditionLabelResource("RAIN", WeatherKind.RAIN, -1))
+        assertEquals(R.string.condition_unknown, widgetConditionLabelResource("old translated value", WeatherKind.RAIN))
+        assertEquals(R.string.widget_placeholder_condition, widgetConditionLabelResource(null, WeatherKind.UNKNOWN))
+    }
+
     @Test
     fun `recognizes locale broadcasts that require widget rerendering`() {
         assertTrue(isWidgetDisplayChange(Intent.ACTION_APPLICATION_LOCALE_CHANGED))

@@ -230,10 +230,11 @@ class WeatherWidgetProvider : AppWidgetProvider() {
             val city = weather.getString(WeatherRepository.KEY_WIDGET_CITY, null)
                 ?: localizedContext.getString(R.string.widget_placeholder_city)
             val temperature = weather.getFloat(WeatherRepository.KEY_WIDGET_TEMPERATURE, Float.NaN)
-            val condition = localizedContext.widgetConditionLabel(
+            val condition = localizedContext.getString(widgetConditionLabelResource(
                 weather.getString(WeatherRepository.KEY_WIDGET_CONDITION_KEY, null),
                 kind,
-            )
+                weather.getInt(WeatherRepository.KEY_WIDGET_WEATHER_CODE, -1),
+            ))
             val high = weather.getFloat(WeatherRepository.KEY_WIDGET_HIGH, Float.NaN)
             val low = weather.getFloat(WeatherRepository.KEY_WIDGET_LOW, Float.NaN)
             val hourlyTimes = weather.getString(WeatherRepository.KEY_WIDGET_HOURLY_TIMES, null)
@@ -869,6 +870,6 @@ internal fun widgetIconFor(kind: WeatherKind, isDay: Boolean, key: WeatherCondit
     WeatherKind.SNOW -> R.drawable.ic_weather_snow
 }
 
-internal fun Context.widgetConditionLabel(conditionKey: String?, kind: WeatherKind): String = conditionKey
-    ?.let { getString(WeatherCondition(widgetConditionKey(it), kind).labelResource()) }
-    ?: getString(R.string.widget_placeholder_condition)
+internal fun widgetConditionLabelResource(conditionKey: String?, kind: WeatherKind, weatherCode: Int? = null): Int = conditionKey
+    ?.let { WeatherCondition(widgetConditionKey(it), kind, weatherCode).labelResource() }
+    ?: R.string.widget_placeholder_condition

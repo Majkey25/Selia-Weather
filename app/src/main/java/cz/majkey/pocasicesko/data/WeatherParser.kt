@@ -3,6 +3,7 @@ package cz.majkey.pocasicesko.data
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
+import kotlin.math.roundToInt
 
 object WeatherParser {
     fun parseForecast(json: String, updatedAtEpochMillis: Long): WeatherSnapshot {
@@ -77,7 +78,7 @@ object WeatherParser {
                         cloudCoverLow = hourlyJson.optionalDoubleAt("cloud_cover_low", index)?.takeIf { it in 0.0..100.0 }?.toInt(),
                         cloudCoverMid = hourlyJson.optionalDoubleAt("cloud_cover_mid", index)?.takeIf { it in 0.0..100.0 }?.toInt(),
                         cloudCoverHigh = hourlyJson.optionalDoubleAt("cloud_cover_high", index)?.takeIf { it in 0.0..100.0 }?.toInt(),
-                        cloudCover = hourlyJson.optionalDoubleAt("cloud_cover", index)?.takeIf { it in 0.0..100.0 }?.toInt(),
+                        cloudCover = hourlyJson.optionalDoubleAt("cloud_cover", index)?.takeIf { it in 0.0..100.0 }?.roundToInt(),
                         visibilityMeters = hourlyJson.optionalDoubleAt("visibility", index),
                         surfacePressure = hourlyJson.optionalDoubleAt("surface_pressure", index),
                         windGusts = hourlyJson.optionalDoubleAt("wind_gusts_10m", index),
@@ -143,7 +144,7 @@ object WeatherParser {
                 weatherCode = currentJson.requiredInt("weather_code"),
                 cloudCover = currentJson.requiredDouble("cloud_cover").also {
                     if (it !in 0.0..100.0) throw JSONException("Hodnota cloud_cover je mimo rozsah 0 až 100.")
-                }.toInt(),
+                }.roundToInt(),
                 pressure = currentJson.requiredDouble("pressure_msl"),
                 windSpeed = currentJson.requiredDouble("wind_speed_10m"),
                 windDirection = currentJson.requiredInt("wind_direction_10m"),

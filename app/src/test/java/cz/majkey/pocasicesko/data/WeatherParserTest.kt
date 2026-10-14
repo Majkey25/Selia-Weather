@@ -75,8 +75,8 @@ class WeatherParserTest {
 
     @Test
     fun totalCloudBoundsUseRawValuesBeforeIntegerConversion() {
-        val values = listOf(-1.0, -0.1, 100.1, 255.0, 0.0, 12.8, 100.0)
-        val expected = listOf(null, null, null, null, 0, 12, 100)
+        val values = listOf(-1.0, -0.1, 100.1, 255.0, 0.0, 12.8, 100.0, 19.5, 49.5, 79.5)
+        val expected = listOf(null, null, null, null, 0, 13, 100, 20, 50, 80)
         values.forEachIndexed { index, value ->
             val root = JSONObject(VALID_FORECAST)
             root.getJSONObject("hourly").put("cloud_cover", JSONArray().put(value).put(JSONObject.NULL))

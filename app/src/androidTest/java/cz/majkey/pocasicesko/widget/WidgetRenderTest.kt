@@ -39,6 +39,11 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.test.platform.app.InstrumentationRegistry
 import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.data.WeatherRepository
+import cz.majkey.pocasicesko.data.CzechLocation
+import cz.majkey.pocasicesko.data.CurrentWeather
+import cz.majkey.pocasicesko.data.DailyWeather
+import cz.majkey.pocasicesko.data.HourlyWeather
+import cz.majkey.pocasicesko.data.WeatherSnapshot
 import cz.majkey.pocasicesko.ui.WeatherTheme
 import cz.majkey.pocasicesko.ui.AppAppearance
 import cz.majkey.pocasicesko.ui.AppearanceConfig
@@ -87,6 +92,48 @@ class WidgetRenderTest {
     @After
     fun removeFixturePreferences() {
         context.getSharedPreferences(WeatherRepository.PREFERENCES_NAME, Context.MODE_PRIVATE).edit().clear().commit()
+    }
+
+    @Test
+    fun persistedWidgetRainUsesTheExactIntervalContainingNow() {
+        val location = CzechLocation("Prague", "Prague", 50.0755, 14.4378)
+        val repository = WeatherRepository(context)
+        val persist = WeatherRepository::class.java.getDeclaredMethod(
+            "persist", CzechLocation::class.java, String::class.java, WeatherSnapshot::class.java,
+        ).apply { isAccessible = true }
+        fun hour(time: String, probability: Int?) = HourlyWeather(
+            time, 20.0, 50, probability, 0.0, 0, 1015.0, 5.0, 0, true,
+        )
+        val past = hour("2026-10-14T10:00", 0)
+        val containing = hour("2026-10-14T11:00", 80)
+        val later = hour("2026-10-14T12:00", 10)
+        val midnight = hour("2026-10-15T00:00", 60)
+        val cases = listOf(
+            Triple("2026-10-14T10:00", listOf(past, containing, later), 80),
+            Triple("2026-10-14T10:45", listOf(past, containing, later), 80),
+            Triple("2026-10-14T10:59:59", listOf(later, containing, past), 80),
+            Triple("2026-10-14T10:45", listOf(past, later), -1),
+            Triple("2026-10-14T10:45", listOf(past, containing.copy(precipitationProbability = null)), -1),
+            Triple("2026-10-14T10:45", listOf(past, containing, containing.copy(time = "2026-10-14T11:00:00")), -1),
+            Triple("2026-10-14T23:45", listOf(midnight, later), 60),
+        )
+        assertTrue(WeatherWidgetProvider.saveSettings(context, 41, WidgetSettings(showPrecipitation = true)))
+        for ((time, hours, expected) in cases) {
+            val snapshot = WeatherSnapshot("UTC",
+                CurrentWeather(time, 20.0, 20.0, 50, 0.0, 0, 0, 1015.0, 5.0, 0, 8.0, true),
+                hours, listOf(DailyWeather(time.take(10), 0, 22.0, 12.0,
+                    "${time.take(10)}T06:00", "${time.take(10)}T18:00", 0.0, 0, 8.0)),
+                System.currentTimeMillis())
+            persist.invoke(repository, location, "{}", snapshot)
+            val stored = context.getSharedPreferences(WeatherRepository.PREFERENCES_NAME, Context.MODE_PRIVATE)
+                .getInt(WeatherRepository.KEY_WIDGET_PRECIPITATION_PROBABILITY, -1)
+            assertEquals(time, expected, stored)
+            instrumentation.runOnMainSync {
+                val widget = render(41, 352, 174)
+                val label = if (expected < 0) "--" else "${context.getString(R.string.precipitation)} $expected%"
+                assertEquals(time, label, widget.findViewById<TextView>(R.id.widget_precipitation).text.toString())
+            }
+        }
     }
 
     @Test
@@ -351,6 +398,8 @@ class WidgetRenderTest {
     }
 
     private class FixtureContext(base: Context) : ContextWrapper(base) {
+        override fun getApplicationContext(): Context = this
+
         override fun getSharedPreferences(name: String, mode: Int) =
             super.getSharedPreferences("widget_render_test_$name", mode)
 

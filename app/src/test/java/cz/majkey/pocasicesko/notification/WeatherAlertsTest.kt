@@ -82,11 +82,10 @@ class WeatherAlertsTest {
     }
 
     @Test
-    fun traceRainAndDrizzleNeedUmbrellaButDryAndMissingDataDoNot() {
-        listOf(hour().copy(precipitation = 0.03), hour().copy(weatherCode = 51),
+    fun traceRainNeedsUmbrellaButDryAndMissingDataDoNot() {
+        listOf(hour().copy(precipitation = 0.03),
             hour().copy(precipitationProbability = 40),
-            hour().copy(precipitationProbability = null, precipitation = 0.03),
-            hour().copy(precipitationProbability = null, weatherCode = 51)).forEach { wet ->
+            hour().copy(precipitationProbability = null, precipitation = 0.03)).forEach { wet ->
             assertEquals(WeatherAlertCategory.RAIN,
                 forecastAlerts(WeatherAlertSettings(), snapshot(listOf(wet)), now).single().category)
         }
@@ -96,6 +95,39 @@ class WeatherAlertsTest {
             temperature = Double.NaN, windSpeed = Double.NaN, precipitation = Double.NaN,
             precipitationProbability = -1, weatherCode = -1,
         ))), now).isEmpty())
+    }
+
+    @Test
+    fun codeOnlyRainKeepsItsInstantAndWaitsForTheConfiguredLead() {
+        val settings = WeatherAlertSettings()
+        val notifyAt = Instant.parse("2026-09-22T09:00:00Z").toEpochMilli()
+        val validAt = Instant.parse("2026-09-22T10:00:00Z").toEpochMilli()
+        for (probability in listOf(0, null)) {
+            val forecast = snapshot(listOf(hour().copy(weatherCode = 51, precipitationProbability = probability)))
+            assertTrue(forecastAlerts(settings, forecast, now).isEmpty())
+            assertEquals(notifyAt, nextRainAlertTime(settings, forecast, now))
+            assertTrue(forecastAlerts(settings, forecast, notifyAt - 1).isEmpty())
+            assertEquals(ForecastAlert(WeatherAlertCategory.RAIN, validAt),
+                forecastAlerts(settings, forecast, notifyAt).single())
+            assertTrue(forecastAlerts(settings, forecast, validAt).isEmpty())
+        }
+    }
+
+    @Test
+    fun mixedRainEvidenceKeepsTheFirstEligibleIntervalOrInstant() {
+        val settings = WeatherAlertSettings()
+        val wet = hour().copy(precipitation = 0.2, weatherCode = 51)
+        val forecast = snapshot(listOf(wet))
+        assertEquals(Instant.parse("2026-09-22T09:00:00Z").toEpochMilli(),
+            forecastAlerts(settings, forecast, now).single().validAtEpochMillis)
+        assertEquals(Instant.parse("2026-09-22T09:00:00Z").toEpochMilli(),
+            nextRainAlertTime(settings, forecast, now))
+        val duringInterval = Instant.parse("2026-09-22T09:30:00Z").toEpochMilli()
+        assertEquals(Instant.parse("2026-09-22T10:00:00Z").toEpochMilli(),
+            forecastAlerts(settings, forecast, duringInterval).single().validAtEpochMillis)
+        assertTrue(forecastAlerts(settings, snapshot(listOf(wet.copy(weatherCode = 0))), duringInterval).isEmpty())
+        assertEquals(Instant.parse("2026-09-22T10:00:00Z").toEpochMilli(),
+            nextRainAlertTime(settings, snapshot(listOf(wet.copy(time = "2026-09-22T14:00"))), now))
     }
 
     @Test
@@ -120,7 +152,7 @@ class WeatherAlertsTest {
     }
 
     @Test
-    fun namedTimezoneOverridesCurrentOffsetAcrossFallDstAndSkipsAmbiguousHours() {
+    fun providerOffsetKeepsForecastHoursUnambiguousAcrossFallDst() {
         val beforeTransition = Instant.parse("2026-10-24T23:30:00Z").toEpochMilli()
         val settings = WeatherAlertSettings(heatEnabled = true)
         val forecast = snapshot(listOf(
@@ -130,9 +162,27 @@ class WeatherAlertsTest {
 
         val alert = forecastAlerts(settings, forecast, beforeTransition).single()
         assertEquals(WeatherAlertCategory.HEAT, alert.category)
-        assertEquals(Instant.parse("2026-10-25T02:00:00Z").toEpochMilli(), alert.validAtEpochMillis)
-        assertEquals(34.0, alert.value!!, 0.0)
-        assertTrue(forecastAlerts(settings, forecast.copy(hourly = forecast.hourly.take(1)), beforeTransition).isEmpty())
+        assertEquals(Instant.parse("2026-10-25T00:00:00Z").toEpochMilli(), alert.validAtEpochMillis)
+        assertEquals(33.0, alert.value!!, 0.0)
+        assertEquals(Instant.parse("2026-10-25T01:00:00Z").toEpochMilli(),
+            forecastAlerts(settings, forecast.copy(hourly = forecast.hourly.drop(1)), beforeTransition).single().validAtEpochMillis)
+        val legacy = forecast.copy(utcOffsetSeconds = null)
+        assertEquals(Instant.parse("2026-10-25T02:00:00Z").toEpochMilli(),
+            forecastAlerts(settings, legacy, beforeTransition).single().validAtEpochMillis)
+        assertTrue(forecastAlerts(settings, legacy.copy(hourly = legacy.hourly.take(1)), beforeTransition).isEmpty())
+    }
+
+    @Test
+    fun rainScheduleUsesTheProviderOffsetAcrossFallDst() {
+        val beforeTransition = Instant.parse("2026-10-24T23:30:00Z").toEpochMilli()
+        val notifyAt = Instant.parse("2026-10-25T00:00:00Z").toEpochMilli()
+        val settings = WeatherAlertSettings()
+        val forecast = snapshot(listOf(hour("2026-10-25T04:00").copy(precipitation = 0.2)))
+            .copy(updatedAtEpochMillis = beforeTransition)
+        assertEquals(notifyAt, nextRainAlertTime(settings, forecast, beforeTransition))
+        assertTrue(forecastAlerts(settings, forecast, notifyAt - 1).isEmpty())
+        assertEquals(Instant.parse("2026-10-25T01:00:00Z").toEpochMilli(),
+            forecastAlerts(settings, forecast, notifyAt).single().validAtEpochMillis)
     }
 
     @Test

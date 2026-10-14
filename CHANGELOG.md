@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.7.9] - 2026-10-14
+
+- Check the original provider's wet or missing precipitation before selecting regional dry-sky conditions. A small positive multi-model rainfall blend must not erase that safeguard and incorrectly replace a cloudy forecast with clear sky.
+- Preserve rainfall amounts, hazard safeguards and confidence thresholds. This fixes an order-dependent sky-selection defect; it does not enable learned weights or establish worldwide forecast superiority.
+
 ## [0.7.8] - 2026-10-13
 
 - Validate total cloud cover before integer conversion, matching the cloud-layer checks. Invalid optional hourly totals remain unknown; an invalid mandatory current total is rejected explicitly. Valid fractional values retain their existing display conversion.

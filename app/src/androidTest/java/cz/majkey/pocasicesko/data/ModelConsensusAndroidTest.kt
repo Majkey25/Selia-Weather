@@ -3,9 +3,42 @@ package cz.majkey.pocasicesko.data
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ModelConsensusAndroidTest {
+    @Test
+    fun providerWetOrMissingSkyVetoSurvivesSmallPositiveBlends() {
+        val times = listOf("2026-10-14T12:00", "2026-10-14T13:00")
+        val hourly = JSONObject().put("time", JSONArray(times))
+        repeat(4) { index ->
+            val id = if (index == 3) "chmi_aladin_seamless" else "m$index"
+            for ((field, value) in mapOf("temperature_2m" to 20,
+                "weather_code" to if (index == 3) 0 else 3,
+                "cloud_cover" to if (index == 3) 0 else 100,
+                "precipitation" to if (index == 3) 0.0 else 0.05)) {
+                hourly.put("${field}_$id", JSONArray(listOf(value, value)))
+            }
+        }
+        val location = CzechLocation("Praha", "Praha", 50.0755, 14.4378, "CZ")
+        for (wetIndex in 0..1) for (amount in listOf(0.1, 0.3, JSONObject.NULL)) {
+            val base = JSONObject().put("timezone", "UTC").put("utc_offset_seconds", 0)
+                .put("current", JSONObject().put("time", times.first()).put("weather_code", 3).put("cloud_cover", 100))
+                .put("hourly", JSONObject().put("time", JSONArray(times))
+                    .put("weather_code", JSONArray(listOf(3, 3)))
+                    .put("cloud_cover", JSONArray(listOf(100, 100)))
+                    .put("precipitation", JSONArray(listOf(0.0, 0.0)).put(wetIndex, amount)))
+                .put("daily", JSONObject().put("time", JSONArray(listOf("2026-10-14"))))
+            val result = JSONObject(blendModelForecast(base.toString(),
+                JSONObject().put("utc_offset_seconds", 0).put("hourly", hourly).toString(), location).json)
+                .getJSONObject("hourly")
+            assertTrue(result.getJSONArray(SKY_SOURCE_MODEL_KEY).isNull(0))
+            assertEquals(3, result.getJSONArray("weather_code").getInt(0))
+            assertEquals(100, result.getJSONArray("cloud_cover").getInt(0))
+            assertEquals(0.05, result.getJSONArray("precipitation").getDouble(0), 0.0)
+        }
+    }
+
     @Test
     fun mixedDrizzleRainAndShowersDoNotBecomeDrySky() {
         for (amount in listOf(0.0, 0.2)) {

@@ -130,11 +130,8 @@ internal fun blendModelForecast(
                 }
             }
         }
-        if (blendPrecipitation(source, target, suffixes, sourceIndex, targetIndex)) {
-            precipitationBlendedIndices.add(targetIndex)
-            blendedAny = true
-        }
         // Seamless uses a global fallback later; only use the regional sky for the next 48 hours.
+        // Check the original provider rain at both boundaries before blending it below.
         val regionalHourSky = regionalSkyModel?.takeIf { id ->
             val lead = zone?.takeIf { it.rules.getValidOffsets(currentTime).size == 1 && it.rules.getValidOffsets(localTime).size == 1 }
                 ?.let { Duration.between(currentTime.atZone(it), localTime.atZone(it)) }
@@ -155,6 +152,10 @@ internal fun blendModelForecast(
                             ?.median()?.let { it in 0.0..<WET_THRESHOLD_MM } == true
                 } &&
                 phenomenonWeatherCode(modelValues(source, suffixes, "weather_code", sourceIndex).map(Double::toInt)) == null
+        }
+        if (blendPrecipitation(source, target, suffixes, sourceIndex, targetIndex)) {
+            precipitationBlendedIndices.add(targetIndex)
+            blendedAny = true
         }
         blendedAny = blendCloudCover(source, target, suffixes, sourceIndex, targetIndex, regionalHourSky) || blendedAny
         blendedAny = blendWind(

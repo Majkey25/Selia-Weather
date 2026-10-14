@@ -10,8 +10,11 @@ production calibration artifact changes.
 Fit a probability distribution on the individual deterministic model values,
 not a scalar weighted average. Nonnegative weights sum to one. Minimize mean
 continuous ranked probability score, CRPS, plus a squared-distance penalty
-toward equal weights, scaled by the training mean absolute deviation from its
-median. CRPS scores the full predicted distribution. A better
+toward equal weights. The experiment caller passes
+`regularization = lambda * max(mean(abs(y - median(y))), 0.001)` to
+`fit_empirical_pool_weights`; the fitter applies that already-scaled penalty
+without additional scaling. Lambda selection re-scores June CRPS, not the
+penalized `WeightFit.objective`. CRPS scores the full predicted distribution. A better
 CRPS does not establish better rain detection or calibrated confidence.
 The [ECMWF CRPS guide](https://www.ecmwf.int/en/elibrary/81707-hydrologists-guide-crps)
 describes the score and its relation to absolute error and Brier score.
@@ -39,7 +42,8 @@ separates `synop` cloud files from `precipitation` gauge files.
 
 All six predetermined stations are 11520, 11774, 11747, 11457, 11659 and 11698.
 The last three, Churáňov, Přibyslav and Kuchařovice, are spatial transfer sites.
-Models are the app's eleven requested Czech model families plus Best Match.
+Requested data include the app's eleven Czech model families plus Best Match.
+Best Match is only a comparator and never a fitted pool member.
 UKMO fails training coverage. A seamless model ID does not establish the native
 regional source or statistical independence of the members. In particular,
 historical ALADIN Seamless must not be described as native ALADIN CZ 1 km.

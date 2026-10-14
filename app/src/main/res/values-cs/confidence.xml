@@ -12,7 +12,7 @@
     <string name="confidence_old_fetch">Předpověď byla stažena před delší dobou. Obnovte ji pro kontrolu novějších dat.</string>
     <string name="confidence_missing">Pro toto období není dost úplných podkladů z modelů.</string>
     <string name="confidence_partial_day">Dost podkladů pro porovnání má jen část tohoto dne.</string>
-    <string name="confidence_historical">Minulé hodnoty neříkají, jak přesná byla tehdejší předpověď.</string>
+    <string name="confidence_historical">Minulé modelové hodnoty neověřují tehdejší předpověď. Podklady níže platí pro uvedený čas, ne pro celý den. Pro porovnání jiné hodiny ji otevřete.</string>
     <string name="confidence_models">Porovnáno %1$d úplných modelových podkladů</string>
     <string name="confidence_temperature_spread">Rozpětí teplot · %1$s</string>
     <string name="confidence_wind_spread">Rozpětí větru · %1$s</string>

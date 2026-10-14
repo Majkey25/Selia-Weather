@@ -12,7 +12,7 @@
     <string name="confidence_old_fetch">The forecast was downloaded some time ago. Refresh to check for newer data.</string>
     <string name="confidence_missing">Not enough complete model inputs are available for this period.</string>
     <string name="confidence_partial_day">Only part of this day has enough model inputs for comparison.</string>
-    <string name="confidence_historical">Past values do not tell us how accurate an earlier forecast was.</string>
+    <string name="confidence_historical">Past model values do not verify an earlier forecast. The inputs below apply to the shown timestamp, not the whole day. Open a particular hour to inspect its models.</string>
     <string name="confidence_models">%1$d complete model inputs compared</string>
     <string name="confidence_temperature_spread">Temperature spread · %1$s</string>
     <string name="confidence_wind_spread">Wind spread · %1$s</string>

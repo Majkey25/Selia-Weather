@@ -174,7 +174,7 @@ internal fun dailyForecastConfidence(
             shownConditionTime = shownCurrent?.time ?: hour.time)
     }
     val covered = ratings.filter { it.level != ConfidenceLevel.LIMITED }
-    if (historical) return ratings.firstOrNull { it.evidence != null }
+    if (historical) return ratings.filter { it.evidence != null }.minByOrNull { it.validTime.orEmpty() }
         ?: ForecastConfidence(ConfidenceLevel.LIMITED, ConfidenceReason.HISTORICAL)
     if (covered.size * 4 < expected * 3) return ForecastConfidence(ConfidenceLevel.LIMITED, ConfidenceReason.PARTIAL_DAY,
         coveredHours = covered.size, expectedHours = expected)

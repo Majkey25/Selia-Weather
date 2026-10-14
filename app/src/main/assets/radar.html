@@ -423,9 +423,20 @@
     }
     function failFrame(layer, decodeError) {
       layer.failed = true; layer.ready = false;
-      if (decodeError && pendingLayer === layer && !layer.retried && layer.frame.type === 'forecast' && pageActive()) {
+      if (decodeError && pendingLayer === layer && layer.frame.type === 'forecast' && pageActive()) {
         var index = frames.findIndex(function(frame) { return sameFrame(frame, layer.frame); });
-        if (index >= 0) { renderFrame(index, true, true); return; }
+        if (index >= 0 && !layer.retried) { renderFrame(index, true, true); return; }
+        var cached = layer.forecastMetadata;
+        // Capabilities merge runs; a newly published run can still return XML instead of a far-future image.
+        if (index >= 0 && cached === forecastModels[layer.frame.key] && cached && Number.isFinite(cached.previousRun) && cached.previousRun < cached.run) {
+          var fallback = Object.assign({}, cached, { run: cached.previousRun, previousRun: null,
+            frames: cached.frames.map(function(frame) { return Object.assign({}, frame,
+              { reference: new Date(cached.previousRun * 1000).toISOString() }); }) });
+          if (forecastIsUsable(fallback)) {
+            forecastModels[layer.frame.key] = fallback;
+            rebuildTimeline(true); scheduleExpiry(); return;
+          }
+        }
       }
       if (radarLayer === layer || pendingLayer === layer) {
         stopPlay(); setStatus(unavailableText(layer.frame));

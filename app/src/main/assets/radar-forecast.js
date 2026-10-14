@@ -61,6 +61,8 @@ var RadarForecast = (function() {
       if (!mainRuns.length) throw new Error('No fresh full-range forecast run');
       run = Math.max.apply(null, mainRuns);
     }
+    var previousRuns = reference.textContent.split(',').map(function(value) { return Date.parse(value) / 1000; })
+      .filter(function(value) { return Number.isFinite(value) && value < run && now - value <= 12 * 3600 && value % 21600 === 0; });
     var range = dimension('time').textContent.trim().split('/');
     var start = Date.parse(range[0]) / 1000, end = Date.parse(range[1]) / 1000;
     var period = /^PT([1-6])H$/.exec(range[2]);
@@ -91,7 +93,8 @@ var RadarForecast = (function() {
     if (frames.length < 3 || frames[0].time > now + step || frames[frames.length - 1].time < now + 12 * 3600 + 600) {
       throw new Error('Forecast does not cover the next 12 hours');
     }
-    return { key: key, bounds: bounds, frames: frames, run: run };
+    return { key: key, bounds: bounds, frames: frames, run: run,
+      previousRun: previousRuns.length ? Math.max.apply(null, previousRuns) : null };
   }
 
   function sourceFor(bounds, europe) {

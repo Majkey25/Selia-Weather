@@ -27,6 +27,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import java.time.Instant
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
@@ -40,6 +41,7 @@ class RadarWebViewTest {
         val arguments = InstrumentationRegistry.getArguments()
         val testHeight = arguments.getString("radarHeightDp")?.toIntOrNull()?.takeIf { it in 300..800 }
         val testFont = arguments.getString("radarFontScale")?.toFloatOrNull()?.takeIf { it in 1f..2.5f }
+        val incompleteRun = arguments.getString("incompleteRadarRun") == "true"
         val fullscreen = mutableStateOf(true)
         compose.setContent {
             val density = LocalDensity.current
@@ -63,6 +65,7 @@ class RadarWebViewTest {
                         "ready:typeof radarLayer!=='undefined'&&!!radarLayer&&radarLayer.ready&&!radarLayer.failed&&radarLayer.contentSeen&&map.isSourceLoaded(radarLayer.id)," +
                         "sourceId:typeof radarLayer==='undefined'||!radarLayer?'':radarLayer.id," +
                         "retried:typeof radarLayer!=='undefined'&&!!radarLayer&&radarLayer.retried===true," +
+                        "reference:typeof radarLayer==='undefined'||!radarLayer?'':radarLayer.frame.reference," +
                         "playing:timer!==null&&document.getElementById('play').getAttribute('aria-pressed')==='true'," +
                         "playLabel:document.getElementById('play').getAttribute('aria-label')," +
                         "transitionDuration:transitionDuration," +
@@ -323,13 +326,16 @@ class RadarWebViewTest {
         val sourceBeforeDecode = state.get().getString("sourceId")
         compose.runOnIdle {
             view.evaluateJavascript("""
-                window.radarDecodeProbe = {injected:0,reloadRequests:0,errors:0,events:[]};
+                window.radarDecodeProbe = {injected:0,reloadRequests:0,errors:0,events:[],reference:forecastCache.frames[0].reference,
+                  previousRun:forecastCache.previousRun,lastInjectedSource:null};
                 var healthyFetch = window.fetch;
                 window.fetch = function(input, options) {
                   var url = typeof input === 'string' ? input : input.url;
                   if (url.startsWith(RadarForecast.endpoint + '?') && pendingLayer) {
-                    if (!radarDecodeProbe.injected && !pendingLayer.retried) {
+                    if (radarDecodeProbe.injected < ${if (incompleteRun) 2 else 1} &&
+                        radarDecodeProbe.lastInjectedSource !== pendingLayer.id && pendingLayer.frame.reference === radarDecodeProbe.reference) {
                       radarDecodeProbe.injected++;
+                      radarDecodeProbe.lastInjectedSource = pendingLayer.id;
                       return Promise.resolve(new Response(new Uint8Array([0,1,2]),
                         {status:200,headers:{'Content-Type':'image/png'}}));
                     }
@@ -356,18 +362,22 @@ class RadarWebViewTest {
             compose.waitUntil(30_000) {
                 readState()
                 state.get().optBoolean("ready") && !state.get().optBoolean("pending") &&
-                    state.get().optString("sourceId") != sourceBeforeDecode && state.get().optBoolean("retried") &&
+                    state.get().optString("sourceId") != sourceBeforeDecode &&
+                    (if (incompleteRun) state.get().optJSONObject("decodeProbe")?.let { probe ->
+                        probe.has("previousRun") && !probe.isNull("previousRun") &&
+                            Instant.parse(state.get().getString("reference")).epochSecond == probe.getLong("previousRun")
+                    } == true else state.get().optBoolean("retried")) &&
                     state.get().optJSONObject("decodeProbe")?.optInt("reloadRequests", 0)?.let { it > 0 } == true
             }
         } catch (failure: ComposeTimeoutException) {
-            throw AssertionError("Forecast did not recover from one invalid image: ${state.get()}", failure)
+            throw AssertionError("Forecast did not recover from ${if (incompleteRun) "an incomplete run" else "one invalid image"}: ${state.get()}", failure)
         }
-        assertEquals(1, state.get().getJSONObject("decodeProbe").getInt("injected"))
-        assertEquals(1, state.get().getJSONObject("decodeProbe").getInt("errors"))
+        assertEquals(if (incompleteRun) 2 else 1, state.get().getJSONObject("decodeProbe").getInt("injected"))
+        assertEquals(if (incompleteRun) 2 else 1, state.get().getJSONObject("decodeProbe").getInt("errors"))
         assertEquals("", state.get().getString("status"))
         compose.runOnIdle { view.evaluateJavascript("window.fetch=healthyFetch;map.off('error',countDecodeError);map.off('sourcedata',recordDecodeProgress)", null) }
         InstrumentationRegistry.getInstrumentation().sendStatus(0, Bundle().apply {
-            putString("stream", "\nRADAR_RECOVERY one injected invalid PNG, one decode error, uncached retry loaded\n")
+            putString("stream", "\nRADAR_RECOVERY ${if (incompleteRun) "two injected invalid images; previous advertised run ${state.get().getString("reference")} loaded" else "one injected invalid PNG, one decode error, uncached retry loaded"}\n")
         })
         compose.runOnIdle {
             view.evaluateJavascript("var slider=document.getElementById('slider');slider.value=slider.max;slider.dispatchEvent(new Event('input'))", null)

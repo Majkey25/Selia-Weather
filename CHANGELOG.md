@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.7.12] - 2026-10-14
+
+- Recover an incomplete radar forecast run by trying one previous, still-fresh advertised run after the existing uncached image retry fails. Keep the selected forecast time and horizon, report the actual run, and retain the last valid raster if recovery fails. Never substitute observed radar for a future forecast.
+
 ## [0.7.11] - 2026-10-14
 
 - Show widget rain probability for the interval containing the current time, not the hour that already ended. Missing or duplicate interval boundaries remain unknown instead of borrowing a later forecast.

@@ -213,6 +213,78 @@ test('forecast image decode failure retries once without cache, then preserves t
   assert.equal(app.node('status').hidden, true);
 });
 
+function advertisedOlderRun(url, context) {
+  const key = url.includes('Icon-eu_') ? 'eu' : 'global';
+  const payload = JSON.parse(forecastPayload(context, key));
+  const run = Date.parse(payload.Dimension[1].default);
+  payload.Dimension[1].text += ',' + new Date(run - 21600000).toISOString();
+  return new Response(JSON.stringify(payload));
+}
+
+for (const key of ['eu', 'global']) test('incomplete forecast run recovers once at the same future epoch: ' + key, async () => {
+  const app = runtime({ fetch: (url, _options, context) => Promise.resolve(url.includes('maps.dwd.de')
+    ? advertisedOlderRun(url, context) : new Response(JSON.stringify(manifest()))) });
+  await settled();
+  if (key === 'global') { asia(app); app.events.moveend(); }
+  app.load();
+  const displayed = app.context.radarLayer, cached = app.context.forecastCache;
+  const lastTime = app.context.frames.at(-1).time;
+  app.context.showFrame(app.context.frames.length - 1);
+  const first = app.context.pendingLayer;
+  const decodeError = layer => app.events.error({ sourceId: layer.id, error: new Error('The source image could not be decoded.') });
+  decodeError(first);
+  const retry = app.context.pendingLayer;
+  assert.equal(retry.frame.reference, first.frame.reference);
+  decodeError(retry);
+  const fallback = app.context.pendingLayer;
+  assert.ok(fallback, 'An advertised fresh previous run must retry the requested future frame');
+  assert.notEqual(app.context.forecastCache, cached);
+  assert.equal(app.context.forecastCache.run, cached.run - 21600);
+  assert.equal(app.context.forecastCache.loadedAt, cached.loadedAt);
+  assert.equal(fallback.frame.time, lastTime);
+  assert.equal(app.context.frames.at(-1).time, lastTime);
+  assert.equal(app.context.selectedTime, lastTime);
+  assert.ok(app.context.frames.every(frame => frame.reference === new Date((cached.run - 21600) * 1000).toISOString()));
+  assert.equal(app.context.radarLayer, displayed);
+  assert.equal(displayed.frame.reference, new Date(cached.run * 1000).toISOString());
+  app.load(retry);
+  assert.equal(app.context.pendingLayer, fallback);
+  app.load();
+  assert.equal(app.context.radarLayer, fallback);
+  assert.equal(app.node('status').hidden, true);
+  assert.equal(new URL(app.sources.get(fallback.id).tiles[0]).searchParams.get('dim_reference_time'), fallback.frame.reference);
+  app.context.showFrame(1);
+  decodeError(app.context.pendingLayer);
+  decodeError(app.context.pendingLayer);
+  assert.equal(app.context.pendingLayer, null);
+  assert.equal(app.context.radarLayer, fallback);
+  assert.match(app.node('status').textContent, /unavailable/);
+  if (key === 'global') {
+    app.advance((cached.run - 21600 + 12 * 3600) * 1000 + 1);
+    app.context.fetch = async () => new Response('', { status: 503 });
+    app.fire(app.context.expiryTimer); await settled();
+    assert.equal(app.context.forecastModels.global, null);
+    assert.equal(app.context.radarLayer, null);
+    assert.equal(app.context.frames.length, 0);
+  }
+});
+
+test('expired or superseded forecast metadata cannot trigger an older-run downgrade', async () => {
+  for (const expired of [true, false]) {
+    const app = runtime({ fetch: (url, _options, context) => Promise.resolve(url.includes('maps.dwd.de')
+      ? advertisedOlderRun(url, context) : new Response(JSON.stringify(manifest()))) });
+    await settled(); app.load(); app.context.showFrame(4);
+    const cached = app.context.forecastCache;
+    if (expired) app.advance(NOW + 3 * 3600000);
+    else app.context.forecastModels.eu = { ...cached };
+    app.events.error({ sourceId: app.context.pendingLayer.id, error: new Error('The source image could not be decoded.') });
+    app.events.error({ sourceId: app.context.pendingLayer.id, error: new Error('The source image could not be decoded.') });
+    assert.equal(app.context.pendingLayer, null);
+    assert.equal(app.context.forecastModels.eu.run, cached.run);
+    assert.match(app.node('status').textContent, /unavailable/);
+  }
+});
+
 test('transient forecast decode failure recovers during playback without disabling normal tile caching', async () => {
   const app = runtime(); await settled(); app.load();
   const displayedTile = app.context.forecastTileUrl(app.context.radarLayer.frame).replace('{bbox-epsg-3857}', '0,0,1,1');

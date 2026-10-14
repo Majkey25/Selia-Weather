@@ -208,6 +208,12 @@
     <string name="condition_drizzle">Nieselregen</string>
     <string name="condition_rain">Regen</string>
     <string name="condition_snow">Schnee</string>
+    <string name="condition_light_snow">Leichter Schneefall</string>
+    <string name="condition_moderate_snow">Mäßiger Schneefall</string>
+    <string name="condition_heavy_snow">Starker Schneefall</string>
+    <string name="condition_snow_grains">Schneegriesel</string>
+    <string name="condition_light_snow_showers">Leichte Schneeschauer</string>
+    <string name="condition_heavy_snow_showers">Starke Schneeschauer</string>
     <string name="condition_showers">Schauer</string>
     <string name="condition_snow_showers">Schneeschauer</string>
     <string name="condition_storm">Gewitter</string>

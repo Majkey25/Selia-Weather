@@ -92,7 +92,10 @@ internal fun hourlyForecastConfidence(
         return ForecastConfidence(ConfidenceLevel.LIMITED, ConfidenceReason.MISSING_MODELS)
     }
     val lead = Duration.between(localNow, time).toHours()
-    if (time < localNow.minusHours(1)) return ForecastConfidence(ConfidenceLevel.LIMITED, ConfidenceReason.HISTORICAL)
+    if (time < localNow.minusHours(1)) return ForecastConfidence(ConfidenceLevel.LIMITED, ConfidenceReason.HISTORICAL,
+        modelCount = hour.modelAgreement?.modelCount ?: 0, evidence = hour.modelAgreement,
+        precipitationEvidence = precipitationHour?.modelAgreement, validTime = hour.time,
+        skySourceModelId = skySourceModelId, shownConditionTime = shownConditionTime)
     val evidence = hour.modelAgreement ?: return ForecastConfidence(ConfidenceLevel.LIMITED, ConfidenceReason.MISSING_MODELS,
         validTime = hour.time, skySourceModelId = skySourceModelId, shownConditionTime = shownConditionTime)
     val rain = precipitationHour?.modelAgreement ?: return ForecastConfidence(ConfidenceLevel.LIMITED, ConfidenceReason.MISSING_MODELS,
@@ -153,7 +156,7 @@ internal fun dailyForecastConfidence(
 ): ForecastConfidence {
     val day = runCatching { LocalDate.parse(date) }.getOrNull()
     if (day == null || localNow == null) return ForecastConfidence(ConfidenceLevel.LIMITED, ConfidenceReason.MISSING_MODELS)
-    if (day < localNow.toLocalDate()) return ForecastConfidence(ConfidenceLevel.LIMITED, ConfidenceReason.HISTORICAL)
+    val historical = day < localNow.toLocalDate()
     val firstHour = if (day == localNow.toLocalDate()) localNow.hour else 0
     val expected = 24 - firstHour
     val currentHour = current?.takeIf {
@@ -171,6 +174,8 @@ internal fun dailyForecastConfidence(
             shownConditionTime = shownCurrent?.time ?: hour.time)
     }
     val covered = ratings.filter { it.level != ConfidenceLevel.LIMITED }
+    if (historical) return ratings.firstOrNull { it.evidence != null }
+        ?: ForecastConfidence(ConfidenceLevel.LIMITED, ConfidenceReason.HISTORICAL)
     if (covered.size * 4 < expected * 3) return ForecastConfidence(ConfidenceLevel.LIMITED, ConfidenceReason.PARTIAL_DAY,
         coveredHours = covered.size, expectedHours = expected)
     val leastCertain = covered.maxByOrNull { it.level.ordinal }

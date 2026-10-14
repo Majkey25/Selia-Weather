@@ -19,9 +19,15 @@ fun WeatherCondition.labelResource(): Int = when (weatherCode) {
     65 -> R.string.condition_heavy_rain
     66 -> R.string.condition_light_freezing_rain
     67 -> R.string.condition_heavy_freezing_rain
+    71 -> R.string.condition_light_snow
+    73 -> R.string.condition_moderate_snow
+    75 -> R.string.condition_heavy_snow
+    77 -> R.string.condition_snow_grains
     80 -> R.string.condition_light_showers
     81 -> R.string.condition_moderate_showers
     82 -> R.string.condition_violent_showers
+    85 -> R.string.condition_light_snow_showers
+    86 -> R.string.condition_heavy_snow_showers
     else -> when (key) {
         WeatherConditionKey.CLEAR_DAY -> R.string.condition_clear_day
         WeatherConditionKey.CLEAR_NIGHT -> R.string.condition_clear_night

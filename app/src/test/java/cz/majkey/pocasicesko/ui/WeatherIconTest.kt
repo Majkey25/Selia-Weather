@@ -3,10 +3,12 @@ package cz.majkey.pocasicesko.ui
 import androidx.compose.ui.graphics.Color
 import cz.majkey.pocasicesko.data.WeatherKind
 import cz.majkey.pocasicesko.data.WeatherConditionKey
+import cz.majkey.pocasicesko.data.conditionFor
 import cz.majkey.pocasicesko.R
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -17,12 +19,24 @@ class WeatherIconTest {
         assertEquals(listOf(3, 2, 1, 0), levels.map(::confidenceBarCount))
     }
     @Test
-    fun drizzleUsesDotsAndRainUsesStreaksInAppAndWidget() {
+    fun drizzleRainAndSnowHaveDistinctShapesAndIntensityInAppAndWidget() {
         assertEquals(R.drawable.ic_weather_drizzle, precipitationIconResource(WeatherConditionKey.DRIZZLE))
         assertEquals(R.drawable.ic_weather_rain, precipitationIconResource(WeatherConditionKey.RAIN))
         assertEquals(R.drawable.ic_weather_rain, precipitationIconResource(WeatherConditionKey.SHOWERS))
         assertEquals(R.drawable.ic_weather_drizzle,
             cz.majkey.pocasicesko.widget.widgetIconFor(WeatherKind.RAIN, true, WeatherConditionKey.DRIZZLE))
+        val resources = listOf(51, 61, 63, 65, 71, 73, 75).map { code ->
+            val condition = conditionFor(code)
+            val resource = if (condition.kind == WeatherKind.SNOW) snowIconResource(code)
+                else precipitationIconResource(condition.key, code)
+            assertEquals(resource,
+                cz.majkey.pocasicesko.widget.widgetIconFor(condition.kind, true, condition.key, code))
+            resource
+        }
+        assertEquals(resources.size, resources.distinct().size)
+        assertEquals(snowIconResource(71), snowIconResource(85))
+        assertEquals(snowIconResource(75), snowIconResource(86))
+        assertNotEquals(precipitationIconResource(WeatherConditionKey.DRIZZLE, 51), snowIconResource(77))
     }
     @Test
     fun mainlyClearKeepsCloudSmallAndBlue() {

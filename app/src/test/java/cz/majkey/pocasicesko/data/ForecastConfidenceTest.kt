@@ -13,6 +13,29 @@ class ForecastConfidenceTest {
         modelAgreement = evidence)
 
     @Test
+    fun historicalHoursKeepAvailableModelsWithoutClaimingVerifiedAccuracy() {
+        val inputs = List(5) { index -> HourlyModelInput("model_$index", 20.0, 10.0, 180.0, 0.0, 0, 0.0) }
+        val agreement = evidence.copy(modelInputs = inputs)
+        val past = hour("2026-10-06T13:00").copy(modelAgreement = agreement, skySourceModelId = "chmi_aladin_seamless")
+        val rain = past.copy(time = "2026-10-06T14:00")
+        val result = hourlyForecastConfidence(past, rain, now, 0)
+        assertEquals(ConfidenceLevel.LIMITED, result.level)
+        assertEquals(ConfidenceReason.HISTORICAL, result.reason)
+        assertEquals(agreement, result.evidence)
+        assertEquals(agreement, result.precipitationEvidence)
+        assertEquals(5, result.modelCount)
+        assertEquals(past.time, result.validTime)
+        assertEquals(past.skySourceModelId, result.skySourceModelId)
+        val day = dailyForecastConfidence("2026-10-06", listOf(past), mapOf(past.time to rain), now, 0)
+        assertEquals(ConfidenceLevel.LIMITED, day.level)
+        assertEquals(ConfidenceReason.HISTORICAL, day.reason)
+        assertEquals(agreement, day.evidence)
+        val unavailable = hourlyForecastConfidence(past.copy(modelAgreement = null), null, now, 0)
+        assertNull(unavailable.evidence)
+        assertEquals(0, unavailable.modelCount)
+    }
+
+    @Test
     fun confidenceExplainsCloudConflictAndChecksTheActuallyDisplayedCondition() {
         val cloudy = hour().copy(modelAgreement = evidence.copy(cloudRangePercent = 100.0))
         assertEquals(listOf(ForecastDisagreement.CLOUDS), hourlyForecastConfidence(cloudy, hour(), now, 0).disagreements)

@@ -1081,7 +1081,7 @@ private fun AtAGlanceSection(
             horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             WeatherIcon(condition.kind, snapshot.current.isDay, contentDescription = null,
                 modifier = Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary,
-                conditionKey = condition.key)
+                conditionKey = condition.key, weatherCode = condition.weatherCode)
             Column(Modifier.weight(1f)) {
                 Text(units.temperature(snapshot.current.temperature), fontSize = 48.sp, lineHeight = 56.sp,
                     fontWeight = FontWeight.Light)

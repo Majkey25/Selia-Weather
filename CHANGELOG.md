@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.14] - 2026-10-14
+
+- Distinguish drizzle droplets, light/moderate/heavy rain and light/moderate/heavy snow in the app and widget. Add snowfall and snow-shower intensity names in all five languages, using source weather codes rather than guessing from hourly totals.
+- Make the partly cloudy and mainly clear cloud opaque so it covers the sun or moon behind it.
+- Keep available per-model inputs visible for past hours and days. Historical model values are not a verified score of the originally issued forecast; confidence thresholds remain unchanged.
+- Evaluate frozen probabilistic cloud/rain pools against independent Czech station observations. Keep these research candidates out of Android: cloud coverage and rain validation gates still fail.
+
 ## [0.7.13] - 2026-10-14
 
 - Recognize observed drizzle mixed with rain and additional rain/hail thunderstorm METAR groups instead of dropping their present-weather report. Keep combined precipitation labels in all five languages; do not infer rainfall amounts or probabilities from these codes.

@@ -384,6 +384,7 @@ internal fun WeatherHero(snapshot: WeatherSnapshot, accent: Color, units: Weathe
         WeatherIcon(
             kind = condition.kind,
             conditionKey = condition.key,
+            weatherCode = condition.weatherCode,
             isDay = snapshot.current.isDay,
             contentDescription = null,
             modifier = Modifier.size(40.dp),
@@ -477,6 +478,7 @@ internal fun HourlyGraphPanel(snapshot: WeatherSnapshot, units: WeatherUnitForma
                                         WeatherIcon(
                                             kind = condition.kind,
                                             conditionKey = condition.key,
+                                            weatherCode = condition.weatherCode,
                                             isDay = iconIsDay,
                                             contentDescription = null,
                                             modifier = Modifier.size(25.dp),
@@ -753,6 +755,7 @@ internal fun DailyRow(
             WeatherIcon(
                 kind = condition.kind,
                 conditionKey = condition.key,
+                weatherCode = condition.weatherCode,
                 isDay = true,
                 contentDescription = conditionLabel,
                 modifier = Modifier.size(27.dp),
@@ -965,6 +968,7 @@ internal fun DayDetailSheet(
                                     WeatherIcon(
                                         kind = condition.kind,
                                         conditionKey = condition.key,
+                                        weatherCode = condition.weatherCode,
                                         isDay = iconIsDay,
                                         contentDescription = conditionLabel,
                                         modifier = Modifier.size(26.dp),

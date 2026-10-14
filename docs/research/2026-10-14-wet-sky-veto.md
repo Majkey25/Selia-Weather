@@ -58,3 +58,35 @@ SHA-256, retained outside Git with the raw diagnostic inputs:
 | August kernel input | `dbc64f9c677dae9fb152366a3b8b0e4d1d372f0fc3d6e96a8ce29c6dffa06123` |
 | August corrected output | `82cb1fb01482a5873049b6166974c3c6e602eb7a78faf10f3640b4f908154566` |
 | August comparison report | `d3bd09d940793905d2769c42a3519725079fc0a6b31d8fa7a8edace297ad7824` |
+
+## Release verification
+
+The complete local suite passed 516 host tests, 48 JavaScript tests and 423 research
+tests. Ruff and strict Pyright passed. Debug/test APKs, both lint variants and signed
+release APK/AAB builds passed. Existing lint warnings remain. Independent read-only
+review found no concrete defect in the mutation-order correction.
+
+Huawei Android 10, debug code 51, passed a complete 58-test native run on 14 October
+at 09:22 UTC. It covered the new wet/missing-sky veto, Android JSON boundaries,
+widgets and resizing/HEX colours, hourly layouts and highlights, model explanations,
+navigation, settings, notification recovery and archive-sharing intents.
+
+The initial native run passed 57/58: seeking the last Tokyo/global forecast frame
+timed out. Two focused runs reproduced the failure. The app retained its loaded
+earlier raster and restored its timestamp, reporting the forecast unavailable. A
+direct official WMS request returned a valid rain PNG for the requested target and
+reference time. A subsequent focused run and the complete 58-test run both passed
+without changing production radar logic. The test now includes a bounded MapLibre
+error buffer and the last-frame state on failure; its timeouts and assertions were
+not weakened. The underlying intermittent tile-load/readiness cause is unresolved.
+
+The successful complete run rendered two loaded raster frames, wrapped and held
+pause for 2,200 ms in European forecast, global forecast and observed modes. The
+largest measured transition gap was 24.5 ms, not a universal frame-rate guarantee.
+Manual Ask AI UI also loaded a five-year archive: 1,825 available daily records out
+of 1,826 dates. Native sharing tests checked the CSV, app-language question and
+read-only URI grant without launching an external AI recipient. Attachment handling
+inside ChatGPT, Gemini, Claude or Grok was not verified in this release window.
+
+All ADB access ended at 09:23 UTC with Home delivered and no instrumentation pending.
+No emulator, uninstall, data wipe or production-package sideload was used.

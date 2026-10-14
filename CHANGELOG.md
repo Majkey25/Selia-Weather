@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.15] - 2026-10-14
+
+- Stop letting one Czech regional member replace the multi-model hourly sky estimate. Keep ALADIN among the contributors, with existing current-observation, precipitation and hazard safeguards.
+- Verify the smaller hourly-cloud error on an independently frozen July 2026 six-station comparison. This is not proof of worldwide or next-hour superiority; the separate current-condition path is unchanged. See the [study and limitations](docs/research/2026-10-14-hourly-sky-override.md).
+- Reject the tested rainfall-preservation change because it increased false alarms and amount error. Rainfall amounts, probabilities, confidence thresholds and learned-weight export gates remain unchanged.
+
 ## [0.7.14] - 2026-10-14
 
 - Distinguish drizzle droplets, light/moderate/heavy rain and light/moderate/heavy snow in the app and widget. Add snowfall and snow-shower intensity names in all five languages, using source weather codes rather than guessing from hourly totals.

@@ -138,7 +138,7 @@ class ModelConsensusTest {
     }
 
     @Test
-    fun regionalSkyIsNotOutvotedByUnvalidatedGlobalClearForecasts() {
+    fun regionalCurrentSkyRemainsSeparateFromHourlyConsensus() {
         val source = JSONObject(MODELS)
         val inputs = source.getJSONObject("hourly")
         listOf("a", "b", "c").forEach { id ->
@@ -162,16 +162,16 @@ class ModelConsensusTest {
         val root = JSONObject(applyRegionalCurrentSky(blendModelForecast(base.toString(), source.toString(), location), location, source.toString()).json)
         assertEquals(3, root.getJSONObject("current").getInt("weather_code"))
         assertEquals(100, root.getJSONObject("current").getInt("cloud_cover"))
-        assertEquals(3, root.getJSONObject("hourly").getJSONArray("weather_code").getInt(0))
-        assertEquals(100, root.getJSONObject("hourly").getJSONArray("cloud_cover").getInt(0))
-        assertEquals("chmi_aladin_seamless", root.getJSONObject("hourly").getJSONArray(SKY_SOURCE_MODEL_KEY).getString(0))
-        assertEquals("chmi_aladin_seamless", WeatherParser.parseForecast(root.toString(), 0).hourly.first().skySourceModelId)
+        assertEquals(0, root.getJSONObject("hourly").getJSONArray("weather_code").getInt(0))
+        assertEquals(0, root.getJSONObject("hourly").getJSONArray("cloud_cover").getInt(0))
+        assertTrue(root.getJSONObject("hourly").getJSONArray(SKY_SOURCE_MODEL_KEY).isNull(0))
+        assertEquals(null, WeatherParser.parseForecast(root.toString(), 0).hourly.first().skySourceModelId)
         val incomplete = JSONObject(source.toString()).also {
             it.getJSONObject("hourly").getJSONArray("wind_direction_10m_chmi_aladin_seamless").put(0, JSONObject.NULL)
         }
         val incompleteHour = WeatherParser.parseForecast(blendModelForecast(base.toString(), incomplete.toString(), location).json, 0).hourly.first()
         assertEquals(null, incompleteHour.modelAgreement)
-        assertEquals("chmi_aladin_seamless", incompleteHour.skySourceModelId)
+        assertEquals(null, incompleteHour.skySourceModelId)
         val wetNext = JSONObject(base.toString()).also {
             it.getJSONObject("hourly").getJSONArray("precipitation").put(1, 0.5)
         }
@@ -211,7 +211,27 @@ class ModelConsensusTest {
     }
 
     @Test
-    fun providerWetOrMissingSkyVetoSurvivesSmallPositiveBlendsAtEitherHour() {
+    fun oneRegionalClearMemberCannotReplaceOvercastHourlyConsensus() {
+        val source = JSONObject(MODELS).getJSONObject("hourly")
+        listOf("a", "b", "c").forEach { id ->
+            source.put("weather_code_$id", JSONArray(listOf(3, 3)))
+                .put("cloud_cover_$id", JSONArray(listOf(100, 100)))
+                .put("precipitation_$id", JSONArray(listOf(0, 0)))
+        }
+        mapOf("temperature_2m" to 20, "weather_code" to 0, "cloud_cover" to 0,
+            "precipitation" to 0, "wind_speed_10m" to 10, "wind_direction_10m" to 180).forEach { (field, value) ->
+            source.put("${field}_chmi_aladin_seamless", JSONArray(listOf(value, value)))
+        }
+        val hourly = JSONObject(blendModelForecast(BASE, JSONObject().put("hourly", source).toString(), PRAGUE).json)
+            .getJSONObject("hourly")
+        assertEquals(100, hourly.getJSONArray("cloud_cover").getInt(0))
+        assertEquals(3, hourly.getJSONArray("weather_code").getInt(0))
+        assertTrue(hourly.getJSONArray(SKY_SOURCE_MODEL_KEY).isNull(0))
+        assertEquals(4, hourly.getJSONArray(MODEL_AGREEMENT_KEY).getJSONObject(0).getInt("model_count"))
+    }
+
+    @Test
+    fun hourlySkyConsensusSurvivesDryWetOrMissingProviderRainAtEitherHour() {
         val source = JSONObject(MODELS)
         val inputs = source.getJSONObject("hourly")
         listOf("a", "b", "c").forEach { id ->
@@ -223,12 +243,12 @@ class ModelConsensusTest {
             "precipitation" to 0.0, "wind_speed_10m" to 10, "wind_direction_10m" to 180).forEach { (field, value) ->
             inputs.put("${field}_chmi_aladin_seamless", JSONArray(listOf(value, value)))
         }
-        for (wetIndex in 0..1) for (amount in listOf(0.1, 0.3, JSONObject.NULL)) {
+        for (wetIndex in 0..1) for (amount in listOf(0.0, 0.1, 0.3, JSONObject.NULL)) {
             val base = JSONObject(BASE)
             base.getJSONObject("hourly").getJSONArray("precipitation").put(wetIndex, amount)
             val hourly = JSONObject(blendModelForecast(base.toString(), source.toString(), PRAGUE).json)
                 .getJSONObject("hourly")
-            assertTrue("Provider wet/missing veto lost at hour $wetIndex for $amount",
+            assertTrue("Unexpected regional dominance at hour $wetIndex for $amount",
                 hourly.getJSONArray(SKY_SOURCE_MODEL_KEY).isNull(0))
             assertEquals(3, hourly.getJSONArray("weather_code").getInt(0))
             assertEquals(100, hourly.getJSONArray("cloud_cover").getInt(0))

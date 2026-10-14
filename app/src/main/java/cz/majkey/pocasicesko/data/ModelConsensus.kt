@@ -47,7 +47,6 @@ internal fun blendModelForecast(
             ForecastFallbackReason.PROVIDER_UNAVAILABLE)
     }
     val source = modelsRoot.getJSONObject("hourly")
-    val regionalSkyModel = "chmi_aladin_seamless".takeIf { location?.isInCzechia() == true }
     val suffixes = source.keys().asSequence()
         .filter { it.startsWith("temperature_2m_") }
         .map { it.removePrefix("temperature_2m_") }
@@ -70,7 +69,6 @@ internal fun blendModelForecast(
     target.put(MODEL_AGREEMENT_KEY, JSONArray(List(targetTimes.length()) { JSONObject.NULL }))
     target.put(SKY_SOURCE_MODEL_KEY, JSONArray(List(targetTimes.length()) { JSONObject.NULL }))
     val currentTargetIndex = currentIndex(root, targetTimes)
-    val currentTime = LocalDateTime.parse(root.getJSONObject("current").getString("time"))
     val region = location?.let(::forecastRegionFor)
     // Open-Meteo writes every ISO timestamp using this response offset, not device timezone rules.
     val zone: ZoneId? = runCatching {
@@ -130,34 +128,11 @@ internal fun blendModelForecast(
                 }
             }
         }
-        // Seamless uses a global fallback later; only use the regional sky for the next 48 hours.
-        // Check the original provider rain at both boundaries before blending it below.
-        val regionalHourSky = regionalSkyModel?.takeIf { id ->
-            val lead = zone?.takeIf { it.rules.getValidOffsets(currentTime).size == 1 && it.rules.getValidOffsets(localTime).size == 1 }
-                ?.let { Duration.between(currentTime.atZone(it), localTime.atZone(it)) }
-            val originalCode = target.optJSONArray("weather_code").numberOrNull(targetIndex)?.toInt()
-            val code = source.optJSONArray("weather_code_$id").numberOrNull(sourceIndex)
-            val cloud = source.optJSONArray("cloud_cover_$id").numberOrNull(sourceIndex)
-            lead != null && lead >= Duration.ofHours(-1) && lead <= Duration.ofHours(48) && originalCode in 0..3 &&
-                code != null && isValidModelValue("weather_code", code) && code.toInt() in 0..3 &&
-                cloud != null && cloud in 0.0..100.0 &&
-                (0..1).all { offset ->
-                    val nextTime = localTime.plusHours(offset.toLong()).toString()
-                    val nextSource = sourceIndices[nextTime]
-                    val nextTarget = targetIndex + offset
-                    targetTimes.optString(nextTarget) == nextTime && nextSource != null &&
-                        target.optJSONArray("precipitation").numberOrNull(nextTarget)?.let { it in 0.0..<WET_THRESHOLD_MM } == true &&
-                        source.optJSONArray("precipitation_$id").numberOrNull(nextSource)?.let { it in 0.0..<WET_THRESHOLD_MM } == true &&
-                        modelValues(source, suffixes, "precipitation", nextSource).takeIf { it.size >= MINIMUM_MODELS }
-                            ?.median()?.let { it in 0.0..<WET_THRESHOLD_MM } == true
-                } &&
-                phenomenonWeatherCode(modelValues(source, suffixes, "weather_code", sourceIndex).map(Double::toInt)) == null
-        }
         if (blendPrecipitation(source, target, suffixes, sourceIndex, targetIndex)) {
             precipitationBlendedIndices.add(targetIndex)
             blendedAny = true
         }
-        blendedAny = blendCloudCover(source, target, suffixes, sourceIndex, targetIndex, regionalHourSky) || blendedAny
+        blendedAny = blendCloudCover(source, target, suffixes, sourceIndex, targetIndex) || blendedAny
         blendedAny = blendWind(
             source,
             target,
@@ -171,10 +146,8 @@ internal fun blendModelForecast(
             suffixes,
             sourceIndex,
             targetIndex,
-            regionalHourSky,
         ) || blendedAny
         // Static calibration has a different run contract from the live comparison inputs.
-        target.getJSONArray(SKY_SOURCE_MODEL_KEY).put(targetIndex, regionalHourSky ?: JSONObject.NULL)
         if (!calibratedThisHour && agreement != null) target.getJSONArray(MODEL_AGREEMENT_KEY)
             .put(targetIndex, agreement.toJson())
     }
@@ -339,20 +312,15 @@ private fun blendCloudCover(
     suffixes: List<String>,
     sourceIndex: Int,
     targetIndex: Int,
-    regionalSkyModel: String?,
 ): Boolean {
     val ranked = suffixes.mapNotNull { suffix ->
         source.optJSONArray("cloud_cover_$suffix").numberOrNull(sourceIndex)
             ?.takeIf { it in 0.0..100.0 }?.let { suffix to it }
     }.sortedWith(compareBy<Pair<String, Double>> { it.second }.thenBy { it.first })
     val total = target.optJSONArray("cloud_cover") ?: return false
-    val regional = ranked.firstOrNull { it.first == regionalSkyModel &&
-        source.optJSONArray("weather_code_${it.first}").numberOrNull(sourceIndex)?.let { code ->
-            isValidModelValue("weather_code", code)
-        } == true }
-    if (regional == null && ranked.size < MINIMUM_MODELS) return false
-    // An unvalidated global median must not outvote the Czech high-resolution sky baseline.
-    val selected = regional?.let(::listOf) ?: ranked.subList((ranked.size - 1) / 2, ranked.size / 2 + 1)
+    if (ranked.size < MINIMUM_MODELS) return false
+    // A single regional member must not replace the multi-model sky estimate.
+    val selected = ranked.subList((ranked.size - 1) / 2, ranked.size / 2 + 1)
     total.put(targetIndex, selected.map { it.second }.average())
     // Layer definitions differ by provider. Preserve the selected sources, not a union formula.
     listOf("cloud_cover_low", "cloud_cover_mid", "cloud_cover_high").forEach { field ->
@@ -401,19 +369,11 @@ private fun deriveCondition(
     suffixes: List<String>,
     sourceIndex: Int,
     targetIndex: Int,
-    regionalSkyModel: String?,
 ): Boolean {
     val codes = modelValues(source, suffixes, "weather_code", sourceIndex).map(Double::toInt)
     val explicitCode = phenomenonWeatherCode(codes)
     if (explicitCode != null) {
         target.optJSONArray("weather_code")?.put(targetIndex, explicitCode)
-        return true
-    }
-    val regionalCode = regionalSkyModel?.let { id ->
-        source.optJSONArray("weather_code_$id").numberOrNull(sourceIndex)?.toInt()
-    }
-    if (regionalCode != null) {
-        target.optJSONArray("weather_code")?.put(targetIndex, regionalCode)
         return true
     }
     val clouds = modelValues(source, suffixes, "cloud_cover", sourceIndex)

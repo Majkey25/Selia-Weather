@@ -212,6 +212,7 @@ fun conditionFor(code: Int, isDay: Boolean = true): WeatherCondition = when (cod
     3 -> WeatherCondition(WeatherConditionKey.CLOUDY, WeatherKind.CLOUDY, code)
     45, 48 -> WeatherCondition(WeatherConditionKey.FOG, WeatherKind.FOG, code)
     in 51..57 -> WeatherCondition(WeatherConditionKey.DRIZZLE, WeatherKind.RAIN, code)
+    58, 59 -> WeatherCondition(WeatherConditionKey.RAIN, WeatherKind.RAIN, code)
     in 61..67 -> WeatherCondition(WeatherConditionKey.RAIN, WeatherKind.RAIN, code)
     in 71..77 -> WeatherCondition(WeatherConditionKey.SNOW, WeatherKind.SNOW, code)
     in 80..82 -> WeatherCondition(WeatherConditionKey.SHOWERS, WeatherKind.RAIN, code)

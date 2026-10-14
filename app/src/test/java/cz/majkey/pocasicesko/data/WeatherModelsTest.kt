@@ -36,7 +36,7 @@ class WeatherModelsTest {
 
     @Test
     fun precipitationEvidencePreservesSourceCodesAndFiniteTraceAmounts() {
-        listOf(51, 53, 55, 56, 57, 61, 66, 71, 85, 95).forEach {
+        listOf(51, 53, 55, 56, 57, 58, 59, 61, 66, 71, 85, 95).forEach {
             assertTrue(hasPrecipitationEvidence(it, 0.0))
         }
         assertTrue(hasPrecipitationEvidence(0, 0.03))

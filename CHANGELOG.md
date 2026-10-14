@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.13] - 2026-10-14
+
+- Recognize observed drizzle mixed with rain and additional rain/hail thunderstorm METAR groups instead of dropping their present-weather report. Keep combined precipitation labels in all five languages; do not infer rainfall amounts or probabilities from these codes.
+- Preserve freshness, distance, unknown-token and mixed freezing/snow safeguards. Forecast confidence thresholds and learned cloud/rain weights are unchanged.
+- An external October 2025 cloud-map check did not establish superiority over the raw mean/median and worsened one station's day2 error. Reject that candidate; this release fixes observation ingestion, not worldwide forecast skill.
+
 ## [0.7.12] - 2026-10-14
 
 - Recover an incomplete radar forecast run by trying one previous, still-fresh advertised run after the existing uncached image retry fails. Keep the selected forecast time and horizon, report the actual run, and retain the last valid raster if recovery fails. Never substitute observed radar for a future forecast.

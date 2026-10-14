@@ -216,11 +216,14 @@ class MetarCurrentConditionsTest {
     fun parsesExplicitPresentWeatherWithoutInventingAmounts() {
         mapOf(
             "-DZ" to 51, "DZ" to 53, "+DZ" to 55, "-RA BR" to 61, "RA" to 63, "+RA" to 65,
+            "-DZRA" to 58, "DZRA" to 59, "+DZRA" to 59,
+            "-RADZ" to 58, "RADZ" to 59, "+RADZ" to 59,
             "-FZDZ" to 56, "FZDZ" to 57, "-FZRA" to 66, "+FZRA" to 67,
             "-SN" to 71, "SN" to 73, "+SN" to 75, "SHRA" to 81, "+SHRA" to 81, "-SHSN" to 85,
             "FG" to 45, "FZFG" to 48, "TSRA" to 95, "RA FG" to 63,
             "BCFG" to 45, "MIFG" to 45, "PRFG" to 45, "-RA BCFG" to 61,
-            "TSSN" to 95, "TSSN SN" to 95, "TSGR" to 96, "+TSRAGR" to 96,
+            "TSSN" to 95, "TSSN SN" to 95, "TSGR" to 96,
+            "-TSRAGR" to 96, "TSRAGR" to 96, "+TSRAGR" to 96,
         ).forEach { (encoded, expected) ->
             val report = JSONArray(METAR_JSON).getJSONObject(0).put("wxString", encoded)
             val observation = parseMetarCurrentConditions(JSONArray().put(report).toString()).single()
@@ -256,6 +259,8 @@ class MetarCurrentConditionsTest {
             "FZRA RA RETS", "-RASN VCSH", "-RA VCSH BR HZ",
             "TSRA SN", "TSSN RA", "TSSN FZRA", "+TSRAGR SN",
             "TSGR UP", "-RA BCUNKNOWN", "TSSNRA", "TSUNKNOWN",
+            "TSRAGR SN", "-TSRAGR FZRA", "TSRAGR UP", "VCTSRAGR",
+            "DZRA SN", "RADZ FZRA", "-DZRA UP", "REDZRA", "VCDZRA",
         ).forEach { encoded ->
             val report = JSONArray(METAR_JSON).getJSONObject(0).put("wxString", encoded)
             val observation = parseMetarCurrentConditions(JSONArray().put(report).toString()).single()

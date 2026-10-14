@@ -12,6 +12,8 @@ fun WeatherCondition.labelResource(): Int = when (weatherCode) {
     55 -> R.string.condition_dense_drizzle
     56 -> R.string.condition_light_freezing_drizzle
     57 -> R.string.condition_dense_freezing_drizzle
+    58 -> R.string.condition_light_drizzle_and_rain
+    59 -> R.string.condition_drizzle_and_rain
     61 -> R.string.condition_light_rain
     63 -> R.string.condition_moderate_rain
     65 -> R.string.condition_heavy_rain

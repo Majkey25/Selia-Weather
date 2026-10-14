@@ -17,6 +17,8 @@ class WeatherTextTest {
             55 to R.string.condition_dense_drizzle,
             56 to R.string.condition_light_freezing_drizzle,
             57 to R.string.condition_dense_freezing_drizzle,
+            58 to R.string.condition_light_drizzle_and_rain,
+            59 to R.string.condition_drizzle_and_rain,
             61 to R.string.condition_light_rain,
             63 to R.string.condition_moderate_rain,
             65 to R.string.condition_heavy_rain,

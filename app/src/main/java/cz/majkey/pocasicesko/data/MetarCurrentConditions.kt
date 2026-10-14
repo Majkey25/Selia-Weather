@@ -82,8 +82,8 @@ private fun parseMetarWeatherCode(encoded: String?): Int? {
     }) return null
     val codes = groups.mapNotNull(METAR_WEATHER_CODES::get)
     val phases = listOf(
-        codes.any { it in 51..55 || it in 61..65 || it in 80..82 } ||
-            groups.any { it in setOf("-TSRA", "TSRA", "+TSRA", "+TSRAGR") },
+        codes.any { it in 51..55 || it in 58..65 || it in 80..82 } ||
+            groups.any { it in setOf("-TSRA", "TSRA", "+TSRA", "-TSRAGR", "TSRAGR", "+TSRAGR") },
         codes.any { it in 56..57 || it in 66..67 },
         codes.any { it in 71..77 || it in 85..86 } || "TSSN" in groups,
     )
@@ -129,6 +129,9 @@ private val CLOUD_COVER_RANGES = mapOf(
 // FAA METAR present-weather codes; WMO intensity classes. No amount or probability inference.
 private val METAR_WEATHER_CODES = mapOf(
     "-DZ" to 51, "DZ" to 53, "+DZ" to 55,
+    // WMO 4677 preserves combined liquid precipitation, not the first type's intensity alone.
+    "-DZRA" to 58, "DZRA" to 59, "+DZRA" to 59,
+    "-RADZ" to 58, "RADZ" to 59, "+RADZ" to 59,
     "-RA" to 61, "RA" to 63, "+RA" to 65,
     "-SHRA" to 80, "SHRA" to 81, "+SHRA" to 81,
     "-FZDZ" to 56, "FZDZ" to 57, "+FZDZ" to 57,
@@ -138,7 +141,7 @@ private val METAR_WEATHER_CODES = mapOf(
     "FG" to 45, "BCFG" to 45, "MIFG" to 45, "PRFG" to 45, "FZFG" to 48,
     "TS" to 95, "-TSRA" to 95, "TSRA" to 95, "+TSRA" to 95,
     // The + in +TSRAGR describes rain intensity, not heavy hail.
-    "TSSN" to 95, "TSGR" to 96, "+TSRAGR" to 96,
+    "TSSN" to 95, "TSGR" to 96, "-TSRAGR" to 96, "TSRAGR" to 96, "+TSRAGR" to 96,
 )
 // Exact tokens only: FAA JO 7900.5E section 13.13 / Appendix E (VC),
 // EU 2017/373 Annex V Appendix 1 METAR template (RE). These never supply local weather.

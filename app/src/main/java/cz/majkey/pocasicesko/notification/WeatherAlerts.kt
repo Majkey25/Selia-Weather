@@ -56,9 +56,10 @@ internal fun forecastAlerts(
         }
     }
     future.forEachIndexed { index, (time, hour) ->
-        // Source precipitation totals end at their timestamp; advise only for wholly future intervals.
-        if (time - HOUR_MILLIS in nowEpochMillis..(nowEpochMillis + normalized.rainLeadHours * HOUR_MILLIS) &&
-            rainAlertEvidence(hour, normalized)) add(WeatherAlertCategory.RAIN, time - HOUR_MILLIS)
+        // Advise only for future instants or wholly future accumulation intervals.
+        rainAlertTimes(hour, normalized, time)
+            .firstOrNull { it in nowEpochMillis..(nowEpochMillis + normalized.rainLeadHours * HOUR_MILLIS) }
+            ?.let { add(WeatherAlertCategory.RAIN, it) }
         if (time > horizon) return@forEachIndexed
         hour.temperature.takeIf { it.isFinite() && it in -100.0..70.0 }?.let { temperature ->
             if (temperature <= normalized.coldCelsius) add(WeatherAlertCategory.COLD, time, temperature)
@@ -84,20 +85,23 @@ private fun forecastHourTime(hour: HourlyWeather, zone: ZoneId): Long? {
     return local.toInstant(offset).toEpochMilli()
 }
 
-private fun rainAlertEvidence(hour: HourlyWeather, settings: WeatherAlertSettings): Boolean =
-    hasPrecipitationEvidence(hour.weatherCode, hour.precipitation, hour.rain, hour.showers, hour.snowfall) ||
+private fun rainAlertTimes(hour: HourlyWeather, settings: WeatherAlertSettings, time: Long): List<Long> = buildList {
+    // Amounts and probabilities describe the preceding hour; weather codes describe the instant.
+    if (hasPrecipitationEvidence(0, hour.precipitation, hour.rain, hour.showers, hour.snowfall) ||
         hour.precipitationProbability?.let { it in settings.rainProbabilityPercent..100 } == true ||
         hour.precipitationSpread?.let { it.wetModelCount * 2 >= it.modelCount && it.maximumMm >= 0.1 } == true
+    ) add(time - HOUR_MILLIS)
+    if (hasPrecipitationEvidence(hour.weatherCode)) add(time)
+}
 
 internal fun nextRainAlertTime(settings: WeatherAlertSettings, snapshot: WeatherSnapshot, now: Long): Long? {
     val current = settings.normalized()
     if (!current.rainEnabled || snapshot.updatedAtEpochMillis !in (now - MAX_FORECAST_AGE_MILLIS)..now) return null
     val zone = forecastAlertZone(snapshot) ?: return null
-    return snapshot.hourly.mapNotNull { hour ->
-        if (!rainAlertEvidence(hour, current)) return@mapNotNull null
-        val time = forecastHourTime(hour, zone) ?: return@mapNotNull null
-        val notifyAt = time - (current.rainLeadHours + 1) * HOUR_MILLIS
-        notifyAt.takeIf { it > now && it <= snapshot.updatedAtEpochMillis + MAX_FORECAST_AGE_MILLIS }
+    return snapshot.hourly.flatMap { hour ->
+        val time = forecastHourTime(hour, zone) ?: return@flatMap emptyList()
+        rainAlertTimes(hour, current, time).map { it - current.rainLeadHours * HOUR_MILLIS }
+            .filter { it > now && it <= snapshot.updatedAtEpochMillis + MAX_FORECAST_AGE_MILLIS }
     }.minOrNull()
 }
 
@@ -146,7 +150,7 @@ object WeatherAlerts {
             .forEach { manager.cancel(it.notificationId) }
         val preferences = context.getSharedPreferences("weather_alert_deliveries", Context.MODE_PRIVATE)
         val localized = AppLocale.localized(context)
-        val zone = forecastAlertZone(snapshot) ?: return
+        val zone = runCatching { ZoneId.of(snapshot.timezone) }.getOrNull() ?: forecastAlertZone(snapshot) ?: return
         alerts.forEach { alert ->
             val category = alert.category
             val current = WeatherAlertSettings.load(context)
@@ -180,8 +184,8 @@ object WeatherAlerts {
 }
 
 private fun forecastAlertZone(snapshot: WeatherSnapshot): ZoneId? =
-    runCatching { ZoneId.of(snapshot.timezone) }.getOrNull()
-        ?: snapshot.utcOffsetSeconds?.takeIf { it in -64_800..64_800 }?.let(ZoneOffset::ofTotalSeconds)
+    snapshot.utcOffsetSeconds?.takeIf { it in -64_800..64_800 }?.let(ZoneOffset::ofTotalSeconds)
+        ?: runCatching { ZoneId.of(snapshot.timezone) }.getOrNull()
 
 private fun alertText(context: Context, alert: ForecastAlert, zone: ZoneId): String {
     val locale = AppLocale.locale(context)

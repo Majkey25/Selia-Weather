@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.11] - 2026-10-14
+
+- Show widget rain probability for the interval containing the current time, not the hour that already ended. Missing or duplicate interval boundaries remain unknown instead of borrowing a later forecast.
+- Schedule rain and drizzle codes at their actual valid time. Keep preceding-hour rainfall amounts and probabilities at their interval start; preserve the configured notification lead time.
+- Decode forecast alert times using the provider's response offset across daylight-saving changes. Continue displaying notification times in the location's civil time zone.
+- Round total cloud percentages consistently with the fallback sky calculation instead of truncating them below category boundaries. This is a small numerical consistency correction, not a new meteorological estimator. Confidence thresholds and learned-weight validation gates are unchanged.
+
 ## [0.7.10] - 2026-10-14
 
 - Show the source's light, moderate or heavy rain, drizzle, freezing precipitation and shower descriptions throughout the app and widgets, in all five supported languages. Do not equate a small hourly total with drizzle.

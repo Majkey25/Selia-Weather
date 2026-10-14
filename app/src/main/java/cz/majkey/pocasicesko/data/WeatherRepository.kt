@@ -18,6 +18,7 @@ import java.nio.charset.StandardCharsets
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 import java.util.Locale
 import java.util.concurrent.CancellationException
 import kotlin.math.roundToInt
@@ -252,6 +253,13 @@ class WeatherRepository(context: Context) {
         val condition = conditionFor(snapshot.current.weatherCode, snapshot.current.isDay)
         val currentHour = snapshot.current.time.take(13)
         val nextHours = snapshot.hourly.dropWhile { it.time.take(13) < currentHour }.take(3)
+        // Probabilities describe the preceding hour, unlike the labelled temperatures.
+        val precipitationEnd = runCatching {
+            LocalDateTime.parse(snapshot.current.time).truncatedTo(ChronoUnit.HOURS).plusHours(1)
+        }.getOrNull()
+        val precipitationHour = snapshot.hourly.singleOrNull {
+            precipitationEnd != null && runCatching { LocalDateTime.parse(it.time) }.getOrNull() == precipitationEnd
+        }
         val moon = runCatching {
             MoonCalculator.calculate(
                 LocalDateTime.parse(snapshot.current.time).atZone(ZoneId.of(snapshot.timezone)),
@@ -274,7 +282,7 @@ class WeatherRepository(context: Context) {
             putFloat(KEY_WIDGET_LOW, today.temperatureMin.toFloat())
             putInt(
                 KEY_WIDGET_PRECIPITATION_PROBABILITY,
-                nextHours.firstOrNull()?.precipitationProbability ?: -1,
+                precipitationHour?.precipitationProbability ?: -1,
             )
             putFloat(KEY_WIDGET_WIND_SPEED, snapshot.current.windSpeed.toFloat())
             putInt(KEY_WIDGET_HUMIDITY, snapshot.current.humidity)

@@ -431,4 +431,17 @@
     <string name="precipitation_help">À propos de cette prévision</string>
     <string name="advanced_details">Détails avancés</string>
     <string name="hourly_model_disagreement">Des précipitations locales restent possibles : %1$d modèles sur %2$d prévoient des quantités non nulles, jusqu’à %3$s. Ce désaccord ne constitue pas une probabilité de pluie calibrée.</string>
+    <string name="condition_light_drizzle">Bruine légère</string>
+    <string name="condition_moderate_drizzle">Bruine modérée</string>
+    <string name="condition_dense_drizzle">Bruine dense</string>
+    <string name="condition_light_freezing_drizzle">Bruine verglaçante légère</string>
+    <string name="condition_dense_freezing_drizzle">Bruine verglaçante dense</string>
+    <string name="condition_light_rain">Pluie légère</string>
+    <string name="condition_moderate_rain">Pluie modérée</string>
+    <string name="condition_heavy_rain">Forte pluie</string>
+    <string name="condition_light_freezing_rain">Pluie verglaçante légère</string>
+    <string name="condition_heavy_freezing_rain">Pluie verglaçante modérée à forte</string>
+    <string name="condition_light_showers">Averses de pluie légères</string>
+    <string name="condition_moderate_showers">Averses modérées à fortes</string>
+    <string name="condition_violent_showers">Averses de pluie violentes</string>
 </resources>

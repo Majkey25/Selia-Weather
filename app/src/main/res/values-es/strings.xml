@@ -431,4 +431,17 @@
     <string name="precipitation_help">Sobre este pronóstico</string>
     <string name="advanced_details">Datos avanzados</string>
     <string name="hourly_model_disagreement">No se descarta precipitación local: %1$d de %2$d modelos prevén cantidades superiores a cero, hasta %3$s. Esta discrepancia no es una probabilidad de lluvia calibrada.</string>
+    <string name="condition_light_drizzle">Llovizna ligera</string>
+    <string name="condition_moderate_drizzle">Llovizna moderada</string>
+    <string name="condition_dense_drizzle">Llovizna densa</string>
+    <string name="condition_light_freezing_drizzle">Llovizna engelante ligera</string>
+    <string name="condition_dense_freezing_drizzle">Llovizna engelante densa</string>
+    <string name="condition_light_rain">Lluvia ligera</string>
+    <string name="condition_moderate_rain">Lluvia moderada</string>
+    <string name="condition_heavy_rain">Lluvia intensa</string>
+    <string name="condition_light_freezing_rain">Lluvia engelante ligera</string>
+    <string name="condition_heavy_freezing_rain">Lluvia engelante moderada o intensa</string>
+    <string name="condition_light_showers">Chubascos ligeros</string>
+    <string name="condition_moderate_showers">Chubascos moderados o intensos</string>
+    <string name="condition_violent_showers">Chubascos violentos</string>
 </resources>

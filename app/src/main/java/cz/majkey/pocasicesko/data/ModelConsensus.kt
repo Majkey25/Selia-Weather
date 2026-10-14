@@ -243,14 +243,14 @@ private fun modelAgreement(source: JSONObject, suffixes: List<String>, index: In
     // Do not describe only a complete subset while partial inputs still affect the displayed blend.
     if (listOf("temperature_2m", "wind_speed_10m", "wind_direction_10m", "cloud_cover", "weather_code", "precipitation")
         .any { modelValues(source, suffixes, it, index).size != rows.size }) return null
-    val conditions = rows.groupingBy { it.condition }.eachCount()
-    val dominant = conditions.entries.sortedBy { it.key.ordinal }.maxBy { it.value }
+    val conditions = rows.groupingBy { it.conditionGroup }.eachCount()
+    val dominant = conditions.entries.sortedBy { it.key.first.ordinal }.maxBy { it.value }
     return HourlyModelAgreement(rows.size, rows.maxOf { it.temperatureCelsius } - rows.minOf { it.temperatureCelsius },
         rows.maxOf { first -> rows.maxOf { second ->
             hypot(first.eastWind - second.eastWind, first.northWind - second.northWind)
         } },
         rows.maxOf { it.cloudCoverPercent } - rows.minOf { it.cloudCoverPercent },
-        dominant.value, rows.count { it.precipitationMm > 0 }, rows.minOf { it.precipitationMm }, rows.maxOf { it.precipitationMm }, dominant.key,
+        dominant.value, rows.count { it.precipitationMm > 0 }, rows.minOf { it.precipitationMm }, rows.maxOf { it.precipitationMm }, dominant.key.first,
         allSkyConditions = rows.all { it.condition in SKY_CONDITION_KINDS }, modelInputs = rows)
 }
 
@@ -431,19 +431,23 @@ private fun deriveCondition(
 private fun phenomenonWeatherCode(codes: List<Int>): Int? {
     if (codes.size < MINIMUM_MODELS) return null
     val required = codes.size / 2 + 1
+    codes.groupingBy { it }.eachCount().entries
+        .firstOrNull { it.key !in 0..3 && it.value >= required }?.let { return it.key }
     val liquidCodes = codes.filter { it in DRIZZLE_CODES || it in 61..65 || it in 80..82 }
     return when {
         codes.count { it in 95..99 } >= required -> 95
         codes.count { it in 66..67 } >= required -> 66
         codes.count { it in 56..57 } >= required -> 56
         codes.count { it in DRIZZLE_CODES } >= required ->
-            DRIZZLE_CODES.firstOrNull { code -> codes.count { it == code } >= required } ?: 51
+            codes.filter { it in DRIZZLE_CODES }.sortedDescending()[required - 1]
         codes.count { it in 71..77 || it == 85 || it == 86 } >= required -> 71
         codes.count { it in 45..48 } >= required -> 45
         codes.count { it in 80..82 } >= required ->
-            (80..82).firstOrNull { code -> codes.count { it == code } >= required } ?: 80
+            codes.filter { it in 80..82 }.sortedDescending()[required - 1]
         codes.count { it in 61..65 || it in 80..82 } >= required ->
-            listOf(61, 63, 65).firstOrNull { code -> codes.count { it == code } >= required } ?: 61
+            codes.filter { it in 61..65 || it in 80..82 }
+                .map { when (it) { 80 -> 61; 81 -> 63; 82 -> 65; else -> it } }
+                .sortedDescending()[required - 1]
         liquidCodes.size >= required -> liquidCodes.sorted().groupingBy { it }.eachCount().maxBy { it.value }.key
         else -> null
     }

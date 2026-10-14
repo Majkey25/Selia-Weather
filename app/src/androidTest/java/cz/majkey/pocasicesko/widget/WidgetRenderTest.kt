@@ -118,6 +118,35 @@ class WidgetRenderTest {
     }
 
     @Test
+    fun preciseRainLabelsFitNativeWidgetInEverySupportedLanguage() {
+        assertTrue(WeatherWidgetProvider.saveSettings(context, 41, WidgetSettings()))
+        for (language in listOf("en", "cs", "de", "es", "fr")) {
+            val localized = context.createConfigurationContext(Configuration(context.resources.configuration).apply {
+                setLocale(Locale.forLanguageTag(language))
+            })
+            for ((code, label) in listOf(57 to R.string.condition_dense_freezing_drizzle,
+                61 to R.string.condition_light_rain, 65 to R.string.condition_heavy_rain,
+                67 to R.string.condition_heavy_freezing_rain, 81 to R.string.condition_moderate_showers)) {
+                assertTrue(context.getSharedPreferences(WeatherRepository.PREFERENCES_NAME, Context.MODE_PRIVATE).edit()
+                    .putString(WeatherRepository.KEY_WIDGET_KIND, "RAIN")
+                    .putString(WeatherRepository.KEY_WIDGET_CONDITION_KEY,
+                        when (code) { 57 -> "DRIZZLE"; 81 -> "SHOWERS"; else -> "RAIN" })
+                    .putInt(WeatherRepository.KEY_WIDGET_WEATHER_CODE, code).commit())
+                instrumentation.runOnMainSync {
+                    val widget = render(41, 352, 174, localized)
+                    val condition = widget.findViewById<TextView>(R.id.widget_condition)
+                    assertEquals("$language code=$code", localized.getString(label), condition.text.toString())
+                    assertEquals(View.VISIBLE, condition.visibility)
+                    for (line in 0 until condition.layout.lineCount) {
+                        assertEquals("$language code=$code", 0, condition.layout.getEllipsisCount(line))
+                        assertTrue(condition.layout.getLineBottom(line) <= condition.height)
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
     fun largeTextAndLongTemperatureRemainInsideNativeWidget() {
         val largeContext = FixtureContext(context.baseContext.createConfigurationContext(
             Configuration(context.resources.configuration).apply { fontScale = 1.6f },

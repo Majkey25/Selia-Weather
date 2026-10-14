@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.10] - 2026-10-14
+
+- Show the source's light, moderate or heavy rain, drizzle, freezing precipitation and shower descriptions throughout the app and widgets, in all five supported languages. Do not equate a small hourly total with drizzle.
+- Preserve exact precipitation codes supported by a strict model majority. When intensities differ within a family, retain the strongest intensity supported by a strict majority instead of always falling back to light rain.
+- Stop counting ordinary and freezing precipitation as full condition agreement. Keep confidence thresholds and precipitation probabilities unchanged.
+- Measure pending radar loading time from the last successful tile progress. Retry a pending forecast image-decoding failure once without HTTP cache; retain the last valid raster and timestamp if recovery fails. Keep normal tile caching, source limits and observation/forecast separation.
+- The frozen August/September kernel replay changes intensity codes, not cloud percentages or rainfall amounts. Learned forecast weights remain disabled; this release does not establish a new cloud/rain accuracy gain.
+
 ## [0.7.9] - 2026-10-14
 
 - Check the original provider's wet or missing precipitation before selecting regional dry-sky conditions. A small positive multi-model rainfall blend must not erase that safeguard and incorrectly replace a cloudy forecast with clear sky.

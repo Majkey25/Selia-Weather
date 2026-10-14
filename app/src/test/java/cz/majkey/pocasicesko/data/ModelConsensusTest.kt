@@ -586,7 +586,26 @@ class ModelConsensusTest {
     fun documentedHeavyThunderstormCodesContributeToStormConsensus() {
         val hourly = phenomenonFixture(listOf(97, 97, 97), setOf("cloud_cover", "precipitation"))
             .getJSONObject("hourly")
-        assertEquals(95, hourly.getJSONArray("weather_code").getInt(0))
+        assertEquals(97, hourly.getJSONArray("weather_code").getInt(0))
+    }
+
+    @Test
+    fun exactPhenomenonMajorityKeepsItsReportedIntensity() {
+        listOf(53, 55, 57, 63, 65, 67, 73, 75, 81, 82, 86, 96, 99).forEach { code ->
+            val hourly = phenomenonFixture(listOf(code, code, code, 0), setOf("precipitation", "cloud_cover"))
+                .getJSONObject("hourly")
+            assertEquals("code=$code", code, hourly.getJSONArray("weather_code").getInt(0))
+        }
+    }
+
+    @Test
+    fun splitRainIntensityDoesNotInventAnUnreportedLightClass() {
+        for ((codes, expected) in listOf(listOf(63, 63, 65, 65) to 63,
+            listOf(53, 53, 55, 55) to 53, listOf(81, 81, 82, 82) to 81,
+            listOf(65, 65, 82, 82) to 65)) {
+            val hourly = phenomenonFixture(codes, setOf("precipitation", "cloud_cover")).getJSONObject("hourly")
+            assertEquals("codes=$codes", expected, hourly.getJSONArray("weather_code").getInt(0))
+        }
     }
 
     @Test
@@ -1116,7 +1135,7 @@ class ModelConsensusTest {
     @Test
     fun majorityDrizzleIsNotErasedByTheMeasurableRainThreshold() {
         listOf(
-            listOf(51, 53, 55) to 51,
+            listOf(51, 53, 55) to 53,
             listOf(51, 53, 0) to 51,
             listOf(55, 55, 0) to 55,
             listOf(53, 53, 0) to 53,

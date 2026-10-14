@@ -27,6 +27,8 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 
 /** Network smoke test on the device's real WebView, not the desktop browser. */
@@ -53,17 +55,23 @@ class RadarWebViewTest {
         val view = compose.runOnIdle { findWebView(compose.activity.window.decorView)!! }
         val state = AtomicReference(JSONObject())
         fun readState() {
+            val received = CountDownLatch(1)
             compose.runOnIdle {
                 view.evaluateJavascript(
                     "JSON.stringify({origin:location.origin," +
                         "time:document.getElementById('time')?.textContent," +
                         "ready:typeof radarLayer!=='undefined'&&!!radarLayer&&radarLayer.ready&&!radarLayer.failed&&radarLayer.contentSeen&&map.isSourceLoaded(radarLayer.id)," +
                         "sourceId:typeof radarLayer==='undefined'||!radarLayer?'':radarLayer.id," +
+                        "retried:typeof radarLayer!=='undefined'&&!!radarLayer&&radarLayer.retried===true," +
                         "playing:timer!==null&&document.getElementById('play').getAttribute('aria-pressed')==='true'," +
                         "playLabel:document.getElementById('play').getAttribute('aria-label')," +
                         "transitionDuration:transitionDuration," +
                         "rendered:window.radarPlaybackProbe||null," +
                         "errors:window.radarErrors||[]," +
+                        "events:window.radarSourceEvents||[]," +
+                        "responses:window.radarResponses||[]," +
+                        "decodeProbe:window.radarDecodeProbe||null," +
+                        "pendingState:typeof pendingLayer==='undefined'||!pendingLayer?null:{id:pendingLayer.id,ready:pendingLayer.ready,failed:pendingLayer.failed,contentSeen:pendingLayer.contentSeen,loaded:map.isSourceLoaded(pendingLayer.id)}," +
                         "type:typeof radarLayer==='undefined'||!radarLayer?'':radarLayer.frame.type," +
                         "displayedTime:typeof radarLayer==='undefined'||!radarLayer?0:radarLayer.frame.time," +
                         "frame:typeof frameIndex==='undefined'?-1:frameIndex," +
@@ -101,12 +109,15 @@ class RadarWebViewTest {
                         "mode:typeof mode==='undefined'?'':mode," +
                         "sourceCount:map?Object.keys(map.getStyle().sources).filter(function(id){return id.startsWith('frame-');}).length:0," +
                         "short:document.body.classList.contains('short')," +
-                        "pending:typeof pendingLayer!=='undefined'&&!!pendingLayer," +
+                        "pending:typeof pendingLayer!=='undefined'&&(!!pendingLayer||seekTimer!==null)," +
                         "status:document.getElementById('status')?.textContent})",
                 ) { result ->
-                    (JSONTokener(result).nextValue() as? String)?.let { state.set(JSONObject(it)) }
+                        val json = JSONTokener(result).nextValue() as? String
+                        state.set(json?.let(::JSONObject) ?: JSONObject())
+                        received.countDown()
                 }
             }
+            assertTrue("WebView state callback did not arrive", received.await(5, TimeUnit.SECONDS))
         }
         fun assertTimelineVisible() {
             val snapshot = state.get()
@@ -309,6 +320,55 @@ class RadarWebViewTest {
             })
             assertEquals("", JSONObject(requireNotNull(report.get())).getString("status"))
         }
+        val sourceBeforeDecode = state.get().getString("sourceId")
+        compose.runOnIdle {
+            view.evaluateJavascript("""
+                window.radarDecodeProbe = {injected:0,reloadRequests:0,errors:0,events:[]};
+                var healthyFetch = window.fetch;
+                window.fetch = function(input, options) {
+                  var url = typeof input === 'string' ? input : input.url;
+                  if (url.startsWith(RadarForecast.endpoint + '?') && pendingLayer) {
+                    if (!radarDecodeProbe.injected && !pendingLayer.retried) {
+                      radarDecodeProbe.injected++;
+                      return Promise.resolve(new Response(new Uint8Array([0,1,2]),
+                        {status:200,headers:{'Content-Type':'image/png'}}));
+                    }
+                    if ((input.cache || (options && options.cache)) === 'reload') radarDecodeProbe.reloadRequests++;
+                  }
+                  return healthyFetch(input, options);
+                };
+                function countDecodeError(event) {
+                  if (event.error && event.error.message === 'The source image could not be decoded.') radarDecodeProbe.errors++;
+                  radarDecodeProbe.events.push({type:'error',id:event.sourceId,message:String(event.error && event.error.message)});
+                }
+                function recordDecodeProgress(event) {
+                  if (!event.sourceId || !event.sourceId.startsWith('frame-')) return;
+                  radarDecodeProbe.events.push({type:'data',id:event.sourceId,tile:!!event.tile,loaded:event.isSourceLoaded,
+                    pending:pendingLayer && pendingLayer.id});
+                  if (radarDecodeProbe.events.length > 32) radarDecodeProbe.events.shift();
+                }
+                map.on('error', countDecodeError);
+                map.on('sourcedata', recordDecodeProgress);
+                renderFrame(0, true);
+            """.trimIndent(), null)
+        }
+        try {
+            compose.waitUntil(30_000) {
+                readState()
+                state.get().optBoolean("ready") && !state.get().optBoolean("pending") &&
+                    state.get().optString("sourceId") != sourceBeforeDecode && state.get().optBoolean("retried") &&
+                    state.get().optJSONObject("decodeProbe")?.optInt("reloadRequests", 0)?.let { it > 0 } == true
+            }
+        } catch (failure: ComposeTimeoutException) {
+            throw AssertionError("Forecast did not recover from one invalid image: ${state.get()}", failure)
+        }
+        assertEquals(1, state.get().getJSONObject("decodeProbe").getInt("injected"))
+        assertEquals(1, state.get().getJSONObject("decodeProbe").getInt("errors"))
+        assertEquals("", state.get().getString("status"))
+        compose.runOnIdle { view.evaluateJavascript("window.fetch=healthyFetch;map.off('error',countDecodeError);map.off('sourcedata',recordDecodeProgress)", null) }
+        InstrumentationRegistry.getInstrumentation().sendStatus(0, Bundle().apply {
+            putString("stream", "\nRADAR_RECOVERY one injected invalid PNG, one decode error, uncached retry loaded\n")
+        })
         compose.runOnIdle {
             view.evaluateJavascript("var slider=document.getElementById('slider');slider.value=slider.max;slider.dispatchEvent(new Event('input'))", null)
         }
@@ -324,8 +384,38 @@ class RadarWebViewTest {
         assertPlaybackAndPause()
         compose.runOnIdle { view.evaluateJavascript("""
             window.radarErrors = [];
+            window.radarSourceEvents = [];
+            window.radarResponses = [];
+            var originalFetch = window.fetch;
+            window.fetch = function(input, options) {
+              return originalFetch(input, options).then(function(response) {
+                var url = typeof input === 'string' ? input : input.url;
+                if (url.startsWith('https://maps.dwd.de/') && url.includes('request=GetMap')) {
+                  var entry = {url:url,status:response.status,type:response.headers.get('Content-Type')};
+                  window.radarResponses.push(entry);
+                  if (window.radarResponses.length > 32) window.radarResponses.shift();
+                  response.clone().arrayBuffer().then(function(buffer) {
+                    entry.length = buffer.byteLength;
+                    entry.signature = Array.from(new Uint8Array(buffer, 0, Math.min(16, buffer.byteLength)));
+                    if (!entry.type || !entry.type.startsWith('image/')) entry.text = new TextDecoder().decode(buffer).slice(0,1000);
+                  }).catch(function(error) { entry.error = String(error); });
+                }
+                return response;
+              });
+            };
+            ['sourcedataloading','sourcedata'].forEach(function(type) {
+              map.on(type, function(event) {
+                if (!event.sourceId || !event.sourceId.startsWith('frame-')) return;
+                window.radarSourceEvents.push({at:performance.now(),type:type,sourceId:event.sourceId,
+                  dataType:event.sourceDataType,loaded:event.isSourceLoaded,tile:!!event.tile});
+                if (window.radarSourceEvents.length > 48) window.radarSourceEvents.shift();
+              });
+            });
             map.on('error', function(event) {
-              window.radarErrors.push({sourceId:event.sourceId, message:String(event.error && event.error.message)});
+              var tile = event.tile && event.tile.tileID && event.tile.tileID.canonical;
+              window.radarErrors.push({sourceId:event.sourceId, message:String(event.error && event.error.message),
+                status:event.error && event.error.status,url:event.error && event.error.url,
+                coordinate:tile ? {z:tile.z,x:tile.x,y:tile.y} : null});
               if (window.radarErrors.length > 16) window.radarErrors.shift();
             });
             map.jumpTo({center:[139.6503,35.6762],zoom:6});
@@ -356,6 +446,33 @@ class RadarWebViewTest {
         assertEquals(state.get().getLong("displayedTime"), state.get().getLong("sliderTime"))
         assertEquals("", state.get().getString("status"))
         assertPlaybackAndPause()
+        for ((place, coordinates) in listOf("Sydney" to "[151.2093,-33.8688]",
+            "Nairobi" to "[36.8219,-1.2921]", "Lima" to "[-77.0428,-12.0464]")) {
+            compose.runOnIdle {
+                view.evaluateJavascript("map.jumpTo({center:$coordinates,zoom:6});showFrame(0)", null)
+            }
+            for (last in listOf(false, true)) {
+                if (last) compose.runOnIdle {
+                    view.evaluateJavascript("showFrame(frames.length-1)", null)
+                }
+                try {
+                    compose.waitUntil(30_000) {
+                        readState()
+                        state.get().optString("model") == "global" && state.get().optBoolean("ready") &&
+                            !state.get().optBoolean("pending") && state.get().optInt("frame") ==
+                            if (last) state.get().optInt("count") - 1 else 0
+                    }
+                } catch (failure: ComposeTimeoutException) {
+                    throw AssertionError("$place forecast last=$last did not load: ${state.get()}", failure)
+                }
+                assertEquals("", state.get().getString("status"))
+                assertTrue(state.get().getInt("sourceCount") <= 4)
+                assertTrue(state.get().getDouble("horizon") >= 48.0)
+            }
+            InstrumentationRegistry.getInstrumentation().sendStatus(0, Bundle().apply {
+                putString("stream", "\nRADAR_GLOBAL $place first and +48h frame loaded\n")
+            })
+        }
         compose.runOnIdle { view.evaluateJavascript("document.getElementById('play').click()", null) }
         compose.waitUntil(10_000) { readState(); state.get().optBoolean("playing") }
         compose.runOnIdle {

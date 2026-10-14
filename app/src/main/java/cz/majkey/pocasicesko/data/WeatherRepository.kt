@@ -267,6 +267,7 @@ class WeatherRepository(context: Context) {
             putString(KEY_WIDGET_CITY, location.name)
             putFloat(KEY_WIDGET_TEMPERATURE, snapshot.current.temperature.toFloat())
             putString(KEY_WIDGET_CONDITION_KEY, condition.key.name)
+            putInt(KEY_WIDGET_WEATHER_CODE, snapshot.current.weatherCode)
             putString(KEY_WIDGET_KIND, condition.kind.name)
             putBoolean(KEY_WIDGET_IS_DAY, snapshot.current.isDay)
             putFloat(KEY_WIDGET_HIGH, today.temperatureMax.toFloat())
@@ -346,6 +347,7 @@ class WeatherRepository(context: Context) {
         const val KEY_WIDGET_CITY = "widget_city"
         const val KEY_WIDGET_TEMPERATURE = "widget_temperature"
         const val KEY_WIDGET_CONDITION_KEY = "widget_condition_key"
+        const val KEY_WIDGET_WEATHER_CODE = "widget_weather_code"
         const val KEY_WIDGET_KIND = "widget_kind"
         const val KEY_WIDGET_IS_DAY = "widget_is_day"
         const val KEY_WIDGET_HIGH = "widget_high"

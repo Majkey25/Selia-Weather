@@ -187,6 +187,7 @@ enum class WeatherConditionKey {
 data class WeatherCondition(
     val key: WeatherConditionKey,
     val kind: WeatherKind,
+    val weatherCode: Int? = null,
 )
 
 internal fun cloudWeatherCode(cloudCover: Int): Int = when {
@@ -201,19 +202,20 @@ internal fun hasPrecipitationEvidence(weatherCode: Int, vararg amounts: Double?)
         amounts.any { it != null && it.isFinite() && it > 0.0 }
 
 fun conditionFor(code: Int, isDay: Boolean = true): WeatherCondition = when (code) {
-    0 -> WeatherCondition(if (isDay) WeatherConditionKey.CLEAR_DAY else WeatherConditionKey.CLEAR_NIGHT, WeatherKind.CLEAR)
+    0 -> WeatherCondition(if (isDay) WeatherConditionKey.CLEAR_DAY else WeatherConditionKey.CLEAR_NIGHT, WeatherKind.CLEAR, code)
     1 -> WeatherCondition(
         if (isDay) WeatherConditionKey.MAINLY_CLEAR_DAY else WeatherConditionKey.MAINLY_CLEAR_NIGHT,
         WeatherKind.MAINLY_CLEAR,
+        code,
     )
-    2 -> WeatherCondition(WeatherConditionKey.PARTLY_CLOUDY, WeatherKind.PARTLY_CLOUDY)
-    3 -> WeatherCondition(WeatherConditionKey.CLOUDY, WeatherKind.CLOUDY)
-    45, 48 -> WeatherCondition(WeatherConditionKey.FOG, WeatherKind.FOG)
-    in 51..57 -> WeatherCondition(WeatherConditionKey.DRIZZLE, WeatherKind.RAIN)
-    in 61..67 -> WeatherCondition(WeatherConditionKey.RAIN, WeatherKind.RAIN)
-    in 71..77 -> WeatherCondition(WeatherConditionKey.SNOW, WeatherKind.SNOW)
-    in 80..82 -> WeatherCondition(WeatherConditionKey.SHOWERS, WeatherKind.RAIN)
-    85, 86 -> WeatherCondition(WeatherConditionKey.SNOW_SHOWERS, WeatherKind.SNOW)
-    in 95..99 -> WeatherCondition(WeatherConditionKey.STORM, WeatherKind.STORM)
-    else -> WeatherCondition(WeatherConditionKey.UNKNOWN, WeatherKind.UNKNOWN)
+    2 -> WeatherCondition(WeatherConditionKey.PARTLY_CLOUDY, WeatherKind.PARTLY_CLOUDY, code)
+    3 -> WeatherCondition(WeatherConditionKey.CLOUDY, WeatherKind.CLOUDY, code)
+    45, 48 -> WeatherCondition(WeatherConditionKey.FOG, WeatherKind.FOG, code)
+    in 51..57 -> WeatherCondition(WeatherConditionKey.DRIZZLE, WeatherKind.RAIN, code)
+    in 61..67 -> WeatherCondition(WeatherConditionKey.RAIN, WeatherKind.RAIN, code)
+    in 71..77 -> WeatherCondition(WeatherConditionKey.SNOW, WeatherKind.SNOW, code)
+    in 80..82 -> WeatherCondition(WeatherConditionKey.SHOWERS, WeatherKind.RAIN, code)
+    85, 86 -> WeatherCondition(WeatherConditionKey.SNOW_SHOWERS, WeatherKind.SNOW, code)
+    in 95..99 -> WeatherCondition(WeatherConditionKey.STORM, WeatherKind.STORM, code)
+    else -> WeatherCondition(WeatherConditionKey.UNKNOWN, WeatherKind.UNKNOWN, code)
 }

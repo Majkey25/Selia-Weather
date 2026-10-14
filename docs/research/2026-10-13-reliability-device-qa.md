@@ -193,3 +193,30 @@ No uninstall, data wipe or protection bypass was used. All ADB was released at
 These are software and release-verification results, not a measured improvement in
 cloud or rainfall prediction. Frozen validation decisions and production weights
 remain unchanged.
+
+## Published 0.7.8 and production-package check
+
+GitHub stable [0.7.8](https://github.com/Majkey25/Selia-Weather/releases/tag/v0.7.8)
+is not a draft or prerelease. Its APK/AAB were rebuilt from
+`a9ea0371bd277799e0cfc19acdbc9ce0163c736a`; release asset digests matched the local
+files. The AAB SHA-256 is
+`40f4299aff5048cc019eefc462b02b725f0e8e1985d188738b1795ed5bd6719f`.
+
+Play Console confirmed Alpha release 46, version 0.7.8, active and available to
+selected testers in 178 countries/regions, published on 13 October at 20:33 UTC.
+This is closed testing, not production access. The actual Huawei Play Store then
+offered Update with the 0.7.8 notes. Its normal update completed at 20:35:29 UTC:
+version code 50, version name 0.7.8, installer `com.android.vending`.
+
+The installed production package opened normally with Březnice retained. Opening
+the current hour showed Now, the forward forecast interval, feels-like temperature,
+precipitation, wind, UV, advanced details and forecast-help controls. The production
+radar loaded its real forecast map and Play advanced the displayed interval from
+Wednesday 01:00–02:00 to 17:00–18:00. Playback was paused before leaving the map.
+These manual checks establish actual release-package behaviour, not a measured
+frame rate or independently observed weather accuracy. The six code-50 native
+tests above provide the targeted parser/playback checks.
+
+Phone and browser access were explicitly released at 20:40 UTC. The phone was
+returned to Home; only this test's temporary device captures were removed. No
+emulator, uninstall, data wipe, licence bypass or account change was used.

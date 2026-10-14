@@ -434,6 +434,8 @@
     <string name="condition_light_drizzle">Llovizna ligera</string>
     <string name="condition_moderate_drizzle">Llovizna moderada</string>
     <string name="condition_dense_drizzle">Llovizna densa</string>
+    <string name="condition_light_drizzle_and_rain">Llovizna y lluvia ligeras</string>
+    <string name="condition_drizzle_and_rain">Llovizna y lluvia</string>
     <string name="condition_light_freezing_drizzle">Llovizna engelante ligera</string>
     <string name="condition_dense_freezing_drizzle">Llovizna engelante densa</string>
     <string name="condition_light_rain">Lluvia ligera</string>

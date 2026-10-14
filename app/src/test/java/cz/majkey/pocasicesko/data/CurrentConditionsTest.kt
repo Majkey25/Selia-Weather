@@ -9,6 +9,25 @@ import org.junit.Test
 
 class CurrentConditionsTest {
     @Test
+    fun combinedObservedPrecipitationReplacesClearWithoutInventingAnAmount() {
+        val now = Instant.parse("2026-10-12T10:35:00Z")
+        val model = current(weatherCode = 0, precipitation = 0.0, cloudCover = 0)
+        for ((encoded, expected) in listOf("-DZRA" to 58, "RADZ" to 59, "TSRAGR" to 96)) {
+            val report = JSONObject(METAR_CLOUD_REPORT).put("wxString", encoded)
+                .put("cover", "BKN")
+            val observation = parseMetarCurrentConditions("[$report]").single()
+            val location = CzechLocation("Point", REGION_PRAGUE, 50.0, 14.0)
+            val fused = fuseCurrentConditions(model, location, listOf(observation), now)
+            assertEquals(encoded, expected, fused.weatherCode)
+            assertEquals(encoded, model.precipitation, fused.precipitation, 0.0)
+            assertEquals(encoded, 63, fused.cloudCover)
+            assertEquals(model.weatherCode, fuseCurrentConditions(
+                model, location, listOf(observation.copy(time = now.minusSeconds(1_801))), now,
+            ).weatherCode)
+        }
+    }
+
+    @Test
     fun stationSunshineDoesNotEraseModelRainOrInventCloudLayers() {
         val now = Instant.parse("2026-08-29T09:10:00Z")
         val fused = fuseCurrentConditions(

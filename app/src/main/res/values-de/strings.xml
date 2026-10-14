@@ -434,6 +434,8 @@
     <string name="condition_light_drizzle">Leichter Nieselregen</string>
     <string name="condition_moderate_drizzle">Mäßiger Nieselregen</string>
     <string name="condition_dense_drizzle">Dichter Nieselregen</string>
+    <string name="condition_light_drizzle_and_rain">Leichter Nieselregen mit Regen</string>
+    <string name="condition_drizzle_and_rain">Nieselregen mit Regen</string>
     <string name="condition_light_freezing_drizzle">Leichter gefrierender Nieselregen</string>
     <string name="condition_dense_freezing_drizzle">Dichter gefrierender Nieselregen</string>
     <string name="condition_light_rain">Leichter Regen</string>

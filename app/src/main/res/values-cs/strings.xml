@@ -438,6 +438,8 @@
     <string name="condition_light_drizzle">Slabé mrholení</string>
     <string name="condition_moderate_drizzle">Mírné mrholení</string>
     <string name="condition_dense_drizzle">Husté mrholení</string>
+    <string name="condition_light_drizzle_and_rain">Slabé mrholení s deštěm</string>
+    <string name="condition_drizzle_and_rain">Mrholení s deštěm</string>
     <string name="condition_light_freezing_drizzle">Slabé mrznoucí mrholení</string>
     <string name="condition_dense_freezing_drizzle">Husté mrznoucí mrholení</string>
     <string name="condition_light_rain">Slabý déšť</string>

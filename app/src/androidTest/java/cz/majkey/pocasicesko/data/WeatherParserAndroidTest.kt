@@ -1,5 +1,9 @@
 package cz.majkey.pocasicesko.data
 
+import androidx.test.platform.app.InstrumentationRegistry
+import cz.majkey.pocasicesko.R
+import cz.majkey.pocasicesko.ui.labelResource
+import java.time.Instant
 import org.json.JSONArray
 import org.json.JSONObject
 import org.json.JSONException
@@ -8,6 +12,39 @@ import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class WeatherParserAndroidTest {
+    @Test
+    fun combinedMetarPrecipitationSurvivesFusionAndNativeJsonRoundTrip() {
+        val now = Instant.parse("2026-10-13T10:05:00Z")
+        val root = JSONObject(FORECAST)
+        root.getJSONObject("current").put("weather_code", 0).put("cloud_cover", 0)
+        val model = WeatherParser.parseForecast(root.toString(), 1L).current
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        for ((encoded, expected) in mapOf(
+            "-DZRA" to 58, "DZRA" to 59, "+DZRA" to 59,
+            "-RADZ" to 58, "RADZ" to 59, "+RADZ" to 59,
+            "-TSRAGR" to 96, "TSRAGR" to 96, "+TSRAGR" to 96,
+        )) {
+            val report = JSONObject().put("icaoId", "LKPR").put("obsTime", now.epochSecond - 300)
+                .put("qcField", 16).put("lat", 50.0).put("lon", 14.0)
+                .put("wxString", encoded).put("cover", "BKN").put("temp", 12)
+            val observed = parseMetarCurrentConditions(JSONArray().put(report).toString()).single()
+            val fused = fuseCurrentConditions(model, CzechLocation("Point", REGION_PRAGUE, 50.0, 14.0),
+                listOf(observed), now)
+            val saved = applyCurrentConditionsToForecastJson(root.toString(), fused)
+            val current = WeatherParser.parseForecast(saved, 1L).current
+            assertEquals(encoded, expected, current.weatherCode)
+            assertEquals(encoded, 0.0, current.precipitation, 0.0)
+            assertEquals(encoded, 63, current.cloudCover)
+            val label = conditionFor(current.weatherCode).labelResource()
+            val expectedLabel = when (expected) {
+                58 -> R.string.condition_light_drizzle_and_rain
+                59 -> R.string.condition_drizzle_and_rain
+                else -> R.string.condition_storm
+            }
+            assertEquals(encoded, context.getString(expectedLabel), context.getString(label))
+        }
+    }
+
     @Test
     fun totalCloudBoundsUseTheRawNumberOnAndroid() {
         val values = listOf(-1.0, -0.1, 100.1, 255.0, 0.0, 12.8, 100.0, 19.5, 49.5, 79.5)

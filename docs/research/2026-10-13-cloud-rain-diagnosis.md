@@ -165,6 +165,93 @@ counts of 2/8 and 1/8, and the exact positive daily interval bound above. The or
 scripts are unavailable; this is a tested reconstruction, not recovery of those
 scripts or another independent validation. No weights or Android assets are exported.
 
+## Exact hourly-kernel diagnosis and separate-period check
+
+The pure-estimator cloud comparison above does not reproduce the application's
+hourly policy. A subsequent local diagnostic invoked the actual compiled
+`ModelConsensusKt.blendModelForecast` from 0.7.8,
+`a9ea0371bd277799e0cfc19acdbc9ce0163c736a`. It did not transcribe the blending
+algorithm in Python. Best Match and all eleven Czech model suffixes retained their
+six required fields, original nulls, percent cloud cover, millimetres and exact UTC
+timestamps. The override-disabled comparison retains ALADIN as a median contributor.
+
+Each reconstructed window supplies the target hour and the next hour. Only its
+first output is scored: the second lacks a third row needed by the dry gate. The
+kernel's mutation order is preserved: its regional gate sees already-blended
+precipitation at the first hour and original Best Match precipitation at the next.
+Top-level contributor/mode metadata is not scored because the synthetic current
+hour is outside that two-row window.
+
+For the already-inspected September cohort, each nominal lead has 1,307 QC0 pairs:
+
+| Nominal lead | Current kernel MAE / false-clear | Override disabled MAE / false-clear |
+| --- | ---: | ---: |
+| 24 h | 18.994 / 23 | 16.326 / 6 |
+| 48 h | 21.327 / 29 | 17.570 / 8 |
+
+MAE is unrounded total-cloud error in percentage points. False-clear still means
+forecast cloud below 20% against N at least seven octas. These are not calibrated
+probabilities, categorical-weather accuracy scores or a new September holdout.
+The regional branch was selected in 1,035 and 1,061 paired cases respectively.
+
+Before calculating August 2026 cloud-policy errors, the override-disabled candidate
+and daily/seven-day block confidence, coverage, site-degradation and false-clear
+safeguards were frozen. August temperature/rain had been used in earlier work;
+this is a separate-period sky-policy check, not a claim that every August variable
+was previously untouched. Quality-0 monthly N records give 1,328 pairs per lead:
+Libuš 465 over 31 days, Holešov 120 over 21 days and Prostějov 743 over 31 days.
+
+| Nominal lead | Current kernel MAE / false-clear | Override disabled MAE / false-clear | Global-only median MAE / false-clear |
+| --- | ---: | ---: | ---: |
+| 24 h | 19.097 / 11 | 15.986 / 6 | 16.405 / 8 |
+| 48 h | 21.163 / 34 | 16.505 / 12 | 16.576 / 7 |
+
+The override-disabled candidate improves on the current kernel at every sampled
+site/lead. Its daily paired MAE-difference intervals against that kernel are
+`[-5.00593, -1.45859]` and `[-6.97470, -2.74104]` percentage points; seven-day
+intervals also stay below zero. This contradicts the assumption that the existing
+dry-gated ALADIN precedence is the most accurate hourly sky choice for these samples.
+
+The complete frozen decision is nevertheless **NO-GO**. At 48 hours the candidate
+has 12 false-clear cases, versus five for Best Match and seven for the global-only
+median. Against the global-only median, the 24-hour weekly difference interval
+ends at `+0.00929615`, and both 48-hour confidence checks cross zero. No benchmark,
+threshold or gate is removed after seeing those failures. No runtime policy or
+production weights are changed by this diagnostic.
+
+These are executions of the actual hourly kernel over reconstructed nominal-lead
+inputs, not reproduction of a captured operational forecast. Previous Runs values
+at adjacent hours do not prove one shared model issuance. The synthetic reference
+time does not prove historical initialization or first public availability.
+Regional quarter-hour/current sky and station/METAR fusion are not evaluated.
+Whole-sky N cannot validate rainfall, and three Czech sites cannot establish
+worldwide or present-location accuracy. A current Březnice miss is not resolved
+by these retrospective hourly scores alone.
+
+Independent raw-input review also found that every August IFS/AIFS weather-code
+cell is null, BOM has no available fields, and some Météo-France wind cells are
+missing. The historical phenomenon-vote set therefore differs from the complete
+live model evidence captured on 13 October. These are exact-code executions on
+archive-available inputs, not a complete live phenomenon replay. Twelve JMA day2
+precipitation cells contain -0.1 mm; the production boundary excludes them from
+the blend. They are not silently clipped to zero or described as valid rain data.
+
+Successful raw payloads, request identities, truth hashes and case-level outputs
+remain local. One TLS reset per period was retried once with unchanged parameters;
+existing successful bodies were not replaced. Receipt timestamps missing after
+the interrupted collectors remain explicitly null, never inferred as issuance.
+No production artifact was exported.
+
+Evidence SHA-256:
+
+```
+August request manifest: 574a46d7a02aac08d5ea9a24b41f8c7ece3d3f34abe3de06e76741b0f98c0490
+August truth manifest: c42fd1ec5713d859737ba1f2b3679c437522f8694117d7b12a3ea7a09be310a5
+August paired cases: 62427437b040e2260b8f2d8edfabb0a06925e5dc7e6ceaeb5f9662522a044007
+August gated report: 636de428709ee1b5d85fab4e16b65fe80d84fde4fb407ee2abe9fecb7523345c
+Compiled ModelConsensusKt: 2274fd98e19f03a2db98b203e14ae65282b9fff07b20478bf776111cbb15fd73
+```
+
 ## Verification contract
 
 Regression tests cover dry instantaneous codes with positive preceding-hour amounts,

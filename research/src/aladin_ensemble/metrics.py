@@ -45,6 +45,23 @@ def root_mean_square_error(forecast: Sequence[float], observed: Sequence[float])
     return sqrt(fmean((predicted - truth) ** 2 for predicted, truth in pairs))
 
 
+def empirical_crps(values: Sequence[float], weights: Sequence[float], observed: float) -> float:
+    """Score an empirical predictive CDF, not its mean or median."""
+    pairs = _pairs(values, weights)
+    _finite(observed)
+    if any(weight < 0 for _, weight in pairs) or abs(fsum(weights) - 1.0) > 1e-8:
+        raise ValueError("probability weights must be non-negative and sum to one")
+    error = fsum(weight * abs(value - observed) for value, weight in pairs)
+    spread = fsum(
+        weight * other_weight * abs(value - other)
+        for value, weight in pairs
+        for other, other_weight in pairs
+    )
+    score = error - 0.5 * spread
+    _finite(score)
+    return max(0.0, score)
+
+
 def circular_mean_absolute_error(
     forecast_degrees: Sequence[float], observed_degrees: Sequence[float]
 ) -> float:

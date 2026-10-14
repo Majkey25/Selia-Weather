@@ -166,6 +166,73 @@ def fit_positive_amount_weights(
     )
 
 
+def fit_empirical_pool_weights(
+    model_ids: Sequence[str],
+    predictor_rows: Sequence[Sequence[float]],
+    observations: Sequence[float],
+    *,
+    eligible_models: frozenset[str],
+    regularization: float = 0.01,
+    minimum_samples: int = 30,
+) -> WeightFit | FitFailure:
+    """Fit probability mass on model values; this does not fit a scalar blend."""
+    predictors, targets = _matrix(model_ids, predictor_rows, observations)
+    selected, indices = _eligible(model_ids, eligible_models)
+    if not isfinite(regularization) or regularization < 0:
+        raise ValueError("regularization must be finite and non-negative")
+    if minimum_samples <= 0:
+        raise ValueError("minimum_samples must be positive")
+    if len(targets) < minimum_samples:
+        return FitFailure(
+            ExclusionReason.INSUFFICIENT_SAMPLES,
+            f"{len(targets)} < {minimum_samples}",
+        )
+    predictors = predictors[:, indices]
+    errors = np.mean(np.abs(predictors - targets[:, None]), axis=0)
+    distances = np.mean(np.abs(predictors[:, :, None] - predictors[:, None, :]), axis=0)
+    initial = np.full(len(selected), 1.0 / len(selected), dtype=np.float64)
+
+    def objective(weights: NDArray[np.float64]) -> float:
+        deviation = weights - initial
+        return float(
+            weights @ errors
+            - 0.5 * weights @ distances @ weights
+            + regularization * np.dot(deviation, deviation)
+        )
+
+    def sum_constraint(weights: NDArray[np.float64]) -> float:
+        return float(np.sum(weights) - 1.0)
+
+    def gradient(weights: NDArray[np.float64]) -> NDArray[np.float64]:
+        return errors - distances @ weights + 2 * regularization * (weights - initial)
+
+    result = _minimize(
+        objective,
+        initial,
+        method="SLSQP",
+        bounds=[(0.0, 1.0)] * len(selected),
+        jac=gradient,
+        constraints={"type": "eq", "fun": sum_constraint},
+        options={"ftol": 1e-12, "maxiter": 1_000},
+    )
+    if not result.success or not np.all(np.isfinite(result.x)):
+        return FitFailure(ExclusionReason.UNSTABLE_FIT, str(result.message))
+    weights = np.clip(np.asarray(result.x, dtype=np.float64), 0.0, 1.0)
+    # Boundary probability mass below numerical resolution is not another contributor.
+    weights[weights <= np.sqrt(np.finfo(np.float64).eps)] = 0.0
+    if np.sum(weights) <= 0:
+        return FitFailure(ExclusionReason.UNSTABLE_FIT, "empty probability mass")
+    weights /= np.sum(weights)
+    score = objective(weights)
+    if not isfinite(score):
+        return FitFailure(ExclusionReason.UNSTABLE_FIT, "nonfinite objective")
+    return WeightFit(
+        dict(zip(selected, map(float, weights), strict=True)),
+        len(targets),
+        max(0.0, score),
+    )
+
+
 def fit_occurrence_calibration(
     model_ids: Sequence[str],
     probability_rows: Sequence[Sequence[float]],

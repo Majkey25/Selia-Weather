@@ -112,6 +112,12 @@ not another untouched holdout or permission to export weights. See
 
 ## Research environment
 
+The [probabilistic cloud/rain confirmation](../docs/research/2026-10-14-probabilistic-cloud-rain.md)
+tests `fit_empirical_pool_weights` and `empirical_crps` against independent native
+observations. Cloud scores improve in the archived August cohort, but coverage,
+rainfall and operational-provenance gates still block deployment. These probability
+masses must not be exported as scalar blend weights or used to raise UI confidence.
+
 ```powershell
 & 'C:\Users\mates\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -m uv sync --project research --frozen
 & 'C:\Users\mates\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -m uv run --project research pytest

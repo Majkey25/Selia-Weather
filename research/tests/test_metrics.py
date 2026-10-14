@@ -10,12 +10,31 @@ from aladin_ensemble.metrics import (
     brier_decomposition,
     brier_score,
     circular_mean_absolute_error,
+    empirical_crps,
     fractions_skill_score,
     mean_absolute_error,
     root_mean_square_error,
     threshold_scores,
     weighted_median,
 )
+
+
+def test_empirical_crps_preserves_distribution_and_matches_hand_calculation() -> None:
+    assert empirical_crps((0.0, 2.0), (0.5, 0.5), 1.0) == 0.5
+    assert empirical_crps((0.0, 2.0), (0.25, 0.75), 1.0) == 0.625
+    assert empirical_crps((1.0, 1.0), (0.2, 0.8), 2.0) == 1.0
+    assert isclose(empirical_crps((0.7,), (1.0,), 0.2), 0.5)
+
+
+@pytest.mark.parametrize("weights", [(0.0, 0.0), (-0.1, 1.1), (0.2, 0.2)])
+def test_empirical_crps_rejects_invalid_probability_mass(weights: tuple[float, ...]) -> None:
+    with pytest.raises(ValueError):
+        empirical_crps((0.0, 1.0), weights, 0.5)
+
+
+def test_empirical_crps_does_not_hide_overflow_as_a_perfect_score() -> None:
+    with pytest.raises(ValueError, match="finite"):
+        empirical_crps((-1e308, 1e308), (1.0, 0.0), 0.0)
 
 
 def test_scalar_and_circular_errors_match_hand_calculation() -> None:

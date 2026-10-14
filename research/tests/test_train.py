@@ -16,12 +16,58 @@ from aladin_ensemble.train import (
     blend_scalar_available,
     blend_wind,
     blend_wind_available,
+    fit_empirical_pool_weights,
     fit_occurrence_calibration,
     fit_positive_amount_weights,
     fit_scalar_weights,
     fit_wind_vector_weights,
     predict_occurrence,
 )
+
+
+def test_empirical_pool_fit_learns_a_distribution_not_a_blended_point() -> None:
+    fit = fit_empirical_pool_weights(
+        ("dry", "wet", "bad"),
+        ((0.0, 2.0, 100.0),) * 4,
+        (0.0, 0.0, 0.0, 2.0),
+        eligible_models=frozenset({"dry", "wet", "bad"}),
+        regularization=0.0,
+        minimum_samples=4,
+    )
+    assert isinstance(fit, WeightFit)
+    assert isclose(fit.weights["dry"], 0.75, abs_tol=1e-5)
+    assert isclose(fit.weights["wet"], 0.25, abs_tol=1e-5)
+    assert fit.weights["bad"] == 0.0
+    assert isclose(fit.objective, 0.375, abs_tol=1e-8)
+
+
+def test_empirical_pool_fit_keeps_eligibility_and_insufficient_sample_contract() -> None:
+    result = fit_empirical_pool_weights(
+        ("a", "b"),
+        ((0.0, 5.0),) * 3,
+        (1.0,) * 3,
+        eligible_models=frozenset({"a"}),
+        minimum_samples=4,
+    )
+    assert result == FitFailure(ExclusionReason.INSUFFICIENT_SAMPLES, "3 < 4")
+    fit = fit_empirical_pool_weights(
+        ("a", "b"),
+        ((0.0, 5.0),) * 3,
+        (1.0,) * 3,
+        eligible_models=frozenset({"a"}),
+        minimum_samples=3,
+    )
+    assert isinstance(fit, WeightFit)
+    assert fit.weights == {"a": 1.0}
+    assert fit.objective == 1.0
+    with pytest.raises(ValueError, match="regularization"):
+        fit_empirical_pool_weights(
+            ("a",),
+            ((0.0,),),
+            (1.0,),
+            eligible_models=frozenset({"a"}),
+            regularization=-1,
+        )
 
 
 def test_scalar_fit_is_constrained_deterministic_and_eligible_only() -> None:

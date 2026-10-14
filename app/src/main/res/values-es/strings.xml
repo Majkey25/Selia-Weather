@@ -440,8 +440,8 @@
     <string name="condition_moderate_rain">Lluvia moderada</string>
     <string name="condition_heavy_rain">Lluvia intensa</string>
     <string name="condition_light_freezing_rain">Lluvia engelante ligera</string>
-    <string name="condition_heavy_freezing_rain">Lluvia engelante intensa</string>
+    <string name="condition_heavy_freezing_rain">Lluvia engelante moderada o intensa</string>
     <string name="condition_light_showers">Chubascos ligeros</string>
-    <string name="condition_moderate_showers">Chubascos moderados</string>
+    <string name="condition_moderate_showers">Chubascos moderados o intensos</string>
     <string name="condition_violent_showers">Chubascos violentos</string>
 </resources>

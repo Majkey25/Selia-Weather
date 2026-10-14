@@ -444,8 +444,8 @@
     <string name="condition_moderate_rain">Mírný déšť</string>
     <string name="condition_heavy_rain">Silný déšť</string>
     <string name="condition_light_freezing_rain">Slabý mrznoucí déšť</string>
-    <string name="condition_heavy_freezing_rain">Silný mrznoucí déšť</string>
+    <string name="condition_heavy_freezing_rain">Mírný až silný mrznoucí déšť</string>
     <string name="condition_light_showers">Slabé dešťové přeháňky</string>
-    <string name="condition_moderate_showers">Mírné dešťové přeháňky</string>
+    <string name="condition_moderate_showers">Mírné až silné dešťové přeháňky</string>
     <string name="condition_violent_showers">Prudké dešťové přeháňky</string>
 </resources>

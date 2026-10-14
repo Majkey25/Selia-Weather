@@ -13,6 +13,9 @@ Drizzle is not inferred from a small hourly accumulation. Weather-code type and
 intensity come from the source classification, not an invented mm/h threshold.
 See the [Open-Meteo code table](https://open-meteo.com/en/docs#weathervariables)
 and [WMO observation guidance](https://www.weather.gov/media/epz/mesonet/CWOP-WMO8.pdf).
+Codes 67 and 81 retain their moderate-or-heavy range, also used when converting
+METAR reports; neither a moderate freezing-rain report nor heavy showers should
+receive a falsely narrower label. See the [NOAA WMO table](https://www.emc.ncep.noaa.gov/mmb/data_processing/table_20.htm).
 
 The multi-model categorical selector also discarded supported intensities. An
 exact strict majority now retains its code. With a strict family majority but
@@ -109,3 +112,7 @@ ellipsis or vertical clipping in all five supported languages. The 523 host test
 52 JavaScript tests, both Android lint variants and signed APK/AAB builds passed.
 Actual AI recipient attachment handling and worldwide meteorological superiority
 were not established by these app tests.
+
+A final label-range check retained the WMO moderate-or-heavy meanings of codes
+67 and 81. The focused Huawei widget test passed all 25 language/code combinations
+in 1.314 seconds, including the longer translated labels without clipping.

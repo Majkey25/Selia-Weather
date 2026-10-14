@@ -446,8 +446,8 @@
     <string name="condition_moderate_rain">Moderate rain</string>
     <string name="condition_heavy_rain">Heavy rain</string>
     <string name="condition_light_freezing_rain">Light freezing rain</string>
-    <string name="condition_heavy_freezing_rain">Heavy freezing rain</string>
+    <string name="condition_heavy_freezing_rain">Moderate or heavy freezing rain</string>
     <string name="condition_light_showers">Light rain showers</string>
-    <string name="condition_moderate_showers">Moderate rain showers</string>
+    <string name="condition_moderate_showers">Moderate or heavy rain showers</string>
     <string name="condition_violent_showers">Violent rain showers</string>
 </resources>

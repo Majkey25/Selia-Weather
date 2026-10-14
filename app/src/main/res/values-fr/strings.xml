@@ -440,8 +440,8 @@
     <string name="condition_moderate_rain">Pluie modérée</string>
     <string name="condition_heavy_rain">Forte pluie</string>
     <string name="condition_light_freezing_rain">Pluie verglaçante légère</string>
-    <string name="condition_heavy_freezing_rain">Forte pluie verglaçante</string>
+    <string name="condition_heavy_freezing_rain">Pluie verglaçante modérée à forte</string>
     <string name="condition_light_showers">Averses de pluie légères</string>
-    <string name="condition_moderate_showers">Averses de pluie modérées</string>
+    <string name="condition_moderate_showers">Averses modérées à fortes</string>
     <string name="condition_violent_showers">Averses de pluie violentes</string>
 </resources>

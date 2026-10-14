@@ -8,7 +8,7 @@ import org.junit.Test
 
 class ModelConsensusAndroidTest {
     @Test
-    fun providerWetOrMissingSkyVetoSurvivesSmallPositiveBlends() {
+    fun hourlySkyConsensusSurvivesDryWetOrMissingProviderRain() {
         val times = listOf("2026-10-14T12:00", "2026-10-14T13:00")
         val hourly = JSONObject().put("time", JSONArray(times))
         repeat(4) { index ->
@@ -21,7 +21,7 @@ class ModelConsensusAndroidTest {
             }
         }
         val location = CzechLocation("Praha", "Praha", 50.0755, 14.4378, "CZ")
-        for (wetIndex in 0..1) for (amount in listOf(0.1, 0.3, JSONObject.NULL)) {
+        for (wetIndex in 0..1) for (amount in listOf(0.0, 0.1, 0.3, JSONObject.NULL)) {
             val base = JSONObject().put("timezone", "UTC").put("utc_offset_seconds", 0)
                 .put("current", JSONObject().put("time", times.first()).put("weather_code", 3).put("cloud_cover", 100))
                 .put("hourly", JSONObject().put("time", JSONArray(times))

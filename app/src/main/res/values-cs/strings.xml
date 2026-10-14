@@ -208,6 +208,12 @@
     <string name="condition_drizzle">Mrholení</string>
     <string name="condition_rain">Déšť</string>
     <string name="condition_snow">Sněžení</string>
+    <string name="condition_light_snow">Slabé sněžení</string>
+    <string name="condition_moderate_snow">Mírné sněžení</string>
+    <string name="condition_heavy_snow">Silné sněžení</string>
+    <string name="condition_snow_grains">Sněhová zrna</string>
+    <string name="condition_light_snow_showers">Slabé sněhové přeháňky</string>
+    <string name="condition_heavy_snow_showers">Silné sněhové přeháňky</string>
     <string name="condition_showers">Přeháňky</string>
     <string name="condition_snow_showers">Sněhové přeháňky</string>
     <string name="condition_storm">Bouřka</string>

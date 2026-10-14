@@ -69,6 +69,30 @@ class ForecastLayoutTest {
         apparentTemperatureMin = 9.0, apparentTemperatureMax = 23.0)
 
     @Test
+    fun pastHourHelpStillShowsAvailableNamedModels() {
+        val inputs = listOf("chmi_aladin_seamless", "icon_seamless", "gfs_seamless").map { id ->
+            HourlyModelInput(id, 20.0, 10.0, 180.0, 100.0, 3, 0.0)
+        }
+        val agreement = HourlyModelAgreement(3, 0.0, 0.0, 0.0, 3, 0, 0.0, 0.0, WeatherKind.CLOUDY,
+            allSkyConditions = true, modelInputs = inputs)
+        val selected = hour(10).copy(weatherCode = 3, modelAgreement = agreement)
+        val confidence = cz.majkey.pocasicesko.data.dailyForecastConfidence(selected.time.take(10),
+            listOf(selected.copy(time = hour(15).time), selected),
+            mapOf(selected.time to hour(11).copy(modelAgreement = agreement)),
+            LocalDateTime.parse(selected.time).plusDays(1), 0)
+        compose.setContent {
+            TestSurface { ForecastConfidenceBadge(confidence, units) }
+        }
+        compose.onNode(hasClickAction()).performClick()
+        compose.onNodeWithText(context.getString(R.string.confidence_historical)).assertIsDisplayed()
+        val time = requireNotNull(confidenceEvidenceContext(selected.time, Locale.ENGLISH)).validTime
+        compose.onNodeWithText("${context.getString(R.string.forecast)} · $time").assertIsDisplayed()
+        compose.onNodeWithText("ČHMÚ ALADIN seamless", substring = true).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("DWD ICON seamless", substring = true).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("NOAA GFS seamless", substring = true).performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
     fun forecastHelpShowsNamedModelInputsAndSpecificConfidenceReason() {
         val inputs = listOf(
             HourlyModelInput("chmi_aladin_seamless", 20.0, 10.0, 180.0, 100.0, 3, 0.0),

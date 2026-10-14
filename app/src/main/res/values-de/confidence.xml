@@ -12,7 +12,7 @@
     <string name="confidence_old_fetch">Die Vorhersage wurde vor längerer Zeit geladen. Aktualisieren Sie sie für neuere Daten.</string>
     <string name="confidence_missing">Für diesen Zeitraum fehlen ausreichend vollständige Modellgrundlagen.</string>
     <string name="confidence_partial_day">Nur ein Teil des Tages hat genügend Grundlagen für einen Vergleich.</string>
-    <string name="confidence_historical">Vergangene Werte zeigen nicht, wie genau eine frühere Vorhersage war.</string>
+    <string name="confidence_historical">Vergangene Modellwerte bestätigen keine frühere Vorhersage. Die folgenden Daten gelten zum angezeigten Zeitpunkt, nicht für den ganzen Tag. Öffnen Sie eine bestimmte Stunde, um deren Modelle zu vergleichen.</string>
     <string name="confidence_models">%1$d vollständige Modellgrundlagen verglichen</string>
     <string name="confidence_temperature_spread">Temperaturspanne · %1$s</string>
     <string name="confidence_wind_spread">Windspanne · %1$s</string>

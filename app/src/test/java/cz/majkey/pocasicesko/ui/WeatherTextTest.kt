@@ -6,9 +6,20 @@ import cz.majkey.pocasicesko.data.WeatherConditionKey
 import cz.majkey.pocasicesko.data.WeatherKind
 import cz.majkey.pocasicesko.data.conditionFor
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Test
 
 class WeatherTextTest {
+    @Test
+    fun snowIntensityAndSnowGrainsHaveDistinctLabels() {
+        val codes = listOf(71, 73, 75, 77, 85, 86)
+        assertEquals(codes.size, codes.map { conditionFor(it).labelResource() }.distinct().size)
+        codes.forEach { code ->
+            assertEquals(conditionFor(code).labelResource(), conditionFor(code, false).labelResource())
+            assertNotEquals(R.string.condition_snow, conditionFor(code).labelResource())
+        }
+    }
+
     @Test
     fun sourceCodesKeepDrizzleRainShowersAndFreezingIntensity() {
         val labels = mapOf(

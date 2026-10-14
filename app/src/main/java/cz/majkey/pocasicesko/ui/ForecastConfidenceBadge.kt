@@ -60,8 +60,8 @@ internal fun ForecastConfidenceBadge(confidence: ForecastConfidence, units: Weat
                     Text(stringResource(R.string.confidence_day_coverage, confidence.coveredHours ?: 0, expected))
                 }
                 if (confidence.expectedHours == null || evidenceContext != null) {
-                    if (confidence.expectedHours != null) {
-                        Text(stringResource(R.string.confidence_day_method))
+                    if (evidenceContext != null && (confidence.expectedHours != null || confidence.reason == ConfidenceReason.HISTORICAL)) {
+                        if (confidence.expectedHours != null) Text(stringResource(R.string.confidence_day_method))
                         Text("${stringResource(R.string.forecast)} · ${requireNotNull(evidenceContext).validTime}")
                     }
                     confidence.evidence?.let { evidence ->

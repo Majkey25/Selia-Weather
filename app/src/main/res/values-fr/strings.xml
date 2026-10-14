@@ -208,6 +208,12 @@
     <string name="condition_drizzle">Bruine</string>
     <string name="condition_rain">Pluie</string>
     <string name="condition_snow">Neige</string>
+    <string name="condition_light_snow">Neige faible</string>
+    <string name="condition_moderate_snow">Neige modérée</string>
+    <string name="condition_heavy_snow">Neige forte</string>
+    <string name="condition_snow_grains">Neige en grains</string>
+    <string name="condition_light_snow_showers">Faibles averses de neige</string>
+    <string name="condition_heavy_snow_showers">Fortes averses de neige</string>
     <string name="condition_showers">Averses</string>
     <string name="condition_snow_showers">Averses de neige</string>
     <string name="condition_storm">Orage</string>

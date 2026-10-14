@@ -209,6 +209,12 @@
     <string name="condition_drizzle">Drizzle</string>
     <string name="condition_rain">Rain</string>
     <string name="condition_snow">Snow</string>
+    <string name="condition_light_snow">Light snow</string>
+    <string name="condition_moderate_snow">Moderate snow</string>
+    <string name="condition_heavy_snow">Heavy snow</string>
+    <string name="condition_snow_grains">Snow grains</string>
+    <string name="condition_light_snow_showers">Light snow showers</string>
+    <string name="condition_heavy_snow_showers">Heavy snow showers</string>
     <string name="condition_showers">Showers</string>
     <string name="condition_snow_showers">Snow showers</string>
     <string name="condition_storm">Thunderstorm</string>

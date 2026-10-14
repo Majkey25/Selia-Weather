@@ -208,6 +208,12 @@
     <string name="condition_drizzle">Llovizna</string>
     <string name="condition_rain">Lluvia</string>
     <string name="condition_snow">Nieve</string>
+    <string name="condition_light_snow">Nieve ligera</string>
+    <string name="condition_moderate_snow">Nieve moderada</string>
+    <string name="condition_heavy_snow">Nieve intensa</string>
+    <string name="condition_snow_grains">Cinarra</string>
+    <string name="condition_light_snow_showers">Chubascos de nieve ligeros</string>
+    <string name="condition_heavy_snow_showers">Chubascos de nieve intensos</string>
     <string name="condition_showers">Chubascos</string>
     <string name="condition_snow_showers">Chubascos de nieve</string>
     <string name="condition_storm">Tormenta</string>

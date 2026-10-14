@@ -49,6 +49,7 @@ import cz.majkey.pocasicesko.ui.AppAppearance
 import cz.majkey.pocasicesko.ui.AppearanceConfig
 import cz.majkey.pocasicesko.ui.AppearanceMode
 import cz.majkey.pocasicesko.ui.AppearanceSettings
+import cz.majkey.pocasicesko.ui.labelResource
 import java.io.File
 import java.io.RandomAccessFile
 import java.util.Locale
@@ -92,6 +93,29 @@ class WidgetRenderTest {
     @After
     fun removeFixturePreferences() {
         context.getSharedPreferences(WeatherRepository.PREFERENCES_NAME, Context.MODE_PRIVATE).edit().clear().commit()
+    }
+
+    @Test
+    fun precipitationCodesRenderDistinctWidgetIconsAndIntensityLabels() {
+        assertTrue(WeatherWidgetProvider.saveSettings(context, 41, WidgetSettings()))
+        val images = mutableListOf<Bitmap>()
+        for (code in listOf(51, 61, 63, 65, 71, 73, 75)) {
+            val condition = cz.majkey.pocasicesko.data.conditionFor(code)
+            assertTrue(context.getSharedPreferences(WeatherRepository.PREFERENCES_NAME, Context.MODE_PRIVATE).edit()
+                .putString(WeatherRepository.KEY_WIDGET_KIND, condition.kind.name)
+                .putString(WeatherRepository.KEY_WIDGET_CONDITION_KEY, condition.key.name)
+                .putInt(WeatherRepository.KEY_WIDGET_WEATHER_CODE, code).commit())
+            instrumentation.runOnMainSync {
+                val widget = render(41, 352, 174)
+                assertEquals(context.getString(condition.labelResource()),
+                    widget.findViewById<TextView>(R.id.widget_condition).text.toString())
+                val icon = widget.findViewById<ImageView>(R.id.widget_icon)
+                val image = Bitmap.createBitmap(icon.width, icon.height, Bitmap.Config.ARGB_8888)
+                icon.draw(Canvas(image))
+                images.forEach { previous -> assertTrue("Widget precipitation icons render identically", !image.sameAs(previous)) }
+                images.add(image)
+            }
+        }
     }
 
     @Test

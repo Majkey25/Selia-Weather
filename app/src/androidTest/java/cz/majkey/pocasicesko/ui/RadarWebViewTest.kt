@@ -63,6 +63,7 @@ class RadarWebViewTest {
                         "playLabel:document.getElementById('play').getAttribute('aria-label')," +
                         "transitionDuration:transitionDuration," +
                         "rendered:window.radarPlaybackProbe||null," +
+                        "errors:window.radarErrors||[]," +
                         "type:typeof radarLayer==='undefined'||!radarLayer?'':radarLayer.frame.type," +
                         "displayedTime:typeof radarLayer==='undefined'||!radarLayer?0:radarLayer.frame.time," +
                         "frame:typeof frameIndex==='undefined'?-1:frameIndex," +
@@ -321,7 +322,14 @@ class RadarWebViewTest {
         assertEquals("", state.get().getString("status"))
         assertEquals("eu", state.get().getString("model"))
         assertPlaybackAndPause()
-        compose.runOnIdle { view.evaluateJavascript("map.jumpTo({center:[139.6503,35.6762],zoom:6})", null) }
+        compose.runOnIdle { view.evaluateJavascript("""
+            window.radarErrors = [];
+            map.on('error', function(event) {
+              window.radarErrors.push({sourceId:event.sourceId, message:String(event.error && event.error.message)});
+              if (window.radarErrors.length > 16) window.radarErrors.shift();
+            });
+            map.jumpTo({center:[139.6503,35.6762],zoom:6});
+        """.trimIndent(), null) }
         try {
             compose.waitUntil(30_000) {
                 readState()
@@ -335,10 +343,14 @@ class RadarWebViewTest {
         compose.runOnIdle {
             view.evaluateJavascript("var slider=document.getElementById('slider');slider.value=slider.max;slider.dispatchEvent(new Event('input'))", null)
         }
-        compose.waitUntil(30_000) {
-            readState()
-            state.get().optBoolean("ready") && !state.get().optBoolean("pending") &&
-                state.get().optInt("frame") == state.get().optInt("count") - 1
+        try {
+            compose.waitUntil(30_000) {
+                readState()
+                state.get().optBoolean("ready") && !state.get().optBoolean("pending") &&
+                    state.get().optInt("frame") == state.get().optInt("count") - 1
+            }
+        } catch (failure: ComposeTimeoutException) {
+            throw AssertionError("Last global forecast raster did not load: ${state.get()}", failure)
         }
         assertEquals(state.get().getLong("lastTime"), state.get().getLong("displayedTime"))
         assertEquals(state.get().getLong("displayedTime"), state.get().getLong("sliderTime"))

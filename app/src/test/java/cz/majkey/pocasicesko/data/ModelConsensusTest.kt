@@ -211,6 +211,32 @@ class ModelConsensusTest {
     }
 
     @Test
+    fun providerWetOrMissingSkyVetoSurvivesSmallPositiveBlendsAtEitherHour() {
+        val source = JSONObject(MODELS)
+        val inputs = source.getJSONObject("hourly")
+        listOf("a", "b", "c").forEach { id ->
+            inputs.put("weather_code_$id", JSONArray(listOf(3, 3)))
+            inputs.put("cloud_cover_$id", JSONArray(listOf(100, 100)))
+            inputs.put("precipitation_$id", JSONArray(listOf(0.05, 0.05)))
+        }
+        mapOf("temperature_2m" to 20, "weather_code" to 0, "cloud_cover" to 0,
+            "precipitation" to 0.0, "wind_speed_10m" to 10, "wind_direction_10m" to 180).forEach { (field, value) ->
+            inputs.put("${field}_chmi_aladin_seamless", JSONArray(listOf(value, value)))
+        }
+        for (wetIndex in 0..1) for (amount in listOf(0.1, 0.3, JSONObject.NULL)) {
+            val base = JSONObject(BASE)
+            base.getJSONObject("hourly").getJSONArray("precipitation").put(wetIndex, amount)
+            val hourly = JSONObject(blendModelForecast(base.toString(), source.toString(), PRAGUE).json)
+                .getJSONObject("hourly")
+            assertTrue("Provider wet/missing veto lost at hour $wetIndex for $amount",
+                hourly.getJSONArray(SKY_SOURCE_MODEL_KEY).isNull(0))
+            assertEquals(3, hourly.getJSONArray("weather_code").getInt(0))
+            assertEquals(100, hourly.getJSONArray("cloud_cover").getInt(0))
+            assertEquals(0.05, hourly.getJSONArray("precipitation").getDouble(0), 0.0)
+        }
+    }
+
+    @Test
     fun regionalDrySkyCannotEraseWetConsensusOrReplaceTheLongRangeSky() {
         val source = JSONObject(MODELS).getJSONObject("hourly")
         mapOf("temperature_2m" to 20, "weather_code" to 0, "cloud_cover" to 0,

@@ -192,7 +192,8 @@ class WeatherRepository(context: Context) {
             // Count station network time toward observation age; keep updatedAt unchanged.
             now = Instant.now(),
         )
-        val observedCalculation = if (observedCurrent.weatherCode == modelSnapshot.current.weatherCode &&
+        val observedCalculation = if (observedCurrent.skyObservationTime == null &&
+            observedCurrent.weatherCode == modelSnapshot.current.weatherCode &&
             observedCurrent.cloudCover == modelSnapshot.current.cloudCover) calculation else calculation.copy(currentSkyModelId = null)
         val correctedJson = applyCurrentConditionsToForecastJson(
             JSONObject(blend.json).putForecastCalculation(observedCalculation).toString(), observedCurrent,

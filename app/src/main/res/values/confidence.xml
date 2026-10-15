@@ -33,4 +33,5 @@
     <string name="confidence_regional_sky">Sky conditions use %1$s in this hour. This selection applies only within the next 48 hours and never overrides precipitation or other phenomena. It is not based on validated local accuracy weights.</string>
     <string name="forecast_current_sky_source">Current model sky source</string>
     <string name="confidence_time_support">Sky, temperature and wind refer to the displayed time. Precipitation totals cover the forecast interval. These are forecasts, not measurements at this point.</string>
+    <string name="confidence_unknown_condition">The sky condition cannot be assessed from the available data. This is not a confirmed disagreement with the models.</string>
 </resources>

@@ -13,6 +13,34 @@ class ForecastConfidenceTest {
         modelAgreement = evidence)
 
     @Test
+    fun unobservableSkyIsNotAConditionConflictOrHighConfidence() {
+        for (code in listOf(-1, SKY_OBSCURED_WEATHER_CODE)) {
+            for (shownTime in listOf(hour().time, "2026-10-07T13:05", null)) {
+                val result = hourlyForecastConfidence(hour(), hour(), now, 0,
+                    conditionFor(code), shownConditionTime = shownTime)
+                assertEquals(ConfidenceLevel.LIMITED, result.level)
+                assertEquals(ConfidenceReason.UNKNOWN_CONDITION, result.reason)
+                assertEquals(emptyList<ForecastDisagreement>(), result.disagreements)
+                assertEquals(5, result.modelCount)
+                assertEquals(evidence, result.evidence)
+                val conflict = hourlyForecastConfidence(hour().copy(modelAgreement =
+                    evidence.copy(cloudRangePercent = 90.0)), hour(), now, 0,
+                    conditionFor(code), shownConditionTime = shownTime)
+                assertEquals(ConfidenceLevel.LOW, conflict.level)
+                assertEquals(listOf(ForecastDisagreement.CLOUDS), conflict.disagreements)
+            }
+        }
+        val hours = (12..23).map { hour("2026-10-07T${it}:00") }
+        val current = CurrentWeather("2026-10-07T12:00", 20.0, 20.0, 50, 0.0,
+            SKY_OBSCURED_WEATHER_CODE, 0, 1013.0, 10.0, 180, 10.0, true)
+        val day = dailyForecastConfidence("2026-10-07", hours,
+            hours.associate { it.time to it }, now, 0, current)
+        assertEquals(ConfidenceLevel.MODERATE, day.level)
+        assertEquals(ConfidenceReason.PARTIAL_DAY, day.reason)
+        assertEquals(11, day.coveredHours)
+    }
+
+    @Test
     fun historicalHoursKeepAvailableModelsWithoutClaimingVerifiedAccuracy() {
         val inputs = List(5) { index -> HourlyModelInput("model_$index", 20.0, 10.0, 180.0, 0.0, 0, 0.0) }
         val agreement = evidence.copy(modelInputs = inputs)
@@ -42,13 +70,13 @@ class ForecastConfidenceTest {
     fun confidenceExplainsCloudConflictAndChecksTheActuallyDisplayedCondition() {
         val cloudy = hour().copy(modelAgreement = evidence.copy(cloudRangePercent = 100.0))
         assertEquals(listOf(ForecastDisagreement.CLOUDS), hourlyForecastConfidence(cloudy, hour(), now, 0).disagreements)
-        val displayed = hourlyForecastConfidence(hour(), hour(), now, 0, WeatherKind.CLOUDY)
+        val displayed = hourlyForecastConfidence(hour(), hour(), now, 0, conditionFor(3))
         assertEquals(ConfidenceLevel.LOW, displayed.level)
         assertEquals(listOf(ForecastDisagreement.DISPLAYED_CONDITION), displayed.disagreements)
         val missing = hourlyForecastConfidence(hour().copy(modelAgreement = null, skySourceModelId = "chmi_aladin_seamless"), hour(), now, 0)
         assertEquals("chmi_aladin_seamless", missing.skySourceModelId)
         assertNull(hourlyForecastConfidence(hour().copy(skySourceModelId = "chmi_aladin_seamless"), hour(), now, 0,
-            WeatherKind.CLOUDY, skySourceModelId = null).skySourceModelId)
+            conditionFor(3), skySourceModelId = null).skySourceModelId)
     }
 
     @Test
@@ -77,10 +105,10 @@ class ForecastConfidenceTest {
         assertEquals("2026-10-07T12:00", result.validTime)
         assertEquals(observed.time, result.shownConditionTime)
         val aligned = hourlyForecastConfidence(hours.first(), hour(), now.plusMinutes(45), 0,
-            WeatherKind.CLOUDY, shownConditionTime = "2026-10-07T12:00:00")
+            conditionFor(3), shownConditionTime = "2026-10-07T12:00:00")
         assertEquals(listOf(ForecastDisagreement.DISPLAYED_CONDITION), aligned.disagreements)
         assertEquals(ConfidenceLevel.LIMITED, hourlyForecastConfidence(hours.first(), hour(), now, 0,
-            WeatherKind.CLOUDY, shownConditionTime = "invalid").level)
+            conditionFor(3), shownConditionTime = "invalid").level)
     }
 
     @Test
@@ -206,6 +234,33 @@ class ForecastConfidenceTest {
         assertEquals(ConfidenceLevel.MODERATE, hourlyForecastConfidence(wet, wet, now, 0).level)
         val unanimous = wet.copy(modelAgreement = rain.copy(modelInputs = inputs.map { it.copy(weatherCode = 67) }))
         assertEquals(ConfidenceLevel.HIGH, hourlyForecastConfidence(unanimous, unanimous, now, 0).level)
+    }
+
+    @Test
+    fun observedFreezingPrecipitationDoesNotInheritOrdinaryRainConfidence() {
+        val location = CzechLocation("Test", "", 49.23, 17.63, "CZ")
+        for ((forecastCode, observedCode) in listOf(61 to 66, 66 to 61, 51 to 56, 56 to 51, 71 to 68, 68 to 71)) {
+            val inputs = List(5) { index ->
+                HourlyModelInput("model_$index", 1.0, 10.0, 180.0, 100.0, forecastCode, 0.3)
+            }
+            val rain = evidence.copy(temperatureRangeCelsius = 0.0, windRangeKmh = 0.0, cloudRangePercent = 0.0,
+                dominantCondition = conditionFor(forecastCode).kind, wetModelCount = 5, minimumPrecipitationMm = 0.3,
+                maximumPrecipitationMm = 0.3, modelInputs = inputs)
+            val hours = (12..23).map { hour("2026-10-07T${it}:00").copy(
+                temperature = 1.0, weatherCode = forecastCode, precipitation = 0.3, modelAgreement = rain) }
+            val precipitation = hours.associate { it.time to it }
+            val instant = java.time.Instant.parse("2026-10-07T12:00:00Z")
+            val model = CurrentWeather("2026-10-07T12:00", 1.0, 0.0, 90, 0.3, forecastCode, 100,
+                1013.0, 10.0, 180, 10.0, true)
+            val observation = CurrentStationObservation("TEST", location.latitude, location.longitude, instant,
+                null, null, null, null, null, null, weatherCode = observedCode)
+            val observed = fuseCurrentConditions(model, location, listOf(observation), instant)
+            assertEquals(observedCode, observed.weatherCode)
+            assertEquals(ConfidenceLevel.HIGH, dailyForecastConfidence("2026-10-07", hours, precipitation, now, 0, model).level)
+            val result = dailyForecastConfidence("2026-10-07", hours, precipitation, now, 0, observed, utcOffsetSeconds = 0)
+            assertEquals(ConfidenceLevel.LOW, result.level)
+            assertEquals(listOf(ForecastDisagreement.DISPLAYED_CONDITION), result.disagreements)
+        }
     }
 
     @Test

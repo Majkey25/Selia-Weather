@@ -103,6 +103,7 @@ internal fun ForecastModelComparison(confidence: ForecastConfidence, units: Weat
             ConfidenceReason.MISSING_MODELS -> R.string.confidence_missing
             ConfidenceReason.PARTIAL_DAY -> R.string.confidence_partial_day
             ConfidenceReason.HISTORICAL -> R.string.confidence_historical
+            ConfidenceReason.UNKNOWN_CONDITION -> R.string.confidence_unknown_condition
         }), style = MaterialTheme.typography.bodySmall)
         confidence.disagreements.forEach { disagreement ->
             Text("• " + stringResource(when (disagreement) {

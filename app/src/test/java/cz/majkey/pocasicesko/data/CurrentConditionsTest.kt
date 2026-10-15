@@ -9,6 +9,65 @@ import org.junit.Test
 
 class CurrentConditionsTest {
     @Test
+    fun independentObscuredReportsKeepTheirKnownRainAndSnow() {
+        // AWC 2026-10-15 reports; only the clear model is synthetic.
+        val reports = """[
+            {"icaoId":"LFHP","obsTime":1792058400,"qcField":2,"lat":45.075,"lon":3.764,"cover":"OVX"},
+            {"icaoId":"WIMM","obsTime":1792058400,"qcField":16,"lat":3.636,"lon":98.874,"cover":"OVX","wxString":"FU"},
+            {"icaoId":"SCVD","obsTime":1792058400,"qcField":2,"lat":-39.65,"lon":-73.086,"cover":"OVX","wxString":"+RA"},
+            {"icaoId":"BITN","obsTime":1792058400,"qcField":0,"lat":66.218,"lon":-15.336,"cover":"OVX","wxString":"SN RA"},
+            {"icaoId":"KLAR","obsTime":1792059720,"qcField":14,"lat":41.3165,"lon":-105.6729,"cover":"OVX","wxString":"-SN BR"}
+        ]"""
+        val expected = mapOf("LFHP" to SKY_OBSCURED_WEATHER_CODE, "WIMM" to SKY_OBSCURED_WEATHER_CODE,
+            "SCVD" to 65, "BITN" to 69, "KLAR" to 71)
+        for (report in parseMetarCurrentConditions(reports)) {
+            val model = current(0, 0.0, 0)
+            val location = CzechLocation(report.stationId, REGION_WORLD, report.latitude, report.longitude)
+            val fused = fuseCurrentConditions(model, location, listOf(report), report.time.plusSeconds(60))
+            assertEquals(report.stationId, expected.getValue(report.stationId), fused.weatherCode)
+            assertEquals(0, fused.cloudCover)
+            assertEquals(model.precipitation, fused.precipitation, 0.0)
+            assertEquals(report.time, fused.skyObservationTime)
+        }
+    }
+
+    @Test
+    fun obscuredSkySuppressesFalseClearWithoutErasingWetWeather() {
+        val now = Instant.parse("2026-10-15T09:35:00Z")
+        // AWC WIOO, 2026-10-15 09:30Z. The clear model is a regression counterexample.
+        val report = parseMetarCurrentConditions("""[{"icaoId":"WIOO","obsTime":1792056600,
+            "lat":-0.151,"lon":109.404,"qcField":16,"wxString":"FU","cover":"OVX",
+            "rawOb":"METAR WIOO 150930Z 27008KT 1500 FU VV005 30/26 Q1007 NOSIG"}]""").single()
+        val location = CzechLocation("WIOO", REGION_WORLD, report.latitude, report.longitude, "ID")
+        for (code in listOf(0, 1, 2, 3, 45, 51, 61, 68, 71, 95, 96, 99)) {
+            val model = current(code, 0.3, 10).copy(cloudCoverHigh = 10)
+            val fused = fuseCurrentConditions(model, location, listOf(report), now)
+            assertEquals(if (code in 0..3) SKY_OBSCURED_WEATHER_CODE else code, fused.weatherCode)
+            assertEquals(model.cloudCover, fused.cloudCover)
+            assertEquals(model.cloudCoverHigh, fused.cloudCoverHigh)
+            assertEquals(model.precipitation, fused.precipitation, 0.0)
+            assertEquals(model.time, fused.time)
+            assertEquals(if (code in 0..3) report.time else null, fused.skyObservationTime)
+        }
+        val model = current(0, 0.0, 0)
+        for (observation in listOf(report.copy(time = now.minusSeconds(1801)),
+            report.copy(latitude = report.latitude + 1))) {
+            assertEquals(model, fuseCurrentConditions(model, location, listOf(observation), now))
+        }
+        val obscured = fuseCurrentConditions(model, location, listOf(report), now)
+        for (code in listOf(45, 61, 71)) {
+            assertEquals(code, fuseCurrentConditions(model, location,
+                listOf(report.copy(weatherCode = code)), now).weatherCode)
+        }
+        for (cover in listOf(0, 100)) {
+            val clearOrCloudy = report.copy(skyObscured = false, cloudCoverPercent = cover)
+            assertEquals(cloudWeatherCode(cover), fuseCurrentConditions(obscured,
+                location, listOf(clearOrCloudy), now).weatherCode)
+        }
+        assertThrows(IllegalArgumentException::class.java) { report.copy(cloudCoverPercent = 100) }
+    }
+
+    @Test
     fun combinedObservedPrecipitationReplacesClearWithoutInventingAnAmount() {
         val now = Instant.parse("2026-10-12T10:35:00Z")
         val model = current(weatherCode = 0, precipitation = 0.0, cloudCover = 0)
@@ -560,7 +619,7 @@ class CurrentConditionsTest {
         val farther = observation(50.01, 14.0, now.minusSeconds(300)).copy(
             precipitation = null, weatherCode = 95, cloudCoverPercent = 100,
         )
-        for (encoded in listOf("", "VCTS", "-RASN", "UP")) {
+        for (encoded in listOf("", "VCTS", "-FZRASN", "UP")) {
             val report = JSONObject(METAR_CLOUD_REPORT).put("lat", 50.001)
                 .put("cover", "CAVOK").put("wxString", encoded)
             val nearest = parseMetarCurrentConditions("[$report]").single()

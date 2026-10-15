@@ -33,4 +33,5 @@
     <string name="confidence_regional_sky">Der Himmel in dieser Stunde basiert auf %1$s. Diese Auswahl gilt nur für die nächsten 48 Stunden und ersetzt weder Niederschlag noch andere Phänomene. Sie basiert nicht auf validierten lokalen Genauigkeitsgewichten.</string>
     <string name="forecast_current_sky_source">Quelle des aktuellen Modellhimmels</string>
     <string name="confidence_time_support">Himmel, Temperatur und Wind gelten zum angezeigten Zeitpunkt. Niederschlagsmengen gelten für das Vorhersageintervall. Dies sind Vorhersagen, keine Messungen an diesem Punkt.</string>
+    <string name="confidence_unknown_condition">Der Himmelszustand lässt sich aus den verfügbaren Daten nicht bestimmen. Dies ist kein bestätigter Widerspruch zu den Modellen.</string>
 </resources>

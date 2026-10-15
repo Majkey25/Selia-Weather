@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.16-beta.1] - 2026-10-14
+
+- Recover a complete, exactly time-matched regional sky sample when the preferred current response has missing or invalid required fields. Keep valid rain, fog, snow and storm reports as vetoes against a dry fallback.
+- Keep rainfall amounts, probabilities, model weights and confidence thresholds unchanged. The newly tested rain alternatives increased missed rain or false alarms and were rejected; this beta does not claim a new measured forecast-accuracy gain.
+- Publish this iteration as a prerelease for testing only. Do not replace the pending production release or configure automatic production promotion.
+
 ## [0.7.15] - 2026-10-14
 
 - Stop letting one Czech regional member replace the multi-model hourly sky estimate. Keep ALADIN among the contributors, with existing current-observation, precipitation and hazard safeguards.

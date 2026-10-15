@@ -238,7 +238,15 @@ internal fun applyRegionalCurrentSky(
     if (regionalRoot.opt("utc_offset_seconds") != root.opt("utc_offset_seconds")) return blend
     val current = root.getJSONObject("current")
     val time = current.getString("time")
-    val regional = regionalRoot.optJSONObject("current")?.takeIf { it.optString("time") == time } ?: run {
+    val preferred = regionalRoot.optJSONObject("current")?.takeIf { it.optString("time") == time }
+    val preferredCode = (preferred?.opt("weather_code") as? Number)?.toDouble()
+    // A valid phenomenon is a veto, not an incomplete dry sample to replace.
+    if (preferredCode != null && isValidModelValue("weather_code", preferredCode) && preferredCode.toInt() !in 0..3) return blend
+    val regional = preferred?.takeIf { sample ->
+        val cloud = (sample.opt("cloud_cover") as? Number)?.toDouble()
+        preferredCode != null && isValidModelValue("weather_code", preferredCode) &&
+            cloud != null && cloud.isFinite() && cloud in 0.0..100.0
+    } ?: run {
         // Separate requests can cross a quarter-hour boundary; never round either instant.
         val window = regionalRoot.optJSONObject("minutely_15") ?: return blend
         val times = window.optJSONArray("time") ?: return blend

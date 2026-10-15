@@ -12,6 +12,47 @@ import java.time.LocalDateTime
 
 class ModelConsensusTest {
     @Test
+    fun incompleteRegionalCurrentUsesTheCompleteExactQuarterHour() {
+        val base = JSONObject(BASE).also {
+            it.getJSONObject("current").put("weather_code", 0).put("cloud_cover", 0).put("cloud_cover_low", 0)
+        }.toString()
+        val fallback = ModelBlendResult(base, ForecastCalculationMode.BEST_MATCH,
+            emptyList(), ForecastFallbackReason.PROVIDER_UNAVAILABLE)
+        val window = JSONObject().put("time", JSONArray(listOf("2026-08-29T19:15")))
+            .put("weather_code", JSONArray(listOf(3))).put("cloud_cover", JSONArray(listOf(100)))
+            .put("cloud_cover_mid", JSONArray(listOf(90)))
+        for ((field, invalid) in listOf("cloud_cover" to JSONObject.NULL, "cloud_cover" to "100",
+            "cloud_cover" to 101, "weather_code" to JSONObject.NULL, "weather_code" to "3", "weather_code" to 1.5)) {
+            val preferred = JSONObject().put("time", "2026-08-29T19:15")
+                .put("weather_code", 1).put("cloud_cover", 20).put("cloud_cover_low", 10).put(field, invalid)
+            val regional = JSONObject().put("current", preferred).put("minutely_15", window)
+            val result = applyRegionalCurrentSky(fallback, PRAGUE, regional.toString())
+            val current = JSONObject(result.json).getJSONObject("current")
+            assertEquals("$field=$invalid", 3, current.getInt("weather_code"))
+            assertEquals(100, current.getInt("cloud_cover"))
+            assertEquals(90, current.getInt("cloud_cover_mid"))
+            assertFalse(current.has("cloud_cover_low"))
+            assertEquals("chmi_aladin_seamless", result.currentSkyModelId)
+            assertEquals(fallback.mode, result.mode)
+            assertEquals(fallback.fallbackReason, result.fallbackReason)
+            assertEquals(JSONObject(BASE).getJSONObject("hourly").toString(), JSONObject(result.json).getJSONObject("hourly").toString())
+        }
+    }
+
+    @Test
+    fun aRegionalPhenomenonVetoesTheDryWindowEvenWithoutCloudCover() {
+        val fallback = ModelBlendResult(BASE, ForecastCalculationMode.BEST_MATCH,
+            emptyList(), ForecastFallbackReason.PROVIDER_UNAVAILABLE)
+        val window = JSONObject().put("time", JSONArray(listOf("2026-08-29T19:15")))
+            .put("weather_code", JSONArray(listOf(0))).put("cloud_cover", JSONArray(listOf(0)))
+        for (code in listOf(45, 51, 61, 71, 95)) {
+            val regional = JSONObject().put("current", JSONObject().put("time", "2026-08-29T19:15")
+                .put("weather_code", code)).put("minutely_15", window)
+            assertEquals(fallback, applyRegionalCurrentSky(fallback, PRAGUE, regional.toString()))
+        }
+    }
+
+    @Test
     fun regionalQuarterHourWindowUsesOnlyTheExactCurrentTimeAcrossARequestBoundary() {
         val base = JSONObject(BASE).also {
             it.getJSONObject("current").put("weather_code", 0).put("cloud_cover", 0).put("cloud_cover_low", 0)

@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.7.17] - Unreleased
+## [0.7.17] - 2026-10-15
 
 - Preserve observed sky obscuration (OVX/VV) instead of displaying clear sky or inventing 100% cloud cover. Keep explicit rain, snow, fog and modeled storm safeguards; retain observation time through cache and widget labels.
 - Recognize mixed rain and snow in nearby METAR reports, with a distinct icon and localized intensity labels. Do not infer precipitation amounts or probabilities from present-weather codes.

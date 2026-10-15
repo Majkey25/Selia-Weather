@@ -19,6 +19,8 @@ fun WeatherCondition.labelResource(): Int = when (weatherCode) {
     65 -> R.string.condition_heavy_rain
     66 -> R.string.condition_light_freezing_rain
     67 -> R.string.condition_heavy_freezing_rain
+    68 -> R.string.condition_light_rain_and_snow
+    69 -> R.string.condition_rain_and_snow
     71 -> R.string.condition_light_snow
     73 -> R.string.condition_moderate_snow
     75 -> R.string.condition_heavy_snow
@@ -42,6 +44,7 @@ fun WeatherCondition.labelResource(): Int = when (weatherCode) {
         WeatherConditionKey.SHOWERS -> R.string.condition_showers
         WeatherConditionKey.SNOW_SHOWERS -> R.string.condition_snow_showers
         WeatherConditionKey.STORM -> R.string.condition_storm
+        WeatherConditionKey.SKY_OBSCURED -> R.string.condition_sky_obscured
         WeatherConditionKey.UNKNOWN -> R.string.condition_unknown
     }
 }

@@ -29,7 +29,7 @@ class WeatherIconRenderTest {
     @Test
     fun precipitationShapesStayDistinctAtHourlySizeAndCloudHidesTheSun() {
         val dark = mutableStateOf(true)
-        val codes = listOf(51, 61, 63, 65, 71, 73, 75)
+        val codes = listOf(51, 61, 63, 65, 68, 71, 73, 75)
         compose.setContent {
             WeatherTheme(config = AppearanceConfig(mode = if (dark.value) AppearanceMode.DARK else AppearanceMode.LIGHT)) {
                 Column(Modifier.background(if (dark.value) Color(0xFF102332) else Color.White)) {

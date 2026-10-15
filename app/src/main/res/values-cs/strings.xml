@@ -446,6 +446,8 @@
     <string name="condition_dense_drizzle">Husté mrholení</string>
     <string name="condition_light_drizzle_and_rain">Slabé mrholení s deštěm</string>
     <string name="condition_drizzle_and_rain">Mrholení s deštěm</string>
+    <string name="condition_light_rain_and_snow">Slabý déšť se sněhem</string>
+    <string name="condition_rain_and_snow">Déšť se sněhem</string>
     <string name="condition_light_freezing_drizzle">Slabé mrznoucí mrholení</string>
     <string name="condition_dense_freezing_drizzle">Husté mrznoucí mrholení</string>
     <string name="condition_light_rain">Slabý déšť</string>
@@ -456,4 +458,5 @@
     <string name="condition_light_showers">Slabé dešťové přeháňky</string>
     <string name="condition_moderate_showers">Mírné až silné dešťové přeháňky</string>
     <string name="condition_violent_showers">Prudké dešťové přeháňky</string>
+    <string name="condition_sky_obscured">Obloha zakrytá</string>
 </resources>

@@ -35,6 +35,8 @@ class WeatherTextTest {
             65 to R.string.condition_heavy_rain,
             66 to R.string.condition_light_freezing_rain,
             67 to R.string.condition_heavy_freezing_rain,
+            68 to R.string.condition_light_rain_and_snow,
+            69 to R.string.condition_rain_and_snow,
             80 to R.string.condition_light_showers,
             81 to R.string.condition_moderate_showers,
             82 to R.string.condition_violent_showers,

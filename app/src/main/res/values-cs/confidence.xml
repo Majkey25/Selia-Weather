@@ -33,4 +33,5 @@
     <string name="confidence_regional_sky">Obloha v této hodině vychází z %1$s. Tento výběr platí pouze pro příštích 48 hodin a nepřepisuje srážky ani jiné jevy. Nevychází z ověřených místních vah přesnosti.</string>
     <string name="forecast_current_sky_source">Zdroj aktuální modelové oblohy</string>
     <string name="confidence_time_support">Obloha, teplota a vítr platí pro zobrazený čas. Úhrny srážek pokrývají interval předpovědi. Jde o předpovědi, ne měření v tomto bodě.</string>
+    <string name="confidence_unknown_condition">Z dostupných údajů nelze určit stav oblohy. Nejde o potvrzený rozpor s modely.</string>
 </resources>

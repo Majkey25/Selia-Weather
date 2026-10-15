@@ -12,6 +12,17 @@ import org.junit.Test
 
 class WidgetConditionKeyTest {
     @Test
+    fun obscuredSkyKeepsItsLabelAndNeverUsesASunIcon() {
+        val condition = cz.majkey.pocasicesko.data.conditionFor(cz.majkey.pocasicesko.data.SKY_OBSCURED_WEATHER_CODE)
+        assertEquals(WeatherKind.UNKNOWN, condition.kind)
+        assertEquals(condition.key, widgetConditionKey(condition.key.name))
+        assertEquals(R.string.condition_sky_obscured,
+            widgetConditionLabelResource(condition.key.name, condition.kind, condition.weatherCode))
+        assertEquals(R.drawable.ic_weather_cloud,
+            widgetIconFor(condition.kind, true, condition.key, condition.weatherCode))
+    }
+
+    @Test
     fun preciseConditionLabelsUseCachedWeatherCode() {
         assertEquals(R.string.condition_light_rain, widgetConditionLabelResource("RAIN", WeatherKind.RAIN, 61))
         assertEquals(R.string.condition_heavy_rain, widgetConditionLabelResource("RAIN", WeatherKind.RAIN, 65))

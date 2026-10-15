@@ -17,6 +17,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.click
@@ -67,6 +69,45 @@ class ForecastLayoutTest {
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
     private val day = DailyWeather("2026-09-12", 95, 22.0, 12.0, "06:00", "18:00", 123.4, 85, 123.0,
         apparentTemperatureMin = 9.0, apparentTemperatureMax = 23.0)
+
+    @Test
+    fun missingNextIntervalDoesNotHideTheAvailableModelCount() {
+        val agreement = HourlyModelAgreement(5, 1.0, 2.0, 10.0, 5, 0, 0.0, 0.0, WeatherKind.CLEAR)
+        val selected = hour(10).copy(modelAgreement = agreement)
+        val confidence = hourlyForecastConfidence(selected, null, LocalDateTime.parse(selected.time), 0)
+        compose.setContent { TestSurface { ForecastConfidenceBadge(confidence, units) } }
+        compose.onNode(hasClickAction()).performClick()
+        compose.onNodeWithText(context.getString(R.string.confidence_models, 5)).assertIsDisplayed()
+        assertEquals(cz.majkey.pocasicesko.data.ConfidenceLevel.LIMITED, confidence.level)
+        compose.onNodeWithText(context.getString(R.string.confidence_missing))
+            .performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun obscuredSkyDetailsDoNotPresentModelCloudAmountsAsObserved() {
+        val base = snapshot()
+        val state = mutableStateOf(base.copy(current = base.current.copy(
+            weatherCode = cz.majkey.pocasicesko.data.SKY_OBSCURED_WEATHER_CODE,
+            cloudCover = 37, cloudCoverLow = 17)))
+        compose.setContent {
+            WeatherTheme {
+                WeatherDetailSheet(state.value,
+                    cz.majkey.pocasicesko.data.CzechLocation("WIOO", "", -0.151, 109.404, "ID"),
+                    units, loadHistory = { error("History is not requested") }, embedded = true,
+                    currentTime = LocalDateTime.parse(base.current.time), onDismiss = {})
+            }
+        }
+        val section = context.getString(R.string.precipitation_and_clouds)
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(section))
+        compose.onNodeWithText(section).performClick()
+        val obscured = context.getString(R.string.condition_sky_obscured)
+        compose.onAllNodesWithText(obscured).onLast().performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("37 %").assertDoesNotExist()
+        compose.onNodeWithText(context.getString(R.string.low_clouds)).assertDoesNotExist()
+        compose.runOnIdle { state.value = state.value.copy(current = state.value.current.copy(weatherCode = 1)) }
+        compose.onNodeWithText("37 %").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(obscured).assertDoesNotExist()
+    }
 
     @Test
     fun pastHourHelpStillShowsAvailableNamedModels() {

@@ -442,6 +442,8 @@
     <string name="condition_dense_drizzle">Bruine dense</string>
     <string name="condition_light_drizzle_and_rain">Bruine et pluie légères</string>
     <string name="condition_drizzle_and_rain">Bruine et pluie</string>
+    <string name="condition_light_rain_and_snow">Pluie et neige légères</string>
+    <string name="condition_rain_and_snow">Pluie et neige</string>
     <string name="condition_light_freezing_drizzle">Bruine verglaçante légère</string>
     <string name="condition_dense_freezing_drizzle">Bruine verglaçante dense</string>
     <string name="condition_light_rain">Pluie légère</string>
@@ -452,4 +454,5 @@
     <string name="condition_light_showers">Averses de pluie légères</string>
     <string name="condition_moderate_showers">Averses modérées à fortes</string>
     <string name="condition_violent_showers">Averses de pluie violentes</string>
+    <string name="condition_sky_obscured">Ciel non visible</string>
 </resources>

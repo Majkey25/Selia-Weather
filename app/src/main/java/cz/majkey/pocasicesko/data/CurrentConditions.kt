@@ -28,6 +28,7 @@ internal data class CurrentStationObservation(
     val weatherCode: Int? = null,
     val cloudCoverRange: IntRange? = null,
     val isMetarReport: Boolean = false,
+    val skyObscured: Boolean = false,
 ) {
     init {
         require(stationId.isNotBlank())
@@ -49,6 +50,7 @@ internal data class CurrentStationObservation(
                 !cloudCoverRange.isEmpty() && cloudCoverRange.first >= 0 && cloudCoverRange.last <= 100,
         )
         require(cloudCoverRange == null || cloudCoverPercent != null && cloudCoverPercent in cloudCoverRange)
+        require(!skyObscured || cloudCoverPercent == null && cloudCoverRange == null)
         require(
             listOf(
                 temperature,
@@ -62,7 +64,7 @@ internal data class CurrentStationObservation(
                 visibilityMeters,
                 cloudCoverPercent,
                 weatherCode,
-            ).any { it != null },
+            ).any { it != null } || skyObscured,
         )
     }
 }
@@ -102,11 +104,14 @@ internal fun fuseCurrentConditions(
             Duration.between(observation.time, now).seconds <= MAX_WEATHER_AGE_SECONDS
     }
     val weatherReport = localWeather.firstOrNull {
-        it.first.isMetarReport || it.first.weatherCode != null || it.first.cloudCoverPercent != null
+        it.first.isMetarReport || it.first.weatherCode != null || it.first.cloudCoverPercent != null || it.first.skyObscured
     }?.first
     // Keep the phenomenon and cloud cover from one report, even when its cloud cover is missing.
     val reportedCloudCover = weatherReport?.cloudCoverRange?.let { model.cloudCover.coerceIn(it) }
         ?: weatherReport?.cloudCoverPercent
+    val constrainsSky = weatherReport?.cloudCoverRange?.let {
+        it.first == it.last || model.cloudCover !in it
+    } ?: (reportedCloudCover != null)
     val reportedWeatherCode = weatherReport?.weatherCode
     val wind = nearby.mapNotNull { (observation, distance) ->
         val speed = observation.windSpeed ?: return@mapNotNull null
@@ -120,14 +125,16 @@ internal fun fuseCurrentConditions(
         val speed = values.sumOf { (speed, _, weight) -> speed * weight } / totalWeight
         speed to (Math.toDegrees(kotlin.math.atan2(east, north)) + 360.0) % 360.0
     }
-    val (weatherCode, cloudCover) = when {
+    val (weatherCode, cloudCover, skyObservationTime) = when {
         // A nearby airport cannot disprove a localized storm or its hail intensity.
         reportedWeatherCode != null && (model.weatherCode !in 95..99 || reportedWeatherCode >= model.weatherCode) ->
-            reportedWeatherCode to (reportedCloudCover ?: model.cloudCover)
-        reportedCloudCover != null && model.weatherCode in 0..3 -> {
-            cloudWeatherCode(reportedCloudCover) to reportedCloudCover
+            Triple(reportedWeatherCode, reportedCloudCover ?: model.cloudCover, weatherReport.time)
+        weatherReport?.skyObscured == true && model.weatherCode in 0..3 ->
+            Triple(SKY_OBSCURED_WEATHER_CODE, model.cloudCover, weatherReport.time)
+        reportedCloudCover != null && constrainsSky && (model.weatherCode in 0..3 || model.weatherCode == SKY_OBSCURED_WEATHER_CODE) -> {
+            Triple(cloudWeatherCode(reportedCloudCover), reportedCloudCover, weatherReport?.time)
         }
-        else -> model.weatherCode to (reportedCloudCover ?: model.cloudCover)
+        else -> Triple(model.weatherCode, reportedCloudCover ?: model.cloudCover, model.skyObservationTime)
     }
     // Apparent temperature remains model-derived; station reports lack matching solar radiation.
     return model.copy(
@@ -137,6 +144,7 @@ internal fun fuseCurrentConditions(
         // Sunshine duration also does not measure total or layered cloud cover.
         weatherCode = weatherCode,
         cloudCover = cloudCover,
+        skyObservationTime = skyObservationTime,
         cloudCoverLow = if (cloudCover == model.cloudCover) model.cloudCoverLow else null,
         cloudCoverMid = if (cloudCover == model.cloudCover) model.cloudCoverMid else null,
         cloudCoverHigh = if (cloudCover == model.cloudCover) model.cloudCoverHigh else null,
@@ -151,6 +159,7 @@ internal fun fuseCurrentConditions(
 internal fun applyCurrentConditionsToForecastJson(json: String, current: CurrentWeather): String {
     val root = JSONObject(json)
     val currentJson = root.getJSONObject("current")
+    currentJson.put(SKY_OBSERVATION_TIME_KEY, current.skyObservationTime?.toString() ?: JSONObject.NULL)
     val values = mapOf(
         "temperature_2m" to current.temperature,
         "apparent_temperature" to current.feelsLike,

@@ -2083,6 +2083,7 @@ def _brier_payload(value: BrierDecomposition | None) -> JsonValue:
     if value is None:
         return None
     return {
+        "binning_residual": value.binning_residual,
         "reliability": value.reliability,
         "resolution": value.resolution,
         "score": value.score,

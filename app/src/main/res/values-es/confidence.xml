@@ -33,4 +33,5 @@
     <string name="confidence_regional_sky">El cielo en esta hora se basa en %1$s. Esta selección solo se aplica a las próximas 48 horas y no sustituye la precipitación ni otros fenómenos. No se basa en ponderaciones de precisión local validadas.</string>
     <string name="forecast_current_sky_source">Fuente del cielo actual del modelo</string>
     <string name="confidence_time_support">Cielo, temperatura y viento corresponden a la hora mostrada. Los totales de precipitación cubren el intervalo de previsión. Son previsiones, no mediciones en este punto.</string>
+    <string name="confidence_unknown_condition">Los datos disponibles no permiten determinar el estado del cielo. Esto no confirma una discrepancia con los modelos.</string>
 </resources>

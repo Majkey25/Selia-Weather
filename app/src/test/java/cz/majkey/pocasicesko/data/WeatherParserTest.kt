@@ -9,6 +9,54 @@ import org.junit.Test
 
 class WeatherParserTest {
     @Test
+    fun fusedSkyKeepsItsActualObservationTimeAcrossCacheReload() {
+        val root = JSONObject(VALID_FORECAST).put("utc_offset_seconds", 7200)
+        root.getJSONObject("current").put("time", "2026-10-07T12:00").put("weather_code", 0).put("cloud_cover", 0)
+        val model = WeatherParser.parseForecast(root.toString(), 1L).current
+        val location = CzechLocation("Test", "", 50.0, 14.0, "CZ")
+        val evidence = HourlyModelAgreement(5, 1.0, 2.0, 10.0, 5, 0, 0.0, 0.0, WeatherKind.CLEAR)
+        val hours = (12..23).map { HourlyWeather("2026-10-07T${it}:00", 20.0, 50, 0, 0.0, 0,
+            1013.0, 10.0, 180, true, modelAgreement = evidence) }
+        val rain = hours.associate { it.time to it }
+        val instant = java.time.Instant.parse("2026-10-07T10:08:00Z")
+        val now = java.time.LocalDateTime.parse("2026-10-07T12:08")
+        for (observationMinute in listOf(0L, 5L)) {
+            val observation = CurrentStationObservation("TEST", location.latitude, location.longitude,
+                instant.minusSeconds((8 - observationMinute) * 60), null, null, null, null, null, null,
+                cloudCoverPercent = 100, weatherCode = 3)
+            val fused = fuseCurrentConditions(model, location, listOf(observation), instant)
+            val saved = applyCurrentConditionsToForecastJson(root.toString(), fused)
+            val reloaded = WeatherParser.parseForecast(saved, 1L).current
+            assertEquals(model.time, reloaded.time)
+            assertEquals(3, reloaded.weatherCode)
+            assertEquals(observation.time, reloaded.skyObservationTime)
+            val rating = dailyForecastConfidence("2026-10-07", hours, rain, now, 0, reloaded,
+                utcOffsetSeconds = root.getInt("utc_offset_seconds"))
+            assertEquals(if (observationMinute == 0L) ConfidenceLevel.LOW else ConfidenceLevel.HIGH, rating.level)
+            assertEquals(ConfidenceLevel.MODERATE,
+                dailyForecastConfidence("2026-10-07", hours, rain, now, 0, reloaded).level)
+            val conflictingHours = hours.mapIndexed { index, hour ->
+                if (index == 0) hour.copy(modelAgreement = evidence.copy(cloudRangePercent = 100.0)) else hour
+            }
+            for (offset in listOf(null, 7200)) {
+                val conflict = dailyForecastConfidence("2026-10-07", conflictingHours, rain, now, 0, reloaded,
+                    utcOffsetSeconds = offset)
+                assertEquals(ConfidenceLevel.LOW, conflict.level)
+                org.junit.Assert.assertTrue(conflict.disagreements.contains(ForecastDisagreement.CLOUDS))
+            }
+        }
+    }
+
+    @Test
+    fun invalidSkyObservationTimeCannotBeReadAsTheModelTime() {
+        for (value in listOf("invalid", 7, true)) {
+            val root = JSONObject(VALID_FORECAST)
+            root.getJSONObject("current").put(SKY_OBSERVATION_TIME_KEY, value)
+            assertThrows(JSONException::class.java) { WeatherParser.parseForecast(root.toString(), 1L) }
+        }
+    }
+
+    @Test
     fun dailyIconUsesDaytimeMajorityWithoutLosingOvernightRainEvidence() {
         val root = JSONObject(VALID_FORECAST)
         val hours = root.getJSONObject("hourly")
@@ -138,12 +186,15 @@ class WeatherParserTest {
 
     @Test
     fun invalidRainPercentagesStayUnknownButZeroAndHundredRemainValid() {
-        for (value in listOf(-1, 101, 0, 100)) {
+        for (value in listOf(-1.0, -0.1, 100.1, 101.0, 0.0, 12.8, 100.0)) {
             val root = JSONObject(VALID_FORECAST)
             root.getJSONObject("hourly").getJSONArray("precipitation_probability").put(1, value)
+            root.getJSONObject("daily").getJSONArray("precipitation_probability_max").put(0, value)
             val parsed = WeatherParser.parseForecast(root.toString(), 123L)
             assertEquals(2, parsed.hourly.size)
-            assertEquals(value.takeIf { it in 0..100 }, parsed.hourly[1].precipitationProbability)
+            val expected = value.takeIf { it in 0.0..100.0 }?.toInt()
+            assertEquals(expected, parsed.hourly[1].precipitationProbability)
+            assertEquals(expected, parsed.daily.single().precipitationProbability)
         }
     }
 

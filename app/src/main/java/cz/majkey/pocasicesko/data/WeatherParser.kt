@@ -53,8 +53,7 @@ object WeatherParser {
                             .requiredDouble(index, "temperature_2m"),
                         humidity = hourlyJson.getJSONArray("relative_humidity_2m")
                             .requiredInt(index, "relative_humidity_2m"),
-                        precipitationProbability = hourlyJson.optionalIntAt("precipitation_probability", index)
-                            ?.takeIf { it in 0..100 },
+                        precipitationProbability = hourlyJson.probabilityAt("precipitation_probability", index),
                         precipitation = hourlyJson.getJSONArray("precipitation")
                             .requiredDouble(index, "precipitation"),
                         weatherCode = hourlyJson.getJSONArray("weather_code")
@@ -174,6 +173,9 @@ object WeatherParser {
                 soilTemperature0Cm = currentJson.optionalFiniteDouble("soil_temperature_0cm"),
                 soilMoisture0To1Cm = currentJson.optionalFiniteDouble("soil_moisture_0_to_1cm"),
                 showers = currentJson.optionalFiniteDouble("showers"),
+                skyObservationTime = if (currentJson.isNull(SKY_OBSERVATION_TIME_KEY)) null else runCatching {
+                    parseWeatherInstant(currentJson.getString(SKY_OBSERVATION_TIME_KEY))
+                }.getOrElse { throw JSONException("Invalid current sky observation time.") },
             ),
             hourly = hourly,
             daily = List(dailyTimes.length()) { index ->
@@ -188,7 +190,7 @@ object WeatherParser {
                     sunset = dailyJson.getJSONArray("sunset").requiredString(index, "sunset"),
                     precipitationSum = dailyJson.getJSONArray("precipitation_sum")
                         .requiredDouble(index, "precipitation_sum"),
-                    precipitationProbability = dailyJson.optionalIntAt("precipitation_probability_max", index),
+                    precipitationProbability = dailyJson.probabilityAt("precipitation_probability_max", index),
                     windSpeedMax = dailyJson.getJSONArray("wind_speed_10m_max")
                         .requiredDouble(index, "wind_speed_10m_max"),
                     apparentTemperatureMax = dailyJson.optionalDoubleAt("apparent_temperature_max", index),
@@ -290,6 +292,10 @@ object WeatherParser {
         val values = optJSONArray(name) ?: return null
         return if (index >= values.length() || values.isNull(index)) null else values.getInt(index)
     }
+
+    private fun JSONObject.probabilityAt(name: String, index: Int): Int? =
+        (optJSONArray(name)?.opt(index) as? Number)?.toDouble()
+            ?.takeIf { it.isFinite() && it in 0.0..100.0 }?.toInt()
 
     private val HOURLY_FIELDS = arrayOf(
         "temperature_2m",

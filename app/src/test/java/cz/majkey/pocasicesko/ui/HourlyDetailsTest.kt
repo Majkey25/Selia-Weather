@@ -261,6 +261,9 @@ class HourlyDetailsTest {
         val wet = hour(null, null).copy(precipitationProbability = 80, precipitation = 1.0)
         assertEquals(HourlyHighlight.SNOW, hourlyHighlight(wet.copy(weatherCode = 73, snowfall = 0.7, rain = 0.0)))
         assertEquals(HourlyHighlight.MIXED, hourlyHighlight(wet.copy(snowfall = 0.4, rain = 0.5)))
+        for (code in listOf(68, 69)) {
+            assertEquals(HourlyHighlight.MIXED, hourlyHighlight(wet.copy(weatherCode = code)))
+        }
         assertEquals(HourlyHighlight.FREEZING, hourlyHighlight(wet.copy(weatherCode = 66, rain = 1.0)))
         assertEquals(HourlyHighlight.RAIN, hourlyHighlight(wet.copy(weatherCode = 61)))
         assertEquals(HourlyHighlight.PRECIPITATION, hourlyHighlight(wet.copy(weatherCode = 1)))

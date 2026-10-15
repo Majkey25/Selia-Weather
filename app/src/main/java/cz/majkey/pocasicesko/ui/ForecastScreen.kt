@@ -98,6 +98,7 @@ import cz.majkey.pocasicesko.data.ConfidenceReason
 import cz.majkey.pocasicesko.data.dailyForecastConfidence
 import cz.majkey.pocasicesko.data.hourlyForecastConfidence
 import cz.majkey.pocasicesko.data.conditionFor
+import cz.majkey.pocasicesko.data.skyConditionTime
 import cz.majkey.pocasicesko.units.MeasurementSystem
 import cz.majkey.pocasicesko.units.WeatherUnitFormatter
 import java.time.Instant
@@ -172,7 +173,7 @@ internal fun ForecastScreen(
     val fetchedAge = System.currentTimeMillis() - snapshot.updatedAtEpochMillis
     val dailyConfidence = remember(snapshot, localNow) {
         snapshot.daily.associate { it.date to dailyForecastConfidence(it.date, snapshot.hourly, precipitationByStart, localNow, fetchedAge,
-            snapshot.current, snapshot.calculation?.currentSkyModelId) }
+            snapshot.current, snapshot.calculation?.currentSkyModelId, snapshot.utcOffsetSeconds) }
     }
     var selectedDayIndex by rememberSaveable(location.latitude, location.longitude) { mutableStateOf<Int?>(null) }
     var selectedHourTime by rememberSaveable(location.latitude, location.longitude) { mutableStateOf<String?>(null) }
@@ -252,6 +253,7 @@ internal fun ForecastScreen(
             initialHourTime = selectedHourTime,
             current = snapshot.current,
             currentSkyModelId = snapshot.calculation?.currentSkyModelId,
+            utcOffsetSeconds = snapshot.utcOffsetSeconds,
         )
     }
     if (showDetails) {
@@ -430,9 +432,9 @@ internal fun HourlyGraphPanel(snapshot: WeatherSnapshot, units: WeatherUnitForma
                 isCurrentForecastHour(hour.time, localNow) && isCurrentForecastHour(it.time, localNow)
             }
             hour.time to hourlyForecastConfidence(hour, precipitationByStart[hour.time], localNow, age,
-                hourlyDisplayCondition(hour, shownCurrent, localNow).first.kind,
+                hourlyDisplayCondition(hour, shownCurrent, localNow).first,
                 if (shownCurrent != null) snapshot.calculation?.currentSkyModelId else hour.skySourceModelId,
-                shownConditionTime = shownCurrent?.time ?: hour.time)
+                shownConditionTime = if (shownCurrent != null) shownCurrent.skyConditionTime(snapshot.utcOffsetSeconds) else hour.time)
         }
     }
     val scrollState = rememberScrollState()
@@ -833,6 +835,7 @@ internal fun DayDetailSheet(
     initialHourTime: String? = null,
     current: CurrentWeather? = null,
     currentSkyModelId: String? = null,
+    utcOffsetSeconds: Int? = null,
 ) {
     if (days.isEmpty()) return
     val latestLocalNow = rememberUpdatedState(localNow)
@@ -924,7 +927,7 @@ internal fun DayDetailSheet(
                         )
                         DayAvailableDetails(day, units, locale)
                         ForecastConfidenceBadge(dailyForecastConfidence(day.date, hourly, precipitationByStart, dayNow,
-                            System.currentTimeMillis() - updatedAtEpochMillis, current, currentSkyModelId), units)
+                            System.currentTimeMillis() - updatedAtEpochMillis, current, currentSkyModelId, utcOffsetSeconds), units)
                     }
                     itemsIndexed(hours, key = { index, hour -> "${hour.time}-$index" }) { _, hour ->
                         val hourNow = latestLocalNow.value
@@ -934,9 +937,9 @@ internal fun DayDetailSheet(
                         val (condition, iconIsDay) = hourlyDisplayCondition(hour, shownCurrent, hourNow)
                         val conditionLabel = stringResource(condition.labelResource())
                         val hourConfidence = hourlyForecastConfidence(hour, precipitationHour, hourNow,
-                            System.currentTimeMillis() - updatedAtEpochMillis, condition.kind,
+                            System.currentTimeMillis() - updatedAtEpochMillis, condition,
                             if (shownCurrent != null) currentSkyModelId else hour.skySourceModelId,
-                            shownConditionTime = shownCurrent?.time ?: hour.time)
+                            shownConditionTime = if (shownCurrent != null) shownCurrent.skyConditionTime(utcOffsetSeconds) else hour.time)
                         val expanded = expandedHourTime == hour.time
                         val expansionState = stringResource(
                             if (expanded) R.string.hour_expanded else R.string.hour_collapsed,

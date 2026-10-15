@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.7.17] - 2026-10-15
+
+- Preserve observed sky obscuration (OVX/VV) instead of displaying clear sky or inventing 100% cloud cover. Keep explicit rain, snow, fog and modeled storm safeguards; retain observation time through cache and widget labels.
+- Recognize mixed rain and snow in nearby METAR reports, with a distinct icon and localized intensity labels. Do not infer precipitation amounts or probabilities from present-weather codes.
+- Compare observed and modeled conditions only at matching times. Keep mixed and freezing precipitation distinct in confidence checks; explain unobservable sky without claiming high confidence or a false model disagreement.
+- Validate precipitation probabilities before integer conversion. Reject out-of-range values rather than displaying them as valid percentages.
+- Keep model sky attribution when a partial METAR cloud bound does not constrain it. Do not present an unchanged model sky as a new station measurement.
+- Retain the available model count when the following precipitation interval is missing; confidence remains limited. Include the signed binning residual in research Brier diagnostics without changing raw scores or acceptance gates.
+- Keep learned cloud/rain corrections disabled: the independent November confirmation still fails acceptance gates. No new global accuracy or calibrated-confidence gain is claimed; see the [results and limitations](docs/research/2026-10-15-cloud-rain-confirmation.md).
+
 ## [0.7.16] - 2026-10-15
 
 - Promote the tested current-sky fallback fix from 0.7.16-beta.1 to the production release. Application behavior is unchanged from the beta; rainfall amounts, probabilities, model weights and confidence thresholds remain unchanged.

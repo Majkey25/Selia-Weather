@@ -96,6 +96,7 @@ import cz.majkey.pocasicesko.data.HistoricalDay
 import cz.majkey.pocasicesko.data.HistoryArchive
 import cz.majkey.pocasicesko.data.HistorySummary
 import cz.majkey.pocasicesko.data.HourlyWeather
+import cz.majkey.pocasicesko.data.SKY_OBSCURED_WEATHER_CODE
 import cz.majkey.pocasicesko.data.conditionFor
 import cz.majkey.pocasicesko.data.WeatherSnapshot
 import cz.majkey.pocasicesko.data.summary
@@ -318,19 +319,23 @@ internal fun WeatherDetailSheet(
                                 stringResource(R.string.precipitation_hours),
                                 today?.precipitationHours?.let { String.format(locale, "%.1f h", it) },
                             )
-                            DetailRow(stringResource(R.string.cloud_cover), "${snapshot.current.cloudCover} %")
-                            OptionalDetailRow(
-                                stringResource(R.string.low_clouds),
-                                snapshot.current.cloudCoverLow?.let { "$it %" },
-                            )
-                            OptionalDetailRow(
-                                stringResource(R.string.middle_clouds),
-                                snapshot.current.cloudCoverMid?.let { "$it %" },
-                            )
-                            OptionalDetailRow(
-                                stringResource(R.string.high_clouds),
-                                snapshot.current.cloudCoverHigh?.let { "$it %" },
-                            )
+                            if (snapshot.current.weatherCode == SKY_OBSCURED_WEATHER_CODE) {
+                                DetailRow(stringResource(R.string.cloud_cover), stringResource(R.string.condition_sky_obscured))
+                            } else {
+                                DetailRow(stringResource(R.string.cloud_cover), "${snapshot.current.cloudCover} %")
+                                OptionalDetailRow(
+                                    stringResource(R.string.low_clouds),
+                                    snapshot.current.cloudCoverLow?.let { "$it %" },
+                                )
+                                OptionalDetailRow(
+                                    stringResource(R.string.middle_clouds),
+                                    snapshot.current.cloudCoverMid?.let { "$it %" },
+                                )
+                                OptionalDetailRow(
+                                    stringResource(R.string.high_clouds),
+                                    snapshot.current.cloudCoverHigh?.let { "$it %" },
+                                )
+                            }
                         }
                     }
                     item {

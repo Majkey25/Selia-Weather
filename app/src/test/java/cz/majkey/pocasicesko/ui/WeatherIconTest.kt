@@ -37,6 +37,11 @@ class WeatherIconTest {
         assertEquals(snowIconResource(71), snowIconResource(85))
         assertEquals(snowIconResource(75), snowIconResource(86))
         assertNotEquals(precipitationIconResource(WeatherConditionKey.DRIZZLE, 51), snowIconResource(77))
+        assertEquals(R.drawable.ic_weather_rain_snow, snowIconResource(68))
+        assertEquals(snowIconResource(68), snowIconResource(69))
+        assertNotEquals(snowIconResource(68), snowIconResource(71))
+        assertEquals(snowIconResource(68), cz.majkey.pocasicesko.widget.widgetIconFor(
+            conditionFor(68).kind, true, conditionFor(68).key, 68))
     }
     @Test
     fun mainlyClearKeepsCloudSmallAndBlue() {

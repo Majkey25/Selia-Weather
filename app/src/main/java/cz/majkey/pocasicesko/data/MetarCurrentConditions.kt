@@ -63,6 +63,7 @@ private fun parseMetarObservation(value: JSONObject): CurrentStationObservation?
             weatherCode = parseMetarWeatherCode(value.opt("wxString") as? String),
             cloudCoverRange = if (cloudCover != null) CLOUD_COVER_RANGES[cover] else null,
             isMetarReport = true,
+            skyObscured = cover == "OVX" || cover == "VV",
         )
     } catch (_: IllegalArgumentException) {
         null
@@ -76,16 +77,24 @@ private fun parseMetarWeatherCode(encoded: String?): Int? {
     val groups = encoded.trim().split(Regex("\\s+"))
     if (groups.size > 3) return null
     // Recognized vicinity/recent groups do not erase separately reported local weather.
-    // Unknown groups still fail closed; never find RA inside mixed RASN/FZRA or free text.
+    // Unknown groups still fail closed; never find RA inside unsupported groups or free text.
     if (groups.any {
         it !in METAR_WEATHER_CODES && it !in METAR_NONLOCAL_WEATHER_GROUPS && it !in setOf("BR", "HZ")
     }) return null
     val codes = groups.mapNotNull(METAR_WEATHER_CODES::get)
+    val mixedRainSnow = codes.any { it in 68..69 } ||
+        codes.any { it in 51..55 || it in 58..65 } && codes.any { it in 71..75 }
+    if (mixedRainSnow && codes.all {
+        it in 51..55 || it in 58..65 || it in 68..75 || it == 45 || it == 48 || it in 95..99
+    }) {
+        codes.filter { it in 95..99 }.maxOrNull()?.let { return it }
+        return if (codes.filter { it >= 51 }.all { it in setOf(51, 58, 61, 68, 71) }) 68 else 69
+    }
     val phases = listOf(
-        codes.any { it in 51..55 || it in 58..65 || it in 80..82 } ||
+        codes.any { it in 51..55 || it in 58..65 || it in 68..69 || it in 80..82 } ||
             groups.any { it in setOf("-TSRA", "TSRA", "+TSRA", "-TSRAGR", "TSRAGR", "+TSRAGR") },
         codes.any { it in 56..57 || it in 66..67 },
-        codes.any { it in 71..77 || it in 85..86 } || "TSSN" in groups,
+        codes.any { it in 68..77 || it in 85..86 } || "TSSN" in groups,
     )
     if (phases.count { it } > 1) return null
     return codes.maxOrNull()
@@ -115,7 +124,6 @@ private val CLOUD_COVER = mapOf(
     "SCT" to 38,
     "BKN" to 75,
     "OVC" to 100,
-    "VV" to 100,
 )
 // METAR layer groups can omit higher clouds that are not significant for aviation.
 private val CLOUD_COVER_RANGES = mapOf(
@@ -124,7 +132,6 @@ private val CLOUD_COVER_RANGES = mapOf(
     "SCT" to (38..100),
     "BKN" to (63..100),
     "OVC" to (100..100),
-    "VV" to (100..100),
 )
 // FAA METAR present-weather codes; WMO intensity classes. No amount or probability inference.
 private val METAR_WEATHER_CODES = mapOf(
@@ -137,6 +144,10 @@ private val METAR_WEATHER_CODES = mapOf(
     "-FZDZ" to 56, "FZDZ" to 57, "+FZDZ" to 57,
     "-FZRA" to 66, "FZRA" to 67, "+FZRA" to 67,
     "-SN" to 71, "SN" to 73, "+SN" to 75,
+    "-RASN" to 68, "RASN" to 69, "+RASN" to 69,
+    "-SNRA" to 68, "SNRA" to 69, "+SNRA" to 69,
+    "-DZSN" to 68, "DZSN" to 69, "+DZSN" to 69,
+    "-SNDZ" to 68, "SNDZ" to 69, "+SNDZ" to 69,
     "-SHSN" to 85, "SHSN" to 86, "+SHSN" to 86,
     "FG" to 45, "BCFG" to 45, "MIFG" to 45, "PRFG" to 45, "FZFG" to 48,
     "TS" to 95, "-TSRA" to 95, "TSRA" to 95, "+TSRA" to 95,

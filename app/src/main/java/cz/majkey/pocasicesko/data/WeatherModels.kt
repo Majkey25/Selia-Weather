@@ -43,6 +43,7 @@ data class CurrentWeather(
     val soilTemperature0Cm: Double? = null,
     val soilMoisture0To1Cm: Double? = null,
     val showers: Double? = null,
+    val skyObservationTime: java.time.Instant? = null,
 )
 
 /** Descriptive spread of contributing hourly totals, not a precipitation probability. */
@@ -181,6 +182,7 @@ enum class WeatherConditionKey {
     SHOWERS,
     SNOW_SHOWERS,
     STORM,
+    SKY_OBSCURED,
     UNKNOWN,
 }
 
@@ -189,6 +191,9 @@ data class WeatherCondition(
     val kind: WeatherKind,
     val weatherCode: Int? = null,
 )
+
+// Internal display state, not a WMO present-weather code or a measured cloud amount.
+internal const val SKY_OBSCURED_WEATHER_CODE = -2
 
 internal fun cloudWeatherCode(cloudCover: Int): Int = when {
     cloudCover < 20 -> 0
@@ -202,6 +207,7 @@ internal fun hasPrecipitationEvidence(weatherCode: Int, vararg amounts: Double?)
         amounts.any { it != null && it.isFinite() && it > 0.0 }
 
 fun conditionFor(code: Int, isDay: Boolean = true): WeatherCondition = when (code) {
+    SKY_OBSCURED_WEATHER_CODE -> WeatherCondition(WeatherConditionKey.SKY_OBSCURED, WeatherKind.UNKNOWN, code)
     0 -> WeatherCondition(if (isDay) WeatherConditionKey.CLEAR_DAY else WeatherConditionKey.CLEAR_NIGHT, WeatherKind.CLEAR, code)
     1 -> WeatherCondition(
         if (isDay) WeatherConditionKey.MAINLY_CLEAR_DAY else WeatherConditionKey.MAINLY_CLEAR_NIGHT,
@@ -214,6 +220,7 @@ fun conditionFor(code: Int, isDay: Boolean = true): WeatherCondition = when (cod
     in 51..57 -> WeatherCondition(WeatherConditionKey.DRIZZLE, WeatherKind.RAIN, code)
     58, 59 -> WeatherCondition(WeatherConditionKey.RAIN, WeatherKind.RAIN, code)
     in 61..67 -> WeatherCondition(WeatherConditionKey.RAIN, WeatherKind.RAIN, code)
+    68, 69 -> WeatherCondition(WeatherConditionKey.SNOW, WeatherKind.SNOW, code)
     in 71..77 -> WeatherCondition(WeatherConditionKey.SNOW, WeatherKind.SNOW, code)
     in 80..82 -> WeatherCondition(WeatherConditionKey.SHOWERS, WeatherKind.RAIN, code)
     85, 86 -> WeatherCondition(WeatherConditionKey.SNOW_SHOWERS, WeatherKind.SNOW, code)

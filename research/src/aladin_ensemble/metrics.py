@@ -14,6 +14,7 @@ class BrierDecomposition:
     reliability: float
     resolution: float
     uncertainty: float
+    binning_residual: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,6 +78,7 @@ def brier_score(probabilities: Sequence[float], events: Sequence[bool]) -> float
 def brier_decomposition(
     probabilities: Sequence[float], events: Sequence[bool], *, bin_count: int = 10
 ) -> BrierDecomposition:
+    """Keep the raw score and expose the signed residual of the bin-mean decomposition."""
     pairs = _probability_pairs(probabilities, events)
     if bin_count <= 0:
         raise ValueError("bin_count must be positive")
@@ -95,11 +97,14 @@ def brier_decomposition(
         observed_rate = fmean(float(event) for _, event in values)
         reliability += weight * (forecast_rate - observed_rate) ** 2
         resolution += weight * (observed_rate - event_rate) ** 2
+    score = brier_score(probabilities, events)
+    uncertainty = event_rate * (1.0 - event_rate)
     return BrierDecomposition(
-        brier_score(probabilities, events),
+        score,
         reliability,
         resolution,
-        event_rate * (1.0 - event_rate),
+        uncertainty,
+        score - (reliability - resolution + uncertainty),
     )
 
 

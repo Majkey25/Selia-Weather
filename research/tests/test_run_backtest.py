@@ -599,6 +599,11 @@ def test_locked_run_fits_before_lock_and_writes_diagnostic_report(tmp_path: Path
         "scalar",
         "wind_vector",
     }
+    brier = next(row["brier"] for row in report["segments"] if row["kind"] == "precipitation")
+    fitted_brier = result.precipitation[0][1].brier
+    assert fitted_brier is not None
+    assert brier["score"] == fitted_brier.score
+    assert brier["binning_residual"] == fitted_brier.binning_residual
     artifact = build_backtest_artifact(
         result,
         models=(ModelContract("model_a", 6, 1.0), ModelContract("model_b", 6, 1.0)),

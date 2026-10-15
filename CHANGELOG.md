@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.7.16] - 2026-10-15
+
+- Promote the tested current-sky fallback fix from 0.7.16-beta.1 to the production release. Application behavior is unchanged from the beta; rainfall amounts, probabilities, model weights and confidence thresholds remain unchanged.
+
 ## [0.7.16-beta.1] - 2026-10-14
 
 - Recover a complete, exactly time-matched regional sky sample when the preferred current response has missing or invalid required fields. Keep valid rain, fog, snow and storm reports as vetoes against a dry fallback.

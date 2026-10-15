@@ -109,6 +109,9 @@ internal fun fuseCurrentConditions(
     // Keep the phenomenon and cloud cover from one report, even when its cloud cover is missing.
     val reportedCloudCover = weatherReport?.cloudCoverRange?.let { model.cloudCover.coerceIn(it) }
         ?: weatherReport?.cloudCoverPercent
+    val constrainsSky = weatherReport?.cloudCoverRange?.let {
+        it.first == it.last || model.cloudCover !in it
+    } ?: (reportedCloudCover != null)
     val reportedWeatherCode = weatherReport?.weatherCode
     val wind = nearby.mapNotNull { (observation, distance) ->
         val speed = observation.windSpeed ?: return@mapNotNull null
@@ -128,7 +131,7 @@ internal fun fuseCurrentConditions(
             Triple(reportedWeatherCode, reportedCloudCover ?: model.cloudCover, weatherReport.time)
         weatherReport?.skyObscured == true && model.weatherCode in 0..3 ->
             Triple(SKY_OBSCURED_WEATHER_CODE, model.cloudCover, weatherReport.time)
-        reportedCloudCover != null && (model.weatherCode in 0..3 || model.weatherCode == SKY_OBSCURED_WEATHER_CODE) -> {
+        reportedCloudCover != null && constrainsSky && (model.weatherCode in 0..3 || model.weatherCode == SKY_OBSCURED_WEATHER_CODE) -> {
             Triple(cloudWeatherCode(reportedCloudCover), reportedCloudCover, weatherReport?.time)
         }
         else -> Triple(model.weatherCode, reportedCloudCover ?: model.cloudCover, model.skyObservationTime)

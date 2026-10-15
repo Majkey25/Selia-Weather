@@ -13,6 +13,18 @@ class ForecastConfidenceTest {
         modelAgreement = evidence)
 
     @Test
+    fun missingFollowingIntervalKeepsTheAvailableModelCountWithoutRaisingConfidence() {
+        for (following in listOf(null, hour("2026-10-07T14:00").copy(modelAgreement = null))) {
+            val rating = hourlyForecastConfidence(hour(), following, now, 0)
+            assertEquals(ConfidenceLevel.LIMITED, rating.level)
+            assertEquals(ConfidenceReason.MISSING_MODELS, rating.reason)
+            assertEquals(evidence.modelCount, rating.modelCount)
+            assertEquals(evidence, rating.evidence)
+            assertNull(rating.precipitationEvidence)
+        }
+    }
+
+    @Test
     fun unobservableSkyIsNotAConditionConflictOrHighConfidence() {
         for (code in listOf(-1, SKY_OBSCURED_WEATHER_CODE)) {
             for (shownTime in listOf(hour().time, "2026-10-07T13:05", null)) {

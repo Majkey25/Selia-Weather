@@ -13,6 +13,24 @@ import org.junit.Test
 
 class WeatherParserAndroidTest {
     @Test
+    fun partialCloudReportDoesNotBecomeAFullSkyMeasurementInNativeCache() {
+        // Actual AWC LKKU report; the model sky is a synthetic regression counterexample.
+        val report = parseMetarCurrentConditions("""[{"icaoId":"LKKU","obsTime":1791802800,
+            "lat":49.042,"lon":17.442,"qcField":1,"cover":"FEW",
+            "rawOb":"METAR LKKU 121100Z COR 29005KT 220V340 9999 FEW045 14/05 Q1021"}]""").single()
+        val root = JSONObject(FORECAST)
+        root.getJSONObject("current").put("weather_code", 3).put("cloud_cover", 85)
+        val model = WeatherParser.parseForecast(root.toString(), 1L).current
+        val fused = fuseCurrentConditions(model,
+            CzechLocation("LKKU", REGION_WORLD, report.latitude, report.longitude, "CZ"),
+            listOf(report), report.time.plusSeconds(300))
+        val reloaded = WeatherParser.parseForecast(
+            applyCurrentConditionsToForecastJson(root.toString(), fused), 1L).current
+        assertEquals(model, reloaded)
+        assertEquals(null, reloaded.skyObservationTime)
+    }
+
+    @Test
     fun obscuredSkySurvivesNativeCacheWithoutInventingCloudsOrHighConfidence() {
         val report = parseMetarCurrentConditions("""[{"icaoId":"WIOO","obsTime":1792056600,
             "temp":30,"dewp":26,"wdir":270,"wspd":8,"visib":0.93,"qcField":16,

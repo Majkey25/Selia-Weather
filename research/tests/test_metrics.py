@@ -57,6 +57,29 @@ def test_brier_score_and_decomposition_recompose_exactly() -> None:
     assert decomposition.reliability - decomposition.resolution + decomposition.uncertainty == 0.25
 
 
+@pytest.mark.parametrize(
+    ("probabilities", "events", "score", "residual"),
+    [
+        ((0.11, 0.19), (False, True), 0.3341, -0.0384),
+        ((0.11, 0.19), (True, False), 0.4141, 0.0416),
+        ((0.15, 0.15), (False, True), 0.3725, 0.0),
+    ],
+)
+def test_brier_binning_residual_preserves_the_raw_score(
+    probabilities: tuple[float, ...], events: tuple[bool, ...], score: float, residual: float
+) -> None:
+    decomposition = brier_decomposition(probabilities, events)
+    assert decomposition.score == brier_score(probabilities, events)
+    assert isclose(decomposition.score, score, abs_tol=1e-12)
+    assert isclose(decomposition.binning_residual, residual, abs_tol=1e-12)
+    assert isclose(
+        decomposition.score,
+        decomposition.reliability - decomposition.resolution + decomposition.uncertainty
+        + decomposition.binning_residual,
+        abs_tol=1e-12,
+    )
+
+
 def test_threshold_scores_and_weighted_median_match_hand_calculation() -> None:
     scores = threshold_scores((0.0, 2.0, 2.0, 0.0), (0.0, 2.0, 0.0, 2.0), 1.0)
 

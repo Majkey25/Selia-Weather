@@ -9,6 +9,42 @@ import org.junit.Test
 
 class CurrentConditionsTest {
     @Test
+    fun partialCloudBoundsDoNotRetimestampOrReclassifyAnUnchangedModelSky() {
+        val now = Instant.parse("2026-10-12T11:05:00Z")
+        val location = CzechLocation("Point", REGION_PRAGUE, 50.0, 14.0)
+        for ((nominal, lower) in listOf(13 to 13, 38 to 38, 75 to 63)) {
+            val report = observation(location.latitude, location.longitude, now.minusSeconds(300))
+                .copy(cloudCoverPercent = nominal, cloudCoverRange = lower..100, isMetarReport = true)
+            for (code in 0..3) {
+                val model = current(code, 0.0, 85).copy(cloudCoverHigh = 85)
+                val fused = fuseCurrentConditions(model, location, listOf(report), now)
+                assertEquals(code, fused.weatherCode)
+                assertEquals(model.cloudCover, fused.cloudCover)
+                assertEquals(model.cloudCoverHigh, fused.cloudCoverHigh)
+                assertEquals(model.skyObservationTime, fused.skyObservationTime)
+            }
+        }
+        val model = current(0, 0.0, 0)
+        for (cover in listOf(0, 100)) {
+            val report = observation(location.latitude, location.longitude, now.minusSeconds(300))
+                .copy(cloudCoverPercent = cover, cloudCoverRange = cover..cover)
+            val fused = fuseCurrentConditions(model.copy(cloudCover = cover), location, listOf(report), now)
+            assertEquals(cloudWeatherCode(cover), fused.weatherCode)
+            assertEquals(report.time, fused.skyObservationTime)
+        }
+        val constrained = observation(location.latitude, location.longitude, now.minusSeconds(300))
+            .copy(cloudCoverPercent = 75, cloudCoverRange = 63..100)
+        val corrected = fuseCurrentConditions(model, location, listOf(constrained), now)
+        assertEquals(63, corrected.cloudCover)
+        assertEquals(2, corrected.weatherCode)
+        assertEquals(constrained.time, corrected.skyObservationTime)
+        val rain = fuseCurrentConditions(model.copy(cloudCover = 85), location,
+            listOf(constrained.copy(weatherCode = 61)), now)
+        assertEquals(61, rain.weatherCode)
+        assertEquals(constrained.time, rain.skyObservationTime)
+    }
+
+    @Test
     fun independentObscuredReportsKeepTheirKnownRainAndSnow() {
         // AWC 2026-10-15 reports; only the clear model is synthetic.
         val reports = """[
@@ -578,14 +614,17 @@ class CurrentConditionsTest {
         val report = JSONObject(METAR_CLOUD_REPORT).put("cover", "BKN")
         val observation = parseMetarCurrentConditions("[$report]").single()
         for ((modelCover, expected) in listOf(0 to (63 to 2), 100 to (100 to 3))) {
+            val model = current(weatherCode = if (modelCover == 0) 0 else 3,
+                precipitation = 0.0, cloudCover = modelCover)
             val fused = fuseCurrentConditions(
-                current(weatherCode = 0, precipitation = 0.0, cloudCover = modelCover),
+                model,
                 CzechLocation("Point", REGION_PRAGUE, 50.0, 14.0),
                 listOf(observation),
                 now,
             )
             assertEquals(expected.first, fused.cloudCover)
             assertEquals(expected.second, fused.weatherCode)
+            assertEquals(if (modelCover == 0) observation.time else null, fused.skyObservationTime)
         }
     }
 

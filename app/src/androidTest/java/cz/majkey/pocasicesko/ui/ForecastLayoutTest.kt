@@ -71,6 +71,19 @@ class ForecastLayoutTest {
         apparentTemperatureMin = 9.0, apparentTemperatureMax = 23.0)
 
     @Test
+    fun missingNextIntervalDoesNotHideTheAvailableModelCount() {
+        val agreement = HourlyModelAgreement(5, 1.0, 2.0, 10.0, 5, 0, 0.0, 0.0, WeatherKind.CLEAR)
+        val selected = hour(10).copy(modelAgreement = agreement)
+        val confidence = hourlyForecastConfidence(selected, null, LocalDateTime.parse(selected.time), 0)
+        compose.setContent { TestSurface { ForecastConfidenceBadge(confidence, units) } }
+        compose.onNode(hasClickAction()).performClick()
+        compose.onNodeWithText(context.getString(R.string.confidence_models, 5)).assertIsDisplayed()
+        assertEquals(cz.majkey.pocasicesko.data.ConfidenceLevel.LIMITED, confidence.level)
+        compose.onNodeWithText(context.getString(R.string.confidence_missing))
+            .performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
     fun obscuredSkyDetailsDoNotPresentModelCloudAmountsAsObserved() {
         val base = snapshot()
         val state = mutableStateOf(base.copy(current = base.current.copy(

@@ -6,6 +6,8 @@
 - Recognize mixed rain and snow in nearby METAR reports, with a distinct icon and localized intensity labels. Do not infer precipitation amounts or probabilities from present-weather codes.
 - Compare observed and modeled conditions only at matching times. Keep mixed and freezing precipitation distinct in confidence checks; explain unobservable sky without claiming high confidence or a false model disagreement.
 - Validate precipitation probabilities before integer conversion. Reject out-of-range values rather than displaying them as valid percentages.
+- Keep model sky attribution when a partial METAR cloud bound does not constrain it. Do not present an unchanged model sky as a new station measurement.
+- Retain the available model count when the following precipitation interval is missing; confidence remains limited. Include the signed binning residual in research Brier diagnostics without changing raw scores or acceptance gates.
 - Keep learned cloud/rain corrections disabled: the independent November confirmation still fails acceptance gates. No new global accuracy or calibrated-confidence gain is claimed; see the [results and limitations](docs/research/2026-10-15-cloud-rain-confirmation.md).
 
 ## [0.7.16] - 2026-10-15

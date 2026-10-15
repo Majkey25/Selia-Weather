@@ -102,7 +102,8 @@ internal fun hourlyForecastConfidence(
     val evidence = hour.modelAgreement ?: return ForecastConfidence(ConfidenceLevel.LIMITED, ConfidenceReason.MISSING_MODELS,
         validTime = hour.time, skySourceModelId = skySourceModelId, shownConditionTime = shownConditionTime)
     val rain = precipitationHour?.modelAgreement ?: return ForecastConfidence(ConfidenceLevel.LIMITED, ConfidenceReason.MISSING_MODELS,
-        evidence = evidence, validTime = hour.time, skySourceModelId = skySourceModelId, shownConditionTime = shownConditionTime)
+        modelCount = evidence.modelCount, evidence = evidence, validTime = hour.time,
+        skySourceModelId = skySourceModelId, shownConditionTime = shownConditionTime)
     if (!precipitationHour.precipitation.isFinite() || precipitationHour.precipitation < 0) {
         return ForecastConfidence(ConfidenceLevel.LIMITED, ConfidenceReason.MISSING_MODELS)
     }

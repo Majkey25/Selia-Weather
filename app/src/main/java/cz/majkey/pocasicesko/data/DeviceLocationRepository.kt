@@ -23,7 +23,7 @@ import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 
 internal enum class DeviceLocationProvider {
     NETWORK,
@@ -50,6 +50,11 @@ internal fun isUsableDeviceLocation(
     latitude in -90.0..90.0 && longitude in -180.0..180.0 &&
     fixElapsedNanos > 0 && nowElapsedNanos >= fixElapsedNanos &&
     nowElapsedNanos - fixElapsedNanos <= MAX_LAST_KNOWN_AGE_NANOS
+
+internal suspend fun <T : Any> withDeviceLocationTimeout(
+    timeoutMillis: Long,
+    request: suspend () -> T,
+): T = withTimeoutOrNull(timeoutMillis) { request() } ?: throw LocationTimeoutException()
 
 class DeviceLocationRepository(context: Context) {
     private val appContext = context.applicationContext
@@ -81,7 +86,7 @@ class DeviceLocationRepository(context: Context) {
         .filter { it.isUsable() }
         .maxByOrNull { it.elapsedRealtimeNanos }
 
-    private suspend fun requestSingleLocation(): Location = withTimeout(LOCATION_TIMEOUT_MILLIS) {
+    private suspend fun requestSingleLocation(): Location = withDeviceLocationTimeout(LOCATION_TIMEOUT_MILLIS) {
         suspendCancellableCoroutine { continuation ->
             val providers = enabledProviders()
             if (providers.isEmpty()) {
@@ -204,5 +209,7 @@ sealed class DeviceLocationException : IOException()
 class LocationPermissionException : DeviceLocationException()
 
 class SystemLocationDisabledException : DeviceLocationException()
+
+class LocationTimeoutException : DeviceLocationException()
 
 private fun Double.formatCoordinate(): String = String.format(Locale.ROOT, "%.4f", this)

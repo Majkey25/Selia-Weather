@@ -1,11 +1,39 @@
 package cz.majkey.pocasicesko.data
 
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DeviceLocationRepositoryTest {
+    @Test
+    fun completedLocationRequestKeepsItsResult() = runBlocking {
+        val location = CzechLocation("Praha", REGION_PRAGUE, 50.0755, 14.4378, "CZ")
+        assertSame(location, withDeviceLocationTimeout(5_000) { location })
+    }
+
+    @Test
+    fun locationDeadlineReportsLookupFailure() {
+        assertThrows(LocationTimeoutException::class.java) {
+            runBlocking { withDeviceLocationTimeout(1) { awaitCancellation() } }
+        }
+    }
+
+    @Test
+    fun parentDeadlineStillCancelsTheLocationRequest() {
+        assertThrows(TimeoutCancellationException::class.java) {
+            runBlocking {
+                withTimeout(1) { withDeviceLocationTimeout(60_000) { awaitCancellation() } }
+            }
+        }
+    }
+
     @Test
     fun locationFreshnessUsesElapsedTimeAndIncludesThirtyMinuteBoundary() {
         val fixNanos = 60_000_000_000L

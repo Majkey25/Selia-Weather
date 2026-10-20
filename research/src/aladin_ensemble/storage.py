@@ -173,11 +173,11 @@ def _insert_spatial_observation(
     row = (
         checksum,
         observation.source,
-        observation.valid_start.isoformat(),
         observation.valid_end.isoformat(),
         observation.variable,
         observation.row,
         observation.column,
+        observation.valid_start.isoformat(),
         observation.value,
         observation.unit,
         observation.projection,
@@ -192,7 +192,7 @@ def _insert_spatial_observation(
     _insert_or_require(
         connection,
         "spatial_observation",
-        "source_checksum, source, valid_start, valid_end, variable, row_index, column_index, "
+        "source_checksum, source, valid_end, variable, row_index, column_index, valid_start, "
         "value, unit, "
         "projection, west, south, east, north, xscale_m, yscale_m, flag",
         "source_checksum = ? AND source = ? AND valid_end = ? AND variable = ? "

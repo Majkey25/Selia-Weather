@@ -161,6 +161,30 @@ def test_merge1h_reads_chunked_spatial_data_with_actual_odim_contract() -> None:
     assert observations[0].source_checksum == CHECKSUM
 
 
+def test_spatial_ingest_retry_is_idempotent_and_rejects_changed_content() -> None:
+    path = FIXTURES / "T_PASV23_C_OKPR_20260825173000.hdf"
+    observations = tuple(iter_merge1h_observations(path, CHECKSUM))
+    first = datetime(2026, 8, 25, 18, tzinfo=UTC)
+    retry = datetime(2026, 8, 25, 19, tzinfo=UTC)
+    with connect(":memory:") as connection:
+        ingest_source(connection, _manifest(first), (), observations)
+        ingest_source(connection, _manifest(retry), (), observations)
+
+        assert connection.execute("SELECT count(*) FROM spatial_observation").fetchone() == (4,)
+        assert connection.execute(
+            "SELECT last_retrieved_at FROM source_manifest"
+        ).fetchone() == (retry.isoformat(),)
+        conflicting = replace(observations[0], value=13.0)
+        with pytest.raises(ValueError, match="conflicting spatial observation"):
+            ingest_source(connection, _manifest(first), (), (conflicting,))
+        assert connection.execute(
+            "SELECT value FROM spatial_observation WHERE row_index = 0 AND column_index = 0"
+        ).fetchone() == (observations[0].value,)
+        assert connection.execute(
+            "SELECT last_retrieved_at FROM source_manifest"
+        ).fetchone() == (retry.isoformat(),)
+
+
 def test_merge1h_rejects_filename_end_time_projection_and_geographic_bounds(tmp_path: Path) -> None:
     invalid = tmp_path / "invalid.hdf"
     invalid.write_bytes((FIXTURES / "T_PASV23_C_OKPR_20260825173000.hdf").read_bytes())

@@ -24,10 +24,31 @@ import cz.majkey.pocasicesko.data.WeatherKind
 import cz.majkey.pocasicesko.data.readLimited
 import cz.majkey.pocasicesko.ui.AppearanceSettings
 import cz.majkey.pocasicesko.ui.renderedAppearance
+import java.util.concurrent.SynchronousQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
 
 internal object WidgetBackground {
     internal const val MAX_IMAGE_BYTES = 20_000_000
+    private val imageReader = ThreadPoolExecutor(
+        0, 1, 30L, TimeUnit.SECONDS, SynchronousQueue(),
+        { work -> Thread(work, "widget-image-reader").apply { isDaemon = true } },
+        ThreadPoolExecutor.AbortPolicy(),
+    )
+
+    internal fun readCustomImage(load: () -> ByteArray?): ByteArray? {
+        val request = imageReader.submit<ByteArray?>(load)
+        return try {
+            request.get(5, TimeUnit.SECONDS)
+        } catch (error: InterruptedException) {
+            Thread.currentThread().interrupt()
+            throw error
+        } finally {
+            // shortcut: a provider may ignore interrupts; one isolated reader stays occupied until it returns.
+            request.cancel(true)
+        }
+    }
 
     private fun bitmapFor(
         context: Context,
@@ -162,9 +183,9 @@ internal object WidgetBackground {
             ?.takeIf { it.scheme == ContentResolver.SCHEME_CONTENT }
             ?: return null
         return runCatching {
-            // shortcut: provider open/read can block, import a local copy before rendering if providers stall.
-            val bytes = context.contentResolver.openInputStream(uri)?.use { readLimited(it, MAX_IMAGE_BYTES) }
-                ?: return@runCatching null
+            val bytes = readCustomImage {
+                context.contentResolver.openInputStream(uri)?.use { readLimited(it, MAX_IMAGE_BYTES) }
+            } ?: return@runCatching null
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
             if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@runCatching null

@@ -3,6 +3,10 @@ package cz.majkey.pocasicesko.data
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
+import java.time.DateTimeException
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
 import kotlin.math.roundToInt
 
 object WeatherParser {
@@ -37,6 +41,20 @@ object WeatherParser {
 
         if (hourlyTimes.length() == 0 || dailyTimes.length() == 0) {
             throw JSONException("Předpověď neobsahuje žádná data.")
+        }
+        try {
+            ZoneId.of(root.getString("timezone"))
+            LocalDateTime.parse(currentJson.getString("time"))
+            for (index in 0 until hourlyTimes.length()) {
+                if (!hourlyTimes.isNull(index)) LocalDateTime.parse(hourlyTimes.requiredString(index, "time"))
+            }
+            for (index in 0 until dailyTimes.length()) {
+                LocalDate.parse(dailyTimes.requiredString(index, "time"))
+                LocalDateTime.parse(dailyJson.getJSONArray("sunrise").requiredString(index, "sunrise"))
+                LocalDateTime.parse(dailyJson.getJSONArray("sunset").requiredString(index, "sunset"))
+            }
+        } catch (_: DateTimeException) {
+            throw JSONException("Předpověď obsahuje neplatné datum, čas nebo časové pásmo.")
         }
 
         val hourly = buildList {

@@ -9,6 +9,25 @@ import org.junit.Test
 
 class WeatherParserTest {
     @Test
+    fun rejectsInvalidTemporalFieldsBeforeTheyCanEnterTheCache() {
+        for (value in listOf("not-a-zone", "Europe/Unknown", "")) {
+            val root = JSONObject(VALID_FORECAST).put("timezone", value)
+            assertThrows(JSONException::class.java) { WeatherParser.parseForecast(root.toString(), 1L) }
+        }
+        for ((section, field) in listOf("current" to "time", "hourly" to "time",
+            "daily" to "time", "daily" to "sunrise", "daily" to "sunset")) {
+            for (value in listOf("not-a-date", "2026-02-30", "2026-02-30T12:00", "")) {
+                val root = JSONObject(VALID_FORECAST)
+                val target = root.getJSONObject(section)
+                if (section == "current") target.put(field, value) else target.getJSONArray(field).put(0, value)
+                assertThrows("$section.$field=$value", JSONException::class.java) {
+                    WeatherParser.parseForecast(root.toString(), 1L)
+                }
+            }
+        }
+    }
+
+    @Test
     fun fusedSkyKeepsItsActualObservationTimeAcrossCacheReload() {
         val root = JSONObject(VALID_FORECAST).put("utc_offset_seconds", 7200)
         root.getJSONObject("current").put("time", "2026-10-07T12:00").put("weather_code", 0).put("cloud_cover", 0)

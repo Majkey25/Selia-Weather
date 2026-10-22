@@ -1,0 +1,1 @@
+Reject malformed forecast dates and time zones before caching. Keep widget updates working when a custom-image provider stalls. Show installed app labels in the AI chooser; these labels do not authenticate the publisher. Bound research downloads and validate station IDs before cache access.

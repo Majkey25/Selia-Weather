@@ -23,6 +23,7 @@ TERMS_URL = "https://open-meteo.com/en/terms"
 FREE_DAILY_LIMIT = 10_000
 REQUIRED_VARIABLES = frozenset({"temperature_2m", "precipitation", "wind_speed_10m"})
 REQUIRED_HORIZON_HOURS = 24
+MAX_RESPONSE_BYTES = 2_000_000
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,8 +114,12 @@ def _fetch_json(url: str) -> JsonValue:
     request = Request(url, headers={"User-Agent": "aladin-ensemble-research/0.1"})
     try:
         with urlopen(request, timeout=30) as response:
-            return _json_value(json.loads(response.read().decode("utf-8")))
+            body = response.read(MAX_RESPONSE_BYTES + 1)
+            if len(body) > MAX_RESPONSE_BYTES:
+                raise ValueError("Open-Meteo response exceeds size limit")
+            return _json_value(json.loads(body.decode("utf-8")))
     except HTTPError as error:
+        error.close()
         if error.code == 429 or error.code >= 500:
             raise OperationalProbeError(f"HTTP {error.code}") from error
         raise DefinitiveProbeError(f"HTTP {error.code}") from error

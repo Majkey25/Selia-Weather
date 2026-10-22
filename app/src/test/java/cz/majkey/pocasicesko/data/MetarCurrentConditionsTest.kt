@@ -247,6 +247,26 @@ class MetarCurrentConditionsTest {
     }
 
     @Test
+    fun mixedShowersKeepBothPhasesAndIntensityWithoutInventingAmounts() {
+        mapOf(
+            "-SHRASN" to 83, "-SHSNRA" to 83, "SHRASN" to 84, "SHSNRA" to 84,
+            "+SHRASN" to 84, "+SHSNRA" to 84, "-SHRA -SHSN" to 83,
+            "-SHSN -SHRA" to 83, "SHRA SHSN" to 84, "-RA -SHSN" to 83,
+            "-SHRASN VCSH" to 83, "SHRASN TS" to 95, "TSGR SHRASN" to 96,
+        ).forEach { (encoded, expected) ->
+            val report = JSONArray(METAR_JSON).getJSONObject(0).put("wxString", encoded)
+            val observation = parseMetarCurrentConditions(JSONArray().put(report).toString()).single()
+            assertEquals(encoded, expected, observation.weatherCode)
+            assertTrue(encoded, hasPrecipitationEvidence(expected))
+            assertNull(encoded, observation.precipitation)
+        }
+        for (encoded in listOf("SHRASN UP", "-FZSHRASN", "SHRASN FZRA", "SHRAUNKNOWN", "RESH RASN")) {
+            val report = JSONArray(METAR_JSON).getJSONObject(0).put("wxString", encoded)
+            assertNull(encoded, parseMetarCurrentConditions(JSONArray().put(report).toString()).single().weatherCode)
+        }
+    }
+
+    @Test
     fun parsesExplicitPresentWeatherWithoutInventingAmounts() {
         mapOf(
             "-DZ" to 51, "DZ" to 53, "+DZ" to 55, "-RA BR" to 61, "RA" to 63, "+RA" to 65,

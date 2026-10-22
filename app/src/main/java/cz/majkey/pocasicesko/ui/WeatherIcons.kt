@@ -99,7 +99,7 @@ internal fun precipitationIconResource(key: WeatherConditionKey?, weatherCode: I
     }
 
 internal fun snowIconResource(weatherCode: Int?): Int = when (weatherCode) {
-    68, 69 -> R.drawable.ic_weather_rain_snow
+    68, 69, 83, 84 -> R.drawable.ic_weather_rain_snow
     71, 85 -> R.drawable.ic_weather_light_snow
     75, 86 -> R.drawable.ic_weather_heavy_snow
     else -> R.drawable.ic_weather_snow

@@ -251,7 +251,8 @@ class ForecastConfidenceTest {
     @Test
     fun observedFreezingPrecipitationDoesNotInheritOrdinaryRainConfidence() {
         val location = CzechLocation("Test", "", 49.23, 17.63, "CZ")
-        for ((forecastCode, observedCode) in listOf(61 to 66, 66 to 61, 51 to 56, 56 to 51, 71 to 68, 68 to 71)) {
+        for ((forecastCode, observedCode) in listOf(61 to 66, 66 to 61, 51 to 56, 56 to 51,
+            71 to 68, 68 to 71, 85 to 83, 83 to 85, 86 to 84, 84 to 86)) {
             val inputs = List(5) { index ->
                 HourlyModelInput("model_$index", 1.0, 10.0, 180.0, 100.0, forecastCode, 0.3)
             }

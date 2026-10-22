@@ -28,7 +28,7 @@ data class HourlyModelInput(
 }
 
 private val WeatherCondition.agreementGroup get() =
-    Triple(kind, weatherCode in 56..57 || weatherCode in 66..67, weatherCode in 68..69)
+    Triple(kind, weatherCode in 56..57 || weatherCode in 66..67, weatherCode in 68..69 || weatherCode in 83..84)
 
 internal val SKY_CONDITION_KINDS = listOf(WeatherKind.CLEAR, WeatherKind.MAINLY_CLEAR, WeatherKind.PARTLY_CLOUDY, WeatherKind.CLOUDY)
 

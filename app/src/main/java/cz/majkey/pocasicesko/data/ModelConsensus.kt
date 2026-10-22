@@ -578,7 +578,7 @@ private data class WeightedModelValue(
 )
 private data class WindVector(val speed: Double, val angle: Double)
 
-private fun weatherSeverity(code: Int): Int = when (code) {
+private fun weatherSeverity(code: Int): Int = 10 * when (code) {
     in 95..99 -> 7
     in 71..77, 85, 86 -> 6
     in 51..67, in 80..82 -> 5
@@ -586,6 +586,10 @@ private fun weatherSeverity(code: Int): Int = when (code) {
     3 -> 3
     2 -> 2
     1 -> 1
+    else -> 0
+} + when (code) {
+    53, 63, 73, 81 -> 1
+    55, 57, 65, 67, 75, 82, 86 -> 2
     else -> 0
 }
 

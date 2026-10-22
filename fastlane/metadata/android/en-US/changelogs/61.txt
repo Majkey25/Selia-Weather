@@ -1,0 +1,1 @@
+Distinguish drizzle and light rain with clearer icons. Preserve mixed rain/snow shower reports from nearby stations. Keep stronger rain and snow intensity in daily summaries. Fix truncated widget labels and report location lookup timeouts. Forecast confidence remains evidence-based; no new accuracy guarantee is claimed.

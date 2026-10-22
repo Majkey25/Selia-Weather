@@ -444,6 +444,8 @@
     <string name="condition_drizzle_and_rain">Bruine et pluie</string>
     <string name="condition_light_rain_and_snow">Pluie et neige légères</string>
     <string name="condition_rain_and_snow">Pluie et neige</string>
+    <string name="condition_light_rain_snow_showers">Faibles averses de pluie et de neige</string>
+    <string name="condition_rain_snow_showers">Averses de pluie et de neige</string>
     <string name="condition_light_freezing_drizzle">Bruine verglaçante légère</string>
     <string name="condition_dense_freezing_drizzle">Bruine verglaçante dense</string>
     <string name="condition_light_rain">Pluie légère</string>

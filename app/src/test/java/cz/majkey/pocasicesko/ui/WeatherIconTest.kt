@@ -39,6 +39,12 @@ class WeatherIconTest {
         assertNotEquals(precipitationIconResource(WeatherConditionKey.DRIZZLE, 51), snowIconResource(77))
         assertEquals(R.drawable.ic_weather_rain_snow, snowIconResource(68))
         assertEquals(snowIconResource(68), snowIconResource(69))
+        for (code in listOf(83, 84)) {
+            assertEquals(WeatherKind.SNOW, conditionFor(code).kind)
+            assertEquals(snowIconResource(68), snowIconResource(code))
+            assertEquals(snowIconResource(code), cz.majkey.pocasicesko.widget.widgetIconFor(
+                conditionFor(code).kind, true, conditionFor(code).key, code))
+        }
         assertNotEquals(snowIconResource(68), snowIconResource(71))
         assertEquals(snowIconResource(68), cz.majkey.pocasicesko.widget.widgetIconFor(
             conditionFor(68).kind, true, conditionFor(68).key, 68))

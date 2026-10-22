@@ -197,11 +197,12 @@ class WidgetRenderTest {
             })
             for ((code, label) in listOf(57 to R.string.condition_dense_freezing_drizzle,
                 61 to R.string.condition_light_rain, 65 to R.string.condition_heavy_rain,
-                67 to R.string.condition_heavy_freezing_rain, 81 to R.string.condition_moderate_showers)) {
+                67 to R.string.condition_heavy_freezing_rain, 81 to R.string.condition_moderate_showers,
+                83 to R.string.condition_light_rain_snow_showers, 84 to R.string.condition_rain_snow_showers)) {
+                val weather = cz.majkey.pocasicesko.data.conditionFor(code)
                 assertTrue(context.getSharedPreferences(WeatherRepository.PREFERENCES_NAME, Context.MODE_PRIVATE).edit()
-                    .putString(WeatherRepository.KEY_WIDGET_KIND, "RAIN")
-                    .putString(WeatherRepository.KEY_WIDGET_CONDITION_KEY,
-                        when (code) { 57 -> "DRIZZLE"; 81 -> "SHOWERS"; else -> "RAIN" })
+                    .putString(WeatherRepository.KEY_WIDGET_KIND, weather.kind.name)
+                    .putString(WeatherRepository.KEY_WIDGET_CONDITION_KEY, weather.key.name)
                     .putInt(WeatherRepository.KEY_WIDGET_WEATHER_CODE, code).commit())
                 instrumentation.runOnMainSync {
                     val widget = render(41, 352, 174, localized)

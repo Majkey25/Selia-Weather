@@ -199,7 +199,7 @@ internal enum class HourlyHighlight {
 internal fun hourlyHighlight(hour: HourlyWeather, precipitationHour: HourlyWeather? = hour): HourlyHighlight = when {
     precipitationHour != null && hourlyRainLevel(precipitationHour, hour.weatherCode) != HourlyRainLevel.NONE -> when {
         hour.weatherCode in listOf(56, 57, 66, 67) -> HourlyHighlight.FREEZING
-        hour.weatherCode in 68..69 -> HourlyHighlight.MIXED
+        hour.weatherCode in 68..69 || hour.weatherCode in 83..84 -> HourlyHighlight.MIXED
         (precipitationHour.snowfall ?: 0.0) > 0.0 && (precipitationHour.rain ?: 0.0) + (precipitationHour.showers ?: 0.0) > 0.0 ->
             HourlyHighlight.MIXED
         (precipitationHour.snowfall ?: 0.0) > 0.0 || conditionFor(hour.weatherCode, hour.isDay).kind == WeatherKind.SNOW ->

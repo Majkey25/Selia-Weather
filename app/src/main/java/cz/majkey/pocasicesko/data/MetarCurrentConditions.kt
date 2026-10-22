@@ -82,19 +82,21 @@ private fun parseMetarWeatherCode(encoded: String?): Int? {
         it !in METAR_WEATHER_CODES && it !in METAR_NONLOCAL_WEATHER_GROUPS && it !in setOf("BR", "HZ")
     }) return null
     val codes = groups.mapNotNull(METAR_WEATHER_CODES::get)
-    val mixedRainSnow = codes.any { it in 68..69 } ||
-        codes.any { it in 51..55 || it in 58..65 } && codes.any { it in 71..75 }
+    val mixedRainSnow = codes.any { it in 68..69 || it in 83..84 } ||
+        codes.any { it in 51..55 || it in 58..65 || it in 80..82 } &&
+        codes.any { it in 71..75 || it in 85..86 }
     if (mixedRainSnow && codes.all {
-        it in 51..55 || it in 58..65 || it in 68..75 || it == 45 || it == 48 || it in 95..99
+        it in 51..55 || it in 58..65 || it in 68..75 || it in 80..86 || it == 45 || it == 48 || it in 95..99
     }) {
         codes.filter { it in 95..99 }.maxOrNull()?.let { return it }
-        return if (codes.filter { it >= 51 }.all { it in setOf(51, 58, 61, 68, 71) }) 68 else 69
+        val light = codes.filter { it >= 51 }.all { it in setOf(51, 58, 61, 68, 71, 80, 83, 85) }
+        return if (codes.any { it in 80..86 }) { if (light) 83 else 84 } else { if (light) 68 else 69 }
     }
     val phases = listOf(
-        codes.any { it in 51..55 || it in 58..65 || it in 68..69 || it in 80..82 } ||
+        codes.any { it in 51..55 || it in 58..65 || it in 68..69 || it in 80..84 } ||
             groups.any { it in setOf("-TSRA", "TSRA", "+TSRA", "-TSRAGR", "TSRAGR", "+TSRAGR") },
         codes.any { it in 56..57 || it in 66..67 },
-        codes.any { it in 68..77 || it in 85..86 } || "TSSN" in groups,
+        codes.any { it in 68..77 || it in 83..86 } || "TSSN" in groups,
     )
     if (phases.count { it } > 1) return null
     return codes.maxOrNull()
@@ -149,6 +151,8 @@ private val METAR_WEATHER_CODES = mapOf(
     "-DZSN" to 68, "DZSN" to 69, "+DZSN" to 69,
     "-SNDZ" to 68, "SNDZ" to 69, "+SNDZ" to 69,
     "-SHSN" to 85, "SHSN" to 86, "+SHSN" to 86,
+    "-SHRASN" to 83, "SHRASN" to 84, "+SHRASN" to 84,
+    "-SHSNRA" to 83, "SHSNRA" to 84, "+SHSNRA" to 84,
     "FG" to 45, "BCFG" to 45, "MIFG" to 45, "PRFG" to 45, "FZFG" to 48,
     "TS" to 95, "-TSRA" to 95, "TSRA" to 95, "+TSRA" to 95,
     // The + in +TSRAGR describes rain intensity, not heavy hail.

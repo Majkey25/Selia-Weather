@@ -27,6 +27,40 @@ class WeatherIconRenderTest {
     @get:Rule val compose = createComposeRule()
 
     @Test
+    fun lightRainHasTwoStreaksRatherThanOneDropAtSmallSizesInBothThemes() {
+        val dark = mutableStateOf(true)
+        compose.setContent {
+            WeatherTheme(config = AppearanceConfig(mode = if (dark.value) AppearanceMode.DARK else AppearanceMode.LIGHT)) {
+                Column(Modifier.background(if (dark.value) Color.Black else Color.White)) {
+                    for (size in listOf(18, 24)) {
+                        Row {
+                            for (code in listOf(51, 61)) {
+                                val condition = conditionFor(code)
+                                WeatherIcon(condition.kind, true, "small-$size-$code", Modifier.size(size.dp),
+                                    tint = Color(0xFF65B8DF), conditionKey = condition.key, weatherCode = code)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        for (night in listOf(true, false)) {
+            compose.runOnIdle { dark.value = night }
+            val background = (if (night) Color.Black else Color.White).toArgb()
+            for (size in listOf(18, 24)) {
+                for ((code, expected) in listOf(51 to 3, 61 to 2)) {
+                    val image = compose.onNodeWithContentDescription("small-$size-$code").captureToImage().asAndroidBitmap()
+                    val columns = (0 until image.width).map { x ->
+                        ((image.height * 0.74).toInt() until image.height).any { y -> image.getPixel(x, y) != background }
+                    }
+                    val marks = columns.indices.count { columns[it] && (it == 0 || !columns[it - 1]) }
+                    assertEquals("code=$code size=$size dark=$night", expected, marks)
+                }
+            }
+        }
+    }
+
+    @Test
     fun precipitationShapesStayDistinctAtHourlySizeAndCloudHidesTheSun() {
         val dark = mutableStateOf(true)
         val codes = listOf(51, 61, 63, 65, 68, 71, 73, 75)

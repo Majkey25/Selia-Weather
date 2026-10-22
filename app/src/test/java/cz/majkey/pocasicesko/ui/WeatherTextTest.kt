@@ -40,6 +40,8 @@ class WeatherTextTest {
             80 to R.string.condition_light_showers,
             81 to R.string.condition_moderate_showers,
             82 to R.string.condition_violent_showers,
+            83 to R.string.condition_light_rain_snow_showers,
+            84 to R.string.condition_rain_snow_showers,
         )
         labels.forEach { (code, label) ->
             assertEquals("code=$code", label, conditionFor(code).labelResource())

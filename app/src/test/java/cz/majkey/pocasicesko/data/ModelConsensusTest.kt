@@ -1558,6 +1558,24 @@ class ModelConsensusTest {
     }
 
     @Test
+    fun dailyIntensityDoesNotDependOnTheOrderOfHourlyWeather() {
+        for ((codes, expected) in listOf(listOf(61, 65) to 65, listOf(71, 75) to 75,
+            listOf(80, 65) to 65, listOf(63, 82) to 82, listOf(63, 67) to 67,
+            listOf(73, 86) to 86, listOf(53, 57) to 57)) {
+            for (ordered in listOf(codes, codes.reversed())) {
+                val models = JSONObject(MODELS)
+                for (suffix in listOf("a", "b", "c")) {
+                    models.getJSONObject("hourly").put("weather_code_$suffix", JSONArray(ordered))
+                    models.getJSONObject("hourly").put("precipitation_$suffix", JSONArray(listOf(1.0, 1.0)))
+                }
+                val result = JSONObject(blendModelForecast(BASE, models.toString()).json)
+                assertEquals(ordered.toString(), expected,
+                    result.getJSONObject("daily").getJSONArray("weather_code").getInt(0))
+            }
+        }
+    }
+
+    @Test
     fun rejectsNegativeProviderPrecipitationInsteadOfBlendingIt() {
         val models = JSONObject(MODELS).also { root ->
             root.getJSONObject("hourly").getJSONArray("precipitation_a").put(1, -0.2)

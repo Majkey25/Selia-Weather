@@ -444,6 +444,8 @@
     <string name="condition_drizzle_and_rain">Llovizna y lluvia</string>
     <string name="condition_light_rain_and_snow">Lluvia y nieve ligeras</string>
     <string name="condition_rain_and_snow">Lluvia y nieve</string>
+    <string name="condition_light_rain_snow_showers">Chubascos ligeros de lluvia y nieve</string>
+    <string name="condition_rain_snow_showers">Chubascos de lluvia y nieve</string>
     <string name="condition_light_freezing_drizzle">Llovizna engelante ligera</string>
     <string name="condition_dense_freezing_drizzle">Llovizna engelante densa</string>
     <string name="condition_light_rain">Lluvia ligera</string>

@@ -450,6 +450,8 @@
     <string name="condition_drizzle_and_rain">Drizzle and rain</string>
     <string name="condition_light_rain_and_snow">Light rain and snow</string>
     <string name="condition_rain_and_snow">Rain and snow</string>
+    <string name="condition_light_rain_snow_showers">Light rain and snow showers</string>
+    <string name="condition_rain_snow_showers">Rain and snow showers</string>
     <string name="condition_light_freezing_drizzle">Light freezing drizzle</string>
     <string name="condition_dense_freezing_drizzle">Dense freezing drizzle</string>
     <string name="condition_light_rain">Light rain</string>

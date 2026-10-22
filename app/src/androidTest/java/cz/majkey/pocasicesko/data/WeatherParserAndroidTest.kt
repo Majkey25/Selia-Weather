@@ -174,6 +174,8 @@ class WeatherParserAndroidTest {
         for ((encoded, expected) in mapOf(
             "-DZRA" to 58, "DZRA" to 59, "+DZRA" to 59,
             "-RADZ" to 58, "RADZ" to 59, "+RADZ" to 59,
+            "-SHRASN" to 83, "-SHSNRA" to 83, "SHRASN" to 84, "+SHSNRA" to 84,
+            "-SHRA -SHSN" to 83, "SHRA SHSN" to 84,
             "-TSRAGR" to 96, "TSRAGR" to 96, "+TSRAGR" to 96,
         )) {
             val report = JSONObject().put("icaoId", "LKPR").put("obsTime", now.epochSecond - 300)
@@ -191,6 +193,8 @@ class WeatherParserAndroidTest {
             val expectedLabel = when (expected) {
                 58 -> R.string.condition_light_drizzle_and_rain
                 59 -> R.string.condition_drizzle_and_rain
+                83 -> R.string.condition_light_rain_snow_showers
+                84 -> R.string.condition_rain_snow_showers
                 else -> R.string.condition_storm
             }
             assertEquals(encoded, context.getString(expectedLabel), context.getString(label))

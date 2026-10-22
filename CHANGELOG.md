@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.7.18] - 2026-10-22
+
+- Distinguish light rain with two diagonal streaks while keeping three small droplets for drizzle. Verify app and widget rendering at small sizes in both light and dark themes.
+- Preserve documented mixed rain/snow shower reports, including separate rain and snow shower groups. Keep both phases through current observations, cached conditions, localized labels and confidence comparisons without inferring rainfall amounts or probabilities.
+- Preserve stronger rain and snow intensities in daily aggregates regardless of hourly ordering. Keep the existing representative daytime icon selection unchanged.
+- Keep mixed-shower widget labels readable in all five supported languages.
+- Include the merged device-location timeout fix so a failed lookup is reported without swallowing parent cancellation.
+- Keep numerical forecast weights and confidence thresholds unchanged. These fixes correct source interpretation and aggregation; they do not establish a new independent forecast-skill gain.
+
 ## [0.7.17] - 2026-10-15
 
 - Preserve observed sky obscuration (OVX/VV) instead of displaying clear sky or inventing 100% cloud cover. Keep explicit rain, snow, fog and modeled storm safeguards; retain observation time through cache and widget labels.

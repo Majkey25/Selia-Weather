@@ -32,7 +32,7 @@
 - Supports independent Android notification categories for rain advice, cold, temperature drops, heat, wind, UV and official warnings. Thresholds are configurable; background delivery is best effort.
 - Matches official warnings to Czech locations through ČÚZK/ČHMÚ and US locations through NWS point queries. UK and other unsupported feeds are explicitly marked unavailable, with links to official sources. The app does not replace emergency-alert systems.
 - Hourly precipitation is shown for the interval starting at the row label: 11:00 means 11:00–12:00. Amounts, probability and model spread use that interval's source data; temperature and sky conditions keep their displayed timestamp. Missing intervals remain unavailable.
-- Opens a five-year NASA POWER archive with 15 daily metrics. Select 30 days, 365 days, all data, or custom dates to calculate totals and coverage locally. After confirmation, Ask AI lists compatible installed ChatGPT, Gemini, Claude and Grok apps, plus an Android CSV export fallback. It shares the full provenance-labelled CSV and your question in the app language. The recipient controls whether it accepts the attachment; check it before sending.
+- Opens a five-year NASA POWER archive with 15 daily metrics. Select 30 days, 365 days, all data, or custom dates to calculate totals and coverage locally. After confirmation, Ask AI lists compatible installed apps using their Android labels, plus an Android CSV export fallback. It shares the full provenance-labelled CSV and your question in the app language. The recipient controls whether it accepts the attachment; check it before sending.
 - Searches places worldwide, stores favourites, can use your optional current location, and can save an exact named point on an interactive world map or by coordinate.
 - Uses nearby ČHMÚ stations in Czechia and METAR reports worldwide for available current measurements. Point-weather corrections require reports within 10 km and 30 minutes; nearby weather can still differ from the selected point. Ten-minute station totals do not replace model precipitation amounts or hourly forecasts.
 - Preserves explicit drizzle reports, does not infer clear skies from sunshine duration, and distinguishes total cloud observations from partial-height airport reports. METAR observations never invent a precipitation amount.
@@ -94,7 +94,7 @@ Tap a colour swatch to open the HEX/RGB/opacity picker. Automatic text contrast 
 
 Compact widgets prioritize a readable temperature. They can reduce displayed text size, hide secondary content, or reduce spacing when needed. Your saved choices remain available when you enlarge the widget.
 
-For a custom background, the editor asks Android to grant access to the selected image. The widget keeps only the image URI. It decodes a bounded copy when it renders. If the URI becomes unavailable, the widget uses its configured colour background instead of failing.
+For a custom background, the editor asks Android to grant access to the selected image. The widget keeps only the image URI. It decodes a bounded copy when it renders. If the URI becomes unavailable or takes more than five seconds to read, the widget uses its configured colour background. A stalled provider stays isolated from widget updates; custom images fall back until the reader becomes available again.
 
 ## Support
 

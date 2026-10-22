@@ -3,17 +3,27 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
+import re
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from math import isfinite
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Literal, TextIO
 
 from aladin_ensemble.types import Observation, SourceManifest
 
 CHMI_PROVIDER = "ČHMÚ"
 STATION_SOURCE = "CHMI_STATION"
+
+
+def validate_station_id(value: str) -> None:
+    if (
+        re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", value) is None
+        or value.endswith(".")
+        or PureWindowsPath(value).is_reserved()
+    ):
+        raise ValueError("station ID must be a safe path component")
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,6 +38,7 @@ class Station:
     def __post_init__(self) -> None:
         if not self.wigos_id or not self.name:
             raise ValueError("station WIGOS ID and name are required")
+        validate_station_id(self.wigos_id)
         for value, field_name in (
             (self.latitude, "latitude"),
             (self.longitude, "longitude"),

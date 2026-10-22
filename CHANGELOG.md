@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.19] - 2026-10-22
+
+- Reject invalid forecast dates, times and time zones before caching, including malformed older cache entries.
+- Keep widget updates available when a custom-image provider stalls, using the configured background after a bounded wait.
+- Show installed Android app labels in the AI chooser instead of assigning trusted brand names from package names. Labels do not verify the app publisher.
+- Bound research HTTP responses and reject station identifiers that could escape cache paths.
+
 ## [0.7.18] - 2026-10-22
 
 - Distinguish light rain with two diagonal streaks while keeping three small droplets for drizzle. Verify app and widget rendering at small sizes in both light and dark themes.

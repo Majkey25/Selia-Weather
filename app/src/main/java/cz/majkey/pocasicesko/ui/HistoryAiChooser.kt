@@ -35,14 +35,14 @@ internal data class HistoryAiTarget(val name: String, val component: ComponentNa
 
 internal suspend fun historyAiTargets(context: Context): List<HistoryAiTarget> = withContext(Dispatchers.IO) {
     val manager = context.packageManager
-    HISTORY_AI_PACKAGES.mapNotNull { (name, packageName) ->
+    HISTORY_AI_PACKAGES.mapNotNull { packageName ->
         val intent = Intent(Intent.ACTION_SEND).setType("text/csv").setPackage(packageName)
         val resolved = manager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY).firstOrNull { result ->
             val info = result.activityInfo
             info.packageName == packageName && info.exported && info.enabled && info.applicationInfo.enabled &&
                 (info.permission == null || context.checkSelfPermission(info.permission) == PackageManager.PERMISSION_GRANTED)
         } ?: return@mapNotNull null
-        HistoryAiTarget(name, ComponentName(packageName, resolved.activityInfo.name), resolved.loadIcon(manager))
+        HistoryAiTarget(resolved.loadLabel(manager).toString(), ComponentName(packageName, resolved.activityInfo.name), resolved.loadIcon(manager))
     }
 }
 
@@ -76,9 +76,9 @@ internal fun HistoryAiChooserDialog(
     )
 }
 
-private val HISTORY_AI_PACKAGES = mapOf(
-    "ChatGPT" to "com.openai.chatgpt",
-    "Gemini" to "com.google.android.apps.bard",
-    "Claude" to "com.anthropic.claude",
-    "Grok" to "ai.x.grok",
+private val HISTORY_AI_PACKAGES = listOf(
+    "com.openai.chatgpt",
+    "com.google.android.apps.bard",
+    "com.anthropic.claude",
+    "ai.x.grok",
 )

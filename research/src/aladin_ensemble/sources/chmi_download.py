@@ -17,10 +17,12 @@ from aladin_ensemble.sources.chmi_station import (
     ElementMetadata,
     Station,
     uses_standard_measurement_height,
+    validate_station_id,
 )
 
 CHMI_CLIMATE_ROOT = "https://opendata.chmi.cz/meteorology/climate/recent/data"
 DEFAULT_CACHE_ROOT = Path("data/raw/chmi-climate")
+MAX_RESPONSE_BYTES = 50_000_000
 Cadence = Literal["10min", "1hour"]
 ElevationBand = Literal["low", "middle", "high"]
 REQUIRED_ELEMENTS = frozenset(
@@ -173,6 +175,7 @@ class ChmiMonthlyRequest:
     def __post_init__(self) -> None:
         if not self.station_id:
             raise ValueError("station_id is required")
+        validate_station_id(self.station_id)
         if self.year < 2018 or not 1 <= self.month <= 12:
             raise ValueError("ČHMÚ monthly date is invalid")
         if self.cadence not in {"10min", "1hour"}:
@@ -275,6 +278,8 @@ class ChmiMonthlyDownloader:
                 if attempt + 1 == self._retry_attempts:
                     raise
             else:
+                if len(response.body) > MAX_RESPONSE_BYTES:
+                    raise ValueError("ČHMÚ response exceeds size limit")
                 if response.status < 500 or attempt + 1 == self._retry_attempts:
                     return response
             self._sleep(self._retry_delay_seconds)
@@ -329,13 +334,20 @@ def _distance_km(
 def _fetch(request: Request) -> ChmiHttpResponse:
     try:
         with urlopen(request, timeout=30) as response:
+            body = response.read(MAX_RESPONSE_BYTES + 1)
+            if len(body) > MAX_RESPONSE_BYTES:
+                raise ValueError("ČHMÚ response exceeds size limit")
             return ChmiHttpResponse(
                 response.status,
                 dict(response.headers.items()),
-                response.read(),
+                body,
             )
     except HTTPError as error:
-        return ChmiHttpResponse(error.code, dict(error.headers.items()), error.read())
+        with error:
+            body = error.read(MAX_RESPONSE_BYTES + 1)
+        if len(body) > MAX_RESPONSE_BYTES:
+            raise ValueError("ČHMÚ response exceeds size limit") from error
+        return ChmiHttpResponse(error.code, dict(error.headers.items()), body)
     except (OSError, TimeoutError) as error:
         raise RuntimeError(f"request failed: {error}") from error
 

@@ -127,7 +127,10 @@ masses must not be exported as scalar blend weights or used to raise UI confiden
 ```
 
 The forecast coverage probe batches all configured Czech locations and required variables. Archive
-verification intentionally uses the first representative point. Planned date/run requests follow
+verification intentionally uses the first representative point. Probe responses are limited to
+2 MB; monthly ČHMÚ downloads, including error bodies, are limited to 50 MB. Both retain a
+30-second socket timeout. Station IDs must be safe filename components before they reach the cache.
+Planned date/run requests follow
 the documented downloader topology: one request per candidate/date/run. The worst-case HTTP
 formula is `candidates × (2 × probe attempts + dates × runs)`. The CLI uses two probe attempts,
 one second retry backoff, and a 0.5 second pause between candidates. Locations and variables remain

@@ -6,11 +6,12 @@ on:
   workflow_dispatch:
     inputs:
       include_forecasts:
-        description: Include validated forecast tiles; disable for a docs-only publication
+        description: Build new forecasts; disable to preserve the valid published feed with new docs
         type: boolean
         default: true
 
 permissions:
+  actions: read
   contents: read
   pages: write
   id-token: write
@@ -44,6 +45,9 @@ jobs:
       - name: Install locked research environment
         run: uv sync --project research --frozen
 
+      - uses: actions/configure-pages@v5
+        id: pages
+
       - name: Build verified operational diagnostic feed
         if: github.event_name != 'workflow_dispatch' || inputs.include_forecasts
         run: >-
@@ -54,19 +58,77 @@ jobs:
           --operational
           --cache-root "$RUNNER_TEMP/forecast-cache"
 
-      - name: Build documentation with an empty diagnostic feed
+      - name: Select the previous successful Pages artifact
         if: github.event_name == 'workflow_dispatch' && !inputs.include_forecasts
-        run: >-
-          uv run --project research python -m aladin_ensemble.run_static_feed
-          --docs-root docs
-          --output "$RUNNER_TEMP/pages-site"
-          --source-registry research/static-source-registry.json
+        id: previous
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          workflow_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .workflow_id)
+          run=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow_id/runs?branch=main&status=success&per_page=1" |
+            jq -ce --argjson repo "$GITHUB_REPOSITORY_ID" --argjson workflow "$workflow_id" '
+              .workflow_runs | select(length == 1) | .[0] |
+              select(.repository.id == $repo and .head_repository.id == $repo and
+                .workflow_id == $workflow and .path == ".github/workflows/forecast-data.yml" and
+                .head_branch == "main" and .status == "completed" and .conclusion == "success")')
+          run_id=$(jq -r .id <<< "$run")
+          head_sha=$(jq -r .head_sha <<< "$run")
+          artifact_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/artifacts?per_page=100" |
+            jq -er --argjson repo "$GITHUB_REPOSITORY_ID" --argjson run "$run_id" --arg sha "$head_sha" '
+              select(.total_count <= 100) | [.artifacts[] | select(.name == "github-pages")] |
+              select(length == 1) | .[0] |
+              select(.expired == false and (.expires_at | fromdateiso8601) > now and
+                .size_in_bytes > 0 and .size_in_bytes <= 800000000 and
+                (.digest | test("^sha256:[a-f0-9]{64}$")) and
+                .workflow_run.id == $run and .workflow_run.repository_id == $repo and
+                .workflow_run.head_repository_id == $repo and .workflow_run.head_branch == "main" and
+                .workflow_run.head_sha == $sha) | .id')
+          [[ "$run_id" =~ ^[0-9]+$ && "$artifact_id" =~ ^[0-9]+$ ]]
+          printf 'run_id=%s\nartifact_id=%s\n' "$run_id" "$artifact_id" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/configure-pages@v5
+      - name: Download the selected artifact with digest verification
+        if: github.event_name == 'workflow_dispatch' && !inputs.include_forecasts
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.previous.outputs.run_id }}
+          artifact-ids: ${{ steps.previous.outputs.artifact_id }}
+          digest-mismatch: error
+          path: ${{ runner.temp }}/previous-pages
+
+      - name: Build documentation with the verified published feed
+        if: github.event_name == 'workflow_dispatch' && !inputs.include_forecasts
+        env:
+          PAGES_URL: ${{ steps.pages.outputs.base_url }}
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --proto '=https' --max-time 30 --max-filesize 1000000 \
+            "$PAGES_URL/data/v1/manifest.json" --output "$RUNNER_TEMP/published-manifest.json"
+          uv run --project research python -m aladin_ensemble.run_static_feed \
+          --docs-root docs \
+          --output "$RUNNER_TEMP/pages-site" \
+          --previous-artifact "$RUNNER_TEMP/previous-pages/artifact.tar" \
+          --published-manifest "$RUNNER_TEMP/published-manifest.json" \
+          --source-registry research/static-source-registry.json
 
       - uses: actions/upload-pages-artifact@v4
         with:
           path: ${{ runner.temp }}/pages-site
+
+      - name: Recheck the published feed before deployment
+        if: github.event_name == 'workflow_dispatch' && !inputs.include_forecasts
+        env:
+          PAGES_URL: ${{ steps.pages.outputs.base_url }}
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --proto '=https' --max-time 30 --max-filesize 1000000 \
+            "$PAGES_URL/data/v1/manifest.json" --output "$RUNNER_TEMP/published-manifest.json"
+          cmp "$RUNNER_TEMP/published-manifest.json" "$RUNNER_TEMP/pages-site/data/v1/manifest.json"
+          jq -e '.run | (.generated_at | fromdateiso8601) <= now and
+            (.expires_at | fromdateiso8601) > now' "$RUNNER_TEMP/published-manifest.json" > /dev/null
 
       - name: Deploy GitHub Pages
         id: deployment

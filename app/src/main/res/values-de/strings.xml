@@ -335,7 +335,7 @@
     <string name="history_show_days">Tagesdaten anzeigen</string>
     <string name="history_hide_days">Tagesdaten ausblenden</string>
     <string name="history_daily_title">Tagesarchiv</string>
-    <string name="history_share_chooser">KI-App auswählen oder teilen</string>
+    <string name="history_share_chooser">Wetterarchiv teilen</string>
     <string name="history_share_failed">Das Archiv konnte nicht geteilt werden.</string>
     <string name="daily_briefing">Morgenübersicht</string>
     <string name="daily_briefing_summary">Jeden Morgen um 7:00 · Kleidung- und Regenschirmempfehlung</string>
@@ -402,14 +402,11 @@
     <string name="history_temperature_coverage">Min. %1$d/%3$d Tage · Max. %2$d/%3$d Tage</string>
     <string name="history_dates_coverage">Tage im Archiv: %1$d von %2$d</string>
     <string name="home_ask_ai">KI fragen</string>
-    <string name="history_ai_intro">Fragen Sie nach Regen, Temperatur oder Sonnenschein an diesem Ort. Ihre Frage und das Wetterarchiv werden an die von Ihnen gewählte KI-App übergeben.</string>
+    <string name="history_ai_intro">Fragen Sie nach Regen, Temperatur oder Sonnenschein an diesem Ort. Ihre Frage und das Wetterarchiv werden an die von Ihnen gewählte App übergeben.</string>
     <string name="history_loading_archive">Wetterarchiv wird vorbereitet…</string>
-    <string name="history_choose_ai_title">KI-App auswählen</string>
+    <string name="history_choose_ai_title">Wetterarchiv teilen</string>
     <string name="history_choose_ai_action">App auswählen</string>
-    <string name="history_choose_ai_message">Das vollständige Fünfjahresarchiv für %1$s (%2$d Tageswerte), die Standortkoordinaten, Ihre Frage und der gewählte UTC-Zeitraum werden geteilt.\n\nPrüfen Sie Datei und Frage in der gewählten KI-App vor dem Senden.</string>
-    <string name="history_ai_apps_description">Hier erscheinen nur installierte KI-Apps, die CSV-Dateien annehmen. Prüfen Sie vor dem Senden, ob Datei und Frage angekommen sind.</string>
-    <string name="history_ai_no_apps">Keine installierte KI-App nimmt CSV-Dateien an. Exportieren Sie die Datei und hängen Sie sie in Ihrer KI-App manuell an.</string>
-    <string name="history_export_csv">CSV exportieren</string>
+    <string name="history_choose_ai_message">Das vollständige Fünfjahresarchiv für %1$s (%2$d Tageswerte), die Standortkoordinaten, Ihre Frage und der gewählte UTC-Zeitraum werden geteilt.\n\nPrüfen Sie Datei und Frage in der gewählten App vor dem Senden.</string>
     <string name="detail_group_sun_moon">Sonne und Mond</string>
     <string name="detail_group_other">Weitere Bedingungen</string>
     <string name="detail_group_sources">Quellen und Diagnostik</string>

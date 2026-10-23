@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.7.20] - 2026-10-23
+
+- Use the Android system chooser for weather archive sharing, without assigning AI identities from package names or app labels.
+- Preserve the archive disclosure, CSV attachment and temporary read-only permission for the selected app.
+
 ## [0.7.19] - 2026-10-22
 
 - Reject invalid forecast dates, times and time zones before caching, including malformed older cache entries.

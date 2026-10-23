@@ -145,8 +145,6 @@ internal fun WeatherDetailSheet(
     var historyShareError by remember(location) { mutableStateOf(false) }
     var historySharing by remember(location) { mutableStateOf(false) }
     var pendingShare by remember(location) { mutableStateOf<PendingHistoryShare?>(null) }
-    var aiShare by remember(location) { mutableStateOf<PendingHistoryShare?>(null) }
-    var aiTargets by remember(location) { mutableStateOf<List<HistoryAiTarget>>(emptyList()) }
     var historyQuestion by rememberSaveable(location.latitude, location.longitude) { mutableStateOf("") }
     var historyPeriod by rememberSaveable(location.latitude, location.longitude) { mutableStateOf(HistoryPeriod.ALL) }
     var customStart by rememberSaveable(location.latitude, location.longitude) { mutableStateOf<Long?>(null) }
@@ -156,13 +154,13 @@ internal fun WeatherDetailSheet(
         historyDateFromUtcMillis(start)..historyDateFromUtcMillis(end)
     } }
     val listState = rememberLazyListState()
-    fun shareArchive(archive: HistoryArchive, question: String, range: ClosedRange<LocalDate>, target: HistoryAiTarget? = null) {
+    fun shareArchive(archive: HistoryArchive, question: String, range: ClosedRange<LocalDate>) {
         if (historySharing) return
         historySharing = true
         historyShareError = false
         scope.launch {
             try {
-                context.startActivity(createHistoryShareIntent(context, archive, shareChooserTitle, question, range, target))
+                context.startActivity(createHistoryShareIntent(context, archive, shareChooserTitle, question, range))
             } catch (_: IOException) {
                 historyShareError = true
             } catch (_: ActivityNotFoundException) {
@@ -520,35 +518,10 @@ internal fun WeatherDetailSheet(
                 TextButton(onClick = {
                     if (historySharing) return@TextButton
                     pendingShare = null
-                    historySharing = true
-                    historyShareError = false
-                    scope.launch {
-                        try {
-                            aiTargets = historyAiTargets(context)
-                            aiShare = share
-                        } catch (_: SecurityException) {
-                            historyShareError = true
-                        } finally {
-                            historySharing = false
-                        }
-                    }
+                    shareArchive(share.archive, share.question, share.range)
                 }) { Text(stringResource(R.string.history_choose_ai_action)) }
             },
             dismissButton = { TextButton(onClick = { pendingShare = null }) { Text(stringResource(android.R.string.cancel)) } },
-        )
-    }
-    aiShare?.let { share ->
-        HistoryAiChooserDialog(
-            targets = aiTargets,
-            onSelect = { target ->
-                aiShare = null
-                shareArchive(share.archive, share.question, share.range, target)
-            },
-            onExport = {
-                aiShare = null
-                shareArchive(share.archive, share.question, share.range)
-            },
-            onDismiss = { aiShare = null },
         )
     }
     val history = (historyState as? HistoryUiState.Content)?.archive

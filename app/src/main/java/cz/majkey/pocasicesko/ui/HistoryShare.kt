@@ -18,7 +18,6 @@ internal suspend fun createHistoryShareIntent(
     chooserTitle: String,
     question: String = "",
     range: ClosedRange<LocalDate>? = null,
-    target: HistoryAiTarget? = null,
 ): Intent = withContext(Dispatchers.IO) {
     val file = createHistoryShareFile(context.cacheDir, historyCsv(archive))
     val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)
@@ -31,6 +30,5 @@ internal suspend fun createHistoryShareIntent(
         putExtra(Intent.EXTRA_SUBJECT, "$title: ${archive.location.name}")
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
-    if (target != null) send.setComponent(target.component)
-    else Intent.createChooser(send, chooserTitle).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    Intent.createChooser(send, chooserTitle).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
 }

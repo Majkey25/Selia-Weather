@@ -336,7 +336,7 @@
     <string name="history_show_days">Show daily data</string>
     <string name="history_hide_days">Hide daily data</string>
     <string name="history_daily_title">Daily archive</string>
-    <string name="history_share_chooser">Choose an AI app or share</string>
+    <string name="history_share_chooser">Share weather archive</string>
     <string name="history_share_failed">Could not share the archive.</string>
     <string name="daily_briefing">Morning briefing</string>
     <string name="daily_briefing_summary">Every morning at 7:00 · clothing and umbrella advice</string>
@@ -409,14 +409,11 @@
     <string name="history_temperature_coverage">Min %1$d/%3$d days · Max %2$d/%3$d days</string>
     <string name="history_dates_coverage">Dates in archive: %1$d of %2$d</string>
     <string name="home_ask_ai">Ask AI</string>
-    <string name="history_ai_intro">Ask about rain, temperature or sunshine here. Your question and weather archive go to the AI app you choose.</string>
+    <string name="history_ai_intro">Ask about rain, temperature or sunshine here. Your question and weather archive go to the app you choose.</string>
     <string name="history_loading_archive">Preparing weather archive…</string>
-    <string name="history_choose_ai_title">Choose an AI app</string>
+    <string name="history_choose_ai_title">Share weather archive</string>
     <string name="history_choose_ai_action">Choose app</string>
-    <string name="history_choose_ai_message">The full five-year archive for %1$s (%2$d daily records), the location coordinates, your question and the selected UTC period will be shared.\n\nCheck the file and question in the selected AI app before sending.</string>
-    <string name="history_ai_apps_description">Only installed AI apps that accept CSV shares appear here. Check that the file and question arrived before sending.</string>
-    <string name="history_ai_no_apps">No installed AI app accepts CSV sharing. Export the file and attach it manually in your AI app.</string>
-    <string name="history_export_csv">Export CSV</string>
+    <string name="history_choose_ai_message">The full five-year archive for %1$s (%2$d daily records), the location coordinates, your question and the selected UTC period will be shared.\n\nCheck the file and question in the selected app before sending.</string>
     <string name="detail_group_sun_moon">Sun and Moon</string>
     <string name="detail_group_other">Other conditions</string>
     <string name="detail_group_sources">Sources and diagnostics</string>

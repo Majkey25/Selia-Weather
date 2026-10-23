@@ -335,7 +335,7 @@
     <string name="history_show_days">Afficher les données quotidiennes</string>
     <string name="history_hide_days">Masquer les données quotidiennes</string>
     <string name="history_daily_title">Archive quotidienne</string>
-    <string name="history_share_chooser">Choisir une app IA ou partager</string>
+    <string name="history_share_chooser">Partager les archives météo</string>
     <string name="history_share_failed">Impossible de partager l’archive.</string>
     <string name="daily_briefing">Résumé du matin</string>
     <string name="daily_briefing_summary">Chaque matin à 7:00 · conseils vêtements et parapluie</string>
@@ -402,14 +402,11 @@
     <string name="history_temperature_coverage">Min. %1$d/%3$d jours · Max. %2$d/%3$d jours</string>
     <string name="history_dates_coverage">Jours dans les archives : %1$d sur %2$d</string>
     <string name="home_ask_ai">Demander à l’IA</string>
-    <string name="history_ai_intro">Posez une question sur la pluie, la température ou le soleil ici. Votre question et les archives météo seront partagées avec l’application IA de votre choix.</string>
+    <string name="history_ai_intro">Posez une question sur la pluie, la température ou le soleil ici. Votre question et les archives météo seront partagées avec l’application de votre choix.</string>
     <string name="history_loading_archive">Préparation des archives météo…</string>
-    <string name="history_choose_ai_title">Choisir une app IA</string>
+    <string name="history_choose_ai_title">Partager les archives météo</string>
     <string name="history_choose_ai_action">Choisir une app</string>
-    <string name="history_choose_ai_message">Les archives complètes sur cinq ans pour %1$s (%2$d relevés quotidiens), les coordonnées du lieu, votre question et la période UTC choisie seront partagées.\n\nVérifiez le fichier et la question dans l’app IA avant l’envoi.</string>
-    <string name="history_ai_apps_description">Seules les apps IA installées qui acceptent le CSV apparaissent ici. Vérifiez que le fichier et la question sont arrivés avant l’envoi.</string>
-    <string name="history_ai_no_apps">Aucune app IA installée n’accepte le CSV. Exportez le fichier et joignez-le manuellement dans votre app IA.</string>
-    <string name="history_export_csv">Exporter le CSV</string>
+    <string name="history_choose_ai_message">Les archives complètes sur cinq ans pour %1$s (%2$d relevés quotidiens), les coordonnées du lieu, votre question et la période UTC choisie seront partagées.\n\nVérifiez le fichier et la question dans l’app choisie avant l’envoi.</string>
     <string name="detail_group_sun_moon">Soleil et Lune</string>
     <string name="detail_group_other">Autres conditions</string>
     <string name="detail_group_sources">Sources et diagnostic</string>

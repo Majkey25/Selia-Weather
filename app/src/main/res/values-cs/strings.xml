@@ -335,7 +335,7 @@
     <string name="history_show_days">Zobrazit denní data</string>
     <string name="history_hide_days">Skrýt denní data</string>
     <string name="history_daily_title">Denní archiv</string>
-    <string name="history_share_chooser">Vyberte AI aplikaci nebo sdílejte</string>
+    <string name="history_share_chooser">Sdílet archiv počasí</string>
     <string name="history_share_failed">Archiv se nepodařilo sdílet.</string>
     <string name="daily_briefing">Ranní přehled</string>
     <string name="daily_briefing_summary">Každé ráno v 7:00 · doporučení oblečení a deštníku</string>
@@ -406,14 +406,11 @@
     <string name="history_temperature_coverage">Min. %1$d/%3$d dní · Max. %2$d/%3$d dní</string>
     <string name="history_dates_coverage">Dny v archivu: %1$d z %2$d</string>
     <string name="home_ask_ai">Zeptat se AI</string>
-    <string name="history_ai_intro">Zeptejte se na déšť, teplotu nebo sluneční svit v této lokalitě. Otázku a archiv počasí předáte AI aplikaci, kterou si vyberete.</string>
+    <string name="history_ai_intro">Zeptejte se na déšť, teplotu nebo sluneční svit v této lokalitě. Otázku a archiv počasí předáte aplikaci, kterou si vyberete.</string>
     <string name="history_loading_archive">Připravuji archiv počasí…</string>
-    <string name="history_choose_ai_title">Vyberte AI aplikaci</string>
+    <string name="history_choose_ai_title">Sdílet archiv počasí</string>
     <string name="history_choose_ai_action">Vybrat aplikaci</string>
-    <string name="history_choose_ai_message">Bude sdílen celý pětiletý archiv pro %1$s (%2$d denních záznamů), souřadnice lokality, vaše otázka a vybrané období v UTC.\n\nPřed odesláním ověřte soubor a otázku ve vybrané AI aplikaci.</string>
-    <string name="history_ai_apps_description">Zobrazují se jen nainstalované AI aplikace, které přijímají CSV. Před odesláním ověřte, že dorazil soubor i otázka.</string>
-    <string name="history_ai_no_apps">Žádná nainstalovaná AI aplikace nepřijímá sdílení CSV. Exportujte soubor a přiložte jej v AI aplikaci ručně.</string>
-    <string name="history_export_csv">Exportovat CSV</string>
+    <string name="history_choose_ai_message">Bude sdílen celý pětiletý archiv pro %1$s (%2$d denních záznamů), souřadnice lokality, vaše otázka a vybrané období v UTC.\n\nPřed odesláním ověřte soubor a otázku ve vybrané aplikaci.</string>
     <string name="detail_group_sun_moon">Slunce a Měsíc</string>
     <string name="detail_group_other">Další podmínky</string>
     <string name="detail_group_sources">Zdroje a diagnostika</string>

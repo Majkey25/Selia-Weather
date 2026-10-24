@@ -11,5 +11,3 @@ Das Radar verbindet verfügbare RainViewer-Beobachtungen und DWD-Niederschlagspr
 Gestalten Sie Ihr eigenes Startbildschirm-Widget. Jedes Widget kann eigene Farben, Transparenz, Verlauf oder Hintergrundbild, Textgröße, Ausrichtung, Beschriftung und sichtbare Wetterdaten verwenden. Wenn Android ein Bild nicht mehr lesen kann, nutzt das Widget seinen Farbhintergrund und funktioniert weiter.
 
 Selia Weather unterstützt Android 10 und neuer. Standardmäßig folgt die App der Systemsprache. In der App können Sie Englisch, Tschechisch, Deutsch, Spanisch oder Französisch wählen.
-
-Der optionale Buy-Me-a-Coffee-Link öffnet eine externe Seite. Er schaltet keine Funktionen frei und gibt keine Priorität.

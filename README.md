@@ -98,7 +98,7 @@ For a custom background, the editor asks Android to grant access to the selected
 
 ## Support
 
-The settings screen includes an optional [Buy Me a Coffee](https://www.buymeacoffee.com/majkey) link. It opens in Android's external browser. Support does not unlock features, give priority, or change the app.
+GitHub APKs include an optional [Buy Me a Coffee](https://www.buymeacoffee.com/majkey) link in settings. It opens in Android's external browser. Support does not unlock features, give priority, or change the app. Google Play builds omit this action and use separate [payment-free legal information](https://majkey25.github.io/Selia-Weather/play.html).
 
 ## Monetisation status
 
@@ -111,6 +111,8 @@ Release builds do not contain or initialise Ads, UMP, Play Billing, Premium, or 
 ```
 
 The debug APK is at `app/build/outputs/apk/debug/app-debug.apk`.
+
+`distributionChannel` defaults to `play`. Build Google Play bundles with `-PdistributionChannel=play :app:bundleRelease`. Build GitHub APKs with `-PdistributionChannel=github :app:assembleRelease`, or use `-PdistributionChannel=github :app:assembleDebug` for an installable debug APK. The GitHub channel cannot build app bundles. CI tests both channels and uploads the GitHub debug APK; signing identities and application IDs are unchanged.
 
 To publish documentation when an upstream forecast fails validation, run `gh workflow run forecast-data.yml --ref main -f include_forecasts=false`. This manual mode publishes an empty diagnostic feed alongside the privacy page. Default forecast runs still require valid data; this does not enable production calibration.
 

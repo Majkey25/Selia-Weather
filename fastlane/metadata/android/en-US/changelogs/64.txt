@@ -1,0 +1,1 @@
+Removed external donation actions from the Google Play edition. Privacy, terms, refund and cookie information remains available through a separate legal page without donation links. All weather features remain free.

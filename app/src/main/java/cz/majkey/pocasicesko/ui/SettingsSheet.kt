@@ -279,24 +279,26 @@ fun SettingsSheet(
                                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                             )
                         }
-                        item {
-                            Button(
-                                onClick = onSupport,
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).heightIn(min = 56.dp),
-                                border = BorderStroke(1.dp, Color(0xFF111111)),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFFFFDD00), contentColor = Color(0xFF111111),
-                                ),
-                            ) {
-                                Icon(painterResource(R.drawable.ic_coffee), contentDescription = null, modifier = Modifier.size(24.dp))
-                                Spacer(Modifier.width(10.dp))
-                                Text(stringResource(R.string.support_this_app))
+                        if (SUPPORT_URL.isNotEmpty()) {
+                            item {
+                                Button(
+                                    onClick = onSupport,
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).heightIn(min = 56.dp),
+                                    border = BorderStroke(1.dp, Color(0xFF111111)),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0xFFFFDD00), contentColor = Color(0xFF111111),
+                                    ),
+                                ) {
+                                    Icon(painterResource(R.drawable.ic_coffee), contentDescription = null, modifier = Modifier.size(24.dp))
+                                    Spacer(Modifier.width(10.dp))
+                                    Text(stringResource(R.string.support_this_app))
+                                }
                             }
-                        }
-                        item {
-                            Text(stringResource(R.string.support_note),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp,
-                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+                            item {
+                                Text(stringResource(R.string.support_note),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp,
+                                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+                            }
                         }
                         supportError?.let { error -> item { SettingsError(error) } }
                     }

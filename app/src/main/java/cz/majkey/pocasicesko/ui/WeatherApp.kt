@@ -629,7 +629,7 @@ fun WeatherApp(
                     },
                     onSupport = {
                         try {
-                            context.startActivity(supportIntent())
+                            supportIntent()?.let(context::startActivity)
                             supportError = null
                         } catch (_: ActivityNotFoundException) {
                             supportError = supportUnavailable

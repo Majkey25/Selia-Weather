@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.21] - 2026-10-24
+
+- Remove external donation actions from Google Play builds while keeping optional support in GitHub APKs.
+- Keep privacy, terms, refunds and cookie information available through a separate payment-free legal page in the Google Play edition.
+- Remove donation advertising from Google Play descriptions and test both distribution channels in CI.
+
 ## [0.7.20] - 2026-10-23
 
 - Use the Android system chooser for weather archive sharing, without assigning AI identities from package names or app labels.

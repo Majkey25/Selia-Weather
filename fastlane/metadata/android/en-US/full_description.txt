@@ -11,5 +11,3 @@ The radar joins available RainViewer observations and DWD precipitation forecast
 Build your own launcher widget. Each widget can use its own colours, transparency, gradient or custom-image background, text scale, alignment, label, and visible weather fields. If Android can no longer read a selected image, the widget uses its configured colour background and keeps working.
 
 Selia Weather supports Android 10 and later. It follows your system language by default. You can select English, Czech, German, Spanish, or French in the app.
-
-The optional Buy Me a Coffee link opens an external page. It does not unlock features or provide priority.

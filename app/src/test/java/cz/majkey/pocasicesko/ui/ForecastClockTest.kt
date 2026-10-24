@@ -1,5 +1,6 @@
 package cz.majkey.pocasicesko.ui
 
+import cz.majkey.pocasicesko.BuildConfig
 import cz.majkey.pocasicesko.data.DailyWeather
 import java.net.URI
 import java.time.Instant
@@ -49,9 +50,14 @@ class ForecastClockTest {
     }
 
     @Test
-    fun legalLinksUseOnlyTheFourRequestedPublicPages() {
+    fun legalLinksUseOnlyTheFourRequestedSectionsForTheDistributionChannel() {
         val urls = LegalPage.entries.map { URI(it.url) }
         assertTrue(urls.all { it.scheme == "https" && it.host == "majkey25.github.io" && it.query == null })
-        assertEquals(setOf("/Selia-Weather/", "/Selia-Weather/terms.html", "/Selia-Weather/refunds.html", "/Selia-Weather/cookies.html"), urls.map { it.path }.toSet())
+        if (BuildConfig.DISTRIBUTION_CHANNEL == "play") {
+            assertEquals(setOf("/Selia-Weather/play.html"), urls.map { it.path }.toSet())
+            assertEquals(setOf("privacy", "terms", "refunds", "cookies"), urls.map { it.fragment }.toSet())
+        } else {
+            assertEquals(setOf("/Selia-Weather/", "/Selia-Weather/terms.html", "/Selia-Weather/refunds.html", "/Selia-Weather/cookies.html"), urls.map { it.path }.toSet())
+        }
     }
 }

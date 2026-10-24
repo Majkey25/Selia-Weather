@@ -11,5 +11,3 @@ Radar spojuje dostupná pozorování RainViewer a předpověď srážek DWD na s
 Vlastní widget se přizpůsobí malé, široké i vysoké velikosti. Každý widget může mít vlastní barvy, průhlednost, gradient nebo obrázek, velikost textu, zarovnání, vlastní popisek a vybraná data. Pokud vybraný obrázek přestane být dostupný, widget dál funguje s nastaveným barevným pozadím.
 
 Aplikace podporuje Android 10 a novější. Výchozí jazyk odpovídá systému. V nastavení lze vybrat angličtinu, češtinu, němčinu, španělštinu nebo francouzštinu.
-
-Volitelný odkaz Buy Me a Coffee otevírá externí stránku a nezpřístupňuje žádné funkce ani výhody.

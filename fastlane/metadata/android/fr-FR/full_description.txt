@@ -11,5 +11,3 @@ Le radar réunit les observations disponibles de RainViewer et les prévisions D
 Créez votre propre widget d'accueil. Chaque widget peut utiliser ses couleurs, sa transparence, un dégradé ou une image de fond, une taille de texte, un alignement, une étiquette et des données météo visibles. Si Android ne peut plus lire une image, le widget utilise son fond coloré et continue de fonctionner.
 
 Selia Weather est compatible avec Android 10 et versions ultérieures. Par défaut, l'app suit la langue du système. Vous pouvez choisir l'anglais, le tchèque, l'allemand, l'espagnol ou le français dans l'app.
-
-Le lien facultatif Buy Me a Coffee ouvre une page externe. Il ne déverrouille aucune fonction et ne donne pas de priorité.

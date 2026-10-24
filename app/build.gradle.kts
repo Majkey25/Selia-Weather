@@ -21,6 +21,15 @@ val monetizationConfigured = adMobAppId?.matches(Regex("^ca-app-pub-\\d{16}~\\d{
 require(monetizationValues.all { it == null } || monetizationConfigured) {
     "AdMob app and interstitial IDs must both be valid or both be absent."
 }
+val distributionChannel = providers.gradleProperty("distributionChannel").orElse("play").get()
+require(distributionChannel in listOf("play", "github")) {
+    "distributionChannel must be play or github."
+}
+gradle.taskGraph.whenReady {
+    require(distributionChannel == "play" || allTasks.none {
+        it.path == ":app:packageReleaseBundle" || it.path == ":app:packageDebugBundle"
+    }) { "App bundles must use distributionChannel=play." }
+}
 
 android {
     namespace = "cz.majkey.pocasicesko"
@@ -30,12 +39,17 @@ android {
         applicationId = "com.majkeylab.weatheraladin"
         minSdk = 29
         targetSdk = 36
-        versionCode = 63
-        versionName = "0.7.20"
+        versionCode = 64
+        versionName = "0.7.21"
 
         manifestPlaceholders["adMobAppId"] = adMobAppId ?: testAdMobAppId
         buildConfigField("boolean", "MONETIZATION_CONFIGURED", "false")
         buildConfigField("boolean", "PAYMENTS_ENABLED", "false")
+        buildConfigField("String", "DISTRIBUTION_CHANNEL", "\"$distributionChannel\"")
+        buildConfigField(
+            "String", "EXTERNAL_DONATION_URL",
+            "\"${if (distributionChannel == "github") "https://www.buymeacoffee.com/majkey" else ""}\"",
+        )
         buildConfigField(
             "String",
             "INTERSTITIAL_AD_UNIT_ID",

@@ -5,14 +5,18 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeUp
 import androidx.test.platform.app.InstrumentationRegistry
 import cz.majkey.pocasicesko.R
+import cz.majkey.pocasicesko.BuildConfig
 import cz.majkey.pocasicesko.monetization.BillingMessage
 import cz.majkey.pocasicesko.monetization.EntitlementState
 import cz.majkey.pocasicesko.notification.WeatherAlertSettings
@@ -20,6 +24,7 @@ import cz.majkey.pocasicesko.units.MeasurementSystem
 import cz.majkey.pocasicesko.units.WeatherUnitFormatter
 import java.util.Locale
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -28,6 +33,40 @@ class SettingsNavigationTest {
     @get:Rule val compose = createComposeRule()
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private val context get() = instrumentation.targetContext
+
+    @Test
+    fun aboutMenuKeepsExternalDonationsOnlyInGithubBuilds() {
+        var supportClicks = 0
+        compose.setContent {
+            WeatherTheme {
+                SettingsSheet(
+                    selectedTag = "", selectedMeasurementSystem = MeasurementSystem.METRIC,
+                    entitlement = EntitlementState.FREE, premiumOffers = emptyList(),
+                    billingMessage = BillingMessage.NONE, paymentsEnabled = false,
+                    privacyOptionsRequired = false, widgetIds = emptyList(),
+                    onLanguage = {}, onMeasurementSystem = {}, onNotifications = {},
+                    onAddWidget = {}, onEditWidget = {}, onWeatherDataAttribution = {},
+                    onLegalPage = {}, onSupport = { supportClicks++ }, supportError = null,
+                    onPurchase = {}, onRestorePurchases = {}, onPrivacyOptions = {},
+                    onClearBillingMessage = {}, onDismiss = {},
+                )
+            }
+        }
+        compose.onNodeWithText(context.getString(R.string.settings_about_support)).performScrollTo().performClick()
+        compose.onNodeWithText(context.getString(R.string.legal_cookies)).performScrollTo().assertIsDisplayed()
+        if (BuildConfig.DISTRIBUTION_CHANNEL == "github") {
+            compose.onNodeWithText(context.getString(R.string.support_this_app))
+                .performScrollTo().assertIsDisplayed().performClick()
+            assertEquals(1, supportClicks)
+            assertEquals("https://www.buymeacoffee.com/majkey", supportIntent()?.dataString)
+        } else {
+            compose.onNode(hasScrollAction()).performTouchInput { swipeUp() }
+            compose.onNodeWithText(context.getString(R.string.support_this_app)).assertDoesNotExist()
+            compose.onNodeWithText(context.getString(R.string.support_note)).assertDoesNotExist()
+            assertEquals(0, supportClicks)
+            assertNull(supportIntent())
+        }
+    }
 
     @Test
     fun rainLeadAndProbabilitySurviveBackWithoutChangingTemperatureAlerts() {

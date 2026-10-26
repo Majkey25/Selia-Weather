@@ -87,6 +87,17 @@ class WeatherChromeTest {
     }
 
     @Test
+    fun recreatingTheActivityReusesFreshWeatherButManualRefreshAndExpiredCacheStillFetch() {
+        val now = 2_000_000L
+        assertFalse(shouldRefreshWeatherOnLoad(now - 1_000L, false, now))
+        assertFalse(shouldRefreshWeatherOnLoad(now, false, now))
+        assertTrue(shouldRefreshWeatherOnLoad(now - 1_000L, true, now))
+        assertTrue(shouldRefreshWeatherOnLoad(now - 15 * 60 * 1_000L, false, now))
+        assertTrue(shouldRefreshWeatherOnLoad(null, false, now))
+        assertTrue(shouldRefreshWeatherOnLoad(now + 1_000L, false, now))
+    }
+
+    @Test
     fun settingsExposeSelectedOptionsAndOneBriefingToggle() {
         val settings = source("SettingsSheet.kt")
         assertTrue(settings.contains("selected = system == selectedMeasurementSystem"))

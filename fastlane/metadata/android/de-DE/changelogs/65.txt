@@ -1,0 +1,1 @@
+Schnelleres Laden durch parallele Datenabfragen und eine erste Vorhersage, während weitere Quellen geladen werden. Aktuelle gespeicherte Wetterdaten werden beim erneuten Öffnen weiterverwendet. Vorhersagedaten und Einstellungen werden getrennt gespeichert. Benachrichtigungen blockieren nicht mehr den Hauptthread. Berechnungen und Konfidenzschwellen bleiben unverändert.

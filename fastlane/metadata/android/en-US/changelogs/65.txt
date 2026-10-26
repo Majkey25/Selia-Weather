@@ -1,0 +1,1 @@
+Faster loading with parallel data requests and an initial forecast while additional sources finish. Fresh saved weather is reused after reopening, and forecast storage is separated from settings. Notification work no longer blocks the main thread. Forecast calculations and confidence thresholds remain unchanged.

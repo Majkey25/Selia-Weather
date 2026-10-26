@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.22] - 2026-10-26
+
+- Load independent forecast and observation sources concurrently, and show an initial provider forecast while enrichment finishes when no saved forecast exists.
+- Keep fresh saved weather on activity recreation; manual refresh and stale forecasts still fetch new data.
+- Move the forecast payload out of settings, preserving existing saved data and keeping cache parsing outside the location lock.
+- Run notification receiver work off the main thread, finish asynchronous broadcasts on failure, and remove duplicate startup scheduling.
+- Preserve forecast calculations, observation checks and confidence thresholds.
+
 ## [0.7.21] - 2026-10-24
 
 - Remove external donation actions from Google Play builds while keeping optional support in GitHub APKs.

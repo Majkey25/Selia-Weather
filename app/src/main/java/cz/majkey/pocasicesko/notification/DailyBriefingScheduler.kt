@@ -118,6 +118,20 @@ internal object DailyBriefingScheduler {
 
 class DailyBriefingReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        val application = context.applicationContext
+        val delivery = Intent(intent)
+        runNotificationWork(onFailure = {
+            if (WeatherAlertSettings.load(application).backgroundAlertsAllowed) {
+                val scheduledAt = delivery.getLongExtra(DailyBriefingScheduler.EXTRA_SCHEDULED_AT, 0)
+                val briefing = delivery.action == DailyBriefingScheduler.ACTION_SHOW &&
+                    DailyBriefingScheduler.isEnabled(application) && isBriefingDeliveryDue(scheduledAt,
+                        System.currentTimeMillis(), DailyBriefingScheduler.time(application), ZoneId.systemDefault())
+                WeatherRefreshScheduler.request(application, briefing = briefing, scheduledAt = scheduledAt)
+            }
+        }) { handleReceive(application, delivery) }
+    }
+
+    internal fun handleReceive(context: Context, intent: Intent) {
         // Rain and warning checks do not depend on the optional morning briefing.
         WeatherAlertScheduler.sync(context)
         if (!DailyBriefingScheduler.isEnabled(context)) return

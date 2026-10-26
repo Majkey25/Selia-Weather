@@ -1,0 +1,1 @@
+Carga más rápida con solicitudes paralelas y una primera previsión mientras se completan las demás fuentes. Los datos guardados recientes se reutilizan al volver a abrir la aplicación. La previsión se almacena por separado de los ajustes. Las notificaciones ya no bloquean el hilo principal. Los cálculos y umbrales de confianza no cambian.

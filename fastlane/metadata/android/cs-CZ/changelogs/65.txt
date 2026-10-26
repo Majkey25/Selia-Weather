@@ -1,0 +1,1 @@
+Rychlejší načítání díky souběžným požadavkům a zobrazení první předpovědi během doplňování dalších zdrojů. Po opětovném otevření se použijí čerstvá uložená data. Úložiště předpovědi je oddělené od nastavení. Zpracování notifikací neblokuje hlavní vlákno. Výpočty a hranice jistoty předpovědi zůstávají stejné.

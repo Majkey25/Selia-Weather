@@ -320,11 +320,6 @@ fun WeatherApp(
         }
     }
 
-    LaunchedEffect(Unit) {
-        DailyBriefingScheduler.schedule(context)
-        syncAlerts()
-    }
-
     fun openSystemNotifications(channel: String? = null) {
         val intent = Intent(if (channel == null) Settings.ACTION_APP_NOTIFICATION_SETTINGS else Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
             .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
@@ -369,19 +364,27 @@ fun WeatherApp(
 
     LaunchedEffect(location, reloadKey) {
         val requestedLocation = location
-        lastRefreshAttemptMillis = System.currentTimeMillis()
         val cached = withContext(Dispatchers.IO) { repository.cachedForecast(requestedLocation) }
-        state = cached?.let { WeatherUiState.Content(it, requestedLocation, fromCache = true, refreshing = true) }
+        val refresh = shouldRefreshWeatherOnLoad(cached?.updatedAtEpochMillis, reloadKey > 0, System.currentTimeMillis())
+        state = cached?.let { WeatherUiState.Content(it, requestedLocation, fromCache = true, refreshing = refresh) }
             ?: WeatherUiState.Loading
+        if (!refresh) return@LaunchedEffect
+        lastRefreshAttemptMillis = System.currentTimeMillis()
+        var available = cached
         try {
-            val fresh = repository.fetchForecast(requestedLocation)
+            val fresh = repository.fetchForecast(requestedLocation, onProgress = if (cached != null) null else { partial ->
+                withContext(Dispatchers.Main) {
+                    available = partial
+                    state = WeatherUiState.Content(partial, requestedLocation, fromCache = false, refreshing = true)
+                }
+            })
             state = WeatherUiState.Content(fresh, requestedLocation, fromCache = false, refreshing = false)
             WeatherAlerts.evaluateAndNotify(context, requestedLocation, fresh)
         } catch (error: Exception) {
             if (error is CancellationException) throw error
             val message = if (error is java.io.IOException) serverError else forecastLoadFailed
-            state = cached?.let {
-                WeatherUiState.Content(it, requestedLocation, fromCache = true, refreshing = false, refreshError = message)
+            state = available?.let {
+                WeatherUiState.Content(it, requestedLocation, fromCache = cached != null, refreshing = false, refreshError = message)
             } ?: WeatherUiState.Error(message)
         }
     }
@@ -1253,6 +1256,9 @@ internal fun shouldRefreshWeatherOnResume(
 ): Boolean = !refreshing &&
     (nowMillis - updatedAtMillis !in 0 until FOREGROUND_REFRESH_AGE_MILLIS) &&
     (nowMillis - lastAttemptMillis !in 0 until FOREGROUND_REFRESH_AGE_MILLIS)
+
+internal fun shouldRefreshWeatherOnLoad(updatedAtMillis: Long?, forceRefresh: Boolean, nowMillis: Long): Boolean =
+    forceRefresh || updatedAtMillis == null || nowMillis - updatedAtMillis !in 0 until FOREGROUND_REFRESH_AGE_MILLIS
 
 private const val FOREGROUND_REFRESH_AGE_MILLIS = 15 * 60 * 1_000L
 

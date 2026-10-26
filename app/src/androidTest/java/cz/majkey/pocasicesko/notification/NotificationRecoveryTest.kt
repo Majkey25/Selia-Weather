@@ -63,7 +63,7 @@ class NotificationRecoveryTest {
                     .setMinimumLatency(TimeUnit.DAYS.toMillis(1)).build(),
             ))
 
-            DailyBriefingReceiver().onReceive(context, Intent(DailyBriefingScheduler.ACTION_REFRESH))
+            DailyBriefingReceiver().handleReceive(context, Intent(DailyBriefingScheduler.ACTION_REFRESH))
 
             assertEquals(1, alarmReads)
         } finally {
@@ -162,7 +162,7 @@ class NotificationRecoveryTest {
         try {
             for (action in listOf(Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_MY_PACKAGE_REPLACED)) {
                 scheduler.cancel(WeatherAlertScheduler.JOB_ID)
-                DailyBriefingReceiver().onReceive(context, Intent(action))
+                DailyBriefingReceiver().handleReceive(context, Intent(action))
                 val job = scheduler.getPendingJob(WeatherAlertScheduler.JOB_ID)
                 assertNotNull("$action must restore alerts without opening an activity", job)
                 assertTrue(requireNotNull(job).isPersisted)
@@ -185,7 +185,7 @@ class NotificationRecoveryTest {
         WeatherAlertSettings(backgroundAlertsAllowed = true, rainEnabled = false, officialWarningsEnabled = false).save(context)
         try {
             scheduler.cancel(WeatherAlertScheduler.JOB_ID)
-            DailyBriefingReceiver().onReceive(context, Intent(Intent.ACTION_BOOT_COMPLETED))
+            DailyBriefingReceiver().handleReceive(context, Intent(Intent.ACTION_BOOT_COMPLETED))
             assertNull(scheduler.getPendingJob(WeatherAlertScheduler.JOB_ID))
             assertFalse(DailyBriefingScheduler.isEnabled(context))
         } finally {
@@ -206,7 +206,7 @@ class NotificationRecoveryTest {
             assertTrue(WeatherAlertSettings.needsBackgroundDisclosure(context))
             assertFalse(WeatherAlertSettings.load(context).backgroundAlertsAllowed)
             for (action in listOf(Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_MY_PACKAGE_REPLACED)) {
-                DailyBriefingReceiver().onReceive(context, Intent(action))
+                DailyBriefingReceiver().handleReceive(context, Intent(action))
                 assertNull(scheduler.getPendingJob(WeatherAlertScheduler.JOB_ID))
                 assertFalse(DailyBriefingScheduler.isEnabled(context))
             }

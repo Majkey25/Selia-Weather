@@ -1,0 +1,1 @@
+Chargement plus rapide grâce aux requêtes parallèles et à une première prévision pendant le chargement des autres sources. Les données récentes enregistrées sont réutilisées à la réouverture. Les prévisions sont stockées séparément des réglages. Les notifications ne bloquent plus le fil principal. Les calculs et seuils de confiance restent inchangés.

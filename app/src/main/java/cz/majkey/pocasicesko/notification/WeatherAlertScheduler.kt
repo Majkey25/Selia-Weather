@@ -70,6 +70,15 @@ internal object WeatherAlertScheduler {
 
 class WeatherAlertReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        val application = context.applicationContext
+        runNotificationWork(onFailure = {
+            if (WeatherAlertSettings.load(application).backgroundAlertsAllowed) {
+                WeatherRefreshScheduler.request(application)
+            }
+        }) { handleReceive(application) }
+    }
+
+    internal fun handleReceive(context: Context) {
         if (!WeatherAlertSettings.load(context).backgroundAlertsAllowed) return
         val repository = WeatherRepository(context)
         val location = repository.lastLocation()

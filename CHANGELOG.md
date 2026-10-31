@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.7.23] - 2026-10-31
+
+- Put location search and results above saved places, keep the sheet height stable, and avoid flashing empty results during debounce.
+- Keep widget controls and color dialog buttons reachable with the keyboard open, hide floating navigation while typing, and preserve independent appearance editor scroll positions.
+- Keep the last valid color preview while editing incomplete HEX values.
+- Use consistent, contrast-checked weather icon colors, including yellow sun and green clouds.
+- Prevent blank radar frames when changing model runs or interrupting a crossfade. Keep the provider's real forecast times and normal playback transitions.
+- Refresh radar metadata after rejected model images while retaining usable frames and playback. Bound automatic recovery and preserve provider rate-limit protection.
+- Fall back to usable global model images after exhausted European image recovery, showing their actual six-hour intervals and preserving provider backoff.
+- Enable optimized release resource shrinking alongside existing code shrinking and obfuscation.
+
 ## [0.7.22] - 2026-10-26
 
 - Load independent forecast and observation sources concurrently, and show an initial provider forecast while enrichment finishes when no saved forecast exists.

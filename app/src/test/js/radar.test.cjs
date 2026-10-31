@@ -148,6 +148,37 @@ test('unavailable forecast never substitutes observations; inactive error remain
   app.context.loadForecast(true); await settled(); assert.equal(app.context.radarLayer.frame.type, 'observed');
   app.context.setMode('forecast'); app.load(); assert.equal(app.node('status').hidden, true);
 });
+for (const recovers of [true, false]) test('cold-start stale metadata gets one bounded recovery: ' + recovers, async () => {
+  let requests = 0;
+  const app = runtime({ fetch: async (url, _options, context) => {
+    if (!url.includes('maps.dwd.de')) return new Response(JSON.stringify(manifest()));
+    const payload = JSON.parse(forecastPayload(context, url.includes('Icon-eu_') ? 'eu' : 'global'));
+    if (++requests <= 2 || !recovers) {
+      payload.Dimension[1].default = new Date(NOW - 3 * 86400000).toISOString();
+      payload.Dimension[1].text = payload.Dimension[1].default;
+    }
+    return new Response(JSON.stringify(payload));
+  } });
+  await settled();
+  assert.equal(requests, 4);
+  assert.equal(app.context.forecastState.recoveryAt, NOW + 600000);
+  if (recovers) {
+    assert.ok(app.context.pendingLayer.frame.time > NOW / 1000);
+    assert.equal(app.context.pendingLayer.frame.reference, new Date(app.context.forecastCache.run * 1000).toISOString());
+    app.load();
+    assert.equal(app.node('status').hidden, true);
+  } else {
+    assert.equal(app.context.frames.length, 0);
+    assert.equal(app.context.pendingLayer, null);
+    assert.match(app.node('status').textContent, /unavailable/);
+  }
+  app.advance(NOW + 599999); app.context.ensureSourcesFresh(); app.events.moveend(); await settled();
+  assert.equal(requests, 4);
+  if (!recovers) {
+    app.advance(NOW + 600001); app.fire(app.context.expiryTimer); await settled();
+    assert.equal(requests, 6);
+  }
+});
 test('invalid/oversized observation manifests fail closed independently', async () => {
   for (const observed of [null, { ...manifest(), host: 'https://bad.example' }, { ...manifest(), radar: { past: [{ time: NOW / 1000 - 7200, path: '/v2/radar/stale' }] } },
     { ...manifest(), radar: { past: [{ time: NOW / 1000, path: '/v2/radar/../../bad' }] } }, { ...manifest(), radar: { past: [{ time: NOW / 1000 + 301, path: '/v2/radar/future' }] } },
@@ -192,10 +223,10 @@ test('pending raster timeout measures stalled loading, not time spent making til
   assert.match(app.node('status').textContent, /unavailable/);
 });
 
-test('forecast image decode failure retries once without cache, then preserves the last valid frame', async () => {
+test('exhausted EU tiles retain their predecessor until a cached global interval renders', async () => {
   const app = runtime(); await settled(); app.load();
-  const displayed = app.context.radarLayer;
-  app.context.showFrame(4);
+  const displayed = app.context.radarLayer, summary = app.node('frame-summary').textContent;
+  app.context.showFrame(app.context.frames.length - 1);
   const failed = app.context.pendingLayer;
   app.events.error({ sourceId: failed.id, error: new Error('The source image could not be decoded.') });
   const retry = app.context.pendingLayer;
@@ -205,13 +236,169 @@ test('forecast image decode failure retries once without cache, then preserves t
   assert.equal(app.events.options.transformRequest(tile, 'Tile').cache, 'reload');
   assert.ok(!app.sources.has(failed.id));
   app.events.error({ sourceId: retry.id, error: new Error('The source image could not be decoded.') });
-  assert.equal(app.context.pendingLayer, null);
+  await settled();
   assert.equal(app.context.radarLayer, displayed);
+  const global = app.context.forecastModels.global;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    app.events.error({ sourceId: app.context.pendingLayer.id, error: new Error('The source image could not be decoded.') });
+  }
+  assert.equal(app.calls.filter(call => call.url.includes('maps.dwd.de')).length, 4);
+  const fallback = app.context.pendingLayer;
+  assert.equal(fallback.frame.key, 'global');
+  assert.equal(fallback.frame.hours, 6);
+  assert.ok(failed.frame.time > fallback.frame.time - 21600 && failed.frame.time <= fallback.frame.time);
+  assert.ok(fallback.frame.time >= NOW / 1000 + 48 * 3600);
+  assert.equal(app.context.selectedTime, failed.frame.time);
+  assert.equal(app.context.forecastCache, global);
+  assert.equal(fallback.frame.reference, new Date(global.run * 1000).toISOString());
+  assert.equal(app.context.forecastModels.eu, null);
+  assert.equal(app.context.forecastStates.eu.failed, true);
+  assert.equal(app.context.forecastStates.eu.attemptedAt, NOW);
+  assert.equal(app.context.radarLayer, displayed);
+  assert.ok(app.sources.has(displayed.id));
+  assert.equal(app.node('frame-summary').textContent, summary);
+  const url = new URL(app.sources.get(fallback.id).tiles[0]);
+  assert.equal(url.searchParams.get('layers'), 'dwd:' + app.context.RadarForecast.sources.global.layer);
+  assert.equal(url.searchParams.get('dim_reference_time'), fallback.frame.reference);
+  assert.equal(url.searchParams.get('time'), new Date(fallback.frame.time * 1000).toISOString());
+  app.load();
+  assert.equal(app.context.radarLayer, fallback);
+  assert.ok(!app.sources.has(displayed.id));
+  assert.equal(Number(app.node('slider').value), fallback.frame.time);
+  assert.match(app.node('frame-summary').textContent, /^ICON · Model precipitation · mm \/ 6 h/);
+  assert.equal(app.node('scale').src, app.context.RadarForecast.legendUrl('global'));
+  assert.equal(app.node('status').hidden, true);
+  assert.ok([...app.sources.keys()].filter(id => id.startsWith('frame-')).length <= 4);
+
+  app.context.togglePlay(); [...app.intervals.values()][0](); app.load(); app.context.togglePlay();
+  const globalDisplayed = app.context.radarLayer;
+  app.context.showFrame(app.context.frameIndex + 1);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    app.events.error({ sourceId: app.context.pendingLayer.id, error: new Error('The source image could not be decoded.') });
+  }
+  assert.equal(app.context.pendingLayer, null);
+  assert.equal(app.context.radarLayer, globalDisplayed);
   assert.match(app.node('status').textContent, /unavailable/);
-  app.context.showFrame(4); app.load();
-  assert.equal(app.context.radarLayer.frame, failed.frame);
+  app.advance(NOW + 599999); app.context.ensureSourcesFresh(); app.events.moveend(); await settled();
+  assert.equal(app.context.forecastModels.eu, null);
+  assert.equal(app.calls.filter(call => call.url.includes('maps.dwd.de')).length, 4);
+  app.context.refreshMap(); await settled();
+  assert.equal(app.calls.filter(call => call.url.includes('maps.dwd.de')).length, 6);
+  assert.equal(app.context.pendingLayer.frame.key, 'eu');
+  app.load();
+  assert.equal(app.context.radarLayer.frame.key, 'eu');
   assert.equal(app.node('status').hidden, true);
 });
+
+test('EU tile fallback preserves provider backoff through explicit refresh', async () => {
+  const app = runtime(); await settled(); app.load(); app.context.showFrame(4);
+  app.context.forecastStates.eu.retryAt = NOW + 600000;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    app.events.error({ sourceId: app.context.pendingLayer.id, error: new Error('The source image could not be decoded.') });
+  }
+  assert.equal(app.context.pendingLayer.frame.key, 'global');
+  assert.equal(app.context.forecastStates.eu.retryAt, NOW + 600000);
+  app.load(); app.context.refreshMap(); await settled();
+  assert.equal(app.calls.filter(call => call.url.includes('Icon-eu_')).length, 1);
+  assert.equal(app.context.forecastModels.eu, null);
+  assert.equal(app.context.forecastStates.eu.retryAt, NOW + 600000);
+  app.advance(NOW + 600001); app.context.refreshMap(); await settled();
+  assert.equal(app.calls.filter(call => call.url.includes('Icon-eu_')).length, 2);
+  assert.equal(app.context.pendingLayer.frame.key, 'eu');
+  app.load();
+  assert.equal(app.context.radarLayer.frame.key, 'eu');
+});
+
+for (const action of ['late observations', 'foreign coverage', 'retained run expiry']) {
+  test('retained EU forecast handles ' + action, async () => {
+    let finishObserved;
+    const app = runtime({ fetch: (url, _options, context) => {
+      if (!url.includes('maps.dwd.de')) return new Promise(resolve => { finishObserved = resolve; });
+      const key = url.includes('Icon-eu_') ? 'eu' : 'global', payload = JSON.parse(forecastPayload(context, key));
+      if (key === 'eu') {
+        payload.Dimension[1].default = new Date(Date.parse(payload.Dimension[1].default) - 21600000).toISOString();
+        payload.Dimension[1].text = payload.Dimension[1].default;
+      }
+      return Promise.resolve(new Response(JSON.stringify(payload)));
+    } });
+    await settled(); app.context.showFrame(2); app.load();
+    const displayed = app.context.radarLayer, summary = app.node('frame-summary').textContent;
+    app.context.showFrame(4); app.context.forecastState.recoveryAt = NOW + 600000;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      app.events.error({ sourceId: app.context.pendingLayer.id, error: new Error('The source image could not be decoded.') });
+    }
+    const global = app.context.pendingLayer;
+    assert.equal(global.frame.key, 'global');
+    assert.equal(app.context.radarLayer, displayed);
+    finishObserved(new Response(JSON.stringify(manifest()))); await settled();
+    assert.equal(app.context.pendingLayer, global);
+    assert.equal(app.context.radarLayer, displayed);
+    assert.ok(app.sources.has(displayed.id));
+    assert.equal(app.node('frame-summary').textContent, summary);
+    if (action === 'late observations') {
+      app.load();
+      assert.equal(app.context.radarLayer, global);
+      assert.match(app.node('frame-summary').textContent, /^ICON · Model precipitation · mm \/ 6 h/);
+    } else {
+      if (action === 'foreign coverage') { asia(app); app.events.moveend(); }
+      else {
+        app.context.fetch = async () => new Response('', { status: 503 });
+        app.advance(Date.parse(displayed.frame.reference) + 12 * 3600000 + 1);
+        app.fire(app.context.expiryTimer); await settled();
+      }
+      assert.equal(app.context.radarLayer, null);
+      assert.equal(app.context.pendingLayer.frame.key, 'global');
+    }
+    assert.ok(!app.sources.has(displayed.id));
+    assert.ok([...app.sources.keys()].filter(id => id.startsWith('frame-')).length <= 4);
+  });
+}
+
+for (const guard of ['missing global', 'stale global', 'global backoff', 'metadata request', 'superseded EU']) {
+  test('EU tile fallback does not bypass ' + guard, async () => {
+    const app = runtime(); await settled(); app.load(); app.context.showFrame(4);
+    const displayed = app.context.radarLayer;
+    app.context.forecastState.recoveryAt = NOW + 600000;
+    if (guard === 'missing global') app.context.forecastModels.global = null;
+    if (guard === 'stale global') app.context.forecastModels.global.run = NOW / 1000 - 12 * 3600 - 1;
+    if (guard === 'global backoff') app.context.forecastStates.global.retryAt = NOW + 600000;
+    if (guard === 'metadata request') {
+      app.context.forecastState.request = new AbortController(); app.context.forecastState.keys = ['eu'];
+    }
+    if (guard === 'superseded EU') app.context.forecastModels.eu = { ...app.context.forecastModels.eu };
+    const cached = app.context.forecastModels.eu;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      app.events.error({ sourceId: app.context.pendingLayer.id, error: new Error('The source image could not be decoded.') });
+    }
+    assert.equal(app.context.forecastModels.eu, cached);
+    assert.equal(app.context.forecastStates.eu.failed, false);
+    assert.equal(app.context.pendingLayer, null);
+    assert.equal(app.context.radarLayer, displayed);
+    assert.equal(app.calls.filter(call => call.url.includes('maps.dwd.de')).length, 2);
+    assert.match(app.node('status').textContent, /unavailable/);
+    if (guard === 'global backoff') assert.equal(app.context.forecastStates.global.retryAt, NOW + 600000);
+  });
+}
+
+for (const phase of ['pending global', 'settling request', 'canceled EU']) {
+  test('finished EU metadata permits global fallback during ' + phase, async () => {
+    const app = runtime(); await settled(); app.load(); app.context.showFrame(4);
+    const displayed = app.context.radarLayer;
+    app.context.forecastState.recoveryAt = NOW + 600000;
+    app.context.forecastState.request = phase === 'canceled EU' ? null : new AbortController();
+    app.context.forecastState.keys = phase === 'pending global' ? ['global'] : phase === 'canceled EU' ? ['eu'] : [];
+    for (let attempt = 0; attempt < 2; attempt++) {
+      app.events.error({ sourceId: app.context.pendingLayer.id, error: new Error('The source image could not be decoded.') });
+    }
+    assert.equal(app.context.forecastModels.eu, null);
+    assert.equal(app.context.pendingLayer.frame.key, 'global');
+    assert.equal(app.context.radarLayer, displayed);
+    app.load();
+    assert.equal(app.context.radarLayer.frame.key, 'global');
+    assert.equal(app.node('play')['aria-pressed'], 'false');
+    assert.equal(app.calls.filter(call => call.url.includes('maps.dwd.de')).length, 2);
+  });
+}
 
 function advertisedOlderRun(url, context) {
   const key = url.includes('Icon-eu_') ? 'eu' : 'global';
@@ -220,6 +407,183 @@ function advertisedOlderRun(url, context) {
   payload.Dimension[1].text += ',' + new Date(run - 21600000).toISOString();
   return new Response(JSON.stringify(payload));
 }
+
+for (const key of ['eu', 'global']) test('cold-start decode exhaustion refreshes metadata once: ' + key, async () => {
+  const app = runtime({ fetch: (url, _options, context) => Promise.resolve(url.includes('maps.dwd.de')
+    ? advertisedOlderRun(url, context) : new Response(JSON.stringify(manifest()))) });
+  await settled();
+  if (key === 'global') { asia(app); app.events.moveend(); }
+  const first = app.context.pendingLayer.frame, run = app.context.forecastCache.run;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    app.events.error({ sourceId: app.context.pendingLayer.id, error: new Error('The source image could not be decoded.') });
+    if (attempt === 1) assert.equal(app.context.forecastCache.run, run - 21600);
+  }
+  await settled();
+  assert.equal(app.calls.filter(call => call.url.includes('maps.dwd.de')).length, 4);
+  assert.equal(app.context.forecastState.recoveryAt, NOW + 600000);
+  assert.equal(app.context.radarLayer, null);
+  assert.equal(app.context.pendingLayer.frame.time, first.time);
+  assert.equal(app.context.pendingLayer.frame.reference, first.reference);
+  assert.equal(app.context.forecastCache.run, run);
+  if (key === 'eu') { app.load(); assert.equal(app.node('status').hidden, true); }
+  app.context.showFrame(1);
+  for (let attempt = 0; attempt < 4; attempt++) {
+    app.events.error({ sourceId: app.context.pendingLayer.id, error: new Error('The source image could not be decoded.') });
+  }
+  await settled();
+  assert.equal(app.calls.filter(call => call.url.includes('maps.dwd.de')).length, 4);
+  if (key === 'eu') {
+    assert.equal(app.context.radarLayer.frame.reference, first.reference);
+    assert.equal(app.context.pendingLayer.frame.key, 'global');
+    app.load(); assert.equal(app.context.radarLayer.frame.key, 'global');
+    assert.equal(app.node('status').hidden, true);
+  } else {
+    assert.equal(app.context.pendingLayer, null);
+    assert.equal(app.context.radarLayer, null);
+    assert.match(app.node('status').textContent, /unavailable/);
+  }
+});
+
+test('cold-start recovery waits for existing metadata requests without consuming its cooldown', async () => {
+  let holdGlobal = true, finishGlobal;
+  const app = runtime({ fetch: (url, _options, context) => {
+    if (url.includes('Icon_reg025') && holdGlobal) return new Promise(resolve => { finishGlobal = resolve; });
+    return Promise.resolve(new Response(url.includes('maps.dwd.de')
+      ? forecastPayload(context, url.includes('Icon-eu_') ? 'eu' : 'global') : JSON.stringify(manifest())));
+  } });
+  await settled();
+  for (let attempt = 0; attempt < 2; attempt++) {
+    app.events.error({ sourceId: app.context.pendingLayer.id, error: new Error('The source image could not be decoded.') });
+  }
+  assert.equal(app.context.pendingLayer, null);
+  assert.equal(app.context.forecastState.recoveryAt, 0);
+  assert.equal(app.calls.filter(call => call.url.includes('maps.dwd.de')).length, 2);
+  holdGlobal = false; finishGlobal(new Response(forecastPayload(app.context, 'global'))); await settled();
+  for (let attempt = 0; attempt < 2; attempt++) {
+    app.events.error({ sourceId: app.context.pendingLayer.id, error: new Error('The source image could not be decoded.') });
+  }
+  await settled();
+  assert.equal(app.calls.filter(call => call.url.includes('maps.dwd.de')).length, 4);
+  assert.equal(app.context.forecastState.recoveryAt, NOW + 600000);
+  app.load();
+  assert.equal(app.node('status').hidden, true);
+});
+
+for (const key of ['eu', 'global']) test('decode recovery replaces a withdrawn run while retaining its displayed frame: ' + key, async () => {
+  let refreshed = false;
+  const app = runtime({ fetch: async (url, _options, context) => {
+    if (!url.includes('maps.dwd.de')) return new Response(JSON.stringify(manifest()));
+    const payload = JSON.parse(forecastPayload(context, url.includes('Icon-eu_') ? 'eu' : 'global'));
+    if (!refreshed) {
+      payload.Dimension[1].default = new Date(Date.parse(payload.Dimension[1].default) - 21600000).toISOString();
+      payload.Dimension[1].text = payload.Dimension[1].default;
+    }
+    return new Response(JSON.stringify(payload));
+  } });
+  await settled();
+  if (key === 'global') { asia(app); app.events.moveend(); }
+  app.load();
+  const displayed = app.context.radarLayer, cached = app.context.forecastCache;
+  app.context.togglePlay();
+  app.context.showFrame(4);
+  const failed = app.context.pendingLayer;
+  refreshed = true;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    app.events.error({ sourceId: app.context.pendingLayer.id, error: new Error('The source image could not be decoded.') });
+  }
+  assert.equal(app.context.radarLayer, displayed);
+  assert.ok(app.sources.has(displayed.id));
+  assert.equal(app.node('play')['aria-pressed'], 'true');
+  await settled();
+  assert.equal(app.calls.filter(call => call.url.includes('maps.dwd.de')).length, 4);
+  assert.equal(app.context.forecastCache.run, cached.run + 21600);
+  assert.equal(app.context.radarLayer, displayed);
+  const replacement = app.context.pendingLayer;
+  assert.equal(replacement.frame.time, failed.frame.time);
+  assert.notEqual(replacement.frame.reference, displayed.frame.reference);
+  app.load(failed);
+  assert.equal(app.context.radarLayer, displayed);
+  app.load();
+  assert.equal(app.context.radarLayer, replacement);
+  assert.ok(!app.sources.has(displayed.id));
+  assert.equal(app.node('play')['aria-pressed'], 'true');
+  app.context.togglePlay();
+  app.context.showFrame(5);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    app.events.error({ sourceId: app.context.pendingLayer.id, error: new Error('The source image could not be decoded.') });
+  }
+  await settled();
+  assert.equal(app.calls.filter(call => call.url.includes('maps.dwd.de')).length, 4);
+  assert.equal(app.context.radarLayer, replacement);
+  if (key === 'eu') {
+    assert.equal(app.context.pendingLayer.frame.key, 'global');
+    app.load(); assert.equal(app.context.radarLayer.frame.key, 'global');
+    assert.equal(app.node('status').hidden, true);
+  } else {
+    assert.equal(app.context.pendingLayer, null);
+    assert.match(app.node('status').textContent, /unavailable/);
+  }
+});
+
+for (const pause of [false, true]) test('playback waits for recovery metadata and preserves a user pause: ' + pause, async () => {
+  let recovering = false;
+  const finishes = new Map();
+  const app = runtime({ fetch: (url, _options, context) => {
+    if (!url.includes('maps.dwd.de')) return Promise.resolve(new Response(JSON.stringify(manifest())));
+    const key = url.includes('Icon-eu_') ? 'eu' : 'global';
+    if (recovering) return new Promise(resolve => finishes.set(key, resolve));
+    const payload = JSON.parse(forecastPayload(context, key));
+    payload.Dimension[1].default = new Date(Date.parse(payload.Dimension[1].default) - 21600000).toISOString();
+    payload.Dimension[1].text = payload.Dimension[1].default;
+    return Promise.resolve(new Response(JSON.stringify(payload)));
+  } });
+  await settled(); app.load();
+  const displayed = app.context.radarLayer;
+  app.context.togglePlay();
+  const tick = [...app.intervals.values()][0];
+  app.context.showFrame(4);
+  const requestedTime = app.context.pendingLayer.frame.time;
+  recovering = true;
+  app.events.error({ sourceId: app.context.pendingLayer.id, error: new Error('The source image could not be decoded.') });
+  const sequence = app.context.sourceSequence;
+  app.events.error({ sourceId: app.context.pendingLayer.id, error: new Error('The source image could not be decoded.') });
+  assert.ok(!app.context.pendingLayer, 'Recovery must wait for metadata before requesting another raster');
+  assert.equal(app.node('play')['aria-pressed'], 'true');
+  tick();
+  assert.equal(app.context.sourceSequence, sequence);
+  finishes.get('global')(new Response(forecastPayload(app.context, 'global'))); await settled();
+  assert.ok(!app.context.pendingLayer, 'Unrelated metadata must not restart the withdrawn run');
+  tick();
+  assert.equal(app.context.sourceSequence, sequence);
+  assert.equal(app.context.radarLayer, displayed);
+  if (pause) app.context.togglePlay();
+  const rebuild = app.context.rebuildTimeline;
+  let checkedFinalResponse = false;
+  app.context.rebuildTimeline = function(retryTiles) {
+    rebuild(retryTiles);
+    if (!pause && app.context.forecastState.request && !app.context.forecastState.keys.length && app.context.pendingLayer) {
+      app.load();
+      const loadedSequence = app.context.sourceSequence;
+      tick();
+      assert.equal(app.context.sourceSequence, loadedSequence);
+      checkedFinalResponse = true;
+    }
+  };
+  finishes.get('eu')(new Response(forecastPayload(app.context))); await settled();
+  if (pause) app.load();
+  else assert.equal(checkedFinalResponse, true);
+  assert.equal(app.context.radarLayer.frame.time, pause ? displayed.frame.time : requestedTime);
+  assert.notEqual(app.context.radarLayer.frame.reference, displayed.frame.reference);
+  assert.equal(app.node('play')['aria-pressed'], String(!pause));
+  assert.equal(app.intervals.size, pause ? 0 : 1);
+  assert.equal(app.calls.filter(call => call.url.includes('maps.dwd.de')).length, 4);
+  if (!pause) {
+    tick();
+    assert.ok(app.context.pendingLayer.frame.time > requestedTime);
+    app.load();
+    assert.equal(app.node('play')['aria-pressed'], 'true');
+  }
+});
 
 for (const key of ['eu', 'global']) test('incomplete forecast run recovers once at the same future epoch: ' + key, async () => {
   const app = runtime({ fetch: (url, _options, context) => Promise.resolve(url.includes('maps.dwd.de')
@@ -256,9 +620,19 @@ for (const key of ['eu', 'global']) test('incomplete forecast run recovers once 
   app.context.showFrame(1);
   decodeError(app.context.pendingLayer);
   decodeError(app.context.pendingLayer);
-  assert.equal(app.context.pendingLayer, null);
+  await settled();
   assert.equal(app.context.radarLayer, fallback);
-  assert.match(app.node('status').textContent, /unavailable/);
+  for (let attempt = 0; attempt < 4; attempt++) decodeError(app.context.pendingLayer);
+  assert.equal(app.calls.filter(call => call.url.includes('maps.dwd.de')).length, 4);
+  assert.equal(app.context.radarLayer, fallback);
+  if (key === 'eu') {
+    assert.equal(app.context.pendingLayer.frame.key, 'global');
+    app.load(); assert.equal(app.context.radarLayer.frame.key, 'global');
+    assert.equal(app.node('status').hidden, true);
+  } else {
+    assert.equal(app.context.pendingLayer, null);
+    assert.match(app.node('status').textContent, /unavailable/);
+  }
   if (key === 'global') {
     app.advance((cached.run - 21600 + 12 * 3600) * 1000 + 1);
     app.context.fetch = async () => new Response('', { status: 503 });
@@ -279,9 +653,11 @@ test('expired or superseded forecast metadata cannot trigger an older-run downgr
     else app.context.forecastModels.eu = { ...cached };
     app.events.error({ sourceId: app.context.pendingLayer.id, error: new Error('The source image could not be decoded.') });
     app.events.error({ sourceId: app.context.pendingLayer.id, error: new Error('The source image could not be decoded.') });
-    assert.equal(app.context.pendingLayer, null);
-    assert.equal(app.context.forecastModels.eu.run, cached.run);
-    assert.match(app.node('status').textContent, /unavailable/);
+    await settled();
+    assert.ok(app.context.forecastModels.eu.run >= cached.run);
+    assert.equal(app.context.pendingLayer.frame.reference, new Date(app.context.forecastModels.eu.run * 1000).toISOString());
+    app.load();
+    assert.equal(app.node('status').hidden, true);
   }
 });
 
@@ -397,6 +773,8 @@ for (const action of ['commit', 'frame expiry', 'run expiry', 'foreign coverage'
   assert.equal(Number(app.node('slider').value), displayed.frame.time);
   if (action === 'commit') {
     app.load(); assert.equal(app.context.radarLayer, replacement); assert.equal(app.context.retiredLayer, null);
+    assert.equal(app.layers.get(replacement.id).paint['raster-opacity-transition'].duration, 0);
+    assert.equal(app.layers.get(replacement.id).paint['raster-opacity'], 0.78);
   } else if (action === 'foreign coverage') {
     asia(app); app.events.moveend(); assert.equal(app.context.radarLayer, null); assert.equal(app.context.pendingLayer.frame.key, 'global');
   } else if (action === 'mode change') {
@@ -425,6 +803,25 @@ test('play wraps loaded frames, crossfades retained rasters and pause cancels fu
   app.fire(app.context.transitionTimer); assert.ok(!app.sources.has(old.id));
   app.context.togglePlay(); assert.equal(app.intervals.size, 0);
   assert.equal(app.node('play')['aria-pressed'], 'false'); assert.equal(app.context.radarLayer, next);
+});
+
+test('seeking during a crossfade restores displayed opacity before retiring its predecessor', async () => {
+  const app = runtime(); await settled(); app.load();
+  const first = app.context.radarLayer;
+  assert.equal(app.layers.get(first.id).paint['raster-opacity-transition'].duration, 0);
+  app.context.showFrame(1); app.load();
+  const displayed = app.context.radarLayer, transition = app.context.transitionTimer;
+  assert.equal(app.context.retiredLayer, first);
+  app.context.showFrame(2);
+  assert.equal(app.context.radarLayer, displayed);
+  assert.equal(app.layers.get(displayed.id).paint['raster-opacity-transition'].duration, 0);
+  assert.equal(app.layers.get(displayed.id).paint['raster-opacity'], 0.78);
+  assert.equal(app.timeouts.has(transition), false);
+  assert.equal(app.context.retiredLayer, null);
+  assert.ok(!app.sources.has(first.id));
+  app.load();
+  assert.equal(app.context.retiredLayer, displayed);
+  assert.equal(app.layers.get(displayed.id).paint['raster-opacity-transition'].duration, 350);
 });
 test('pause during tile loading keeps the visible frame and rejects the late replacement', async () => {
   const app = runtime(); await settled(); app.load();
@@ -496,6 +893,39 @@ test('failed due refresh retains healthy forecast and enforces automatic retry d
   app.context.fetch = async () => { calls++; return new Response('', { status: 503 }); }; app.context.ensureSourcesFresh(); await settled(); assert.equal(calls, 3); assert.equal(app.context.radarLayer, displayed);
   assert.match(app.node('status').textContent, /previous forecast/); assert.doesNotMatch(app.node('status').textContent, /previous snapshot/); app.context.ensureSourcesFresh(); app.events.moveend(); assert.equal(calls, 3);
 });
+for (const key of ['eu', 'global']) test('explicit refresh replaces a rejected run before metadata expires: ' + key, async () => {
+  let refreshed = false;
+  const app = runtime({ fetch: async (url, _options, context) => {
+    if (!url.includes('maps.dwd.de')) return new Response(JSON.stringify(manifest()));
+    const payload = JSON.parse(forecastPayload(context, url.includes('Icon-eu_') ? 'eu' : 'global'));
+    if (!refreshed) {
+      payload.Dimension[1].default = new Date(Date.parse(payload.Dimension[1].default) - 21600000).toISOString();
+      payload.Dimension[1].text = payload.Dimension[1].default;
+    }
+    return new Response(JSON.stringify(payload));
+  } });
+  await settled();
+  if (key === 'global') { asia(app); app.events.moveend(); }
+  app.load();
+  const displayed = app.context.radarLayer, cached = app.context.forecastCache;
+  app.context.showFrame(4);
+  app.fail();
+  assert.equal(app.context.pendingLayer, null);
+  assert.equal(app.context.refreshDue(cached), false);
+  refreshed = true;
+  app.context.refreshMap(); await settled();
+  assert.equal(app.calls.filter(call => call.url.includes('maps.dwd.de')).length, 4);
+  assert.equal(app.context.forecastCache.run, cached.run + 21600);
+  assert.equal(app.context.radarLayer, displayed);
+  assert.ok(app.sources.has(displayed.id));
+  const replacement = app.context.pendingLayer;
+  assert.equal(replacement.frame.time, displayed.frame.time);
+  assert.notEqual(replacement.frame.reference, displayed.frame.reference);
+  app.load();
+  assert.equal(app.context.radarLayer, replacement);
+  assert.ok(!app.sources.has(displayed.id));
+  assert.equal(app.node('status').hidden, true);
+});
 test('expired inactive observations do not stop usable forecast playback', async () => {
   const app = runtime(); await settled(); app.load(); app.context.showFrame(8); app.load();
   const displayed = app.context.radarLayer;
@@ -515,6 +945,22 @@ test('expired inactive observations do not stop usable forecast playback', async
 test('429 cooldown survives explicit refresh and online while healthy observation remains selectable', async () => {
   const app = runtime({ fetch: (url, _options, context) => Promise.resolve(url.includes('maps.dwd.de') ? new Response('', { status: 429 }) : new Response(JSON.stringify(manifest()))) });
   await settled(); app.context.refreshMap(); app.events.online(); app.events.moveend(); await settled(); assert.equal(app.calls.filter(call => call.url.includes('maps.dwd.de')).length, 2); app.context.setMode('observed'); app.load(); assert.equal(app.node('status').hidden, true);
+});
+test('decode recovery preserves the displayed frame without bypassing metadata 429 cooldown', async () => {
+  let limited = false;
+  const app = runtime({ fetch: (url, _options, context) => Promise.resolve(url.includes('maps.dwd.de')
+    ? limited ? new Response('', { status: 429 }) : new Response(forecastPayload(context, url.includes('Icon-eu_') ? 'eu' : 'global'))
+    : new Response(JSON.stringify(manifest()))) });
+  await settled(); app.load(); const displayed = app.context.radarLayer;
+  limited = true; app.context.refreshMap(); await settled();
+  for (let attempt = 0; attempt < 2; attempt++) {
+    app.events.error({ sourceId: app.context.pendingLayer.id, error: new Error('The source image could not be decoded.') });
+  }
+  await settled();
+  assert.equal(app.calls.filter(call => call.url.includes('maps.dwd.de')).length, 4);
+  assert.equal(app.context.forecastState.recoveryAt, 0);
+  assert.equal(app.context.pendingLayer, null);
+  assert.equal(app.context.radarLayer, displayed);
 });
 test('superseded observations and request timeouts cannot install late frames', async () => {
   const app = runtime(); await settled(); app.load(); const finishes = [], signals = []; app.context.fetch = (_url, options) => { signals.push(options.signal); return new Promise(resolve => finishes.push(value => resolve(new Response(JSON.stringify(value))))); };

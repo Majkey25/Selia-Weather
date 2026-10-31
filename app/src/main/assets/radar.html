@@ -162,7 +162,7 @@
     var modeTimes = { forecast: null, observed: null }, map = null, styleReady = false, mapUnavailable = false, sourceSequence = 0;
     var observedCache = null, forecastCache = null, forecastModels = { eu: null, global: null };
     var observedState = { request: null, token: 0, timeout: null, retryAt: 0, failed: false, attemptedAt: 0, message: '' };
-    var forecastState = { request: null, token: 0, timeout: null, keys: [], message: '' };
+    var forecastState = { request: null, token: 0, timeout: null, keys: [], message: '', recoveryAt: 0 };
     var forecastStates = { eu: { retryAt: 0, failed: false, attemptedAt: 0 }, global: { retryAt: 0, failed: false, attemptedAt: 0 } };
     var radarLayer = null, pendingLayer = null, preloadLayer = null, retiredLayer = null;
     var coverageLayer = null, coverageVisible = true, tileHost = '';
@@ -334,7 +334,19 @@
       if (map.getLayer(id)) map.removeLayer(id);
       if (map.getSource(id)) map.removeSource(id);
     }
-    function setOpacity(layer, value) { if (layer && map.getLayer(layer.id)) map.setPaintProperty(layer.id, 'raster-opacity', value); }
+    function setOpacity(layer, value, instant) {
+      if (!layer || !map.getLayer(layer.id)) return;
+      map.setPaintProperty(layer.id, 'raster-opacity-transition', { duration: instant ? 0 : transitionDuration });
+      // A changed target also cancels MapLibre's active transition to this same opacity.
+      if (instant) map.setPaintProperty(layer.id, 'raster-opacity', 0);
+      map.setPaintProperty(layer.id, 'raster-opacity', value);
+    }
+    function finishTransition() {
+      clearTimeout(transitionTimer); transitionTimer = null;
+      if (!retiredLayer) return;
+      setOpacity(radarLayer, 0.78, true);
+      removeSource(retiredLayer); retiredLayer = null;
+    }
     function clearRadarLayer() {
       clearPending();
       clearTimeout(panTimeout); panTimeout = null;
@@ -437,6 +449,14 @@
             rebuildTimeline(true); scheduleExpiry(); return;
           }
         }
+        if (index >= 0 && recoverForecast(true)) return;
+        if (index >= 0 && layer.frame.key === 'eu' && cached === forecastModels.eu &&
+            !(forecastState.request && forecastState.keys.includes('eu')) && forecastIsUsable(forecastModels.global) &&
+            requestAllowed(forecastStates.global, true)) {
+          forecastModels.eu = null;
+          forecastStates.eu.failed = true; forecastStates.eu.attemptedAt = Date.now();
+          rebuildTimeline(true); scheduleExpiry(); return;
+        }
       }
       if (radarLayer === layer || pendingLayer === layer) {
         stopPlay(); setStatus(unavailableText(layer.frame));
@@ -462,9 +482,18 @@
     function requestAllowed(state, explicit) {
       return Date.now() >= state.retryAt && (explicit || !state.failed || Date.now() - state.attemptedAt >= REFRESH_INTERVAL_MS);
     }
-    function selectedForecastKey() {
+    function recoverForecast(allowDisplayed) {
+      if (mode !== 'forecast' || !pageActive() || (radarLayer && !allowDisplayed) || forecastState.request ||
+          Date.now() < forecastState.recoveryAt || !requestAllowed(forecastStates[selectedForecastKey()], true)) return false;
+      forecastState.recoveryAt = Date.now() + REFRESH_INTERVAL_MS;
+      clearPending(); loadForecast(true, true);
+      return true;
+    }
+    function selectedForecastKey(europe) {
       if (!map) return 'global';
-      var bounds = map.getBounds(), europe = forecastIsUsable(forecastModels.eu) ? forecastModels.eu : null;
+      var bounds = map.getBounds();
+      if (europe === undefined) europe = forecastModels.eu;
+      if (!forecastIsUsable(europe)) europe = null;
       return RadarForecast.sourceFor({ west: bounds.getWest(), east: bounds.getEast(),
         south: bounds.getSouth(), north: bounds.getNorth() }, europe && europe.bounds);
     }
@@ -497,7 +526,9 @@
       if (!enabled) { stopPlay(); clearRadarLayer(); setStatus(''); return; }
       if (selectedTime === null) selectedTime = mode === 'forecast' ? frames[0].time : frames[frames.length - 1].time;
       var index = nearestFrame(selectedTime, selectedTime > Date.now() / 1000 && forecastCache ? 'forecast' : null), frame = frames[index];
-      var retainForecast = mode === 'forecast' && forecastLayerIsUsable(radarLayer) && radarLayer.frame.key === frame.key;
+      var retainForecast = mode === 'forecast' && forecastLayerIsUsable(radarLayer) &&
+        (radarLayer.frame.key === frame.key || (radarLayer.frame.key === 'eu' && frame.key === 'global' &&
+          !forecastModels.eu && forecastStates.eu.failed && selectedForecastKey(radarLayer.forecastMetadata) === 'eu'));
       if (radarLayer && !retainForecast && !frames.some(function(item) { return sameFrame(item, radarLayer.frame); })) clearRadarLayer();
       if (pendingLayer && !sameFrame(pendingLayer.frame, frame)) clearPending();
       frameIndex = index;
@@ -542,7 +573,9 @@
           forecastModels[key] = null; changed = true;
         }
       });
-      if (radarLayer && radarLayer.forecastMetadata && radarLayer.forecastMetadata !== forecastCache && !forecastLayerIsUsable(radarLayer)) {
+      if (radarLayer && radarLayer.forecastMetadata && radarLayer.forecastMetadata !== forecastCache &&
+          (!forecastLayerIsUsable(radarLayer) ||
+            (radarLayer.frame.key === 'eu' && selectedForecastKey(radarLayer.forecastMetadata) !== 'eu'))) {
         clearRadarLayer(); changed = activeChanged = true;
       }
       if (changed) { if (activeChanged) stopPlay(); rebuildTimeline(); }
@@ -559,12 +592,11 @@
       if (pendingLayer !== layer || !frames.some(function(frame) { return sameFrame(frame, layer.frame); })) return;
       clearTimeout(tileTimeout); tileTimeout = null;
       clearTimeout(panTimeout); panTimeout = null;
-      clearTimeout(transitionTimer);
-      removeSource(retiredLayer);
+      finishTransition();
       var old = radarLayer;
-      retiredLayer = null; radarLayer = layer; pendingLayer = null;
+      radarLayer = layer; pendingLayer = null;
       frameIndex = frames.findIndex(function(frame) { return sameFrame(frame, layer.frame); });
-      layer.frameIndex = frameIndex; setOpacity(layer, 0.78);
+      layer.frameIndex = frameIndex; setOpacity(layer, 0.78, !old || !sameSource(old.frame, layer.frame));
       if (old) {
         if (sameSource(old.frame, layer.frame)) {
           retiredLayer = old; setOpacity(old, 0);
@@ -668,9 +700,7 @@
       if (!retryTiles && radarLayer && radarLayer.ready && !radarLayer.failed && sameFrame(radarLayer.frame, frame)) {
         frameIndex = index; updateSlider(frame); setStatus(''); return;
       }
-      clearTimeout(transitionTimer); transitionTimer = null;
-      removeSource(retiredLayer);
-      retiredLayer = null;
+      finishTransition();
       if (preloadLayer && (retryTiles || preloadLayer.failed || !sameFrame(preloadLayer.frame, frame))) {
         removeSource(preloadLayer); preloadLayer = null;
       }
@@ -737,7 +767,10 @@
       if (!frames.length || !pageActive()) return;
       document.getElementById('play').setAttribute('aria-pressed', 'true');
       timer = setInterval(function() {
-        if (ensureSourcesFresh() && !pendingLayer) showFrame((frameIndex + 1) % frames.length);
+        if (ensureSourcesFresh() && !pendingLayer &&
+            !(mode === 'forecast' && forecastState.request && Date.now() < forecastState.recoveryAt)) {
+          showFrame((frameIndex + 1) % frames.length);
+        }
       }, 1000);
     }
     function cancelRequest(state) {
@@ -781,17 +814,17 @@
           if (token === state.token) { clearTimeout(state.timeout); state.timeout = null; state.request = null; renderStatus(); scheduleExpiry(); }
         });
     }
-    function loadForecast(retryTiles) {
+    function loadForecast(retryTiles, recovering) {
       if (!pageActive()) return;
       var cached = selectedForecast();
       var wanted = selectedForecastKey(), failure = forecastStates[wanted];
       var keys = ['eu', 'global'].filter(function(key) {
-        return refreshDue(forecastModels[key]) && requestAllowed(forecastStates[key], retryTiles);
+        return (retryTiles || refreshDue(forecastModels[key])) && requestAllowed(forecastStates[key], retryTiles);
       });
       forecastState.message = failure.failed ? Date.now() < failure.retryAt ? FORECAST_TEXT[8] :
         cached ? UPDATE_TEXT[1] : FORECAST_TEXT[3] : '';
       if (forecastState.request && forecastState.keys.includes(wanted)) forecastState.message = FORECAST_TEXT[2];
-      if (cached !== forecastCache || retryTiles) rebuildTimeline(retryTiles);
+      if (cached !== forecastCache || (retryTiles && !recovering)) rebuildTimeline(retryTiles);
       if (forecastState.request || !keys.length) { renderStatus(); scheduleExpiry(); return; }
       var state = forecastState, token = ++state.token, controller = new AbortController();
       state.request = controller; state.keys = keys;
@@ -816,10 +849,15 @@
           var wanted = selectedForecastKey(), selectedState = forecastStates[wanted];
           state.message = state.keys.includes(wanted) ? FORECAST_TEXT[2] : selectedState.failed ?
             Date.now() < selectedState.retryAt ? FORECAST_TEXT[8] : selectedForecast() ? UPDATE_TEXT[1] : FORECAST_TEXT[3] : '';
-          rebuildTimeline(retryTiles && key === wanted); scheduleExpiry();
+          if (!recovering || !state.keys.includes(wanted)) rebuildTimeline(retryTiles && key === wanted);
+          scheduleExpiry();
         });
       })).finally(function() {
-        if (token === state.token) { clearTimeout(state.timeout); state.timeout = null; state.request = null; state.keys = []; renderStatus(); scheduleExpiry(); }
+        if (token === state.token) {
+          clearTimeout(state.timeout); state.timeout = null; state.request = null; state.keys = [];
+          if (!selectedForecast() && !state.recoveryAt) recoverForecast();
+          renderStatus(); scheduleExpiry();
+        }
       });
     }
     function refreshMap() {

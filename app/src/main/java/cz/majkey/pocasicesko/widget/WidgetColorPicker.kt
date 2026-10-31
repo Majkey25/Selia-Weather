@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -21,6 +22,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -33,6 +35,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import cz.majkey.pocasicesko.R
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -73,9 +76,14 @@ private fun ColorSwatch(value: String) {
 @Composable
 private fun WidgetColorDialog(value: String, label: String, opaqueOnly: Boolean, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
     var draft by rememberSaveable { mutableStateOf(widgetHexOrNull(value) ?: "#FFFFFFFF") }
-    val argb = widgetArgbOrNull(draft) ?: widgetArgbOrNull(value) ?: -1
+    var lastColor by rememberSaveable { mutableStateOf(draft) }
+    LaunchedEffect(draft) { if (isWidgetColor(draft)) lastColor = draft }
+    val preview = widgetHexOrNull(draft) ?: lastColor
+    val argb = requireNotNull(widgetArgbOrNull(preview))
     AlertDialog(
         onDismissRequest = onDismiss,
+        modifier = Modifier.safeDrawingPadding(),
+        properties = DialogProperties(decorFitsSystemWindows = false),
         title = { Text(label) },
         text = {
             Column(Modifier.heightIn(max = LocalConfiguration.current.screenHeightDp.dp * 0.6f)
@@ -84,7 +92,7 @@ private fun WidgetColorDialog(value: String, label: String, opaqueOnly: Boolean,
                     value = draft,
                     onValueChange = { draft = widgetColorInput(it) },
                     label = { Text("HEX") },
-                    leadingIcon = { ColorSwatch(draft) },
+                    leadingIcon = { ColorSwatch(preview) },
                     supportingText = { Text(if (opaqueOnly) "#RRGGBB · 100%" else stringResource(R.string.widget_hex_format)) },
                     isError = !isWidgetColor(draft) || opaqueOnly && widgetArgbOrNull(draft)?.ushr(24) != 255, singleLine = true,
                     modifier = Modifier.fillMaxWidth(),

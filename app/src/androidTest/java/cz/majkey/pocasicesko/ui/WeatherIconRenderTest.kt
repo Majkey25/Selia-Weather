@@ -17,9 +17,11 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
 import cz.majkey.pocasicesko.data.conditionFor
+import cz.majkey.pocasicesko.data.WeatherKind
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -37,7 +39,7 @@ class WeatherIconRenderTest {
                             for (code in listOf(51, 61)) {
                                 val condition = conditionFor(code)
                                 WeatherIcon(condition.kind, true, "small-$size-$code", Modifier.size(size.dp),
-                                    tint = Color(0xFF65B8DF), conditionKey = condition.key, weatherCode = code)
+                                    conditionKey = condition.key, weatherCode = code)
                             }
                         }
                     }
@@ -64,21 +66,30 @@ class WeatherIconRenderTest {
     fun precipitationShapesStayDistinctAtHourlySizeAndCloudHidesTheSun() {
         val dark = mutableStateOf(true)
         val codes = listOf(51, 61, 63, 65, 68, 71, 73, 75)
+        lateinit var appearance: RenderedAppearance
         compose.setContent {
             WeatherTheme(config = AppearanceConfig(mode = if (dark.value) AppearanceMode.DARK else AppearanceMode.LIGHT)) {
+                appearance = LocalWeatherAppearance.current
                 Column(Modifier.background(if (dark.value) Color(0xFF102332) else Color.White)) {
                     Row {
                         listOf(1, 2).forEach { code ->
                             val condition = conditionFor(code)
                             WeatherIcon(condition.kind, true, "sky-$code", Modifier.size(96.dp),
-                                tint = Color(0xFF9ED9EA), conditionKey = condition.key, weatherCode = code)
+                                conditionKey = condition.key, weatherCode = code)
                         }
                     }
                     Row {
                         codes.forEach { code ->
                             val condition = conditionFor(code)
                             WeatherIcon(condition.kind, true, "wet-$code", Modifier.size(26.dp),
-                                tint = Color(0xFF65B8DF), conditionKey = condition.key, weatherCode = code)
+                                conditionKey = condition.key, weatherCode = code)
+                        }
+                    }
+                    for (isDay in listOf(true, false)) {
+                        Row {
+                            WeatherKind.entries.forEach { kind ->
+                                WeatherIcon(kind, isDay, "symbol-$kind-$isDay", Modifier.size(24.dp))
+                            }
                         }
                     }
                 }
@@ -92,9 +103,19 @@ class WeatherIconRenderTest {
             compose.runOnIdle { dark.value = night }
             for (code in listOf(1, 2)) {
                 val image = compose.onNodeWithContentDescription("sky-$code").captureToImage().asAndroidBitmap()
-                val expected = if (!night) Color(0xFF477B9C) else if (code == 1) Color(0xFF9FB7FF) else Color(0xFF9ED9EA)
+                val expected = weatherIconTint(WeatherKind.CLOUDY, true, appearance)
                 assertEquals("Sun shows through cloud interior", expected.toArgb(),
                     image.getPixel((image.width * 0.75f).toInt(), (image.height * 0.75f).toInt()))
+            }
+            for (isDay in listOf(true, false)) for (kind in WeatherKind.entries) {
+                val image = compose.onNodeWithContentDescription("symbol-$kind-$isDay").captureToImage().asAndroidBitmap()
+                val expected = weatherIconTint(kind, isDay, appearance).toArgb()
+                assertTrue("$kind day=$isDay dark=$night uses its semantic color",
+                    (0 until image.width).any { x -> (0 until image.height).any { y -> image.getPixel(x, y) == expected } })
+            }
+            val context = InstrumentationRegistry.getInstrumentation().targetContext
+            File(context.getExternalFilesDir(null), "weather-icons-${if (night) "dark" else "light"}.png").outputStream().use {
+                compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it)
             }
         }
         val context = InstrumentationRegistry.getInstrumentation().targetContext

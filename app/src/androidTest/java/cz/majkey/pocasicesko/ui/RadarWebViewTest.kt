@@ -105,6 +105,8 @@ class RadarWebViewTest {
                         "horizon:typeof frames==='undefined'||!frames.length?0:(frames[frames.length-1].time-Date.now()/1000)/3600," +
                         "model:typeof forecastCache==='undefined'||!forecastCache?'':forecastCache.key," +
                         "displayedModel:typeof radarLayer==='undefined'||!radarLayer?'':radarLayer.frame.key," +
+                        "forecastRequest:{active:!!forecastState.request,keys:forecastState.keys,recoveryAt:forecastState.recoveryAt," +
+                            "euRetryAt:forecastStates.eu.retryAt,globalRetryAt:forecastStates.global.retryAt}," +
                         "coverage:(function(){if(!map)return null;var bounds=map.getBounds(),eu=forecastModels.eu;return {" +
                             "west:bounds.getWest(),east:bounds.getEast(),south:bounds.getSouth(),north:bounds.getNorth()," +
                             "europe:forecastIsUsable(eu)?{run:eu.run,loadedAt:eu.loadedAt,bounds:eu.bounds}:null};})()," +
@@ -754,9 +756,13 @@ class RadarWebViewTest {
             0.78, state.get().getJSONObject("probe").getDouble("firstOpacity"), 0.000001)
         if (mode == "forecast") assertTrue("Forecast must retain a real future timeline: ${state.get()}", state.get().getDouble("horizon") >= 12)
         compose.runOnIdle { view.evaluateJavascript("document.getElementById('play').click()", null) }
-        compose.waitUntil(30_000) {
-            readState(); state.get().optBoolean("playing") &&
-                state.get().getJSONObject("probe").getJSONArray("times").length() == 2
+        try {
+            compose.waitUntil(30_000) {
+                readState(); state.get().optBoolean("playing") &&
+                    state.get().getJSONObject("probe").getJSONArray("times").length() == 2
+            }
+        } catch (failure: ComposeTimeoutException) {
+            throw AssertionError("$mode playback did not render two distinct frames: ${state.get()}", failure)
         }
         assertTrue("$mode playback must retain at most four sources: ${state.get()}",
             state.get().getJSONObject("probe").getInt("peakSources") <= 4)

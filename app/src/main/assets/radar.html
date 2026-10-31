@@ -451,7 +451,7 @@
         }
         if (index >= 0 && recoverForecast(true)) return;
         if (index >= 0 && layer.frame.key === 'eu' && cached === forecastModels.eu &&
-            !forecastState.request && forecastIsUsable(forecastModels.global) &&
+            !(forecastState.request && forecastState.keys.includes('eu')) && forecastIsUsable(forecastModels.global) &&
             requestAllowed(forecastStates.global, true)) {
           forecastModels.eu = null;
           forecastStates.eu.failed = true; forecastStates.eu.attemptedAt = Date.now();

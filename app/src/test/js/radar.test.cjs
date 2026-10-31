@@ -362,7 +362,9 @@ for (const guard of ['missing global', 'stale global', 'global backoff', 'metada
     if (guard === 'missing global') app.context.forecastModels.global = null;
     if (guard === 'stale global') app.context.forecastModels.global.run = NOW / 1000 - 12 * 3600 - 1;
     if (guard === 'global backoff') app.context.forecastStates.global.retryAt = NOW + 600000;
-    if (guard === 'metadata request') app.context.forecastState.request = new AbortController();
+    if (guard === 'metadata request') {
+      app.context.forecastState.request = new AbortController(); app.context.forecastState.keys = ['eu'];
+    }
     if (guard === 'superseded EU') app.context.forecastModels.eu = { ...app.context.forecastModels.eu };
     const cached = app.context.forecastModels.eu;
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -375,6 +377,26 @@ for (const guard of ['missing global', 'stale global', 'global backoff', 'metada
     assert.equal(app.calls.filter(call => call.url.includes('maps.dwd.de')).length, 2);
     assert.match(app.node('status').textContent, /unavailable/);
     if (guard === 'global backoff') assert.equal(app.context.forecastStates.global.retryAt, NOW + 600000);
+  });
+}
+
+for (const phase of ['pending global', 'settling request', 'canceled EU']) {
+  test('finished EU metadata permits global fallback during ' + phase, async () => {
+    const app = runtime(); await settled(); app.load(); app.context.showFrame(4);
+    const displayed = app.context.radarLayer;
+    app.context.forecastState.recoveryAt = NOW + 600000;
+    app.context.forecastState.request = phase === 'canceled EU' ? null : new AbortController();
+    app.context.forecastState.keys = phase === 'pending global' ? ['global'] : phase === 'canceled EU' ? ['eu'] : [];
+    for (let attempt = 0; attempt < 2; attempt++) {
+      app.events.error({ sourceId: app.context.pendingLayer.id, error: new Error('The source image could not be decoded.') });
+    }
+    assert.equal(app.context.forecastModels.eu, null);
+    assert.equal(app.context.pendingLayer.frame.key, 'global');
+    assert.equal(app.context.radarLayer, displayed);
+    app.load();
+    assert.equal(app.context.radarLayer.frame.key, 'global');
+    assert.equal(app.node('play')['aria-pressed'], 'false');
+    assert.equal(app.calls.filter(call => call.url.includes('maps.dwd.de')).length, 2);
   });
 }
 

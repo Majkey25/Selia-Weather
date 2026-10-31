@@ -4,6 +4,7 @@
 
 - Upgrade to Android Gradle Plugin 9 and built-in Kotlin while retaining release code and resource shrinking.
 - Verify the Gradle distribution checksum and use the recommended WindowCompat edge-to-edge API in the app and widget editor.
+- Remove the unused graphics-path dependency from release builds instead of packaging its stripped native libraries.
 - Update the research test dependency to fix the reported insecure temporary-directory handling in pytest.
 
 ## [0.7.23] - 2026-10-31

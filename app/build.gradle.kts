@@ -111,6 +111,11 @@ kotlin {
     jvmToolchain(17)
 }
 
+// R8 removes all path-iterator callers; keep the native bridge available in debug builds.
+configurations.matching { it.name == "releaseRuntimeClasspath" }.configureEach {
+    exclude(group = "androidx.graphics", module = "graphics-path")
+}
+
 dependencies {
     implementation("androidx.core:core-ktx:1.17.0")
     implementation("androidx.activity:activity-compose:1.13.0")

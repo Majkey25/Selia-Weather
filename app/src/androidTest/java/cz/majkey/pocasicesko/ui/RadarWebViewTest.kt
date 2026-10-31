@@ -27,7 +27,6 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
-import java.time.Instant
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
@@ -60,13 +59,12 @@ class RadarWebViewTest {
             val received = CountDownLatch(1)
             compose.runOnIdle {
                 view.evaluateJavascript(
+                    "if(window.radarDecodeProbe&&radarDecodeProbe.active) recordDecodeMetadata();" +
                     "JSON.stringify({origin:location.origin," +
                         "time:document.getElementById('time')?.textContent," +
                         "ready:typeof radarLayer!=='undefined'&&!!radarLayer&&radarLayer.ready&&!radarLayer.failed&&radarLayer.contentSeen&&map.isSourceLoaded(radarLayer.id)," +
                         "sourceId:typeof radarLayer==='undefined'||!radarLayer?'':radarLayer.id," +
-                        "retried:typeof radarLayer!=='undefined'&&!!radarLayer&&radarLayer.retried===true," +
                         "reference:typeof radarLayer==='undefined'||!radarLayer?'':radarLayer.frame.reference," +
-                        "parsedReference:typeof forecastCache==='undefined'||!forecastCache?'':forecastCache.frames[0].reference," +
                         "playing:timer!==null&&document.getElementById('play').getAttribute('aria-pressed')==='true'," +
                         "playLabel:document.getElementById('play').getAttribute('aria-label')," +
                         "transitionDuration:transitionDuration," +
@@ -106,6 +104,10 @@ class RadarWebViewTest {
                         "modeButtons:!!document.getElementById('observed')&&!!document.getElementById('forecast')," +
                         "horizon:typeof frames==='undefined'||!frames.length?0:(frames[frames.length-1].time-Date.now()/1000)/3600," +
                         "model:typeof forecastCache==='undefined'||!forecastCache?'':forecastCache.key," +
+                        "displayedModel:typeof radarLayer==='undefined'||!radarLayer?'':radarLayer.frame.key," +
+                        "coverage:(function(){if(!map)return null;var bounds=map.getBounds(),eu=forecastModels.eu;return {" +
+                            "west:bounds.getWest(),east:bounds.getEast(),south:bounds.getSouth(),north:bounds.getNorth()," +
+                            "europe:forecastIsUsable(eu)?{run:eu.run,loadedAt:eu.loadedAt,bounds:eu.bounds}:null};})()," +
                         "width:innerWidth,panelTop:document.querySelector('.panel').getBoundingClientRect().top," +
                         "panelBottom:document.querySelector('.panel').getBoundingClientRect().bottom," +
                         "toolsBottom:document.getElementById('radar-tools').getBoundingClientRect().bottom," +
@@ -328,28 +330,82 @@ class RadarWebViewTest {
         val sourceBeforeDecode = state.get().getString("sourceId")
         compose.runOnIdle {
             view.evaluateJavascript("""
-                window.radarDecodeProbe = {injected:0,reloadRequests:0,errors:0,events:[],reference:forecastCache.frames[0].reference,
-                  targetTime:forecastCache.frames[0].time,metadataRequests:{eu:0,global:0},retryFailure:null,renderedSource:null,
-                  previousRun:forecastCache.previousRun,lastInjectedSource:null};
+                window.radarDecodeProbe = {active:true,injectedIds:[],failedIds:[],attempts:[],metadata:[],violation:'',
+                  reloadRequests:0,errors:0,otherDecodeErrors:0,events:[],reference:forecastCache.frames[0].reference,
+                  targetTime:forecastCache.frames[0].time,metadataRequests:{eu:0,global:0},metadataToken:null,rendered:null,
+                  recoveryAtBeforeInjection:forecastState.recoveryAt};
+                // Isolate the injected failure from startup recovery; preserve provider retryAt backoff.
+                forecastState.recoveryAt = 0;
+                function recordDecodeMetadata() {
+                  ['eu','global'].forEach(function(key) {
+                    var cached = forecastModels[key], probe = radarDecodeProbe;
+                    if (!cached || probe.metadata.some(function(entry) {
+                      return entry.key === key && entry.loadedAt === cached.loadedAt;
+                    })) return;
+                    var generation = probe.metadataRequests[key] ? 1 : 0;
+                    if (probe.metadata.length >= 4 || probe.metadata.some(function(entry) {
+                      return entry.key === key && entry.generation === generation;
+                    })) { probe.violation = 'Unexpected metadata generation'; return; }
+                    probe.metadata.push({key:key,generation:generation,run:cached.run,previousRun:cached.previousRun,
+                      loadedAt:cached.loadedAt,bounds:cached.bounds});
+                  });
+                }
+                recordDecodeMetadata();
                 var healthyFetch = window.fetch;
                 window.fetch = function(input, options) {
-                  var url = typeof input === 'string' ? input : input.url;
+                  var url = typeof input === 'string' ? input : input.url, probe = radarDecodeProbe;
                   ['eu','global'].forEach(function(key) {
-                    if (url === RadarForecast.capabilitiesUrl(key)) radarDecodeProbe.metadataRequests[key]++;
+                    if (url !== RadarForecast.capabilitiesUrl(key)) return;
+                    probe.metadataRequests[key]++;
+                    if (probe.metadataToken === null) probe.metadataToken = forecastState.token;
+                    if (probe.metadataRequests[key] > 1 || probe.metadataToken !== forecastState.token) {
+                      probe.violation = 'More than one recovery metadata batch';
+                    }
                   });
+                  recordDecodeMetadata();
                   var pending = pendingLayer;
                   var tile = pending && pending.frame.type === 'forecast' ?
                     forecastTileUrl(pending.frame).split('{bbox-epsg-3857}') : null;
                   var matchesPending = tile && url.startsWith(tile[0]) && url.endsWith(tile[1]);
-                  if (matchesPending) {
-                    if (radarDecodeProbe.injected < ${if (incompleteRun) 2 else 1} &&
-                        radarDecodeProbe.lastInjectedSource !== pending.id && pending.frame.reference === radarDecodeProbe.reference) {
-                      radarDecodeProbe.injected++;
-                      radarDecodeProbe.lastInjectedSource = pending.id;
+                  if (matchesPending && pending.frame.time === probe.targetTime) {
+                    var attempt = probe.attempts.find(function(entry) { return entry.id === pending.id; });
+                    if (!attempt) {
+                      var metadata = probe.metadata.findIndex(function(entry) {
+                        return entry.key === pending.frame.key && entry.loadedAt === pending.forecastMetadata.loadedAt;
+                      });
+                      var advertised = probe.metadata[metadata], reference = Date.parse(pending.frame.reference) / 1000;
+                      if (!advertised || probe.attempts.length >= 8) {
+                        probe.violation = 'Missing advertised metadata or more than eight target attempts';
+                      } else {
+                        var phase = probe.metadataToken === null ? 0 : 1;
+                        var previous = probe.attempts.filter(function(entry) {
+                          return entry.metadata === metadata && entry.phase === phase && Date.parse(entry.reference) / 1000 === reference;
+                        });
+                        var priorRunFailed = probe.attempts.some(function(entry) {
+                          return entry.metadata === metadata && Date.parse(entry.reference) / 1000 === advertised.run &&
+                            entry.retried && probe.failedIds.includes(entry.id);
+                        });
+                        if ((reference !== advertised.run &&
+                            !(reference === advertised.previousRun && reference < advertised.run && priorRunFailed)) ||
+                            reference > Date.now() / 1000 || Date.now() / 1000 - reference > 12 * 3600 ||
+                            previous.length >= 2 || !!pending.retried !== (previous.length === 1) ||
+                            (previous.length === 1 && !probe.failedIds.includes(previous[0].id))) {
+                          probe.violation = 'Unadvertised reference or unbounded target retry';
+                        }
+                        attempt = {id:pending.id,time:pending.frame.time,key:pending.frame.key,reference:pending.frame.reference,
+                          retried:!!pending.retried,phase:phase,generation:advertised.generation,metadata:metadata,reload:false,error:null};
+                        probe.attempts.push(attempt);
+                      }
+                    }
+                    var reload = (input.cache || (options && options.cache)) === 'reload';
+                    if (attempt && reload) attempt.reload = true;
+                    if (probe.injectedIds.length < ${if (incompleteRun) 2 else 1} &&
+                        !probe.injectedIds.includes(pending.id) && pending.frame.reference === probe.reference) {
+                      probe.injectedIds.push(pending.id);
                       return Promise.resolve(new Response(new Uint8Array([0,1,2]),
                         {status:200,headers:{'Content-Type':'image/png'}}));
                     }
-                    if ((input.cache || (options && options.cache)) === 'reload') radarDecodeProbe.reloadRequests++;
+                    if (reload) probe.reloadRequests++;
                   }
                   return healthyFetch(input, options).then(function(response) {
                     if (url.startsWith(RadarForecast.endpoint + '?')) {
@@ -367,14 +423,13 @@ class RadarWebViewTest {
                   });
                 };
                 function countDecodeError(event) {
+                  var probe = radarDecodeProbe, attempt = probe.attempts.find(function(entry) { return entry.id === event.sourceId; });
+                  if (attempt) attempt.error = String(event.error && event.error.message);
                   if (event.error && event.error.message === 'The source image could not be decoded.') {
-                    radarDecodeProbe.errors++;
-                    var response = radarDecodeProbe.events.find(function(entry) {
-                      return entry.type === 'response' && entry.id === event.sourceId && entry.matchesPending &&
-                        entry.id !== radarDecodeProbe.lastInjectedSource && entry.reference === radarDecodeProbe.reference &&
-                        entry.time === radarDecodeProbe.targetTime;
-                    });
-                    if (response) radarDecodeProbe.retryFailure = response;
+                    probe.errors++;
+                    if (attempt) {
+                      if (!probe.failedIds.includes(event.sourceId)) probe.failedIds.push(event.sourceId);
+                    } else probe.otherDecodeErrors++;
                   }
                   radarDecodeProbe.events.push({type:'error',id:event.sourceId,message:String(event.error && event.error.message)});
                   if (radarDecodeProbe.events.length > 32) radarDecodeProbe.events.shift();
@@ -386,8 +441,13 @@ class RadarWebViewTest {
                   if (radarDecodeProbe.events.length > 32) radarDecodeProbe.events.shift();
                 }
                 function recordDecodedRaster() {
-                  if (radarLayer && radarLayer.ready && !radarLayer.failed && map.isSourceLoaded(radarLayer.id) &&
-                      map.getLayer(radarLayer.id).paint.get('raster-opacity') > 0) radarDecodeProbe.renderedSource = radarLayer.id;
+                  if (!radarLayer || !radarLayer.ready || radarLayer.failed || !radarLayer.contentSeen ||
+                      !map.isSourceLoaded(radarLayer.id)) return;
+                  var layer = map.getLayer(radarLayer.id), source = map.getStyle().sources[radarLayer.id];
+                  if (!layer || layer.type !== 'raster' || layer.source !== radarLayer.id || !source || source.type !== 'raster' ||
+                      layer.paint.get('raster-opacity') <= 0) return;
+                  radarDecodeProbe.rendered = {id:radarLayer.id,time:radarLayer.frame.time,key:radarLayer.frame.key,
+                    reference:radarLayer.frame.reference,url:source.tiles[0],expectedUrl:forecastTileUrl(radarLayer.frame)};
                 }
                 map.on('error', countDecodeError);
                 map.on('sourcedata', recordDecodeProgress);
@@ -400,43 +460,43 @@ class RadarWebViewTest {
                 readState()
                 val snapshot = state.get()
                 val probe = snapshot.optJSONObject("decodeProbe") ?: return@waitUntil false
-                val reference = snapshot.optString("reference")
-                val metadata = probe.getJSONObject("metadataRequests")
-                val newerReference = reference.isNotEmpty() &&
-                    Instant.parse(reference).isAfter(Instant.parse(probe.getString("reference")))
-                val recovered = if (incompleteRun) {
-                    probe.has("previousRun") && !probe.isNull("previousRun") &&
-                        Instant.parse(reference).epochSecond == probe.getLong("previousRun")
-                } else if (newerReference) {
-                    reference == snapshot.optString("parsedReference") && metadata.getInt("eu") == 1 &&
-                        metadata.getInt("global") == 1 && probe.getInt("errors") == 2 && !probe.isNull("retryFailure")
-                } else {
-                    reference == probe.getString("reference") && snapshot.optBoolean("retried") && probe.getInt("errors") == 1
-                }
+                assertEquals("Invalid recovery sequence: $snapshot", "", probe.getString("violation"))
+                val rendered = probe.optJSONObject("rendered") ?: return@waitUntil false
+                val attempts = probe.getJSONArray("attempts")
+                val successful = (0 until attempts.length()).map(attempts::getJSONObject)
+                    .firstOrNull { it.getString("id") == snapshot.optString("sourceId") } ?: return@waitUntil false
                 snapshot.optBoolean("ready") && !snapshot.optBoolean("pending") &&
                     snapshot.optString("sourceId") != sourceBeforeDecode &&
                     snapshot.getLong("displayedTime") == probe.getLong("targetTime") &&
-                    snapshot.optString("sourceId") == probe.optString("renderedSource") && recovered && probe.getInt("reloadRequests") > 0
+                    snapshot.getLong("sliderTime") == probe.getLong("targetTime") &&
+                    snapshot.optString("sourceId") == rendered.optString("id") && successful.isNull("error") &&
+                    (!successful.getBoolean("retried") || successful.getBoolean("reload")) &&
+                    rendered.getLong("time") == probe.getLong("targetTime") &&
+                    rendered.getLong("time") == successful.getLong("time") &&
+                    rendered.getString("reference") == successful.getString("reference") &&
+                    rendered.getString("key") == successful.getString("key") &&
+                    rendered.getString("reference") == snapshot.getString("reference") &&
+                    rendered.getString("key") == snapshot.getString("model") &&
+                    rendered.getString("url") == rendered.getString("expectedUrl") && probe.getInt("reloadRequests") > 0
             }
         } catch (failure: ComposeTimeoutException) {
             throw AssertionError("Forecast did not recover from ${if (incompleteRun) "an incomplete run" else "one invalid image"}: ${state.get()}", failure)
         }
         val decodeProbe = state.get().getJSONObject("decodeProbe")
-        val newerRun = Instant.parse(state.get().getString("reference")).isAfter(Instant.parse(decodeProbe.getString("reference")))
-        assertEquals(if (incompleteRun) 2 else 1, decodeProbe.getInt("injected"))
-        assertEquals(if (incompleteRun || newerRun) 2 else 1, decodeProbe.getInt("errors"))
-        val metadataRequests = decodeProbe.getJSONObject("metadataRequests")
-        for (key in listOf("eu", "global")) assertEquals(if (!incompleteRun && newerRun) 1 else 0, metadataRequests.getInt(key))
+        val injectedIds = decodeProbe.getJSONArray("injectedIds")
+        val failedIds = decodeProbe.getJSONArray("failedIds")
+        val failedSources = (0 until failedIds.length()).map(failedIds::getString)
+        assertEquals(if (incompleteRun) 2 else 1, injectedIds.length())
+        for (index in 0 until injectedIds.length()) assertTrue("Injected source must produce a decode error: $decodeProbe",
+            injectedIds.getString(index) in failedSources)
+        assertTrue("Target failures must remain bounded: $decodeProbe", failedSources.size in 1..7)
+        assertFalse("The recovered source must never have failed", state.get().getString("sourceId") in failedSources)
         assertEquals(decodeProbe.getLong("targetTime"), state.get().getLong("sliderTime"))
         assertEquals("", state.get().getString("status"))
-        compose.runOnIdle { view.evaluateJavascript("window.fetch=healthyFetch;map.off('error',countDecodeError);map.off('sourcedata',recordDecodeProgress);map.off('render',recordDecodedRaster)", null) }
-        val recovery = when {
-            incompleteRun -> "two injected invalid images; previous advertised run ${state.get().getString("reference")} loaded"
-            newerRun -> "one injected invalid PNG, one provider decode error, one EU/global metadata batch; newer parsed run ${state.get().getString("reference")} rendered"
-            else -> "one injected invalid PNG, one decode error, uncached same-reference retry rendered"
-        }
+        assertTrue("Recovered forecast must cover +48h: ${state.get()}", state.get().getDouble("horizon") >= 48.0)
+        compose.runOnIdle { view.evaluateJavascript("radarDecodeProbe.active=false;window.fetch=healthyFetch;map.off('error',countDecodeError);map.off('sourcedata',recordDecodeProgress);map.off('render',recordDecodedRaster)", null) }
         InstrumentationRegistry.getInstrumentation().sendStatus(0, Bundle().apply {
-            putString("stream", "\nRADAR_RECOVERY $recovery\n")
+            putString("stream", "\nRADAR_RECOVERY rendered=${state.get().getString("sourceId")} probe=$decodeProbe\n")
         })
         compose.runOnIdle {
             view.evaluateJavascript("var slider=document.getElementById('slider');slider.value=slider.max;slider.dispatchEvent(new Event('input'))", null)
@@ -449,7 +509,17 @@ class RadarWebViewTest {
         assertEquals(state.get().getLong("lastTime"), state.get().getLong("displayedTime"))
         assertEquals(state.get().getLong("displayedTime"), state.get().getLong("sliderTime"))
         assertEquals("", state.get().getString("status"))
-        assertEquals("eu", state.get().getString("model"))
+        val coverage = state.get().getJSONObject("coverage")
+        val europe = coverage.optJSONObject("europe")?.getJSONObject("bounds")
+        val width = coverage.getDouble("east") - coverage.getDouble("west")
+        val west = ((coverage.getDouble("west") + 180) % 360 + 360) % 360 - 180
+        val expectedModel = if (europe != null && width > 0 && width < 360 &&
+            coverage.getDouble("south") >= europe.getDouble("south") &&
+            coverage.getDouble("north") <= europe.getDouble("north") &&
+            west >= europe.getDouble("west") && west + width <= europe.getDouble("east")) "eu" else "global"
+        assertEquals("Model must match usable viewport coverage: ${state.get()}", expectedModel, state.get().getString("model"))
+        assertEquals(expectedModel, state.get().getString("displayedModel"))
+        assertTrue("Forecast endpoint must retain +48h coverage: ${state.get()}", state.get().getDouble("horizon") >= 48.0)
         assertPlaybackAndPause()
         compose.runOnIdle { view.evaluateJavascript("""
             window.radarErrors = [];

@@ -847,6 +847,7 @@ internal fun DayDetailSheet(
         contentColor = MaterialTheme.colorScheme.onSurface,
         sheetState = sheetState,
     ) {
+        SheetSystemBars()
         Column(Modifier.fillMaxWidth().fillMaxHeight()) {
             SheetHeader(
                 title = dayForPage(days, pagerState.currentPage)?.let { formatFullDay(it.date, locale) }

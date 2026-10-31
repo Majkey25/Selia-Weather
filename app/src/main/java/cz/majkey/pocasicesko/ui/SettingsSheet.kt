@@ -107,6 +107,7 @@ fun SettingsSheet(
         sheetState = sheetState,
         properties = ModalBottomSheetProperties(shouldDismissOnBackPress = page == SettingsPage.ROOT),
     ) {
+        SheetSystemBars()
         BackHandler(enabled = page != SettingsPage.ROOT) { page = SettingsPage.ROOT }
         SheetHeader(stringResource(page.title), onBack = {
             if (page == SettingsPage.ROOT) onDismiss() else page = SettingsPage.ROOT

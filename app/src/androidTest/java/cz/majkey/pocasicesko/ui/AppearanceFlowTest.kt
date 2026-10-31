@@ -2,9 +2,14 @@ package cz.majkey.pocasicesko.ui
 
 import android.content.Context
 import android.content.ContextWrapper
+import android.view.View
+import android.view.ViewGroup
+import android.view.Window
+import android.view.inspector.WindowInspector
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
@@ -28,6 +33,8 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.core.view.WindowCompat
+import androidx.core.view.children
 import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.data.ConfidenceLevel
 import cz.majkey.pocasicesko.data.ConfidenceReason
@@ -41,6 +48,8 @@ import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import java.util.Locale
 import kotlin.math.roundToInt
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -80,6 +89,37 @@ class AppearanceFlowTest {
         compose.onNodeWithContentDescription("$ocean · $light").assertIsSelected()
         compose.onNodeWithContentDescription("$ocean · $dark").performClick()
         assertEquals(AppAppearance.OCEAN, config.value.darkTheme)
+    }
+
+    @Test
+    fun openSheetUpdatesBothSystemBarsWithoutRecreatingItsWindow() {
+        fun findDialogWindow(view: View): Window? = (view as? DialogWindowProvider)?.window
+            ?: (view as? ViewGroup)?.children?.firstNotNullOfOrNull(::findDialogWindow)
+        fun currentWindow() = requireNotNull(
+            WindowInspector.getGlobalWindowViews().firstNotNullOfOrNull(::findDialogWindow),
+        )
+        val config = mutableStateOf(AppearanceConfig(mode = AppearanceMode.LIGHT))
+        compose.setContent { WeatherTheme(config.value) {
+            AppearanceSheet(config.value, { config.value = it }, {})
+        } }
+        val window = compose.runOnIdle { currentWindow() }
+        val bars = WindowCompat.getInsetsController(window, window.decorView)
+        compose.runOnIdle {
+            assertTrue(bars.isAppearanceLightStatusBars)
+            assertTrue(bars.isAppearanceLightNavigationBars)
+        }
+        compose.onNodeWithText(context.getString(R.string.appearance_dark)).performClick()
+        compose.runOnIdle {
+            assertSame(window, currentWindow())
+            assertFalse(bars.isAppearanceLightStatusBars)
+            assertFalse(bars.isAppearanceLightNavigationBars)
+        }
+        compose.onNodeWithText(context.getString(R.string.appearance_light)).performClick()
+        compose.runOnIdle {
+            assertSame(window, currentWindow())
+            assertTrue(bars.isAppearanceLightStatusBars)
+            assertTrue(bars.isAppearanceLightNavigationBars)
+        }
     }
 
     @Test

@@ -17,10 +17,12 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
 import cz.majkey.pocasicesko.data.WeatherKind
 
@@ -28,6 +30,20 @@ internal data class RenderedAppearance(val palette: WeatherPalette, val colors: 
 internal val LocalWeatherAppearance = staticCompositionLocalOf {
     val palette = appearancePalette(AppAppearance.WEATHER, null, true)
     RenderedAppearance(palette, appearanceColors(palette, AppAppearance.WEATHER, true), true)
+}
+
+@Composable
+internal fun SheetSystemBars() {
+    val view = LocalView.current
+    val lightBars = MaterialTheme.colorScheme.onSurface.luminance() <= 0.5f
+    SideEffect {
+        (view.parent as? DialogWindowProvider)?.window?.let { window ->
+            WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightStatusBars = lightBars
+                isAppearanceLightNavigationBars = lightBars
+            }
+        }
+    }
 }
 
 internal fun renderedAppearance(context: Context, config: AppearanceConfig, kind: WeatherKind?, isDay: Boolean): RenderedAppearance {

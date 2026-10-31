@@ -111,6 +111,7 @@ fun NotificationSettingsSheet(
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         properties = ModalBottomSheetProperties(shouldDismissOnBackPress = section == initialSection),
     ) {
+        SheetSystemBars()
         BackHandler(enabled = section != initialSection) { section = initialSection }
         SheetHeader(stringResource(section.title), onBack = {
             if (section == initialSection) onDismiss() else section = initialSection

@@ -130,7 +130,8 @@ class AppearanceFlowTest {
     @Test
     fun openingCustomPaletteStartsAtThePreview() {
         compose.setContent { WeatherTheme { AppearanceSheet(AppearanceConfig(), {}, {}) } }
-        compose.onNodeWithText(context.getString(R.string.appearance_edit_custom)).performScrollTo().performClick()
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(context.getString(R.string.appearance_edit_custom)))
+        compose.onNodeWithText(context.getString(R.string.appearance_edit_custom)).performClick()
         compose.onNodeWithText(context.getString(R.string.appearance_preview)).assertIsDisplayed()
         compose.onNodeWithText(context.getString(R.string.appearance_start_color)).assertIsDisplayed()
     }
@@ -165,7 +166,8 @@ class AppearanceFlowTest {
         } }
         compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(context.getString(R.string.appearance_edit_custom)))
         compose.onNodeWithText(context.getString(R.string.appearance_edit_custom)).performClick()
-        compose.onNodeWithText(context.getString(R.string.appearance_apply)).performScrollTo().assertIsNotEnabled()
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(context.getString(R.string.appearance_apply)))
+        compose.onNodeWithText(context.getString(R.string.appearance_apply)).assertIsNotEnabled()
         compose.onNodeWithText(context.getString(R.string.appearance_contrast_help)).assertIsDisplayed()
         assertEquals(0, applies)
     }

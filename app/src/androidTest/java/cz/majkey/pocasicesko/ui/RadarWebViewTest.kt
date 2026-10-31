@@ -332,21 +332,39 @@ class RadarWebViewTest {
                 var healthyFetch = window.fetch;
                 window.fetch = function(input, options) {
                   var url = typeof input === 'string' ? input : input.url;
-                  if (url.startsWith(RadarForecast.endpoint + '?') && pendingLayer) {
+                  var pending = pendingLayer;
+                  var tile = pending && pending.frame.type === 'forecast' ?
+                    forecastTileUrl(pending.frame).split('{bbox-epsg-3857}') : null;
+                  var matchesPending = tile && url.startsWith(tile[0]) && url.endsWith(tile[1]);
+                  if (matchesPending) {
                     if (radarDecodeProbe.injected < ${if (incompleteRun) 2 else 1} &&
-                        radarDecodeProbe.lastInjectedSource !== pendingLayer.id && pendingLayer.frame.reference === radarDecodeProbe.reference) {
+                        radarDecodeProbe.lastInjectedSource !== pending.id && pending.frame.reference === radarDecodeProbe.reference) {
                       radarDecodeProbe.injected++;
-                      radarDecodeProbe.lastInjectedSource = pendingLayer.id;
+                      radarDecodeProbe.lastInjectedSource = pending.id;
                       return Promise.resolve(new Response(new Uint8Array([0,1,2]),
                         {status:200,headers:{'Content-Type':'image/png'}}));
                     }
                     if ((input.cache || (options && options.cache)) === 'reload') radarDecodeProbe.reloadRequests++;
                   }
-                  return healthyFetch(input, options);
+                  return healthyFetch(input, options).then(function(response) {
+                    if (url.startsWith(RadarForecast.endpoint + '?')) {
+                      var entry = {type:'response',url:url,status:response.status,mime:response.headers.get('Content-Type'),
+                        id:pending && pending.id,time:pending && pending.frame.time,
+                        reference:pending && pending.frame.reference,matchesPending:!!matchesPending};
+                      radarDecodeProbe.events.push(entry);
+                      if (radarDecodeProbe.events.length > 32) radarDecodeProbe.events.shift();
+                      if (/xml/i.test(entry.mime || '')) {
+                        RadarForecast.read(response.clone()).then(function(xml) { entry.xml = xml.slice(0,512); })
+                          .catch(function(error) { entry.error = String(error); });
+                      }
+                    }
+                    return response;
+                  });
                 };
                 function countDecodeError(event) {
                   if (event.error && event.error.message === 'The source image could not be decoded.') radarDecodeProbe.errors++;
                   radarDecodeProbe.events.push({type:'error',id:event.sourceId,message:String(event.error && event.error.message)});
+                  if (radarDecodeProbe.events.length > 32) radarDecodeProbe.events.shift();
                 }
                 function recordDecodeProgress(event) {
                   if (!event.sourceId || !event.sourceId.startsWith('frame-')) return;
@@ -560,6 +578,74 @@ class RadarWebViewTest {
             assertTimelineVisible()
         }
         assertPlaybackAndPause()
+    }
+
+    @Test
+    fun observedRadarRendersAndPausesWithoutForecastAvailability() {
+        compose.setContent { WeatherTheme { ChmiWebScreen(localizedRadarUrl("en", 50.0755, 14.4378, true)) } }
+        val view = compose.runOnIdle { findWebView(compose.activity.window.decorView)!! }
+        val state = AtomicReference(JSONObject())
+        fun readState() {
+            val received = CountDownLatch(1)
+            compose.runOnIdle {
+                view.evaluateJavascript("""
+                    JSON.stringify({initialized:typeof styleReady!=='undefined'&&styleReady,
+                      probe:window.radarObservedProbe||null,playing:typeof timer!=='undefined'&&timer!==null,
+                      source:typeof radarLayer==='undefined'||!radarLayer?'':radarLayer.id,
+                      time:typeof radarLayer==='undefined'||!radarLayer?0:radarLayer.frame.time,
+                      pending:typeof pendingLayer!=='undefined'&&!!pendingLayer,
+                      status:document.getElementById('status')?.textContent})
+                """.trimIndent()) { result ->
+                    val json = JSONTokener(result).nextValue() as? String
+                    state.set(json?.let(::JSONObject) ?: JSONObject())
+                    received.countDown()
+                }
+            }
+            assertTrue("WebView state callback did not arrive", received.await(5, TimeUnit.SECONDS))
+        }
+        compose.waitUntil(30_000) { readState(); state.get().optBoolean("initialized") }
+        compose.runOnIdle {
+            view.evaluateJavascript("""
+                window.radarObservedProbe = {firstOpacity:null,initialTime:null,times:[],peakSources:0};
+                map.on('render', function() {
+                  var probe = window.radarObservedProbe, current = radarLayer;
+                  probe.peakSources = Math.max(probe.peakSources,
+                    Object.keys(map.getStyle().sources).filter(function(id) { return id.startsWith('frame-'); }).length);
+                  if (!current || current.frame.type !== 'observed' || !current.ready || current.failed ||
+                      !map.isSourceLoaded(current.id)) return;
+                  var layer = map.getLayer(current.id), opacity = layer.paint.get('raster-opacity');
+                  if (probe.firstOpacity === null) { probe.firstOpacity = opacity; probe.initialTime = current.frame.time; }
+                  if (timer !== null && opacity > 0 && probe.times.length < 2 &&
+                      (probe.times.length || current.frame.time !== probe.initialTime) &&
+                      probe.times.indexOf(current.frame.time) < 0) probe.times.push(current.frame.time);
+                });
+                setMode('observed');
+            """.trimIndent(), null)
+        }
+        compose.waitUntil(30_000) {
+            readState(); state.get().optJSONObject("probe")?.let { !it.isNull("firstOpacity") } == true
+        }
+        assertEquals("First observed raster must use full display opacity: ${state.get()}",
+            0.78, state.get().getJSONObject("probe").getDouble("firstOpacity"), 0.000001)
+        compose.runOnIdle { view.evaluateJavascript("document.getElementById('play').click()", null) }
+        compose.waitUntil(30_000) {
+            readState(); state.get().optBoolean("playing") &&
+                state.get().getJSONObject("probe").getJSONArray("times").length() == 2
+        }
+        assertTrue("Observed playback must retain at most four sources: ${state.get()}",
+            state.get().getJSONObject("probe").getInt("peakSources") <= 4)
+        compose.runOnIdle { view.evaluateJavascript("document.getElementById('play').click()", null) }
+        compose.waitUntil(10_000) { readState(); !state.get().optBoolean("playing") && !state.get().optBoolean("pending") }
+        val pausedTime = state.get().getLong("time")
+        val pausedSource = state.get().getString("source")
+        val pausedAt = SystemClock.elapsedRealtime()
+        compose.waitUntil(5_000) {
+            readState()
+            assertFalse(state.get().getBoolean("playing"))
+            assertEquals(pausedTime, state.get().getLong("time"))
+            assertEquals(pausedSource, state.get().getString("source"))
+            SystemClock.elapsedRealtime() - pausedAt >= 2_200
+        }
     }
 
     private fun findWebView(view: View): WebView? = when (view) {

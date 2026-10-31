@@ -162,7 +162,7 @@
     var modeTimes = { forecast: null, observed: null }, map = null, styleReady = false, mapUnavailable = false, sourceSequence = 0;
     var observedCache = null, forecastCache = null, forecastModels = { eu: null, global: null };
     var observedState = { request: null, token: 0, timeout: null, retryAt: 0, failed: false, attemptedAt: 0, message: '' };
-    var forecastState = { request: null, token: 0, timeout: null, keys: [], message: '' };
+    var forecastState = { request: null, token: 0, timeout: null, keys: [], message: '', recoveryAt: 0 };
     var forecastStates = { eu: { retryAt: 0, failed: false, attemptedAt: 0 }, global: { retryAt: 0, failed: false, attemptedAt: 0 } };
     var radarLayer = null, pendingLayer = null, preloadLayer = null, retiredLayer = null;
     var coverageLayer = null, coverageVisible = true, tileHost = '';
@@ -449,6 +449,7 @@
             rebuildTimeline(true); scheduleExpiry(); return;
           }
         }
+        if (index >= 0 && recoverForecast()) return;
       }
       if (radarLayer === layer || pendingLayer === layer) {
         stopPlay(); setStatus(unavailableText(layer.frame));
@@ -473,6 +474,13 @@
     function refreshDue(cached) { return !cached || Date.now() - cached.loadedAt >= REFRESH_INTERVAL_MS; }
     function requestAllowed(state, explicit) {
       return Date.now() >= state.retryAt && (explicit || !state.failed || Date.now() - state.attemptedAt >= REFRESH_INTERVAL_MS);
+    }
+    function recoverForecast() {
+      if (mode !== 'forecast' || !pageActive() || radarLayer || forecastState.request ||
+          Date.now() < forecastState.recoveryAt || !requestAllowed(forecastStates[selectedForecastKey()], true)) return false;
+      forecastState.recoveryAt = Date.now() + REFRESH_INTERVAL_MS;
+      stopPlay(); clearPending(); loadForecast(true);
+      return true;
     }
     function selectedForecastKey() {
       if (!map) return 'global';
@@ -795,7 +803,7 @@
       var cached = selectedForecast();
       var wanted = selectedForecastKey(), failure = forecastStates[wanted];
       var keys = ['eu', 'global'].filter(function(key) {
-        return refreshDue(forecastModels[key]) && requestAllowed(forecastStates[key], retryTiles);
+        return (retryTiles || refreshDue(forecastModels[key])) && requestAllowed(forecastStates[key], retryTiles);
       });
       forecastState.message = failure.failed ? Date.now() < failure.retryAt ? FORECAST_TEXT[8] :
         cached ? UPDATE_TEXT[1] : FORECAST_TEXT[3] : '';
@@ -828,7 +836,11 @@
           rebuildTimeline(retryTiles && key === wanted); scheduleExpiry();
         });
       })).finally(function() {
-        if (token === state.token) { clearTimeout(state.timeout); state.timeout = null; state.request = null; state.keys = []; renderStatus(); scheduleExpiry(); }
+        if (token === state.token) {
+          clearTimeout(state.timeout); state.timeout = null; state.request = null; state.keys = [];
+          if (!selectedForecast() && !state.recoveryAt) recoverForecast();
+          renderStatus(); scheduleExpiry();
+        }
       });
     }
     function refreshMap() {

@@ -7,6 +7,7 @@
 - Keep the last valid color preview while editing incomplete HEX values.
 - Use consistent, contrast-checked weather icon colors, including yellow sun and green clouds.
 - Prevent blank radar frames when changing model runs or interrupting a crossfade. Keep the provider's real forecast times and normal playback transitions.
+- Refresh radar model metadata when retrying rejected tiles, with one bounded automatic recovery for an empty forecast map and the existing rate-limit protection.
 - Enable optimized release resource shrinking alongside existing code shrinking and obfuscation.
 
 ## [0.7.22] - 2026-10-26

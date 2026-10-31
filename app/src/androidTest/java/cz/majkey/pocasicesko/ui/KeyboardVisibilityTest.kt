@@ -8,7 +8,7 @@ import android.graphics.Rect
 import android.view.inspector.WindowInspector
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
-import androidx.activity.enableEdgeToEdge
+import androidx.core.view.WindowCompat
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -68,7 +68,7 @@ class KeyboardVisibilityTest {
         assertEquals(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE,
             activity.softInputMode and WindowManager.LayoutParams.SOFT_INPUT_MASK_ADJUST)
         InstrumentationRegistry.getInstrumentation().runOnMainSync {
-            base.enableEdgeToEdge()
+            WindowCompat.enableEdgeToEdge(base.window)
             base.window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         }
         var applied: WidgetSettings? = null

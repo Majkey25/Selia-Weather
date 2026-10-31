@@ -5,7 +5,6 @@ val testInterstitialAdUnitId = "ca-app-pub-3940256099942544/1033173712"
 
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
@@ -39,8 +38,8 @@ android {
         applicationId = "com.majkeylab.weatheraladin"
         minSdk = 29
         targetSdk = 36
-        versionCode = 66
-        versionName = "0.7.23"
+        versionCode = 67
+        versionName = "0.7.24"
 
         manifestPlaceholders["adMobAppId"] = adMobAppId ?: testAdMobAppId
         buildConfigField("boolean", "MONETIZATION_CONFIGURED", "false")

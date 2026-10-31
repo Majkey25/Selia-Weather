@@ -226,7 +226,7 @@ test('pending raster timeout measures stalled loading, not time spent making til
 test('exhausted EU tiles retain their predecessor until a cached global interval renders', async () => {
   const app = runtime(); await settled(); app.load();
   const displayed = app.context.radarLayer, summary = app.node('frame-summary').textContent;
-  app.context.showFrame(4);
+  app.context.showFrame(app.context.frames.length - 1);
   const failed = app.context.pendingLayer;
   app.events.error({ sourceId: failed.id, error: new Error('The source image could not be decoded.') });
   const retry = app.context.pendingLayer;
@@ -247,6 +247,7 @@ test('exhausted EU tiles retain their predecessor until a cached global interval
   assert.equal(fallback.frame.key, 'global');
   assert.equal(fallback.frame.hours, 6);
   assert.ok(failed.frame.time > fallback.frame.time - 21600 && failed.frame.time <= fallback.frame.time);
+  assert.ok(fallback.frame.time >= NOW / 1000 + 48 * 3600);
   assert.equal(app.context.selectedTime, failed.frame.time);
   assert.equal(app.context.forecastCache, global);
   assert.equal(fallback.frame.reference, new Date(global.run * 1000).toISOString());
@@ -309,7 +310,7 @@ test('EU tile fallback preserves provider backoff through explicit refresh', asy
 });
 
 for (const action of ['late observations', 'foreign coverage', 'retained run expiry']) {
-  test('global fallback retains EU provenance across ' + action, async () => {
+  test('retained EU forecast handles ' + action, async () => {
     let finishObserved;
     const app = runtime({ fetch: (url, _options, context) => {
       if (!url.includes('maps.dwd.de')) return new Promise(resolve => { finishObserved = resolve; });

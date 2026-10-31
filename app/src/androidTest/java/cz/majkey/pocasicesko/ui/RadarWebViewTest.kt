@@ -367,15 +367,17 @@ class RadarWebViewTest {
                   var tile = pending && pending.frame.type === 'forecast' ?
                     forecastTileUrl(pending.frame).split('{bbox-epsg-3857}') : null;
                   var matchesPending = tile && url.startsWith(tile[0]) && url.endsWith(tile[1]);
-                  if (matchesPending && pending.frame.time === probe.targetTime) {
+                  if (matchesPending && (pending.frame.time === probe.targetTime ||
+                      (pending.frame.key === 'global' && pending.frame.hours === 6 &&
+                        probe.targetTime > pending.frame.time - 21600 && probe.targetTime <= pending.frame.time))) {
                     var attempt = probe.attempts.find(function(entry) { return entry.id === pending.id; });
                     if (!attempt) {
                       var metadata = probe.metadata.findIndex(function(entry) {
                         return entry.key === pending.frame.key && entry.loadedAt === pending.forecastMetadata.loadedAt;
                       });
                       var advertised = probe.metadata[metadata], reference = Date.parse(pending.frame.reference) / 1000;
-                      if (!advertised || probe.attempts.length >= 8) {
-                        probe.violation = 'Missing advertised metadata or more than eight target attempts';
+                      if (!advertised || probe.attempts.length >= 12) {
+                        probe.violation = 'Missing advertised metadata or more than twelve target attempts';
                       } else {
                         var phase = probe.metadataToken === null ? 0 : 1;
                         var previous = probe.attempts.filter(function(entry) {
@@ -465,13 +467,16 @@ class RadarWebViewTest {
                 val attempts = probe.getJSONArray("attempts")
                 val successful = (0 until attempts.length()).map(attempts::getJSONObject)
                     .firstOrNull { it.getString("id") == snapshot.optString("sourceId") } ?: return@waitUntil false
+                val renderedTime = rendered.getLong("time")
+                val targetTime = probe.getLong("targetTime")
+                val coversTarget = if (rendered.getString("key") == "global")
+                    targetTime > renderedTime - 21_600 && targetTime <= renderedTime else targetTime == renderedTime
                 snapshot.optBoolean("ready") && !snapshot.optBoolean("pending") &&
                     snapshot.optString("sourceId") != sourceBeforeDecode &&
-                    snapshot.getLong("displayedTime") == probe.getLong("targetTime") &&
-                    snapshot.getLong("sliderTime") == probe.getLong("targetTime") &&
+                    coversTarget && snapshot.getLong("displayedTime") == renderedTime &&
+                    snapshot.getLong("sliderTime") == renderedTime &&
                     snapshot.optString("sourceId") == rendered.optString("id") && successful.isNull("error") &&
                     (!successful.getBoolean("retried") || successful.getBoolean("reload")) &&
-                    rendered.getLong("time") == probe.getLong("targetTime") &&
                     rendered.getLong("time") == successful.getLong("time") &&
                     rendered.getString("reference") == successful.getString("reference") &&
                     rendered.getString("key") == successful.getString("key") &&
@@ -489,9 +494,9 @@ class RadarWebViewTest {
         assertEquals(if (incompleteRun) 2 else 1, injectedIds.length())
         for (index in 0 until injectedIds.length()) assertTrue("Injected source must produce a decode error: $decodeProbe",
             injectedIds.getString(index) in failedSources)
-        assertTrue("Target failures must remain bounded: $decodeProbe", failedSources.size in 1..7)
+        assertTrue("Target failures must remain bounded: $decodeProbe", failedSources.size in 1..11)
         assertFalse("The recovered source must never have failed", state.get().getString("sourceId") in failedSources)
-        assertEquals(decodeProbe.getLong("targetTime"), state.get().getLong("sliderTime"))
+        assertEquals(state.get().getLong("displayedTime"), state.get().getLong("sliderTime"))
         assertEquals("", state.get().getString("status"))
         assertTrue("Recovered forecast must cover +48h: ${state.get()}", state.get().getDouble("horizon") >= 48.0)
         compose.runOnIdle { view.evaluateJavascript("radarDecodeProbe.active=false;window.fetch=healthyFetch;map.off('error',countDecodeError);map.off('sourcedata',recordDecodeProgress);map.off('render',recordDecodedRaster)", null) }

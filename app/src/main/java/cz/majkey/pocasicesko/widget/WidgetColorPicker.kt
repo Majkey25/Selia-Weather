@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -34,6 +35,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import cz.majkey.pocasicesko.R
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -80,6 +82,8 @@ private fun WidgetColorDialog(value: String, label: String, opaqueOnly: Boolean,
     val argb = requireNotNull(widgetArgbOrNull(preview))
     AlertDialog(
         onDismissRequest = onDismiss,
+        modifier = Modifier.safeDrawingPadding(),
+        properties = DialogProperties(decorFitsSystemWindows = false),
         title = { Text(label) },
         text = {
             Column(Modifier.heightIn(max = LocalConfiguration.current.screenHeightDp.dp * 0.6f)

@@ -31,6 +31,7 @@ import cz.majkey.pocasicesko.widget.WidgetConfigActivity
 import cz.majkey.pocasicesko.widget.WidgetDateFormat
 import cz.majkey.pocasicesko.widget.WidgetEditorScreen
 import cz.majkey.pocasicesko.widget.WidgetSettings
+import cz.majkey.pocasicesko.widget.ColorInput
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -39,6 +40,26 @@ import org.junit.Test
 
 class KeyboardVisibilityTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
+
+    @Test
+    fun colorPickerCanConfirmHexWithRealKeyboardOpen() {
+        val base = compose.activity
+        var applied: String? = null
+        compose.setContent { WeatherTheme { ColorInput("#112233", "Color") { applied = it } } }
+        compose.onNodeWithContentDescription(base.getString(R.string.widget_choose_color, "Color")).performClick()
+        compose.onNodeWithText("HEX").performClick().performTextReplacement("#ABCDEF")
+        val visible = Rect()
+        compose.waitUntil(5_000) { compose.runOnIdle {
+            WindowInspector.getGlobalWindowViews().firstOrNull {
+                ViewCompat.getRootWindowInsets(it)?.isVisible(WindowInsetsCompat.Type.ime()) == true
+            }?.let { it.getWindowVisibleDisplayFrame(visible); true } == true
+        } }
+        val confirm = compose.onNodeWithText(base.getString(android.R.string.ok)).assertIsDisplayed()
+        assertTrue("Color confirmation must stay above the keyboard: ${confirm.fetchSemanticsNode().boundsInWindow}, visible=$visible",
+            confirm.fetchSemanticsNode().boundsInWindow.bottom <= visible.bottom)
+        confirm.performClick()
+        compose.runOnIdle { assertEquals("#ABCDEF", applied) }
+    }
 
     @Test
     fun widgetApplyRemainsReachableWhileEditingDateWithRealKeyboard() {

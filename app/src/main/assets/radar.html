@@ -449,7 +449,7 @@
             rebuildTimeline(true); scheduleExpiry(); return;
           }
         }
-        if (index >= 0 && recoverForecast()) return;
+        if (index >= 0 && recoverForecast(true)) return;
       }
       if (radarLayer === layer || pendingLayer === layer) {
         stopPlay(); setStatus(unavailableText(layer.frame));
@@ -475,11 +475,11 @@
     function requestAllowed(state, explicit) {
       return Date.now() >= state.retryAt && (explicit || !state.failed || Date.now() - state.attemptedAt >= REFRESH_INTERVAL_MS);
     }
-    function recoverForecast() {
-      if (mode !== 'forecast' || !pageActive() || radarLayer || forecastState.request ||
+    function recoverForecast(allowDisplayed) {
+      if (mode !== 'forecast' || !pageActive() || (radarLayer && !allowDisplayed) || forecastState.request ||
           Date.now() < forecastState.recoveryAt || !requestAllowed(forecastStates[selectedForecastKey()], true)) return false;
       forecastState.recoveryAt = Date.now() + REFRESH_INTERVAL_MS;
-      stopPlay(); clearPending(); loadForecast(true);
+      clearPending(); loadForecast(true, true);
       return true;
     }
     function selectedForecastKey() {
@@ -754,7 +754,10 @@
       if (!frames.length || !pageActive()) return;
       document.getElementById('play').setAttribute('aria-pressed', 'true');
       timer = setInterval(function() {
-        if (ensureSourcesFresh() && !pendingLayer) showFrame((frameIndex + 1) % frames.length);
+        if (ensureSourcesFresh() && !pendingLayer &&
+            !(mode === 'forecast' && forecastState.request && Date.now() < forecastState.recoveryAt)) {
+          showFrame((frameIndex + 1) % frames.length);
+        }
       }, 1000);
     }
     function cancelRequest(state) {
@@ -798,7 +801,7 @@
           if (token === state.token) { clearTimeout(state.timeout); state.timeout = null; state.request = null; renderStatus(); scheduleExpiry(); }
         });
     }
-    function loadForecast(retryTiles) {
+    function loadForecast(retryTiles, recovering) {
       if (!pageActive()) return;
       var cached = selectedForecast();
       var wanted = selectedForecastKey(), failure = forecastStates[wanted];
@@ -808,7 +811,7 @@
       forecastState.message = failure.failed ? Date.now() < failure.retryAt ? FORECAST_TEXT[8] :
         cached ? UPDATE_TEXT[1] : FORECAST_TEXT[3] : '';
       if (forecastState.request && forecastState.keys.includes(wanted)) forecastState.message = FORECAST_TEXT[2];
-      if (cached !== forecastCache || retryTiles) rebuildTimeline(retryTiles);
+      if (cached !== forecastCache || (retryTiles && !recovering)) rebuildTimeline(retryTiles);
       if (forecastState.request || !keys.length) { renderStatus(); scheduleExpiry(); return; }
       var state = forecastState, token = ++state.token, controller = new AbortController();
       state.request = controller; state.keys = keys;
@@ -833,7 +836,8 @@
           var wanted = selectedForecastKey(), selectedState = forecastStates[wanted];
           state.message = state.keys.includes(wanted) ? FORECAST_TEXT[2] : selectedState.failed ?
             Date.now() < selectedState.retryAt ? FORECAST_TEXT[8] : selectedForecast() ? UPDATE_TEXT[1] : FORECAST_TEXT[3] : '';
-          rebuildTimeline(retryTiles && key === wanted); scheduleExpiry();
+          if (!recovering || !state.keys.includes(wanted)) rebuildTimeline(retryTiles && key === wanted);
+          scheduleExpiry();
         });
       })).finally(function() {
         if (token === state.token) {

@@ -8,6 +8,7 @@
 - Use consistent, contrast-checked weather icon colors, including yellow sun and green clouds.
 - Prevent blank radar frames when changing model runs or interrupting a crossfade. Keep the provider's real forecast times and normal playback transitions.
 - Refresh radar metadata after rejected model images while retaining usable frames and playback. Bound automatic recovery and preserve provider rate-limit protection.
+- Fall back to usable global model images after exhausted European image recovery, showing their actual six-hour intervals and preserving provider backoff.
 - Enable optimized release resource shrinking alongside existing code shrinking and obfuscation.
 
 ## [0.7.22] - 2026-10-26

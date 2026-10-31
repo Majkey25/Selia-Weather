@@ -450,6 +450,13 @@
           }
         }
         if (index >= 0 && recoverForecast(true)) return;
+        if (index >= 0 && layer.frame.key === 'eu' && cached === forecastModels.eu &&
+            !forecastState.request && forecastIsUsable(forecastModels.global) &&
+            requestAllowed(forecastStates.global, true)) {
+          forecastModels.eu = null;
+          forecastStates.eu.failed = true; forecastStates.eu.attemptedAt = Date.now();
+          rebuildTimeline(true); scheduleExpiry(); return;
+        }
       }
       if (radarLayer === layer || pendingLayer === layer) {
         stopPlay(); setStatus(unavailableText(layer.frame));
@@ -482,9 +489,11 @@
       clearPending(); loadForecast(true, true);
       return true;
     }
-    function selectedForecastKey() {
+    function selectedForecastKey(europe) {
       if (!map) return 'global';
-      var bounds = map.getBounds(), europe = forecastIsUsable(forecastModels.eu) ? forecastModels.eu : null;
+      var bounds = map.getBounds();
+      if (europe === undefined) europe = forecastModels.eu;
+      if (!forecastIsUsable(europe)) europe = null;
       return RadarForecast.sourceFor({ west: bounds.getWest(), east: bounds.getEast(),
         south: bounds.getSouth(), north: bounds.getNorth() }, europe && europe.bounds);
     }
@@ -517,7 +526,9 @@
       if (!enabled) { stopPlay(); clearRadarLayer(); setStatus(''); return; }
       if (selectedTime === null) selectedTime = mode === 'forecast' ? frames[0].time : frames[frames.length - 1].time;
       var index = nearestFrame(selectedTime, selectedTime > Date.now() / 1000 && forecastCache ? 'forecast' : null), frame = frames[index];
-      var retainForecast = mode === 'forecast' && forecastLayerIsUsable(radarLayer) && radarLayer.frame.key === frame.key;
+      var retainForecast = mode === 'forecast' && forecastLayerIsUsable(radarLayer) &&
+        (radarLayer.frame.key === frame.key || (radarLayer.frame.key === 'eu' && frame.key === 'global' &&
+          !forecastModels.eu && forecastStates.eu.failed && selectedForecastKey(radarLayer.forecastMetadata) === 'eu'));
       if (radarLayer && !retainForecast && !frames.some(function(item) { return sameFrame(item, radarLayer.frame); })) clearRadarLayer();
       if (pendingLayer && !sameFrame(pendingLayer.frame, frame)) clearPending();
       frameIndex = index;
@@ -562,7 +573,9 @@
           forecastModels[key] = null; changed = true;
         }
       });
-      if (radarLayer && radarLayer.forecastMetadata && radarLayer.forecastMetadata !== forecastCache && !forecastLayerIsUsable(radarLayer)) {
+      if (radarLayer && radarLayer.forecastMetadata && radarLayer.forecastMetadata !== forecastCache &&
+          (!forecastLayerIsUsable(radarLayer) ||
+            (radarLayer.frame.key === 'eu' && selectedForecastKey(radarLayer.forecastMetadata) !== 'eu'))) {
         clearRadarLayer(); changed = activeChanged = true;
       }
       if (changed) { if (activeChanged) stopPlay(); rebuildTimeline(); }

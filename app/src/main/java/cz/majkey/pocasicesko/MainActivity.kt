@@ -3,9 +3,8 @@ package cz.majkey.pocasicesko
 import android.os.Bundle
 import android.content.Context
 import androidx.activity.ComponentActivity
-import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
+import androidx.core.view.WindowCompat
 import androidx.compose.runtime.remember
 import cz.majkey.pocasicesko.data.WeatherRepository
 import cz.majkey.pocasicesko.locale.AppLocale
@@ -27,10 +26,7 @@ class MainActivity : ComponentActivity() {
         adsController = if (BuildConfig.MONETIZATION_CONFIGURED) AdsController(this) else null
         premiumBillingController =
             if (BuildConfig.PAYMENTS_ENABLED) PremiumBillingController(this) else null
-        enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
-        )
+        WindowCompat.enableEdgeToEdge(window)
         setContent {
             WeatherApp(
                 repository = remember { WeatherRepository(applicationContext) },

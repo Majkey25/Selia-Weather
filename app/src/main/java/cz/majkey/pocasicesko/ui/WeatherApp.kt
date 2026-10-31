@@ -1024,6 +1024,7 @@ internal fun LocationSearchSheet(
         contentColor = MaterialTheme.colorScheme.onSurface,
         sheetState = sheetState,
     ) {
+        SheetSystemBars()
         if (pickingPoint) {
             PinnedLocationPicker(
                 initialLocation = selectedLocation,

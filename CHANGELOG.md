@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.24] - 2026-10-31
+
+- Upgrade to Android Gradle Plugin 9 and built-in Kotlin while retaining release code and resource shrinking.
+- Verify the Gradle distribution checksum and use the recommended WindowCompat edge-to-edge API in the app and widget editor.
+- Remove the unused graphics-path dependency from release builds instead of packaging its stripped native libraries.
+- Keep system icons readable when changing themes in an open sheet without resetting its contents.
+- Update the research test dependency to fix the reported insecure temporary-directory handling in pytest.
+
 ## [0.7.23] - 2026-10-31
 
 - Put location search and results above saved places, keep the sheet height stable, and avoid flashing empty results during debounce.

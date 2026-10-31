@@ -112,6 +112,7 @@ internal fun WeatherWarningsSheet(
         contentColor = MaterialTheme.colorScheme.onSurface,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
     ) {
+        SheetSystemBars()
         Column(Modifier.fillMaxWidth().fillMaxHeight().navigationBarsPadding()) {
             SheetHeader(stringResource(R.string.warnings_title), onBack = onDismiss, subtitle = location.name)
             LazyColumn(

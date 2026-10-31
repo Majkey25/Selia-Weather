@@ -76,6 +76,7 @@ fun AppearanceSheet(selectedAppearance: AppearanceConfig, onAppearance: (Appeara
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface,
         contentColor = MaterialTheme.colorScheme.onSurface, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         properties = ModalBottomSheetProperties(shouldDismissOnBackPress = !customOpen)) {
+        SheetSystemBars()
         BackHandler(customOpen) { customOpen = false }
         SheetHeader(stringResource(if (customOpen) R.string.appearance_custom else R.string.appearance_title),
             onBack = { if (customOpen) customOpen = false else onDismiss() })

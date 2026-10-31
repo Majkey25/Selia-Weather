@@ -561,7 +561,10 @@ private fun WeatherDetailContainer(
             containerColor = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.onSurface,
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        ) { content() }
+        ) {
+            SheetSystemBars()
+            content()
+        }
     }
 }
 

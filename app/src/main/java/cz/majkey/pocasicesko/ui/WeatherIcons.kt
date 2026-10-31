@@ -9,17 +9,21 @@ import androidx.compose.material.icons.outlined.Dehaze
 import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import cz.majkey.pocasicesko.data.WeatherKind
 import cz.majkey.pocasicesko.data.WeatherConditionKey
 import cz.majkey.pocasicesko.R
+import cz.majkey.pocasicesko.widget.widgetContrastRatio
 
 @Composable
 fun WeatherIcon(
@@ -27,10 +31,11 @@ fun WeatherIcon(
     isDay: Boolean,
     contentDescription: String?,
     modifier: Modifier = Modifier,
-    tint: Color = Color.White,
     conditionKey: WeatherConditionKey? = null,
     weatherCode: Int? = null,
 ) {
+    val appearance = LocalWeatherAppearance.current
+    val tint = remember(kind, isDay, appearance) { weatherIconTint(kind, isDay, appearance) }
     if (kind == WeatherKind.RAIN || kind == WeatherKind.SNOW) {
         val resource = if (kind == WeatherKind.SNOW) snowIconResource(weatherCode) else precipitationIconResource(conditionKey, weatherCode)
         Icon(painter = painterResource(resource), contentDescription = contentDescription,
@@ -39,11 +44,8 @@ fun WeatherIcon(
     }
     if (kind == WeatherKind.MAINLY_CLEAR || kind == WeatherKind.PARTLY_CLOUDY) {
         val cloudFraction = compositeCloudFraction(kind)
-        val dark = LocalWeatherAppearance.current.dark
-        val cloudTint = if (dark) compositeCloudTint(kind, tint) else Color(0xFF477B9C)
         val sunOrMoonFraction = if (kind == WeatherKind.MAINLY_CLEAR) 0.84f else 0.78f
-        val sunOrMoonTint = if (isDay) { if (dark) Color(0xFFFFD477) else Color(0xFFA06416) }
-            else if (dark) Color(0xFFDDE6FF) else Color(0xFF6569A3)
+        val sunOrMoonTint = remember(isDay, appearance) { weatherIconTint(WeatherKind.CLEAR, isDay, appearance) }
         Box(
             if (contentDescription == null) {
                 modifier
@@ -61,7 +63,7 @@ fun WeatherIcon(
                 imageVector = Icons.Filled.Cloud,
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(cloudFraction).align(Alignment.BottomEnd),
-                tint = cloudTint.copy(alpha = 1f),
+                tint = tint,
             )
         }
         return
@@ -105,8 +107,22 @@ internal fun snowIconResource(weatherCode: Int?): Int = when (weatherCode) {
     else -> R.drawable.ic_weather_snow
 }
 
-internal fun compositeCloudTint(kind: WeatherKind, requested: Color): Color = when (kind) {
-    WeatherKind.MAINLY_CLEAR -> Color(0xFF9FB7FF)
-    WeatherKind.PARTLY_CLOUDY -> requested
-    else -> error("Only composite conditions have a cloud tint")
+internal fun weatherIconTint(kind: WeatherKind, isDay: Boolean, appearance: RenderedAppearance): Color {
+    val dark = appearance.dark
+    val seed = when (kind) {
+        WeatherKind.CLEAR -> if (isDay) {
+            if (dark) Color(0xFFFFD34F) else Color(0xFFAD8500)
+        } else if (dark) Color(0xFFC3C8FF) else Color(0xFF6569A3)
+        WeatherKind.MAINLY_CLEAR, WeatherKind.PARTLY_CLOUDY, WeatherKind.CLOUDY, WeatherKind.UNKNOWN ->
+            if (dark) Color(0xFF82D6A0) else Color(0xFF2B7844)
+        WeatherKind.RAIN -> if (dark) Color(0xFF70C6F2) else Color(0xFF1A6FA4)
+        WeatherKind.SNOW -> if (dark) Color(0xFF9DDFF5) else Color(0xFF267A94)
+        WeatherKind.STORM -> if (dark) Color(0xFFC4A7FF) else Color(0xFF78509C)
+        WeatherKind.FOG -> if (dark) Color(0xFF9DCCC4) else Color(0xFF40786F)
+    }
+    val backgrounds = gradientContrastSamples(appearance.palette.background) +
+        listOf(appearance.colors.surface, appearance.colors.surfaceVariant)
+    return (0..10).asSequence().map { lerp(seed, appearance.colors.onSurface, it / 10f) }
+        .firstOrNull { candidate -> backgrounds.all { widgetContrastRatio(candidate.toArgb(), it.toArgb()) >= 3.1 } }
+        ?: appearance.colors.onSurface
 }

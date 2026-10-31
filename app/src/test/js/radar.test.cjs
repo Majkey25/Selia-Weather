@@ -397,6 +397,8 @@ for (const action of ['commit', 'frame expiry', 'run expiry', 'foreign coverage'
   assert.equal(Number(app.node('slider').value), displayed.frame.time);
   if (action === 'commit') {
     app.load(); assert.equal(app.context.radarLayer, replacement); assert.equal(app.context.retiredLayer, null);
+    assert.equal(app.layers.get(replacement.id).paint['raster-opacity-transition'].duration, 0);
+    assert.equal(app.layers.get(replacement.id).paint['raster-opacity'], 0.78);
   } else if (action === 'foreign coverage') {
     asia(app); app.events.moveend(); assert.equal(app.context.radarLayer, null); assert.equal(app.context.pendingLayer.frame.key, 'global');
   } else if (action === 'mode change') {
@@ -425,6 +427,25 @@ test('play wraps loaded frames, crossfades retained rasters and pause cancels fu
   app.fire(app.context.transitionTimer); assert.ok(!app.sources.has(old.id));
   app.context.togglePlay(); assert.equal(app.intervals.size, 0);
   assert.equal(app.node('play')['aria-pressed'], 'false'); assert.equal(app.context.radarLayer, next);
+});
+
+test('seeking during a crossfade restores displayed opacity before retiring its predecessor', async () => {
+  const app = runtime(); await settled(); app.load();
+  const first = app.context.radarLayer;
+  assert.equal(app.layers.get(first.id).paint['raster-opacity-transition'].duration, 0);
+  app.context.showFrame(1); app.load();
+  const displayed = app.context.radarLayer, transition = app.context.transitionTimer;
+  assert.equal(app.context.retiredLayer, first);
+  app.context.showFrame(2);
+  assert.equal(app.context.radarLayer, displayed);
+  assert.equal(app.layers.get(displayed.id).paint['raster-opacity-transition'].duration, 0);
+  assert.equal(app.layers.get(displayed.id).paint['raster-opacity'], 0.78);
+  assert.equal(app.timeouts.has(transition), false);
+  assert.equal(app.context.retiredLayer, null);
+  assert.ok(!app.sources.has(first.id));
+  app.load();
+  assert.equal(app.context.retiredLayer, displayed);
+  assert.equal(app.layers.get(displayed.id).paint['raster-opacity-transition'].duration, 350);
 });
 test('pause during tile loading keeps the visible frame and rejects the late replacement', async () => {
   const app = runtime(); await settled(); app.load();

@@ -31,10 +31,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -412,6 +415,7 @@ fun WeatherApp(
     WeatherTheme(config = appearance, kind = snapshot?.current?.let { conditionFor(it.weatherCode, it.isDay).kind },
         isDay = snapshot?.current?.isDay ?: true) {
         val density = LocalDensity.current
+        val keyboardVisible = WindowInsets.ime.getBottom(density) > 0
         var navigationHeightDp by remember { mutableIntStateOf(76) }
         if (showBackgroundDisclosure) AlertDialog(
             onDismissRequest = { acceptBackgroundChoice(false) },
@@ -493,7 +497,7 @@ fun WeatherApp(
                 }
                 }
             }
-            if (!(destination == Destination.MAPS && radarFullscreen)) FloatingNavigation(
+            if (!keyboardVisible && !(destination == Destination.MAPS && radarFullscreen)) FloatingNavigation(
                 destination = destination,
                 modifier = Modifier.align(Alignment.BottomCenter).onSizeChanged {
                     navigationHeightDp = ceil(it.height / density.density).toInt()
@@ -881,7 +885,7 @@ private fun ErrorState(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun LocationSearchSheet(
+internal fun LocationSearchSheet(
     repository: WeatherRepository,
     deviceLocationRepository: DeviceLocationRepository,
     selectedLocation: CzechLocation,
@@ -999,9 +1003,10 @@ private fun LocationSearchSheet(
             error = null
             return@LaunchedEffect
         }
-        delay(350)
+        results = emptyList()
         searching = true
         error = null
+        delay(350)
         try {
             results = repository.searchLocations(cleaned)
         } catch (failure: Exception) {
@@ -1032,12 +1037,52 @@ private fun LocationSearchSheet(
         } else Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .fillMaxHeight()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 30.dp),
         ) {
             Text(stringResource(R.string.locations), fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(14.dp))
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics { contentDescription = searchWorldwide },
+                label = { Text(stringResource(R.string.city_or_municipality)) },
+                leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+                trailingIcon = {
+                    if (searching) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
+            )
+            Spacer(Modifier.height(12.dp))
+            error?.let {
+                Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(vertical = 8.dp))
+                if (locationPermissionPermanentlyDenied) {
+                    TextButton(onClick = ::openLocationSettings) {
+                        Text(stringResource(R.string.open_app_settings))
+                    }
+                }
+            }
+            results.forEach { result ->
+                LocationRow(
+                    location = result,
+                    favorite = favorites.containsLocation(result),
+                    onSelect = { onSelect(result) },
+                    onFavorite = { toggleFavorite(result) },
+                )
+            }
+            if (!searching && error == null && query.trim().length >= 2 && results.isEmpty()) {
+                Text(
+                    stringResource(R.string.no_czech_result),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 14.dp),
+                )
+            }
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1140,58 +1185,6 @@ private fun LocationSearchSheet(
                 }
             }
 
-            Text(
-                searchWorldwide,
-                modifier = Modifier.padding(top = 14.dp, bottom = 8.dp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-            )
-            OutlinedTextField(
-                value = query,
-                onValueChange = { query = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .semantics { contentDescription = searchWorldwide },
-                label = { Text(stringResource(R.string.city_or_municipality)) },
-                leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
-            )
-            Spacer(Modifier.height(12.dp))
-            if (searching) {
-                CircularProgressIndicator(
-                    modifier = Modifier
-                        .align(Alignment.CenterHorizontally)
-                        .size(28.dp),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    strokeWidth = 2.dp,
-                )
-            }
-            error?.let {
-                Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(vertical = 8.dp))
-                if (locationPermissionPermanentlyDenied) {
-                    TextButton(onClick = ::openLocationSettings) {
-                        Text(stringResource(R.string.open_app_settings))
-                    }
-                }
-            }
-            results.forEach { result ->
-                LocationRow(
-                    location = result,
-                    favorite = favorites.containsLocation(result),
-                    onSelect = { onSelect(result) },
-                    onFavorite = { toggleFavorite(result) },
-                )
-            }
-            if (!searching && error == null && query.trim().length >= 2 && results.isEmpty()) {
-                Text(
-                    stringResource(R.string.no_czech_result),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(vertical = 14.dp),
-                )
-            }
         }
     }
 }

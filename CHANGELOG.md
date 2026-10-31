@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.7.23] - 2026-10-31
+
+- Put location search and results above saved places, keep the sheet height stable, and avoid flashing empty results during debounce.
+- Keep widget controls reachable with the keyboard open, hide floating navigation while typing, and preserve independent appearance editor scroll positions.
+- Keep the last valid color preview while editing incomplete HEX values.
+- Use consistent, contrast-checked weather icon colors, including yellow sun and green clouds.
+- Prevent blank radar frames when changing model runs or interrupting a crossfade. Keep the provider's real forecast times and normal playback transitions.
+- Enable optimized release resource shrinking alongside existing code shrinking and obfuscation.
+
 ## [0.7.22] - 2026-10-26
 
 - Load independent forecast and observation sources concurrently, and show an initial provider forecast while enrichment finishes when no saved forecast exists.

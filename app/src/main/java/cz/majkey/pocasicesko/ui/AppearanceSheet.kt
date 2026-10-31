@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -37,6 +38,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.listSaver
@@ -64,6 +66,12 @@ fun AppearanceSheet(selectedAppearance: AppearanceConfig, onAppearance: (Appeara
     var draft by rememberSaveable(selectedAppearance.custom, stateSaver = CustomAppearanceSaver) { mutableStateOf(selectedAppearance.custom) }
     var draftScale by rememberSaveable(selectedAppearance.textScale) { mutableStateOf(selectedAppearance.textScale) }
     var draftCorners by rememberSaveable(selectedAppearance.cornerRadius) { mutableStateOf(selectedAppearance.cornerRadius.toFloat()) }
+    var previewDraft by rememberSaveable(stateSaver = CustomAppearanceSaver) { mutableStateOf(selectedAppearance.normalized().custom) }
+    val themesList = rememberLazyListState()
+    val customList = rememberLazyListState()
+    LaunchedEffect(draft) {
+        if (customAppearanceReadable(draft)) previewDraft = draft
+    }
     val selectedDark = selectedAppearance.isDark(isSystemInDarkTheme())
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface,
         contentColor = MaterialTheme.colorScheme.onSurface, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -72,10 +80,11 @@ fun AppearanceSheet(selectedAppearance: AppearanceConfig, onAppearance: (Appeara
         SheetHeader(stringResource(if (customOpen) R.string.appearance_custom else R.string.appearance_title),
             onBack = { if (customOpen) customOpen = false else onDismiss() })
         LazyColumn(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp),
+            state = if (customOpen) customList else themesList,
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
             if (customOpen) {
                 item {
-                    ThemePreview(draft)
+                    ThemePreview(previewDraft)
                     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
                         .toggleable(value = draft.automaticText, role = Role.Switch,
                             onValueChange = { draft = draft.copy(automaticText = it) }),

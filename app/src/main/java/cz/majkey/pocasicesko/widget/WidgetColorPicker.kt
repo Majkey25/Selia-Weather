@@ -21,6 +21,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -73,7 +74,10 @@ private fun ColorSwatch(value: String) {
 @Composable
 private fun WidgetColorDialog(value: String, label: String, opaqueOnly: Boolean, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
     var draft by rememberSaveable { mutableStateOf(widgetHexOrNull(value) ?: "#FFFFFFFF") }
-    val argb = widgetArgbOrNull(draft) ?: widgetArgbOrNull(value) ?: -1
+    var lastColor by rememberSaveable { mutableStateOf(draft) }
+    LaunchedEffect(draft) { if (isWidgetColor(draft)) lastColor = draft }
+    val preview = widgetHexOrNull(draft) ?: lastColor
+    val argb = requireNotNull(widgetArgbOrNull(preview))
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(label) },
@@ -84,7 +88,7 @@ private fun WidgetColorDialog(value: String, label: String, opaqueOnly: Boolean,
                     value = draft,
                     onValueChange = { draft = widgetColorInput(it) },
                     label = { Text("HEX") },
-                    leadingIcon = { ColorSwatch(draft) },
+                    leadingIcon = { ColorSwatch(preview) },
                     supportingText = { Text(if (opaqueOnly) "#RRGGBB · 100%" else stringResource(R.string.widget_hex_format)) },
                     isError = !isWidgetColor(draft) || opaqueOnly && widgetArgbOrNull(draft)?.ushr(24) != 255, singleLine = true,
                     modifier = Modifier.fillMaxWidth(),

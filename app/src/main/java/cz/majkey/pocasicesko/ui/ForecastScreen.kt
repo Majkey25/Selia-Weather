@@ -162,8 +162,6 @@ internal fun ForecastScreen(
     warnings: WeatherWarningsResult?,
     onWarnings: () -> Unit,
 ) {
-    val condition = conditionFor(snapshot.current.weatherCode, snapshot.current.isDay)
-    val accent = weatherAccent(condition.kind, snapshot.current.isDay)
     val locale = LocalConfiguration.current.locales[0]
     val units = remember(measurementSystem, locale) { WeatherUnitFormatter(measurementSystem, locale) }
     val localNow = rememberForecastLocalTime(snapshot.timezone, snapshot.utcOffsetSeconds)
@@ -199,7 +197,7 @@ internal fun ForecastScreen(
                 )
             }
             item {
-                WeatherHero(snapshot = snapshot, accent = accent, units = units, localNow = localNow)
+                WeatherHero(snapshot = snapshot, units = units, localNow = localNow)
             }
             item {
                 HourlyGraphPanel(snapshot = snapshot, units = units, localNow = localNow,
@@ -375,7 +373,7 @@ private fun LocationHeader(
 }
 
 @Composable
-internal fun WeatherHero(snapshot: WeatherSnapshot, accent: Color, units: WeatherUnitFormatter, localNow: LocalDateTime?) {
+internal fun WeatherHero(snapshot: WeatherSnapshot, units: WeatherUnitFormatter, localNow: LocalDateTime?) {
     val condition = conditionFor(snapshot.current.weatherCode, snapshot.current.isDay)
     val conditionLabel = stringResource(condition.labelResource())
     val today = snapshot.daily.firstOrNull { it.date == localNow?.toLocalDate()?.toString() }
@@ -390,7 +388,6 @@ internal fun WeatherHero(snapshot: WeatherSnapshot, accent: Color, units: Weathe
             isDay = snapshot.current.isDay,
             contentDescription = null,
             modifier = Modifier.size(40.dp),
-            tint = accent,
         )
         BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             val temperature = units.temperature(snapshot.current.temperature)
@@ -484,7 +481,6 @@ internal fun HourlyGraphPanel(snapshot: WeatherSnapshot, units: WeatherUnitForma
                                             isDay = iconIsDay,
                                             contentDescription = null,
                                             modifier = Modifier.size(25.dp),
-                                            tint = weatherAccent(condition.kind, iconIsDay),
                                         )
                                     }
                                 }
@@ -761,7 +757,6 @@ internal fun DailyRow(
                 isDay = true,
                 contentDescription = conditionLabel,
                 modifier = Modifier.size(27.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
                 text = conditionLabel,
@@ -975,7 +970,6 @@ internal fun DayDetailSheet(
                                         isDay = iconIsDay,
                                         contentDescription = conditionLabel,
                                         modifier = Modifier.size(26.dp),
-                                        tint = weatherAccent(condition.kind, iconIsDay),
                                     )
                                     Column(Modifier.weight(1f).padding(start = 12.dp)) {
                                         Text(conditionLabel, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1116,28 +1110,6 @@ private fun WeatherPanel(content: @Composable () -> Unit) {
 @Composable
 private fun SectionTitle(text: String) {
     Text(text, fontSize = 17.sp, fontWeight = FontWeight.Medium, modifier = Modifier.semantics { heading() })
-}
-
-@Composable
-internal fun weatherAccent(kind: WeatherKind, isDay: Boolean): Color = if (LocalWeatherAppearance.current.dark) {
-    conditionAccent(kind, isDay)
-} else when {
-    !isDay -> Color(0xFF5867AA)
-    kind == WeatherKind.CLEAR || kind == WeatherKind.MAINLY_CLEAR -> Color(0xFFA06416)
-    kind == WeatherKind.STORM -> Color(0xFF78509C)
-    else -> MaterialTheme.colorScheme.secondary
-}
-
-fun conditionAccent(kind: WeatherKind, isDay: Boolean): Color = when {
-    !isDay -> Color(0xFFA9B9FF)
-    kind == WeatherKind.CLEAR -> Color(0xFFFFC766)
-    kind == WeatherKind.MAINLY_CLEAR -> Color(0xFFFFCF78)
-    kind == WeatherKind.PARTLY_CLOUDY -> Color(0xFF9ED9EA)
-    kind == WeatherKind.RAIN -> Color(0xFF6DD3EA)
-    kind == WeatherKind.STORM -> Color(0xFFC4A7FF)
-    kind == WeatherKind.SNOW -> Color(0xFFD8F4FF)
-    kind == WeatherKind.FOG -> Color(0xFFB8C7CA)
-    else -> Color(0xFFA8C8D4)
 }
 
 internal fun formatDay(date: String, locale: java.util.Locale): String {

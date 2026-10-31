@@ -162,7 +162,7 @@ class RadarScreenTest {
         val app = File(root, "WeatherApp.kt").readText()
         val hub = File(root, "MapHubScreen.kt").readText()
         assertTrue(app.contains("BackHandler(enabled = destination == Destination.MAPS && radarFullscreen)"))
-        assertTrue(app.contains("if (!(destination == Destination.MAPS && radarFullscreen)) FloatingNavigation("))
+        assertTrue(app.contains("if (!keyboardVisible && !(destination == Destination.MAPS && radarFullscreen)) FloatingNavigation("))
         assertTrue(hub.contains("R.string.radar_exit_fullscreen"))
         assertEquals(1, "ChmiWebScreen(".toRegex(RegexOption.LITERAL).findAll(hub).count())
     }

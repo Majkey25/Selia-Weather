@@ -334,7 +334,19 @@
       if (map.getLayer(id)) map.removeLayer(id);
       if (map.getSource(id)) map.removeSource(id);
     }
-    function setOpacity(layer, value) { if (layer && map.getLayer(layer.id)) map.setPaintProperty(layer.id, 'raster-opacity', value); }
+    function setOpacity(layer, value, instant) {
+      if (!layer || !map.getLayer(layer.id)) return;
+      map.setPaintProperty(layer.id, 'raster-opacity-transition', { duration: instant ? 0 : transitionDuration });
+      // A changed target also cancels MapLibre's active transition to this same opacity.
+      if (instant) map.setPaintProperty(layer.id, 'raster-opacity', 0);
+      map.setPaintProperty(layer.id, 'raster-opacity', value);
+    }
+    function finishTransition() {
+      clearTimeout(transitionTimer); transitionTimer = null;
+      if (!retiredLayer) return;
+      setOpacity(radarLayer, 0.78, true);
+      removeSource(retiredLayer); retiredLayer = null;
+    }
     function clearRadarLayer() {
       clearPending();
       clearTimeout(panTimeout); panTimeout = null;
@@ -559,12 +571,11 @@
       if (pendingLayer !== layer || !frames.some(function(frame) { return sameFrame(frame, layer.frame); })) return;
       clearTimeout(tileTimeout); tileTimeout = null;
       clearTimeout(panTimeout); panTimeout = null;
-      clearTimeout(transitionTimer);
-      removeSource(retiredLayer);
+      finishTransition();
       var old = radarLayer;
-      retiredLayer = null; radarLayer = layer; pendingLayer = null;
+      radarLayer = layer; pendingLayer = null;
       frameIndex = frames.findIndex(function(frame) { return sameFrame(frame, layer.frame); });
-      layer.frameIndex = frameIndex; setOpacity(layer, 0.78);
+      layer.frameIndex = frameIndex; setOpacity(layer, 0.78, !old || !sameSource(old.frame, layer.frame));
       if (old) {
         if (sameSource(old.frame, layer.frame)) {
           retiredLayer = old; setOpacity(old, 0);
@@ -668,9 +679,7 @@
       if (!retryTiles && radarLayer && radarLayer.ready && !radarLayer.failed && sameFrame(radarLayer.frame, frame)) {
         frameIndex = index; updateSlider(frame); setStatus(''); return;
       }
-      clearTimeout(transitionTimer); transitionTimer = null;
-      removeSource(retiredLayer);
-      retiredLayer = null;
+      finishTransition();
       if (preloadLayer && (retryTiles || preloadLayer.failed || !sameFrame(preloadLayer.frame, frame))) {
         removeSource(preloadLayer); preloadLayer = null;
       }

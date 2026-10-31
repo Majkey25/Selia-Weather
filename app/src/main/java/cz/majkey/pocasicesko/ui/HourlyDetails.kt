@@ -391,7 +391,7 @@ internal fun ExpandedHourDetails(
                 verticalAlignment = Alignment.Top,
             ) {
                 WeatherIcon(displayCondition.kind, displayIsDay, contentDescription = null,
-                    modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp),
                     conditionKey = displayCondition.key, weatherCode = displayCondition.weatherCode)
                 Text(
                     text = hourlyWeatherSummary(hour, units, precipitationHour, locale, resources::getString,

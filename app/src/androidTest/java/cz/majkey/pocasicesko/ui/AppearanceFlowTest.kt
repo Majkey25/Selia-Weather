@@ -9,6 +9,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
@@ -35,6 +36,8 @@ import cz.majkey.pocasicesko.data.WeatherKind
 import cz.majkey.pocasicesko.data.WeatherRepository
 import cz.majkey.pocasicesko.units.MeasurementSystem
 import cz.majkey.pocasicesko.units.WeatherUnitFormatter
+import cz.majkey.pocasicesko.widget.ColorInput
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import java.util.Locale
 import kotlin.math.roundToInt
 import org.junit.Assert.assertEquals
@@ -109,6 +112,27 @@ class AppearanceFlowTest {
             .assertCountEquals(1)
         toggle.performClick().assertIsOff()
         toggle.performClick().assertIsOn()
+    }
+
+    @Test
+    fun incompleteHexKeepsTheLastValidSliderValues() {
+        val color = mutableStateOf("#FFFFFF")
+        compose.setContent { WeatherTheme { ColorInput(color.value, "Color") { color.value = it } } }
+        compose.onNodeWithContentDescription(context.getString(R.string.widget_choose_color, "Color")).performClick()
+        compose.onNodeWithText("HEX").performTextReplacement("#123456")
+        compose.onNodeWithText("HEX").performTextReplacement("#12")
+        compose.onNodeWithContentDescription(context.getString(R.string.widget_red)).assert(
+            SemanticsMatcher.expectValue(SemanticsProperties.ProgressBarRangeInfo, ProgressBarRangeInfo(18f, 0f..255f)),
+        )
+        compose.onNodeWithText(context.getString(android.R.string.ok)).assertIsNotEnabled()
+    }
+
+    @Test
+    fun openingCustomPaletteStartsAtThePreview() {
+        compose.setContent { WeatherTheme { AppearanceSheet(AppearanceConfig(), {}, {}) } }
+        compose.onNodeWithText(context.getString(R.string.appearance_edit_custom)).performScrollTo().performClick()
+        compose.onNodeWithText(context.getString(R.string.appearance_preview)).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.appearance_start_color)).assertIsDisplayed()
     }
 
     @Test

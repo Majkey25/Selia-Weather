@@ -1,13 +1,13 @@
 package cz.majkey.pocasicesko.ui
 
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
 import cz.majkey.pocasicesko.data.WeatherKind
 import cz.majkey.pocasicesko.data.WeatherConditionKey
 import cz.majkey.pocasicesko.data.conditionFor
 import cz.majkey.pocasicesko.R
-import java.io.File
+import cz.majkey.pocasicesko.widget.widgetContrastRatio
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -50,42 +50,39 @@ class WeatherIconTest {
             conditionFor(68).kind, true, conditionFor(68).key, 68))
     }
     @Test
-    fun mainlyClearKeepsCloudSmallAndBlue() {
+    fun mainlyClearKeepsASmallerCloudThanPartlyCloudy() {
         assertEquals(0.50f, compositeCloudFraction(WeatherKind.MAINLY_CLEAR), 0.001f)
-        assertEquals(Color(0xFF9FB7FF), compositeCloudTint(WeatherKind.MAINLY_CLEAR, Color.Yellow))
-    }
-
-    @Test
-    fun partlyCloudyKeepsLargerRequestedCloudTint() {
-        val requested = Color(0xFF9ED9EA)
-
         assertEquals(0.64f, compositeCloudFraction(WeatherKind.PARTLY_CLOUDY), 0.001f)
-        assertEquals(requested, compositeCloudTint(WeatherKind.PARTLY_CLOUDY, requested))
     }
 
     @Test
-    fun mainlyClearUsesSunOrMoonWithSmallCloud() {
-        val source = File(
-            System.getProperty("user.dir"),
-            "src/main/java/cz/majkey/pocasicesko/ui/WeatherIcons.kt",
-        ).readText()
-
-        assertTrue(source.contains("kind == WeatherKind.MAINLY_CLEAR"))
-        assertTrue(source.contains("Icons.Outlined.WbSunny"))
-        assertTrue(source.contains("Icons.Outlined.DarkMode"))
-        assertTrue(source.contains("Icons.Outlined.Cloud"))
-    }
-
-    @Test
-    fun partlyCloudyUsesSunOrMoonBehindACloud() {
-        val source = File(
-            System.getProperty("user.dir"),
-            "src/main/java/cz/majkey/pocasicesko/ui/WeatherIcons.kt",
-        ).readText()
-
-        assertTrue(source.contains("kind == WeatherKind.PARTLY_CLOUDY"))
-        assertTrue(source.contains("sunOrMoonTint"))
-        assertTrue(source.contains("cloudFraction"))
-        assertFalse(source.contains("Icons.Rounded.FilterDrama"))
+    fun symbolsKeepTheirColorsAndContrastAcrossAppThemes() {
+        for (theme in AppAppearance.entries) for (dark in listOf(true, false)) {
+            for (kind in WeatherKind.entries) for (isDay in listOf(true, false)) {
+                val palette = appearancePalette(theme, kind, isDay, dark)
+                val colors = appearanceColors(palette, theme, dark)
+                val appearance = RenderedAppearance(palette, colors, colors.onBackground.luminance() > 0.5f)
+                val tint = weatherIconTint(kind, isDay, appearance)
+                val label = "$theme dark=$dark $kind day=$isDay"
+                val backgrounds = gradientContrastSamples(palette.background) + listOf(colors.surface, colors.surfaceVariant)
+                assertTrue("$label contrast", backgrounds.all { widgetContrastRatio(tint.toArgb(), it.toArgb()) >= 3.0 })
+                assertEquals("$label opacity", 1f, tint.alpha, 0f)
+                when (kind) {
+                    WeatherKind.CLEAR -> if (isDay) {
+                        assertTrue("$label yellow sun", tint.red > tint.green && tint.green > tint.blue)
+                    } else {
+                        assertTrue("$label lavender moon", tint.blue > tint.red && tint.blue > tint.green)
+                    }
+                    WeatherKind.MAINLY_CLEAR, WeatherKind.PARTLY_CLOUDY, WeatherKind.CLOUDY, WeatherKind.UNKNOWN -> {
+                        assertTrue("$label green cloud", tint.green > tint.red && tint.green > tint.blue)
+                        assertEquals("$label shared cloud", weatherIconTint(WeatherKind.CLOUDY, isDay, appearance), tint)
+                    }
+                    WeatherKind.RAIN, WeatherKind.SNOW ->
+                        assertTrue("$label blue precipitation", tint.blue > tint.red && tint.blue > tint.green)
+                    WeatherKind.STORM -> assertTrue("$label purple storm", tint.blue > tint.green && tint.red > tint.green)
+                    WeatherKind.FOG -> assertTrue("$label teal fog", tint.green > tint.red && tint.blue > tint.red)
+                }
+            }
+        }
     }
 }

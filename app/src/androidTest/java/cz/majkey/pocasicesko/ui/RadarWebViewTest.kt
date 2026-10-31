@@ -70,6 +70,7 @@ class RadarWebViewTest {
                         "playLabel:document.getElementById('play').getAttribute('aria-label')," +
                         "transitionDuration:transitionDuration," +
                         "rendered:window.radarPlaybackProbe||null," +
+                        "opacityProbe:window.radarFirstOpacityProbe||null," +
                         "errors:window.radarErrors||[]," +
                         "events:window.radarSourceEvents||[]," +
                         "responses:window.radarResponses||[]," +
@@ -487,14 +488,29 @@ class RadarWebViewTest {
         compose.waitUntil(10_000) { readState(); state.get().optBoolean("playing") }
         compose.runOnIdle {
             view.evaluateJavascript("""
+                window.radarFirstOpacityProbe = null;
+                function recordFirstObservedOpacity() {
+                  if (!radarLayer || radarLayer.frame.type !== 'observed' || !radarLayer.ready ||
+                      radarLayer.failed || pendingLayer || !map.isSourceLoaded(radarLayer.id)) return;
+                  var layer = map.getLayer(radarLayer.id);
+                  if (!layer) return;
+                  // MapLibre's raster shader uses this evaluated value, not the requested paint target.
+                  window.radarFirstOpacityProbe = {id:radarLayer.id, opacity:layer.paint.get('raster-opacity')};
+                  map.off('render', recordFirstObservedOpacity);
+                }
+                map.on('render', recordFirstObservedOpacity);
                 document.getElementById('observed').click();
             """.trimIndent(), null)
         }
         compose.waitUntil(30_000) {
             readState()
             state.get().optString("type") == "observed" && state.get().optBoolean("ready") &&
-                !state.get().optBoolean("pending")
+                !state.get().optBoolean("pending") && state.get().optJSONObject("opacityProbe") != null
         }
+        val opacityProbe = state.get().getJSONObject("opacityProbe")
+        assertEquals(state.get().getString("sourceId"), opacityProbe.getString("id"))
+        assertEquals("The first loaded raster must render at full display opacity without a predecessor",
+            0.78, opacityProbe.getDouble("opacity"), 0.000001)
         assertEquals(state.get().getLong("displayedTime"), state.get().getLong("sliderTime"))
         assertEquals("", state.get().getString("status"))
         assertFalse("Changing radar mode must stop playback", state.get().getBoolean("playing"))

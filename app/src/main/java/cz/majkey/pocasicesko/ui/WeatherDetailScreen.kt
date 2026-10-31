@@ -13,10 +13,12 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -71,6 +73,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.painterResource
@@ -549,8 +552,9 @@ private fun WeatherDetailContainer(
     content: @Composable () -> Unit,
 ) {
     if (embedded) {
+        val keyboardVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
         Box(Modifier.fillMaxWidth().fillMaxHeight().background(MaterialTheme.colorScheme.surface)
-            .padding(padding).padding(bottom = 84.dp)) { content() }
+            .padding(padding).padding(bottom = if (keyboardVisible) 0.dp else 84.dp)) { content() }
     } else {
         ModalBottomSheet(
             onDismissRequest = onDismiss,
@@ -1058,7 +1062,7 @@ private fun AtAGlanceSection(
         Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             WeatherIcon(condition.kind, snapshot.current.isDay, contentDescription = null,
-                modifier = Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(40.dp),
                 conditionKey = condition.key, weatherCode = condition.weatherCode)
             Column(Modifier.weight(1f)) {
                 Text(units.temperature(snapshot.current.temperature), fontSize = 48.sp, lineHeight = 56.sp,

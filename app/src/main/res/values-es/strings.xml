@@ -225,7 +225,7 @@
     <string name="radar_unavailable">Radar no disponible</string>
     <string name="widget_title">Widget del tiempo</string>
     <string name="widget_add">Añadir widget a la pantalla de inicio</string>
-    <string name="widget_background_disclosure">Los widgets envían la ubicación guardada a Open-Meteo y AviationWeather al actualizarse, incluso con la app cerrada. No obtienen una nueva ubicación. Elimina el widget para detener sus actualizaciones.</string>
+    <string name="widget_background_disclosure">Los widgets envían las coordenadas seleccionadas a Open-Meteo y AviationWeather al actualizarse con la app cerrada. Seguir ubicación actual puede obtener una posición reciente si permites el acceso en segundo plano. Elimina el widget para detener sus actualizaciones.</string>
     <string name="widget_add_unavailable">Este lanzador no puede añadir el widget automáticamente.</string>
     <string name="widget_preview_description">Vista previa del widget del tiempo</string>
     <string name="widget_size_compact">Compacto</string>

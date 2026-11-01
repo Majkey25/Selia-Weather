@@ -6,6 +6,8 @@ La prévision utilise Open-Meteo Best Match et un calcul diagnostique multimodè
 
 Recherchez des lieux dans le monde entier, enregistrez des favoris, choisissez un point exact sur la carte mondiale ou saisissez des coordonnées. Vous pouvez aussi utiliser votre position actuelle. La dernière prévision réussie reste disponible hors connexion.
 
+Choisissez Lieu fixe ou Suivre ma position. Le suivi facultatif vérifie la position pour les alertes météo locales, les bulletins matinaux et les widgets, même si l’app est fermée ou inutilisée. Une explication et une autorisation de localisation en arrière-plan séparées sont requises. Android peut retarder les vérifications. Sans position récente autorisée, les alertes de l’ancien lieu sont suspendues. Un lieu fixe arrête le suivi.
+
 Le radar réunit les observations disponibles de RainViewer et les prévisions DWD dans une chronologie avec zoom, déplacement, animation et masque de couverture. La prévision va jusqu’à 48 heures selon les données disponibles. Les commandes compactes flottent sur la carte ; le plein écran offre plus d’espace. Les observations, intervalles de prévision et lacunes restent distincts. Il s’agit d’une prévision du modèle, pas d’un radar futur observé. Les indicateurs de confiance décrivent l’accord entre modèles et les limites des données, pas une précision garantie.
 
 Créez votre propre widget d'accueil. Chaque widget peut utiliser ses couleurs, sa transparence, un dégradé ou une image de fond, une taille de texte, un alignement, une étiquette et des données météo visibles. Si Android ne peut plus lire une image, le widget utilise son fond coloré et continue de fonctionner.

@@ -225,7 +225,7 @@
     <string name="radar_unavailable">Radar nicht verfügbar</string>
     <string name="widget_title">Wetter-Widget</string>
     <string name="widget_add">Widget zum Startbildschirm hinzufügen</string>
-    <string name="widget_background_disclosure">Widgets senden den gespeicherten Ort auch bei geschlossener App für Aktualisierungen an Open-Meteo und AviationWeather. Sie lesen keinen neuen Gerätestandort. Entfernen Sie das Widget, um seine Aktualisierungen zu beenden.</string>
+    <string name="widget_background_disclosure">Widgets senden die gewählten Koordinaten auch bei geschlossener App an Open-Meteo und AviationWeather. Aktuellem Standort folgen kann bei erlaubtem Hintergrundzugriff einen neuen Gerätestandort abrufen. Entfernen Sie das Widget, um seine Aktualisierungen zu beenden.</string>
     <string name="widget_add_unavailable">Dieser Launcher kann das Widget nicht automatisch hinzufügen.</string>
     <string name="widget_preview_description">Vorschau des Wetter-Widgets</string>
     <string name="widget_size_compact">Kompakt</string>

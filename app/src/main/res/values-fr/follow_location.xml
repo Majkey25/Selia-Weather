@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="location_mode">Mode de localisation</string>
+    <string name="location_fixed">Lieu fixe</string>
+    <string name="location_follow">Suivre la position actuelle</string>
+    <string name="location_follow_active">Suivi de la position actuelle</string>
+    <string name="location_follow_updating">Mise à jour de la position de l’appareil…</string>
+    <string name="location_follow_foreground_only">Application ouverte uniquement · localisation en arrière-plan non autorisée</string>
+    <string name="location_follow_unavailable">Position indisponible · alertes suspendues en attendant une mise à jour</string>
+    <string name="location_follow_help">La météo et les alertes suivent votre appareil. Choisir une ville, un lieu enregistré ou un point sur la carte réactive un lieu fixe.</string>
+    <string name="location_follow_disclosure">Selia Weather recueille des données de localisation pour les prévisions, les widgets, les alertes météo locales et les bulletins matinaux, même lorsque l’application est fermée ou inutilisée. Les coordonnées sont envoyées à Open-Meteo, AviationWeather et aux services officiels pris en charge, dont ČÚZK/NWS. Le service Android de dénomination des lieux peut aussi les recevoir. Seule la dernière position est conservée sur votre appareil, sans historique des déplacements. Choisissez Lieu fixe ou retirez l’autorisation pour arrêter.</string>
+    <string name="location_follow_permission_help">Pour les mises à jour lorsque l’application est fermée, choisissez « %1$s » dans les autorisations de localisation Android. Sinon, le suivi fonctionne uniquement quand elle est ouverte. Android peut retarder les vérifications. Sans position récente, les alertes pour l’ancien lieu sont suspendues.</string>
+    <string name="location_always_allow">Toujours autoriser</string>
+    <string name="location_follow_background_help">Les alertes activées vérifient une position récente avant de charger la météo locale. Lorsque l’application est fermée, la localisation en arrière-plan est nécessaire. Android peut retarder les vérifications. Sans position récente, les alertes sont suspendues.</string>
+    <string name="location_follow_notifications_blocked">Android bloque les notifications. Activez-les pour recevoir les alertes météo à votre position actuelle. Lorsque l’application est fermée, la localisation en arrière-plan est également nécessaire.</string>
+</resources>

@@ -225,7 +225,7 @@
     <string name="radar_unavailable">Radar není k dispozici</string>
     <string name="widget_title">Widget počasí</string>
     <string name="widget_add">Přidat widget na plochu</string>
-    <string name="widget_background_disclosure">Widgety při aktualizaci odesílají uloženou polohu službám Open-Meteo a AviationWeather i při zavřené aplikaci. Novou polohu zařízení nezjišťují. Odebráním widgetu jeho aktualizace zastavíte.</string>
+    <string name="widget_background_disclosure">Widgety při aktualizaci odesílají vybrané souřadnice službám Open-Meteo a AviationWeather i při zavřené aplikaci. Sledování aktuální polohy může zjistit čerstvou polohu zařízení, pokud povolíte přístup na pozadí. Odebráním widgetu jeho aktualizace zastavíte.</string>
     <string name="widget_add_unavailable">Tento launcher neumí widget přidat automaticky.</string>
     <string name="widget_preview_description">Náhled widgetu počasí</string>
     <string name="widget_size_compact">Kompaktní</string>

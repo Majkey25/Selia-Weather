@@ -6,6 +6,8 @@ La previsión usa Open-Meteo Best Match y un cálculo diagnóstico de varios mod
 
 Busca lugares de todo el mundo, guarda favoritos, elige un punto exacto en el mapa mundial o introduce coordenadas. También puedes usar tu ubicación actual. La última previsión correcta queda disponible sin conexión.
 
+Elige Lugar fijo o Seguir ubicación actual. El seguimiento opcional consulta la posición para avisos meteorológicos locales, resúmenes matinales y widgets incluso con la app cerrada o sin usar. Requiere una explicación y un permiso de ubicación en segundo plano por separado. Android puede retrasar las consultas. Sin una ubicación reciente autorizada, se pausan los avisos del lugar anterior. Elige un lugar fijo para detener el seguimiento.
+
 El radar une observaciones disponibles de RainViewer y previsiones de precipitación DWD en una línea temporal, con zoom, desplazamiento, animación y máscara de cobertura. La previsión llega hasta 48 horas según los datos disponibles. Los controles compactos flotan sobre el mapa; la pantalla completa ofrece más espacio. Se distinguen observaciones, intervalos de previsión y huecos de datos. La previsión es un cálculo del modelo, no un radar futuro observado. Los indicadores de confianza muestran acuerdo entre modelos y limitaciones de datos, no una precisión garantizada.
 
 Crea tu propio widget de inicio. Cada widget puede tener colores, transparencia, degradado o imagen de fondo, tamaño de texto, alineación, etiqueta y campos meteorológicos propios. Si Android no puede leer una imagen elegida, el widget usa el fondo de color configurado y sigue funcionando.

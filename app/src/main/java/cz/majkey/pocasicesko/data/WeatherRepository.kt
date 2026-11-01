@@ -1,8 +1,10 @@
 package cz.majkey.pocasicesko.data
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.net.Uri
 import android.os.SystemClock
+import android.provider.Settings
 import android.util.Log
 import cz.majkey.pocasicesko.astro.MoonCalculator
 import androidx.core.content.edit
@@ -25,6 +27,7 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.runInterruptible
@@ -52,22 +55,120 @@ class WeatherRepository(context: Context) {
             countryCode = preferences.getString(KEY_LOCATION_COUNTRY_CODE, null),
         )
         normalizeLocationRegion(location).also { normalized ->
-            if (normalized != location) selectLocation(normalized)
+            if (normalized != location) preferences.edit { putLocation(normalized) }
         }
+    }
+
+    fun locationMode(): LocationMode =
+        if (preferences.getString(KEY_LOCATION_MODE, null) == LocationMode.FOLLOW_DEVICE.name) LocationMode.FOLLOW_DEVICE
+        else LocationMode.FIXED
+
+    internal fun locationSelectionRevision(): Long = synchronized(PERSISTENCE_LOCK) {
+        preferences.getLong(KEY_LOCATION_REVISION, 0)
+    }
+
+    internal fun beginFollowingLocation(): Long = synchronized(PERSISTENCE_LOCK) {
+        val revision = preferences.getLong(KEY_LOCATION_REVISION, 0) + 1
+        preferences.edit {
+            putString(KEY_LOCATION_MODE, LocationMode.FOLLOW_DEVICE.name)
+            putLong(KEY_LOCATION_REVISION, revision)
+            remove(KEY_DEVICE_LOCATION_TIME)
+            remove(KEY_DEVICE_LOCATION_ELAPSED_NANOS)
+            remove(KEY_DEVICE_LOCATION_BOOT_COUNT)
+        }
+        revision
     }
 
     fun selectLocation(location: CzechLocation) {
         synchronized(PERSISTENCE_LOCK) {
             preferences.edit {
-                val normalized = normalizeLocationRegion(location)
-                putString(KEY_LOCATION_NAME, normalized.name)
-                putString(KEY_LOCATION_REGION, normalized.region)
-                putString(KEY_LOCATION_LATITUDE, normalized.latitude.toString())
-                putString(KEY_LOCATION_LONGITUDE, normalized.longitude.toString())
-                normalized.countryCode?.let { putString(KEY_LOCATION_COUNTRY_CODE, it) }
-                    ?: remove(KEY_LOCATION_COUNTRY_CODE)
+                putLocation(location)
+                putString(KEY_LOCATION_MODE, LocationMode.FIXED.name)
+                putLong(KEY_LOCATION_REVISION, preferences.getLong(KEY_LOCATION_REVISION, 0) + 1)
+                remove(KEY_DEVICE_LOCATION_TIME)
+                remove(KEY_DEVICE_LOCATION_ELAPSED_NANOS)
+                remove(KEY_DEVICE_LOCATION_BOOT_COUNT)
             }
         }
+    }
+
+    fun selectCurrentFix(fix: DeviceLocationFix, followDevice: Boolean, expectedSelectionRevision: Long? = null) {
+        synchronized(PERSISTENCE_LOCK) {
+            if (expectedSelectionRevision != null && preferences.getLong(KEY_LOCATION_REVISION, 0) != expectedSelectionRevision) {
+                throw CancellationException("Selected location changed during device lookup")
+            }
+            if (!fix.isFresh()) throw LocationTimeoutException()
+            preferences.edit {
+                putLocation(fix.location)
+                putString(KEY_LOCATION_MODE, if (followDevice) LocationMode.FOLLOW_DEVICE.name else LocationMode.FIXED.name)
+                putLong(KEY_LOCATION_REVISION, preferences.getLong(KEY_LOCATION_REVISION, 0) + 1)
+                putLong(KEY_DEVICE_LOCATION_TIME, fix.updatedAtEpochMillis)
+                putLong(KEY_DEVICE_LOCATION_ELAPSED_NANOS, fix.elapsedRealtimeNanos)
+                putInt(KEY_DEVICE_LOCATION_BOOT_COUNT, bootCount())
+            }
+        }
+    }
+
+    fun lastDeviceLocationTimeMillis(): Long? =
+        preferences.getLong(KEY_DEVICE_LOCATION_TIME, 0).takeIf { it > 0 }
+
+    suspend fun refreshFollowedLocation(requireBackgroundPermission: Boolean = false): CzechLocation =
+        refreshFollowedLocation { DeviceLocationRepository(appContext).currentFix(requireBackgroundPermission) }
+
+    internal suspend fun refreshFollowedLocation(resolveFix: suspend () -> DeviceLocationFix): CzechLocation {
+        val coroutine = currentCoroutineContext()
+        val revision = synchronized(PERSISTENCE_LOCK) {
+            coroutine.ensureActive()
+            if (locationMode() == LocationMode.FIXED) return lastLocation()
+            // A failed lookup must not leave an earlier fix eligible for notifications.
+            preferences.edit { remove(KEY_DEVICE_LOCATION_BOOT_COUNT) }
+            preferences.getLong(KEY_LOCATION_REVISION, 0)
+        }
+        val fix = resolveFix()
+        return synchronized(PERSISTENCE_LOCK) {
+            coroutine.ensureActive()
+            if (locationMode() != LocationMode.FOLLOW_DEVICE || preferences.getLong(KEY_LOCATION_REVISION, 0) != revision) {
+                throw CancellationException("Selected location changed during device lookup")
+            }
+            selectCurrentFix(fix, followDevice = true)
+            lastLocation()
+        }
+    }
+
+    internal fun publishForCurrentLocation(
+        location: CzechLocation,
+        requireBackgroundPermission: Boolean = false,
+        publish: () -> Unit,
+    ): Boolean = synchronized(PERSISTENCE_LOCK) {
+        if (Thread.currentThread().isInterrupted || !location.matches(lastLocation())) return false
+        if (locationMode() == LocationMode.FOLLOW_DEVICE) {
+            val device = DeviceLocationRepository(appContext)
+            val boot = bootCount()
+            if (!device.hasLocationPermission(requireBackgroundPermission) || !device.isLocationEnabled() || boot < 0 ||
+                preferences.getInt(KEY_DEVICE_LOCATION_BOOT_COUNT, -1) != boot ||
+                !DeviceLocationFix(location, preferences.getLong(KEY_DEVICE_LOCATION_TIME, 0),
+                    preferences.getLong(KEY_DEVICE_LOCATION_ELAPSED_NANOS, 0)).isFresh()) return false
+        }
+        publish()
+        true
+    }
+
+    private fun DeviceLocationFix.isFresh(): Boolean =
+        System.currentTimeMillis() - updatedAtEpochMillis in 0..MAX_FOLLOW_LOCATION_AGE_MILLIS &&
+            isUsableDeviceLocation(location.latitude, location.longitude, elapsedRealtimeNanos,
+                SystemClock.elapsedRealtimeNanos(), MAX_FOLLOW_LOCATION_AGE_MILLIS * 1_000_000)
+
+    private fun bootCount(): Int = runCatching {
+        Settings.Global.getInt(appContext.contentResolver, Settings.Global.BOOT_COUNT, -1)
+    }.getOrDefault(-1)
+
+    private fun SharedPreferences.Editor.putLocation(location: CzechLocation) {
+        val normalized = normalizeLocationRegion(location)
+        putString(KEY_LOCATION_NAME, normalized.name)
+        putString(KEY_LOCATION_REGION, normalized.region)
+        putString(KEY_LOCATION_LATITUDE, normalized.latitude.toString())
+        putString(KEY_LOCATION_LONGITUDE, normalized.longitude.toString())
+        normalized.countryCode?.let { putString(KEY_LOCATION_COUNTRY_CODE, it) } ?: remove(KEY_LOCATION_COUNTRY_CODE)
     }
 
     fun favoriteLocations(): List<CzechLocation> {
@@ -424,6 +525,11 @@ class WeatherRepository(context: Context) {
         private const val KEY_LOCATION_LATITUDE = "location_latitude"
         private const val KEY_LOCATION_LONGITUDE = "location_longitude"
         private const val KEY_LOCATION_COUNTRY_CODE = "location_country_code"
+        private const val KEY_LOCATION_MODE = "location_mode"
+        private const val KEY_LOCATION_REVISION = "location_revision"
+        private const val KEY_DEVICE_LOCATION_TIME = "device_location_time"
+        private const val KEY_DEVICE_LOCATION_ELAPSED_NANOS = "device_location_elapsed_nanos"
+        private const val KEY_DEVICE_LOCATION_BOOT_COUNT = "device_location_boot_count"
         private const val KEY_CACHE_JSON = "cache_json"
         private const val KEY_CACHE_LATITUDE = "cache_latitude"
         private const val KEY_CACHE_LONGITUDE = "cache_longitude"

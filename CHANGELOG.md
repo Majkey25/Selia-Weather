@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.25] - 2026-11-01
+
+- Configure transparent system bars, contrast and display-cutout handling through the activity theme instead of deprecated system-bar color setters.
+- Preserve edge-to-edge layout in the weather screen and widget editor with runtime window and keyboard checks.
+- Add optional Follow current location mode for forecasts and background alerts, with separate permission disclosure and fresh-location checks before delivery.
+- Update the research CA bundle to remove a compromised emSign trust root.
+
 ## [0.7.24] - 2026-10-31
 
 - Upgrade to Android Gradle Plugin 9 and built-in Kotlin while retaining release code and resource shrinking.

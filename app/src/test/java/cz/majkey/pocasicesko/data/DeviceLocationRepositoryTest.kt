@@ -44,6 +44,15 @@ class DeviceLocationRepositoryTest {
     }
 
     @Test
+    fun followingLocationUsesTwoMinuteBoundaryInsteadOfTheOneShotThirtyMinutes() {
+        val fixNanos = 60_000_000_000L
+        val followAgeNanos = MAX_FOLLOW_LOCATION_AGE_MILLIS * 1_000_000
+        assertTrue(isUsableDeviceLocation(50.0, 14.0, fixNanos, fixNanos + followAgeNanos, followAgeNanos))
+        assertFalse(isUsableDeviceLocation(50.0, 14.0, fixNanos, fixNanos + followAgeNanos + 1, followAgeNanos))
+        assertTrue(isUsableDeviceLocation(50.0, 14.0, fixNanos, fixNanos + followAgeNanos + 1))
+    }
+
+    @Test
     fun rejectsFutureMissingAndNegativeElapsedTimestamps() {
         assertFalse(isUsableDeviceLocation(50.0, 14.0, 2_000L, 1_000L))
         assertFalse(isUsableDeviceLocation(50.0, 14.0, 0L, 1_000L))

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="location_mode">Standortmodus</string>
+    <string name="location_fixed">Fester Ort</string>
+    <string name="location_follow">Aktuellem Standort folgen</string>
+    <string name="location_follow_active">Folgt dem aktuellen Standort</string>
+    <string name="location_follow_updating">Gerätestandort wird aktualisiert…</string>
+    <string name="location_follow_foreground_only">Nur bei geöffneter App · Hintergrundstandort nicht erlaubt</string>
+    <string name="location_follow_unavailable">Standort nicht verfügbar · Warnungen warten auf Aktualisierung</string>
+    <string name="location_follow_help">Wetter und Warnungen folgen Ihrem Gerät. Die Auswahl einer Stadt, eines gespeicherten Orts oder Kartenpunkts aktiviert wieder einen festen Ort.</string>
+    <string name="location_follow_disclosure">Selia Weather erfasst Standortdaten für Vorhersagen, Widgets, lokale Wetterwarnungen und Morgenberichte, auch wenn die App geschlossen ist oder nicht verwendet wird. Koordinaten werden an Open-Meteo, AviationWeather und unterstützte amtliche Warndienste einschließlich ČÚZK/NWS gesendet. Auch der Android-Dienst zur Ortsbenennung kann sie erhalten. Nur der letzte Standort wird auf dem Gerät gespeichert, kein Bewegungsverlauf. Wählen Sie Fester Ort oder entziehen Sie die Standortberechtigung, um dies zu beenden.</string>
+    <string name="location_follow_permission_help">Wählen Sie für Aktualisierungen bei geschlossener App in den Android-Standortberechtigungen „%1$s“. Andernfalls funktioniert dies nur bei geöffneter App. Android kann Hintergrundprüfungen verzögern. Ohne aktuellen Standort werden Warnungen für den alten Ort pausiert.</string>
+    <string name="location_always_allow">Immer zulassen</string>
+    <string name="location_follow_background_help">Aktivierte Warnungen prüfen einen aktuellen Gerätestandort, bevor sie lokale Wetterdaten laden. Bei geschlossener App ist Hintergrundzugriff auf den Standort erforderlich. Android kann Prüfungen verzögern. Ohne aktuellen Standort werden Warnungen pausiert.</string>
+    <string name="location_follow_notifications_blocked">Android blockiert Benachrichtigungen. Aktivieren Sie sie für Wetterwarnungen an Ihrem aktuellen Standort. Bei geschlossener App ist auch Hintergrundzugriff auf den Standort erforderlich.</string>
+</resources>

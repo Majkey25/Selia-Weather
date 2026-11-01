@@ -57,6 +57,7 @@ import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -113,6 +114,7 @@ import cz.majkey.pocasicesko.data.CzechLocation
 import cz.majkey.pocasicesko.data.DeviceLocationRepository
 import cz.majkey.pocasicesko.data.HistoryArchive
 import cz.majkey.pocasicesko.data.LocationPermissionException
+import cz.majkey.pocasicesko.data.LocationMode
 import cz.majkey.pocasicesko.data.SystemLocationDisabledException
 import cz.majkey.pocasicesko.data.WeatherRepository
 import cz.majkey.pocasicesko.data.WeatherSnapshot
@@ -232,6 +234,10 @@ fun WeatherApp(
         radarFullscreen = false
     }
     var location by remember { mutableStateOf(repository.lastLocation()) }
+    var locationMode by remember { mutableStateOf(repository.locationMode()) }
+    var followedLocationUnavailable by remember { mutableStateOf(false) }
+    var followedLocationUpdating by remember { mutableStateOf(locationMode == LocationMode.FOLLOW_DEVICE) }
+    var backgroundLocationAllowed by remember { mutableStateOf(deviceLocationRepository.hasLocationPermission(true)) }
     var reloadKey by remember { mutableIntStateOf(0) }
     var showLocationSearch by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
@@ -357,6 +363,22 @@ fun WeatherApp(
     LaunchedEffect(warningsLifecycle) {
         warningsLifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             while (isActive) {
+                locationMode = repository.locationMode()
+                backgroundLocationAllowed = deviceLocationRepository.hasLocationPermission(true)
+                if (locationMode == LocationMode.FOLLOW_DEVICE) {
+                    followedLocationUpdating = true
+                    try {
+                        location = repository.refreshFollowedLocation()
+                        followedLocationUnavailable = false
+                    } catch (failure: Exception) {
+                        if (failure is CancellationException && !currentCoroutineContext().isActive) throw failure
+                        locationMode = repository.locationMode()
+                        if (failure is CancellationException) location = repository.lastLocation()
+                        followedLocationUnavailable = failure !is CancellationException && locationMode == LocationMode.FOLLOW_DEVICE
+                    } finally {
+                        followedLocationUpdating = false
+                    }
+                }
                 val content = latestState as? WeatherUiState.Content
                 if (content != null && shouldRefreshWeatherOnResume(content.snapshot.updatedAtEpochMillis,
                         lastRefreshAttemptMillis, content.refreshing, System.currentTimeMillis())) reloadKey++
@@ -420,7 +442,8 @@ fun WeatherApp(
         if (showBackgroundDisclosure) AlertDialog(
             onDismissRequest = { acceptBackgroundChoice(false) },
             title = { Text(stringResource(R.string.notification_background_consent_title)) },
-            text = { Text(stringResource(R.string.notification_background_disclosure),
+            text = { Text(stringResource(if (locationMode == LocationMode.FOLLOW_DEVICE)
+                R.string.location_follow_disclosure else R.string.notification_background_disclosure),
                 modifier = Modifier.verticalScroll(rememberScrollState())) },
             confirmButton = { TextButton(onClick = { acceptBackgroundChoice(true) }) {
                 Text(stringResource(R.string.notification_background_allow))
@@ -455,6 +478,12 @@ fun WeatherApp(
                         onSettings = { showSettings = true },
                         warnings = warnings,
                         onWarnings = { showWarnings = true; warningsReloadKey++ },
+                        locationStatus = if (locationMode == LocationMode.FOLLOW_DEVICE) stringResource(when {
+                            followedLocationUpdating -> R.string.location_follow_updating
+                            followedLocationUnavailable -> R.string.location_follow_unavailable
+                            !backgroundLocationAllowed -> R.string.location_follow_foreground_only
+                            else -> R.string.location_follow_active
+                        }) else null,
                     )
 
                     Destination.MAPS -> MapHubScreen(
@@ -521,8 +550,25 @@ fun WeatherApp(
                     onDismiss = { showLocationSearch = false },
                     onSelect = { selected ->
                         repository.selectLocation(selected)
+                        locationMode = LocationMode.FIXED
+                        followedLocationUnavailable = false
+                        followedLocationUpdating = false
                         location = selected
                         showLocationSearch = false
+                    },
+                    onFollow = { selected ->
+                        locationMode = repository.locationMode()
+                        backgroundLocationAllowed = deviceLocationRepository.hasLocationPermission(true)
+                        followedLocationUnavailable = false
+                        followedLocationUpdating = false
+                        location = selected
+                        reloadKey++
+                        showLocationSearch = false
+                    },
+                    onFollowModeChanged = {
+                        locationMode = repository.locationMode()
+                        followedLocationUpdating = false
+                        followedLocationUnavailable = true
                     },
                 )
             }
@@ -539,6 +585,7 @@ fun WeatherApp(
             }
             if (showNotificationSettings) {
                 NotificationSettingsSheet(
+                    followDeviceLocation = locationMode == LocationMode.FOLLOW_DEVICE,
                     settings = alertSettings,
                     measurementSystem = measurementSystem,
                     dailyBriefingEnabled = dailyBriefingEnabled,
@@ -685,6 +732,7 @@ private fun WeatherDestination(
     onSettings: () -> Unit,
     warnings: WeatherWarningsResult?,
     onWarnings: () -> Unit,
+    locationStatus: String? = null,
 ) {
     when (state) {
         WeatherUiState.Loading -> Box(
@@ -719,6 +767,7 @@ private fun WeatherDestination(
             onSettings = onSettings,
             warnings = warnings,
             onWarnings = onWarnings,
+            locationStatus = locationStatus,
         )
     }
 }
@@ -891,6 +940,8 @@ internal fun LocationSearchSheet(
     selectedLocation: CzechLocation,
     onDismiss: () -> Unit,
     onSelect: (CzechLocation) -> Unit,
+    onFollow: (CzechLocation) -> Unit = onSelect,
+    onFollowModeChanged: () -> Unit = {},
 ) {
     var query by remember { mutableStateOf("") }
     var results by remember { mutableStateOf(emptyList<CzechLocation>()) }
@@ -901,6 +952,10 @@ internal fun LocationSearchSheet(
     var locationPermissionPermanentlyDenied by remember { mutableStateOf(false) }
     var pickingPoint by rememberSaveable { mutableStateOf(false) }
     var pinnedSaveError by remember { mutableStateOf<String?>(null) }
+    var pendingFollow by rememberSaveable { mutableStateOf(false) }
+    var pendingLocationRevision by rememberSaveable { mutableStateOf<Long?>(null) }
+    var showFollowDisclosure by rememberSaveable { mutableStateOf(false) }
+    var locationLookupJob by remember { mutableStateOf<Job?>(null) }
     val focusManager = LocalFocusManager.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -918,13 +973,31 @@ internal fun LocationSearchSheet(
         else -> locationLookupFailed
     }
 
+    fun cancelLocationLookup() {
+        locationLookupJob?.cancel()
+        locationLookupJob = null
+        locating = false
+        pendingLocationRevision = null
+    }
+
+    fun selectFixedLocation(selected: CzechLocation) {
+        cancelLocationLookup()
+        onSelect(selected)
+    }
+
     fun loadDeviceLocation() {
         if (locating) return
-        scope.launch {
+        val selectionRevision = pendingLocationRevision ?: return
+        if (selectionRevision != repository.locationSelectionRevision() ||
+            pendingFollow && repository.locationMode() != LocationMode.FOLLOW_DEVICE) return
+        locationLookupJob = scope.launch {
             locating = true
             error = null
             try {
-                onSelect(deviceLocationRepository.currentLocation())
+                val follow = pendingFollow
+                val fix = deviceLocationRepository.currentFix()
+                repository.selectCurrentFix(fix, followDevice = follow, expectedSelectionRevision = selectionRevision)
+                if (follow) onFollow(fix.location) else onSelect(fix.location)
             } catch (failure: Exception) {
                 if (failure is CancellationException) throw failure
                 error = locationError(failure)
@@ -949,9 +1022,42 @@ internal fun LocationSearchSheet(
             if (!favorites.containsLocation(location)) repository.toggleFavorite(location)
             favorites = repository.favoriteLocations()
             pinnedSaveError = null
-            onSelect(location)
+            selectFixedLocation(location)
         } catch (_: IllegalStateException) {
             pinnedSaveError = "$favoriteLimit (12)"
+        }
+    }
+
+    val backgroundPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        loadDeviceLocation()
+    }
+    val backgroundSettingsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        loadDeviceLocation()
+    }
+
+    fun openFollowSettings() {
+        if (pendingLocationRevision == null) {
+            if (repository.locationMode() != LocationMode.FOLLOW_DEVICE) return
+            pendingLocationRevision = repository.locationSelectionRevision()
+        }
+        pendingFollow = true
+        try {
+            backgroundSettingsLauncher.launch(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.parse("package:${context.packageName}")))
+        } catch (_: ActivityNotFoundException) {
+            loadDeviceLocation()
+        }
+    }
+
+    fun continueDeviceLocation() {
+        if (pendingLocationRevision != repository.locationSelectionRevision() ||
+            pendingFollow && repository.locationMode() != LocationMode.FOLLOW_DEVICE) return
+        if (!pendingFollow || deviceLocationRepository.hasLocationPermission(true)) {
+            loadDeviceLocation()
+        } else if (Build.VERSION.SDK_INT == 29) {
+            backgroundPermissionLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+        } else {
+            openFollowSettings()
         }
     }
 
@@ -960,7 +1066,7 @@ internal fun LocationSearchSheet(
     ) { grants ->
         if (grants.values.any { it }) {
             locationPermissionPermanentlyDenied = false
-            loadDeviceLocation()
+            continueDeviceLocation()
         } else {
             locationPermissionPermanentlyDenied = context.locationPermissionPermanentlyDenied()
             error = locationPermissionRequired
@@ -978,7 +1084,11 @@ internal fun LocationSearchSheet(
         }.onFailure { error = locationPermissionRequired }
     }
 
-    fun requestDeviceLocation() {
+    fun requestDeviceLocation(follow: Boolean = false) {
+        cancelLocationLookup()
+        pendingFollow = follow
+        pendingLocationRevision = if (follow) repository.beginFollowingLocation().also { onFollowModeChanged() }
+            else repository.locationSelectionRevision()
         val granted = ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.ACCESS_COARSE_LOCATION,
@@ -987,7 +1097,7 @@ internal fun LocationSearchSheet(
             Manifest.permission.ACCESS_FINE_LOCATION,
         ) == PackageManager.PERMISSION_GRANTED
         when (locationPermissionAction(granted, locationPermissionPermanentlyDenied)) {
-            LocationPermissionAction.LOAD_LOCATION -> loadDeviceLocation()
+            LocationPermissionAction.LOAD_LOCATION -> continueDeviceLocation()
             LocationPermissionAction.OPEN_SETTINGS -> openLocationSettings()
             LocationPermissionAction.REQUEST_PERMISSION -> permissionLauncher.launch(
                 LOCATION_PERMISSIONS,
@@ -1019,7 +1129,7 @@ internal fun LocationSearchSheet(
     }
 
     ModalBottomSheet(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { cancelLocationLookup(); onDismiss() },
         containerColor = MaterialTheme.colorScheme.surface,
         contentColor = MaterialTheme.colorScheme.onSurface,
         sheetState = sheetState,
@@ -1073,7 +1183,7 @@ internal fun LocationSearchSheet(
                 LocationRow(
                     location = result,
                     favorite = favorites.containsLocation(result),
-                    onSelect = { onSelect(result) },
+                    onSelect = { selectFixedLocation(result) },
                     onFavorite = { toggleFavorite(result) },
                 )
             }
@@ -1084,10 +1194,31 @@ internal fun LocationSearchSheet(
                     modifier = Modifier.padding(vertical = 14.dp),
                 )
             }
+            Text(stringResource(R.string.location_mode), style = MaterialTheme.typography.titleSmall)
+            Column {
+                FilterChip(selected = repository.locationMode() == LocationMode.FIXED,
+                    onClick = { selectFixedLocation(selectedLocation) },
+                    leadingIcon = { Icon(Icons.Rounded.LocationOn, null, Modifier.size(18.dp)) },
+                    label = { Text(stringResource(R.string.location_fixed)) })
+                FilterChip(selected = repository.locationMode() == LocationMode.FOLLOW_DEVICE,
+                    onClick = { cancelLocationLookup(); showFollowDisclosure = true },
+                    leadingIcon = { Icon(Icons.Rounded.MyLocation, null, Modifier.size(18.dp)) },
+                    label = { Text(stringResource(R.string.location_follow)) })
+            }
+            if (repository.locationMode() == LocationMode.FOLLOW_DEVICE) {
+                Text(stringResource(R.string.location_follow_help), style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(bottom = 12.dp))
+                if (!deviceLocationRepository.hasLocationPermission(true)) {
+                    Text(stringResource(R.string.location_follow_foreground_only), style = MaterialTheme.typography.bodySmall)
+                    TextButton(onClick = { cancelLocationLookup(); openFollowSettings() }) {
+                        Text(stringResource(R.string.open_app_settings))
+                    }
+                }
+            }
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable(onClick = ::requestDeviceLocation),
+                    .clickable { requestDeviceLocation() },
                 color = MaterialTheme.colorScheme.surfaceVariant,
                 shape = RoundedCornerShape(20.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
@@ -1121,6 +1252,7 @@ internal fun LocationSearchSheet(
                     .fillMaxWidth()
                     .padding(top = 10.dp)
                     .clickable {
+                        cancelLocationLookup()
                         pinnedSaveError = null
                         pickingPoint = true
                     },
@@ -1180,13 +1312,34 @@ internal fun LocationSearchSheet(
                     LocationRow(
                         location = favorite,
                         favorite = true,
-                        onSelect = { onSelect(favorite) },
+                        onSelect = { selectFixedLocation(favorite) },
                         onFavorite = { toggleFavorite(favorite) },
                     )
                 }
             }
 
         }
+    }
+    if (showFollowDisclosure) {
+        AlertDialog(
+            onDismissRequest = { showFollowDisclosure = false },
+            icon = { Icon(Icons.Rounded.MyLocation, contentDescription = null) },
+            title = { Text(stringResource(R.string.location_follow)) },
+            text = { Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text(stringResource(R.string.location_follow_disclosure))
+                Spacer(Modifier.height(12.dp))
+                Text(stringResource(R.string.location_follow_permission_help,
+                    if (Build.VERSION.SDK_INT >= 30) context.packageManager.backgroundPermissionOptionLabel.toString()
+                    else stringResource(R.string.location_always_allow)))
+            } },
+            confirmButton = { TextButton(onClick = {
+                showFollowDisclosure = false
+                requestDeviceLocation(follow = true)
+            }) { Text(stringResource(R.string.notification_background_allow)) } },
+            dismissButton = { TextButton(onClick = { showFollowDisclosure = false }) {
+                Text(stringResource(android.R.string.cancel))
+            } },
+        )
     }
 }
 

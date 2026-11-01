@@ -226,7 +226,7 @@
     <string name="radar_unavailable">Radar unavailable</string>
     <string name="widget_title">Weather widget</string>
     <string name="widget_add">Add widget to Home screen</string>
-    <string name="widget_background_disclosure">Widgets send the saved location to Open-Meteo and AviationWeather for refreshes even with the app closed. They do not read a new device location. Remove the widget to stop its updates.</string>
+    <string name="widget_background_disclosure">Widgets send selected coordinates to Open-Meteo and AviationWeather for updates with the app closed. Follow current location can check a fresh device position when background access is allowed. Remove the widget to stop its updates.</string>
     <string name="widget_add_unavailable">This launcher cannot add the widget automatically.</string>
     <string name="widget_preview_description">Preview of the weather widget</string>
     <string name="widget_size_compact">Compact</string>

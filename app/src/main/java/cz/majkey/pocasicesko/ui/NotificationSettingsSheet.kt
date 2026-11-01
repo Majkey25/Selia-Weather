@@ -89,6 +89,7 @@ fun NotificationSettingsSheet(
     onBackgroundSettings: () -> Unit,
     onDismiss: () -> Unit,
     blockedChannels: Set<String> = emptySet(),
+    followDeviceLocation: Boolean = false,
     initialSection: NotificationSettingsSection = NotificationSettingsSection.GENERAL,
     briefingTime: LocalTime = BRIEFING_TIME,
     onBriefingTimeChange: (LocalTime) -> Unit = {},
@@ -125,7 +126,8 @@ fun NotificationSettingsSheet(
                 item {
                     ListItem(
                         headlineContent = { Text(stringResource(R.string.notification_background_consent_title)) },
-                        supportingContent = { Text(stringResource(R.string.notification_background_disclosure)) },
+                        supportingContent = { Text(stringResource(if (followDeviceLocation)
+                            R.string.location_follow_background_help else R.string.notification_background_disclosure)) },
                         trailingContent = { Switch(checked = current.backgroundAlertsAllowed, onCheckedChange = null) },
                         modifier = Modifier.fillMaxWidth().toggleable(value = current.backgroundAlertsAllowed,
                             role = Role.Switch, onValueChange = { onSettingsChange(current.copy(backgroundAlertsAllowed = it)) }),
@@ -134,7 +136,8 @@ fun NotificationSettingsSheet(
                 }
                 if (current.backgroundAlertsAllowed && !notificationsAllowed) {
                     item {
-                        Text(stringResource(R.string.notification_permission_summary),
+                        Text(stringResource(if (followDeviceLocation) R.string.location_follow_notifications_blocked
+                            else R.string.notification_permission_summary),
                             modifier = Modifier.padding(horizontal = 20.dp))
                         Button(onClick = onRequestPermission,
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
@@ -205,7 +208,8 @@ fun NotificationSettingsSheet(
                     }
                     NotificationSettingsSection.DELIVERY -> item {
                         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
-                            Text(stringResource(R.string.notification_background_help))
+                            Text(stringResource(if (followDeviceLocation) R.string.location_follow_background_help
+                                else R.string.notification_background_help))
                             if (Build.MANUFACTURER.equals("huawei", ignoreCase = true) ||
                                 Build.MANUFACTURER.equals("honor", ignoreCase = true)) {
                                 Text(stringResource(R.string.notification_huawei_help), Modifier.padding(top = 16.dp))

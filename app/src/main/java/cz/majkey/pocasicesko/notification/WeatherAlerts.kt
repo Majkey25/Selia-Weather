@@ -15,6 +15,7 @@ import cz.majkey.pocasicesko.MainActivity
 import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.data.CzechLocation
 import cz.majkey.pocasicesko.data.HourlyWeather
+import cz.majkey.pocasicesko.data.WeatherRepository
 import cz.majkey.pocasicesko.data.WeatherSnapshot
 import cz.majkey.pocasicesko.data.hasPrecipitationEvidence
 import cz.majkey.pocasicesko.locale.AppLocale
@@ -137,7 +138,18 @@ object WeatherAlerts {
     }
 
     @Synchronized
-    fun evaluateAndNotify(context: Context, location: CzechLocation, snapshot: WeatherSnapshot) {
+    fun evaluateAndNotify(
+        context: Context,
+        location: CzechLocation,
+        snapshot: WeatherSnapshot,
+        requireBackgroundPermission: Boolean = false,
+    ) {
+        WeatherRepository(context).publishForCurrentLocation(location, requireBackgroundPermission) {
+            notifyCurrentLocation(context, location, snapshot)
+        }
+    }
+
+    private fun notifyCurrentLocation(context: Context, location: CzechLocation, snapshot: WeatherSnapshot) {
         ensureChannels(context)
         val now = System.currentTimeMillis()
         val settings = WeatherAlertSettings.load(context)

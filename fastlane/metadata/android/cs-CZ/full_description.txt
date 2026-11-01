@@ -6,6 +6,8 @@ Předpověď používá Open-Meteo Best Match a diagnostický výpočet z více 
 
 Vyhledávejte místa po celém světě, ukládejte oblíbené lokality, vyberte přesný bod na světové mapě nebo zadejte souřadnice. Volitelně lze použít aktuální polohu. Poslední úspěšná předpověď zůstane k dispozici offline.
 
+Zvolte Pevné místo nebo Sledovat aktuální polohu. Volitelné sledování zjišťuje polohu pro místní upozornění na počasí, ranní přehledy a widgety, i když je aplikace zavřená nebo ji nepoužíváte. Vyžaduje samostatné vysvětlení a oprávnění k poloze na pozadí. Android může kontroly zpozdit. Bez čerstvé povolené polohy se upozornění pro staré místo pozastaví. Výběrem pevného místa sledování vypnete.
+
 Radar spojuje dostupná pozorování RainViewer a předpověď srážek DWD na společné časové ose. Nabízí přiblížení, posun, animaci a masku pokrytí. Předpověď sahá až na 48 hodin podle dostupných dat. Kompaktní ovládání plave nad mapou; režim celé obrazovky poskytuje více místa. Pozorované snímky, předpovědní intervaly a mezery v datech jsou rozlišeny. Budoucnost je výstup modelu, nikoli pozorovaný radar. Hodinový detail srozumitelně popisuje pravděpodobnost i množství srážek. Ukazatele spolehlivosti vyjadřují shodu modelů a omezení dat, nikoli zaručenou pravděpodobnost správné předpovědi.
 
 Vlastní widget se přizpůsobí malé, široké i vysoké velikosti. Každý widget může mít vlastní barvy, průhlednost, gradient nebo obrázek, velikost textu, zarovnání, vlastní popisek a vybraná data. Pokud vybraný obrázek přestane být dostupný, widget dál funguje s nastaveným barevným pozadím.

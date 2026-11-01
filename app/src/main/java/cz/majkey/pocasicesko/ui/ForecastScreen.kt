@@ -161,6 +161,7 @@ internal fun ForecastScreen(
     onSettings: () -> Unit,
     warnings: WeatherWarningsResult?,
     onWarnings: () -> Unit,
+    locationStatus: String? = null,
 ) {
     val locale = LocalConfiguration.current.locales[0]
     val units = remember(measurementSystem, locale) { WeatherUnitFormatter(measurementSystem, locale) }
@@ -194,6 +195,7 @@ internal fun ForecastScreen(
                     onSearch = onSearch,
                     onRefresh = onRefresh,
                     onSettings = onSettings,
+                    locationStatus = locationStatus,
                 )
             }
             item {
@@ -304,6 +306,7 @@ private fun LocationHeader(
     onSearch: () -> Unit,
     onRefresh: () -> Unit,
     onSettings: () -> Unit,
+    locationStatus: String? = null,
 ) {
     val locale = LocalConfiguration.current.locales[0]
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -356,7 +359,7 @@ private fun LocationHeader(
             }
         }
         Text(
-            text = location.localizedRegion(),
+            text = locationStatus ?: location.localizedRegion(),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 12.sp,
             modifier = Modifier.padding(top = 2.dp),

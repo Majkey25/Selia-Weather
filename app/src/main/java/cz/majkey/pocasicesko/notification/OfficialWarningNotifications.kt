@@ -19,9 +19,18 @@ internal object OfficialWarningNotifications {
     const val EXTRA_SHOW_WARNINGS = "show_official_warnings"
 
     @Synchronized
-    fun publish(context: Context, location: CzechLocation, result: WeatherWarningsResult) {
-        val selected = WeatherRepository(context).lastLocation()
-        if (location.latitude != selected.latitude || location.longitude != selected.longitude) return
+    fun publish(
+        context: Context,
+        location: CzechLocation,
+        result: WeatherWarningsResult,
+        requireBackgroundPermission: Boolean = false,
+    ) {
+        WeatherRepository(context).publishForCurrentLocation(location, requireBackgroundPermission) {
+            publishCurrentLocation(context, location, result)
+        }
+    }
+
+    private fun publishCurrentLocation(context: Context, location: CzechLocation, result: WeatherWarningsResult) {
         WeatherAlerts.ensureChannels(context)
         val manager = NotificationManagerCompat.from(context)
         val notificationId = WeatherAlerts.NOTIFICATION_ID_OFFICIAL

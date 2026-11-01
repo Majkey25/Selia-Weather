@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="location_mode">Modo de ubicación</string>
+    <string name="location_fixed">Lugar fijo</string>
+    <string name="location_follow">Seguir ubicación actual</string>
+    <string name="location_follow_active">Siguiendo la ubicación actual</string>
+    <string name="location_follow_updating">Actualizando la ubicación del dispositivo…</string>
+    <string name="location_follow_foreground_only">Solo con la app abierta · ubicación en segundo plano no permitida</string>
+    <string name="location_follow_unavailable">Ubicación no disponible · avisos pausados hasta actualizarla</string>
+    <string name="location_follow_help">El tiempo y los avisos siguen tu dispositivo. Elegir una ciudad, un lugar guardado o un punto del mapa vuelve al lugar fijo.</string>
+    <string name="location_follow_disclosure">Selia Weather recoge datos de ubicación para actualizar previsiones y widgets y ofrecer avisos meteorológicos locales y resúmenes matinales incluso cuando la app está cerrada o no se usa. Envía coordenadas a Open-Meteo, AviationWeather y proveedores oficiales compatibles, incluidos ČÚZK/NWS. El servicio de Android que identifica lugares también puede recibirlas. Solo se guarda la última ubicación en el dispositivo, no un historial de movimientos. Elige Lugar fijo o retira el permiso para detenerlo.</string>
+    <string name="location_follow_permission_help">Para actualizar con la app cerrada, elige «%1$s» en los permisos de ubicación de Android. Si lo rechazas, solo funciona con la app abierta. Android puede retrasar las comprobaciones. Sin una ubicación reciente, se pausan los avisos del lugar anterior.</string>
+    <string name="location_always_allow">Permitir siempre</string>
+    <string name="location_follow_background_help">Los avisos activados comprueban una ubicación reciente antes de cargar el tiempo local. Con la app cerrada se necesita permiso de ubicación en segundo plano. Android puede retrasar las comprobaciones. Sin una ubicación reciente, los avisos se pausan.</string>
+    <string name="location_follow_notifications_blocked">Android bloquea las notificaciones. Actívalas para recibir avisos del tiempo en tu ubicación actual. Con la app cerrada también se necesita acceso a la ubicación en segundo plano.</string>
+</resources>

@@ -14,6 +14,7 @@ import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import cz.majkey.pocasicesko.data.LocationMode
 import cz.majkey.pocasicesko.data.WeatherRepository
 import cz.majkey.pocasicesko.data.WeatherSnapshot
 import java.util.concurrent.TimeUnit
@@ -51,7 +52,7 @@ internal object WeatherAlertScheduler {
             WeatherAlerts.canPost(context, WeatherAlertCategory.RAIN.channelId)
         ) {
             val repository = WeatherRepository(context)
-            repository.cachedForecast(repository.lastLocation())
+            if (repository.locationMode() == LocationMode.FIXED) repository.cachedForecast(repository.lastLocation()) else null
         } else null
         scheduleRainCheck(context, snapshot)
     }
@@ -81,8 +82,12 @@ class WeatherAlertReceiver : BroadcastReceiver() {
     internal fun handleReceive(context: Context) {
         if (!WeatherAlertSettings.load(context).backgroundAlertsAllowed) return
         val repository = WeatherRepository(context)
-        val location = repository.lastLocation()
-        repository.cachedForecast(location)?.let { WeatherAlerts.evaluateAndNotify(context, location, it) }
+        if (repository.locationMode() == LocationMode.FIXED) {
+            val location = repository.lastLocation()
+            repository.cachedForecast(location)?.let {
+                WeatherAlerts.evaluateAndNotify(context, location, it, requireBackgroundPermission = true)
+            }
+        }
         WeatherRefreshScheduler.request(context)
     }
 }

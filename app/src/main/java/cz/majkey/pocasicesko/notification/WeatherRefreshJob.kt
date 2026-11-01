@@ -8,6 +8,7 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.util.Log
+import cz.majkey.pocasicesko.data.CzechLocation
 import cz.majkey.pocasicesko.data.WeatherRepository
 import cz.majkey.pocasicesko.data.WeatherWarningsRepository
 import cz.majkey.pocasicesko.locale.AppLocale
@@ -93,11 +94,13 @@ open class WeatherRefreshJob : JobService() {
         val run = ++generation
         task = worker.submit {
             var retry = false
+            val repository = WeatherRepository(applicationContext)
+            var resolvedLocation: CzechLocation? = null
             try {
                 if (!hasWidgets && !WeatherAlertSettings.load(this).backgroundAlertsAllowed) return@submit
+                val location = runBlocking { repository.refreshFollowedLocation(requireBackgroundPermission = true) }
+                resolvedLocation = location
                 if (checkForecast) {
-                    val repository = WeatherRepository(applicationContext)
-                    val location = repository.lastLocation()
                     val cached = repository.cachedForecast(location)
                     val snapshot = if ((params.jobId == WeatherAlertScheduler.JOB_ID || prepareBriefing) && cached != null &&
                         System.currentTimeMillis() - cached.updatedAtEpochMillis in 0 until TimeUnit.HOURS.toMillis(1)) {
@@ -107,7 +110,7 @@ open class WeatherRefreshJob : JobService() {
                         if (location != repository.lastLocation()) {
                             retry = true
                         } else {
-                            if (checkAlerts) WeatherAlerts.evaluateAndNotify(this, location, snapshot)
+                            if (checkAlerts) WeatherAlerts.evaluateAndNotify(this, location, snapshot, requireBackgroundPermission = true)
                             WeatherRefreshScheduler.pendingBriefing(this)?.let { day ->
                                 if (DailyBriefingReceiver().showBriefing(this, WeatherRefreshScheduler.briefingScheduledAt(this))) {
                                     WeatherRefreshScheduler.deliveredBriefing(this, day)
@@ -123,14 +126,13 @@ open class WeatherRefreshJob : JobService() {
                 }
             } finally {
                 // Warning checks must still run when the independent forecast provider is down.
-                if (checkAlerts && WeatherAlertScheduler.enabled(this) && run == generation && !Thread.currentThread().isInterrupted &&
+                val location = resolvedLocation
+                if (location != null && checkAlerts && WeatherAlertScheduler.enabled(this) && run == generation && !Thread.currentThread().isInterrupted &&
                     WeatherAlertSettings.load(this).officialWarningsEnabled) {
                     try {
-                        val repository = WeatherRepository(applicationContext)
-                        val location = repository.lastLocation()
                         val result = runBlocking { WeatherWarningsRepository(applicationContext).fetch(location, AppLocale.languageTag(this@WeatherRefreshJob)) }
                         if (run == generation && !Thread.currentThread().isInterrupted && location == repository.lastLocation()) {
-                            OfficialWarningNotifications.publish(this, location, result)
+                            OfficialWarningNotifications.publish(this, location, result, requireBackgroundPermission = true)
                         }
                     } catch (error: Exception) {
                         if (run == generation && !Thread.currentThread().isInterrupted) Log.w("WeatherWarnings", "Warning check failed", error)

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="location_mode">Režim polohy</string>
+    <string name="location_fixed">Pevné místo</string>
+    <string name="location_follow">Sledovat aktuální polohu</string>
+    <string name="location_follow_active">Sledování aktuální polohy</string>
+    <string name="location_follow_updating">Aktualizuji polohu telefonu…</string>
+    <string name="location_follow_foreground_only">Sledování při otevření · poloha na pozadí není povolena</string>
+    <string name="location_follow_unavailable">Poloha není dostupná · upozornění čekají na aktualizaci</string>
+    <string name="location_follow_help">Počasí a upozornění sledují váš telefon. Výběrem města, uloženého místa nebo bodu na mapě přepnete zpět na pevné místo.</string>
+    <string name="location_follow_disclosure">Selia Weather získává polohu pro aktualizaci předpovědi, místní upozornění na počasí a ranní přehledy, i když je aplikace zavřená nebo ji nepoužíváte. Souřadnice odesílá službám Open-Meteo, AviationWeather a podporovaným poskytovatelům oficiálních výstrah, včetně ČÚZK/NWS. Může je získat i systémová služba Androidu pro určení názvu místa. V telefonu ukládá jen poslední polohu, nikoli historii pohybu. Sledování vypnete výběrem Pevné místo nebo odebráním oprávnění k poloze.</string>
+    <string name="location_follow_permission_help">Pro aktualizace při zavřené aplikaci vyberte v oprávněních Androidu „%1$s“. Pokud odmítnete, sledování funguje jen při otevřené aplikaci. Android může kontroly na pozadí zpozdit. Bez čerstvé polohy se upozornění pro staré místo pozastaví.</string>
+    <string name="location_always_allow">Povolit vždy</string>
+    <string name="location_follow_background_help">Zapnutá upozornění nejprve ověří čerstvou polohu telefonu a potom načtou místní počasí. Při zavřené aplikaci vyžadují přístup k poloze na pozadí. Android může kontroly zpozdit. Bez čerstvé polohy se upozornění pozastaví.</string>
+    <string name="location_follow_notifications_blocked">Android blokuje oznámení. Povolte je pro upozornění na počasí ve vaší aktuální poloze. Při zavřené aplikaci je potřeba také přístup k poloze na pozadí.</string>
+</resources>

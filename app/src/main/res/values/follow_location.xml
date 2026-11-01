@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="location_mode">Location mode</string>
+    <string name="location_fixed">Fixed place</string>
+    <string name="location_follow">Follow current location</string>
+    <string name="location_follow_active">Following current location</string>
+    <string name="location_follow_updating">Updating device location…</string>
+    <string name="location_follow_foreground_only">Following while open · background location not allowed</string>
+    <string name="location_follow_unavailable">Location unavailable · alerts paused until updated</string>
+    <string name="location_follow_help">Weather and alerts follow your device. Selecting a city, saved place or map point switches back to a fixed place.</string>
+    <string name="location_follow_disclosure">Selia Weather collects location data to update forecasts and deliver local weather alerts and morning briefings even when the app is closed or not in use. Coordinates are sent to Open-Meteo, AviationWeather and supported official warning providers, including ČÚZK/NWS. Android’s location naming service may also receive them. Only the latest location is saved on your device, not a movement history. Select Fixed place or remove location permission to stop.</string>
+    <string name="location_follow_permission_help">For updates with the app closed, select “%1$s” in Android location permissions. If you decline, following works only while the app is open. Android may delay background checks. If no fresh location is available, alerts for the old place are paused.</string>
+    <string name="location_always_allow">Allow all the time</string>
+    <string name="location_follow_background_help">Enabled alerts check a fresh device location before loading local weather. Location access in the background is required while the app is closed. Android may delay checks. Alerts pause when no fresh location is available.</string>
+    <string name="location_follow_notifications_blocked">Android notifications are blocked. Enable them to receive alerts for your current location. Location access in the background is also required while the app is closed.</string>
+</resources>

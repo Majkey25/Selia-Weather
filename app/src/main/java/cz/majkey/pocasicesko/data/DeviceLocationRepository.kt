@@ -21,8 +21,8 @@ import java.util.Locale
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 internal enum class DeviceLocationProvider {
@@ -46,10 +46,19 @@ internal fun isUsableDeviceLocation(
     longitude: Double,
     fixElapsedNanos: Long,
     nowElapsedNanos: Long,
+    maxAgeNanos: Long = MAX_LAST_KNOWN_AGE_NANOS,
 ): Boolean = latitude.isFinite() && longitude.isFinite() &&
     latitude in -90.0..90.0 && longitude in -180.0..180.0 &&
     fixElapsedNanos > 0 && nowElapsedNanos >= fixElapsedNanos &&
-    nowElapsedNanos - fixElapsedNanos <= MAX_LAST_KNOWN_AGE_NANOS
+    nowElapsedNanos - fixElapsedNanos <= maxAgeNanos
+
+data class DeviceLocationFix(
+    val location: CzechLocation,
+    val updatedAtEpochMillis: Long,
+    val elapsedRealtimeNanos: Long,
+)
+
+internal const val MAX_FOLLOW_LOCATION_AGE_MILLIS = 2 * 60 * 1_000L
 
 internal suspend fun <T : Any> withDeviceLocationTimeout(
     timeoutMillis: Long,
@@ -60,13 +69,33 @@ class DeviceLocationRepository(context: Context) {
     private val appContext = context.applicationContext
     private val locationManager = appContext.getSystemService(LocationManager::class.java)
 
-    suspend fun currentLocation(): CzechLocation {
-        if (!hasLocationPermission()) throw LocationPermissionException()
-        val location = recentLastKnownLocation() ?: requestSingleLocation()
-        return withContext(Dispatchers.IO) { resolveName(location) }
+    suspend fun currentLocation(): CzechLocation = locationFix(MAX_LAST_KNOWN_AGE_NANOS, false).location
+
+    suspend fun currentFix(requireBackgroundPermission: Boolean = false): DeviceLocationFix =
+        withDeviceLocationTimeout(LOCATION_TIMEOUT_MILLIS) {
+            locationFix(MAX_FOLLOW_LOCATION_AGE_MILLIS * 1_000_000, requireBackgroundPermission)
+        }
+
+    private suspend fun locationFix(maxAgeNanos: Long, requireBackgroundPermission: Boolean): DeviceLocationFix {
+        if (!hasLocationPermission(requireBackgroundPermission)) throw LocationPermissionException()
+        if (!isLocationEnabled()) throw SystemLocationDisabledException()
+        val location = recentLastKnownLocation(maxAgeNanos) ?: requestSingleLocation(maxAgeNanos)
+        val resolved = runInterruptible(Dispatchers.IO) { resolveName(location) }
+        if (!hasLocationPermission(requireBackgroundPermission)) throw LocationPermissionException()
+        if (!isLocationEnabled()) throw SystemLocationDisabledException()
+        val nowElapsed = SystemClock.elapsedRealtimeNanos()
+        if (!location.isUsable(maxAgeNanos, nowElapsed)) throw LocationTimeoutException()
+        return DeviceLocationFix(resolved,
+            System.currentTimeMillis() - (nowElapsed - location.elapsedRealtimeNanos) / 1_000_000,
+            location.elapsedRealtimeNanos)
     }
 
-    private fun hasLocationPermission(): Boolean = coarsePermissionGranted() || finePermissionGranted()
+    fun hasLocationPermission(requireBackgroundPermission: Boolean = false): Boolean =
+        (coarsePermissionGranted() || finePermissionGranted()) && (!requireBackgroundPermission ||
+            ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_BACKGROUND_LOCATION) ==
+                PackageManager.PERMISSION_GRANTED)
+
+    fun isLocationEnabled(): Boolean = locationManager.isLocationEnabled && enabledProviders().isNotEmpty()
 
     private fun coarsePermissionGranted(): Boolean = ContextCompat.checkSelfPermission(
         appContext,
@@ -79,14 +108,14 @@ class DeviceLocationRepository(context: Context) {
     ) == PackageManager.PERMISSION_GRANTED
 
     @SuppressLint("MissingPermission")
-    private fun recentLastKnownLocation(): Location? = enabledProviders()
+    private fun recentLastKnownLocation(maxAgeNanos: Long): Location? = enabledProviders()
         .mapNotNull { provider ->
             runCatching { locationManager.getLastKnownLocation(provider.systemName) }.getOrNull()
         }
-        .filter { it.isUsable() }
+        .filter { it.isUsable(maxAgeNanos) }
         .maxByOrNull { it.elapsedRealtimeNanos }
 
-    private suspend fun requestSingleLocation(): Location = withDeviceLocationTimeout(LOCATION_TIMEOUT_MILLIS) {
+    private suspend fun requestSingleLocation(maxAgeNanos: Long): Location = withDeviceLocationTimeout(LOCATION_TIMEOUT_MILLIS) {
         suspendCancellableCoroutine { continuation ->
             val providers = enabledProviders()
             if (providers.isEmpty()) {
@@ -95,7 +124,7 @@ class DeviceLocationRepository(context: Context) {
             }
             val listener = object : LocationListener {
                 override fun onLocationChanged(location: Location) {
-                    if (!location.isUsable()) return
+                    if (!location.isUsable(maxAgeNanos)) return
                     runCatching { locationManager.removeUpdates(this) }
                     if (continuation.isActive) continuation.resume(location)
                 }
@@ -125,6 +154,8 @@ class DeviceLocationRepository(context: Context) {
             continuation.invokeOnCancellation {
                 runCatching { locationManager.removeUpdates(listener) }
             }
+            // A callback can win while another provider is still being registered.
+            if (!continuation.isActive) runCatching { locationManager.removeUpdates(listener) }
         }
     }
 
@@ -192,8 +223,8 @@ class DeviceLocationRepository(context: Context) {
     }
 }
 
-private fun Location.isUsable(): Boolean = isUsableDeviceLocation(
-    latitude, longitude, elapsedRealtimeNanos, SystemClock.elapsedRealtimeNanos(),
+private fun Location.isUsable(maxAgeNanos: Long, nowElapsedNanos: Long = SystemClock.elapsedRealtimeNanos()): Boolean = isUsableDeviceLocation(
+    latitude, longitude, elapsedRealtimeNanos, nowElapsedNanos, maxAgeNanos,
 )
 
 private const val MAX_LAST_KNOWN_AGE_NANOS = 30 * 60 * 1_000_000_000L

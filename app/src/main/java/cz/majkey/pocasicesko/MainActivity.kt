@@ -26,7 +26,7 @@ class MainActivity : ComponentActivity() {
         adsController = if (BuildConfig.MONETIZATION_CONFIGURED) AdsController(this) else null
         premiumBillingController =
             if (BuildConfig.PAYMENTS_ENABLED) PremiumBillingController(this) else null
-        WindowCompat.enableEdgeToEdge(window)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         setContent {
             WeatherApp(
                 repository = remember { WeatherRepository(applicationContext) },

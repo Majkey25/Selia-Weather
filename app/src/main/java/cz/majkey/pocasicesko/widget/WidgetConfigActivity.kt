@@ -58,7 +58,7 @@ class WidgetConfigActivity : ComponentActivity() {
         }
         WeatherWidgetProvider.reconcileImageGrants(applicationContext)
 
-        WindowCompat.enableEdgeToEdge(window)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         setContent {
             WeatherTheme {
                 WidgetEditorScreen(

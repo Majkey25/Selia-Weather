@@ -68,7 +68,7 @@ class KeyboardVisibilityTest {
         assertEquals(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE,
             activity.softInputMode and WindowManager.LayoutParams.SOFT_INPUT_MASK_ADJUST)
         InstrumentationRegistry.getInstrumentation().runOnMainSync {
-            WindowCompat.enableEdgeToEdge(base.window)
+            WindowCompat.setDecorFitsSystemWindows(base.window, false)
             base.window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         }
         var applied: WidgetSettings? = null

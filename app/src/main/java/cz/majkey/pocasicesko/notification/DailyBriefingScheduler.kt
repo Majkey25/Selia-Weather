@@ -16,6 +16,7 @@ import androidx.core.content.ContextCompat
 import cz.majkey.pocasicesko.MainActivity
 import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.data.DailyWeather
+import cz.majkey.pocasicesko.data.LocationMode
 import cz.majkey.pocasicesko.data.WeatherRepository
 import cz.majkey.pocasicesko.locale.AppLocale
 import cz.majkey.pocasicesko.units.MeasurementUnits
@@ -138,7 +139,8 @@ class DailyBriefingReceiver : BroadcastReceiver() {
         if (intent.action == DailyBriefingScheduler.ACTION_SHOW) {
             val scheduledAt = intent.getLongExtra(DailyBriefingScheduler.EXTRA_SCHEDULED_AT, 0)
             if (isBriefingDeliveryDue(scheduledAt, System.currentTimeMillis(), DailyBriefingScheduler.time(context),
-                ZoneId.systemDefault()) && !showBriefing(context, scheduledAt)) {
+                ZoneId.systemDefault()) && (WeatherRepository(context).locationMode() == LocationMode.FOLLOW_DEVICE ||
+                    !showBriefing(context, scheduledAt))) {
                 WeatherRefreshScheduler.request(context, briefing = true, scheduledAt = scheduledAt)
             }
         } else if (intent.action == DailyBriefingScheduler.ACTION_REFRESH) {
@@ -174,11 +176,13 @@ class DailyBriefingReceiver : BroadcastReceiver() {
         DailyBriefingScheduler.ensureChannel(localized)
         if (!WeatherAlerts.canPost(context, CHANNEL_ID)) return false
         try {
-            NotificationManagerCompat.from(context).notify(DailyBriefingScheduler.NOTIFICATION_ID,
-                notification(localized, location.name, day)
-                    .setTimeoutAfter((scheduledAt + BRIEFING_DELIVERY_WINDOW_MILLIS - System.currentTimeMillis()).coerceAtLeast(1)).build())
+            if (!repository.publishForCurrentLocation(location, requireBackgroundPermission = true) {
+                    NotificationManagerCompat.from(context).notify(DailyBriefingScheduler.NOTIFICATION_ID,
+                        notification(localized, location.name, day)
+                            .setTimeoutAfter((scheduledAt + BRIEFING_DELIVERY_WINDOW_MILLIS - System.currentTimeMillis()).coerceAtLeast(1)).build())
+                    deliveries.edit().putString("delivered_day", deliveryDay).apply()
+                }) return false
         } catch (_: SecurityException) { return false }
-        deliveries.edit().putString("delivered_day", deliveryDay).apply()
         WeatherRefreshScheduler.clearBriefing(context)
         return true
     }

@@ -6,6 +6,8 @@ The forecast uses Open-Meteo Best Match and a diagnostic multi-model calculation
 
 Search places worldwide, save favourites, choose an exact named point on the world map, enter coordinates, or use your optional current location. The last successful forecast remains available offline.
 
+Choose Fixed place or Follow current location. Optional following checks your device position for local weather alerts, morning briefings and widgets even when the app is closed or not in use. It requires separate disclosure and background location permission. Android may delay checks; without a fresh permitted location, alerts for the old place are paused. Select a fixed place to stop following.
+
 The radar joins available RainViewer observations and DWD precipitation forecasts in one timeline, with zoom, pan, animation and a coverage mask. Forecasts extend up to 48 hours where data is available. Compact controls float above the map; fullscreen provides more space. Snapshots, forecast accumulation intervals and gaps remain distinct. The outlook is model output, not observed future radar. Hourly details explain precipitation probability and amount in plain language. Confidence indicators show model agreement and data limitations, not a guaranteed probability of forecast accuracy.
 
 Build your own launcher widget. Each widget can use its own colours, transparency, gradient or custom-image background, text scale, alignment, label, and visible weather fields. If Android can no longer read a selected image, the widget uses its configured colour background and keeps working.

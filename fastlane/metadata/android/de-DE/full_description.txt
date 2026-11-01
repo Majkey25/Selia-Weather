@@ -6,6 +6,8 @@ Die Vorhersage verwendet Open-Meteo Best Match und eine diagnostische Mehrmodell
 
 Suchen Sie Orte weltweit, speichern Sie Favoriten, wählen Sie einen exakten Punkt auf der Weltkarte oder geben Sie Koordinaten ein. Optional können Sie Ihren aktuellen Standort verwenden. Die letzte erfolgreiche Vorhersage bleibt offline verfügbar.
 
+Wählen Sie Fester Ort oder Aktuellem Standort folgen. Die optionale Standortverfolgung prüft den Gerätestandort für lokale Wetterwarnungen, Morgenberichte und Widgets auch bei geschlossener oder ungenutzter App. Sie erfordert eine separate Erklärung und Hintergrundberechtigung. Android kann Prüfungen verzögern. Ohne frischen erlaubten Standort pausieren Hinweise für den alten Ort. Ein fester Ort beendet die Standortverfolgung.
+
 Das Radar verbindet verfügbare RainViewer-Beobachtungen und DWD-Niederschlagsprognosen in einer Zeitleiste mit Zoom, Verschieben, Animation und Abdeckungsmaske. Je nach verfügbaren Daten reicht die Prognose bis zu 48 Stunden voraus. Kompakte Bedienelemente schweben über der Karte; der Vollbildmodus bietet mehr Platz. Beobachtungen, Prognoseintervalle und Datenlücken bleiben unterscheidbar. Die Prognose ist eine Modellberechnung, kein beobachtetes zukünftiges Radar. Konfidenzanzeigen beschreiben Modellübereinstimmung und Datenlücken, keine garantierte Vorhersagegenauigkeit.
 
 Gestalten Sie Ihr eigenes Startbildschirm-Widget. Jedes Widget kann eigene Farben, Transparenz, Verlauf oder Hintergrundbild, Textgröße, Ausrichtung, Beschriftung und sichtbare Wetterdaten verwenden. Wenn Android ein Bild nicht mehr lesen kann, nutzt das Widget seinen Farbhintergrund und funktioniert weiter.

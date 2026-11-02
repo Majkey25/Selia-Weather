@@ -26,6 +26,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
@@ -270,7 +271,8 @@ internal fun NativeRadarScreen(
                             if (choice != mode) {
                                 mode = choice; playing = false; frameIndex = 0; displayedFrame = null; renderer.clear()
                             }
-                        }, shape = SegmentedButtonDefaults.itemShape(index, 2), icon = {
+                        }, shape = SegmentedButtonDefaults.itemShape(index, 2),
+                            colors = SegmentedButtonDefaults.colors(activeContainerColor = colors.primary, activeContentColor = colors.onPrimary), icon = {
                             Icon(if (choice == NativeRadarMode.FORECAST) Icons.Rounded.Schedule else Icons.Rounded.Radar,
                                 contentDescription = null, modifier = Modifier.size(18.dp))
                         }) { Text(stringResource(if (choice == NativeRadarMode.FORECAST) R.string.native_radar_forecast else R.string.native_radar_observed), maxLines = 2) }
@@ -306,9 +308,10 @@ internal fun NativeRadarScreen(
                         valueRange = 0f..frames.lastIndex.toFloat(), steps = (frames.size - 2).coerceAtLeast(0),
                         track = { SliderDefaults.Track(it, drawStopIndicator = null, drawTick = { _, _ -> }) },
                         modifier = Modifier.fillMaxWidth().testTag("radar-timeline"))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(timeFormat.format(frames.first().validTime), style = MaterialTheme.typography.labelSmall)
-                        Text(timeFormat.format(frames.last().validTime), style = MaterialTheme.typography.labelSmall)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(timeFormat.format(frames.first().validTime), Modifier.weight(1f).testTag("radar-range-start"), style = MaterialTheme.typography.labelSmall)
+                        Text(timeFormat.format(frames.last().validTime), Modifier.weight(1f).testTag("radar-range-end"), style = MaterialTheme.typography.labelSmall,
+                            textAlign = TextAlign.End)
                     }
                 }
                 if (!compact) Text(stringResource(if (mode == NativeRadarMode.FORECAST) R.string.native_radar_model_note else R.string.native_radar_observed_note),

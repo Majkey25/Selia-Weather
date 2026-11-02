@@ -399,6 +399,47 @@ class NativeRadarDataTest {
         assertEquals(4, probes)
     }
 
+    @Test fun transportRetriesOneTransientFailureAndKeepsTheSuccessfulPayload() = runBlocking<Unit> {
+        for (failure in listOf(NativeRadarHttpException(503), java.net.SocketTimeoutException("timeout"))) {
+            var calls = 0
+            val expected = byteArrayOf(1, 2, 3)
+            val actual = retryNativeRadarRequest {
+                if (++calls == 1) throw failure
+                expected
+            }
+            assertTrue(expected.contentEquals(actual))
+            assertEquals(2, calls)
+        }
+    }
+
+    @Test fun transportNeverRetriesClientErrorsOrMoreThanOnce() = runBlocking<Unit> {
+        for (status in listOf(400, 404, 429, 503)) {
+            var calls = 0
+            val failure = try {
+                retryNativeRadarRequest { calls++; throw NativeRadarHttpException(status) }
+                error("Expected HTTP failure")
+            } catch (error: NativeRadarHttpException) { error }
+            assertEquals(status, failure.status)
+            assertEquals(if (status == 503) 2 else 1, calls)
+        }
+        var calls = 0
+        try {
+            retryNativeRadarRequest { calls++; throw IOException("Response is too large") }
+            error("Expected invalid response failure")
+        } catch (_: IOException) { assertEquals(1, calls) }
+    }
+
+    @Test fun transportDoesNotRetryCallerCancellation() = runBlocking<Unit> {
+        var calls = 0
+        try {
+            withTimeout(10) { retryNativeRadarRequest { calls++; awaitCancellation() } }
+            error("Expected caller timeout")
+        } catch (_: TimeoutCancellationException) {
+            assertEquals(1, calls)
+        }
+        assertTrue(currentCoroutineContext().isActive)
+    }
+
     private fun geometCapabilities(
         modelRun: Instant = run.minusSeconds(21600),
         times: List<Instant> = (1..40).map { modelRun.plusSeconds(it * 21600L) },

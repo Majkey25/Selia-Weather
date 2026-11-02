@@ -5,6 +5,9 @@ import java.io.StringReader
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import java.net.SocketException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException
 import java.nio.charset.CodingErrorAction
@@ -21,6 +24,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -476,7 +480,20 @@ private fun decodeRadarText(bytes: ByteArray): String {
     }
 }
 
-internal suspend fun requestNativeRadarBytes(url: String, maxBytes: Int): ByteArray = withTimeoutOrNull(15_000) {
+internal class NativeRadarHttpException(val status: Int) : IOException("Radar source returned HTTP $status.")
+
+internal suspend fun retryNativeRadarRequest(request: suspend () -> ByteArray): ByteArray = withTimeoutOrNull(15_000) {
+    try { request() } catch (error: IOException) {
+        currentCoroutineContext().ensureActive()
+        val transient = error is SocketTimeoutException || error is SocketException || error is UnknownHostException ||
+            error is NativeRadarHttpException && error.status in listOf(500, 502, 503, 504)
+        if (!transient) throw error
+        delay(350)
+        request()
+    }
+} ?: throw IOException("Radar request timed out.")
+
+internal suspend fun requestNativeRadarBytes(url: String, maxBytes: Int): ByteArray = retryNativeRadarRequest {
     withContext(Dispatchers.IO) {
         suspendCancellableCoroutine { continuation ->
             val address = URL(url)
@@ -496,7 +513,7 @@ internal suspend fun requestNativeRadarBytes(url: String, maxBytes: Int): ByteAr
                 connection.setRequestProperty("Cache-Control", "no-cache")
                 connection.setRequestProperty("Pragma", "no-cache")
                 connection.setRequestProperty("Accept", "application/json, text/xml, image/png")
-                if (connection.responseCode != HttpURLConnection.HTTP_OK) throw IOException("Radar source returned HTTP ${connection.responseCode}.")
+                if (connection.responseCode != HttpURLConnection.HTTP_OK) throw NativeRadarHttpException(connection.responseCode)
                 if (connection.contentLengthLong > maxBytes) throw IOException("Radar response is too large.")
                 val bytes = connection.inputStream.use { readLimited(it, maxBytes) }
                 continuation.resume(bytes)
@@ -507,7 +524,7 @@ internal suspend fun requestNativeRadarBytes(url: String, maxBytes: Int): ByteAr
             }
         }
     }
-} ?: throw IOException("Radar request timed out.")
+}
 
 internal const val MAX_RADAR_METADATA_BYTES = 131_072
 private const val RAINVIEWER_HOST = "https://tilecache.rainviewer.com"

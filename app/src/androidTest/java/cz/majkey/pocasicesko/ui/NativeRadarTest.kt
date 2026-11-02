@@ -104,6 +104,11 @@ class NativeRadarTest {
         compose.waitUntil(60_000) { compose.onAllNodesWithTag("radar-timeline").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("radar-play").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("radar-timeline").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("radar-range-end").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("radar-range-start").assertIsDisplayed()
+        val start = compose.onNodeWithTag("radar-range-start").fetchSemanticsNode().boundsInRoot
+        val end = compose.onNodeWithTag("radar-range-end").fetchSemanticsNode().boundsInRoot
+        assertTrue("Timeline endpoints must not overlap: $start / $end", start.width > 0 && end.width > 0 && start.right < end.left)
     }
 
     private fun descendants(view: View): Sequence<View> = sequence {

@@ -3,6 +3,7 @@ import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.Graphics2D;
+import java.awt.GradientPaint;
 import java.awt.RenderingHints;
 import java.awt.Shape;
 import java.awt.geom.RoundRectangle2D;
@@ -18,31 +19,30 @@ import javax.imageio.ImageIO;
 public final class RenderStoreScreenshots {
     private static final int WIDTH = 1080;
     private static final int HEIGHT = 1920;
-    private static final Color BACKGROUND = new Color(0xF7F5F1);
     private static final Color TEXT = new Color(0x111310);
     private static final Color SECONDARY = new Color(0x5F6560);
-    private static final Path CAPTURES = Path.of("docs/store/captures/2026-10-11");
+    private static final Path CAPTURES = Path.of("docs/store/captures/2026-11-02");
     private static final Path OUTPUT = Path.of("fastlane/metadata/android");
-    private static final Path REVIEW = Path.of("docs/store/2026-10-11");
+    private static final Path REVIEW = Path.of("docs/store/2026-11-02");
     private static final Slide[] SLIDES = {
-        new Slide("01-weather.png", "Weather for your day",
-            "Forecasts, current conditions and the days ahead.",
-            "Počasí pro váš den", "Aktuální počasí i předpověď na další dny."),
-        new Slide("02-widget.png", "Your own weather widget",
-            "Choose the colours, layout and details you need.",
-            "Widget podle vás", "Vyberte barvy, rozložení a údaje, které potřebujete."),
-        new Slide("03-forecast-map.png", "See the rain ahead",
-            "Observed radar and model forecasts. One timeline.",
-            "Srážky v příštích hodinách", "Pozorovaný radar i modelová předpověď na jedné ose."),
-        new Slide("04-hourly.png", "Every hour, explained",
-            "Rain chances, feels-like temperature, wind and more.",
-            "Každá hodina přehledně", "Pravděpodobnost deště, pocitová teplota, vítr a další."),
-        new Slide("05-history.png", "Explore five years",
-            "Daily weather estimates. Your place, your date range.",
-            "Prozkoumejte pět let", "Denní odhady počasí. Vaše místo, vaše období."),
-        new Slide("06-ask-ai.png", "Ask AI with your data",
+        new Slide("01-weather.png", "Your weather.\nAt a glance.",
+            "The forecast, feels-like temperature and the days ahead.",
+            "Vaše počasí.\nNa první pohled.", "Předpověď, pocitová teplota a výhled na další dny.", 0xDCEFF8, 0xF7F5F1),
+        new Slide("03-forecast-map.png", "Rain on the map.\nSee what's ahead.",
+            "Observed rain and model forecasts, clearly separated.",
+            "Srážky na mapě.\nS výhledem dopředu.", "Pozorovaný déšť a modelová předpověď, jasně oddělené.", 0xD8ECE7, 0xF6F8F4),
+        new Slide("02-widget.png", "Your widget.\nYour way.",
+            "Colours, fonts and layouts for your home screen.",
+            "Váš widget.\nVáš styl.", "Barvy, písmo a rozložení pro vaši domovskou obrazovku.", 0xF5E4CD, 0xFBF8F1),
+        new Slide("04-hourly.png", "Every hour.\nClearly explained.",
+            "Rain, wind, UV and the details behind each hour.",
+            "Každá hodina.\nSrozumitelně.", "Srážky, vítr, UV a podrobnosti pro každou hodinu.", 0xE0E9F4, 0xF7F8FB),
+        new Slide("05-history.png", "Five years.\nOne place.",
+            "Explore daily estimates for your chosen place and dates.",
+            "Pět let počasí.\nPro vaše místo.", "Prozkoumejte denní odhady počasí pro vybrané období.", 0xE2EDDD, 0xF8FAF4),
+        new Slide("06-ask-ai.png", "Your weather data.\nAsk your AI.",
             "Share a weather CSV with a compatible AI app.",
-            "Zeptejte se AI s daty", "Sdílejte CSV s počasím do kompatibilní AI aplikace."),
+            "Vaše data o počasí.\nZeptejte se své AI.", "Sdílejte CSV s počasím do kompatibilní AI aplikace.", 0xDFEAF2, 0xF8F9FB),
     };
 
     private RenderStoreScreenshots() {}
@@ -75,15 +75,21 @@ public final class RenderStoreScreenshots {
             Graphics2D graphics = image.createGraphics();
             try {
                 configure(graphics);
-                graphics.setColor(BACKGROUND);
-                graphics.fillRect(0, 0, WIDTH, HEIGHT);
+                drawBackground(graphics, WIDTH, HEIGHT, slide.start, slide.end);
                 drawCopy(graphics, slide, icon, locale);
                 drawPhone(graphics, capture);
+                if (slide.file.equals("03-forecast-map.png")) {
+                    graphics.setColor(SECONDARY);
+                    graphics.setFont(new Font("Segoe UI", Font.PLAIN, 17));
+                    graphics.drawString("Data Source: Environment and Climate Change Canada.", 76, 1892);
+                    graphics.drawString("Map: OpenFreeMap. © OpenMapTiles. © OpenStreetMap contributors.", 76, 1914);
+                }
             } finally { graphics.dispose(); }
             write(image, imageDir.resolve("phoneScreenshots").resolve(slide.file));
             rendered.add(image);
         }
         writeFeatureGraphic(locale, icon, imageDir);
+        writeSocialGraphic(locale, icon);
         writeContactSheet(rendered, REVIEW.resolve(locale).resolve("contact-sheet.png"));
     }
 
@@ -100,33 +106,40 @@ public final class RenderStoreScreenshots {
         graphics.setColor(TEXT);
         graphics.setFont(new Font("Segoe UI", Font.BOLD, 26));
         graphics.drawString("SELIA WEATHER", 144, 97);
-        graphics.setFont(new Font("Segoe UI", Font.BOLD, 68));
-        drawLine(graphics, locale.equals("cs-CZ") ? slide.csTitle : slide.enTitle, 76, 214, 928);
+        graphics.setFont(new Font("Segoe UI", Font.BOLD, 80));
+        String[] title = (locale.equals("cs-CZ") ? slide.csTitle : slide.enTitle).split("\n");
+        if (title.length != 2) throw new IllegalArgumentException("Expected a two-line title");
+        for (int line = 0; line < title.length; line++) drawLine(graphics, title[line], 76, 216 + line * 90, 928);
         graphics.setColor(SECONDARY);
         graphics.setFont(new Font("Segoe UI", Font.PLAIN, 30));
-        drawLine(graphics, locale.equals("cs-CZ") ? slide.csSubtitle : slide.enSubtitle, 78, 273, 924);
+        drawWrapped(graphics, locale.equals("cs-CZ") ? slide.csSubtitle : slide.enSubtitle, 78, 365, 924, 38, 2);
+    }
+
+    private static void drawBackground(Graphics2D graphics, int width, int height, int start, int end) {
+        graphics.setPaint(new GradientPaint(0, 0, new Color(start), width * 0.3f, height, new Color(end)));
+        graphics.fillRect(0, 0, width, height);
     }
 
     private static void drawPhone(Graphics2D graphics, BufferedImage capture) {
-        double scale = Math.min(756.0 / capture.getWidth(), 1478.0 / capture.getHeight());
+        double scale = Math.min(800.0 / capture.getWidth(), 1400.0 / capture.getHeight());
         int width = (int) Math.round(capture.getWidth() * scale);
         int height = (int) Math.round(capture.getHeight() * scale);
         int x = (WIDTH - width) / 2;
         graphics.setColor(Color.BLACK);
         graphics.setComposite(AlphaComposite.SrcOver.derive(0.08f));
-        graphics.fill(new RoundRectangle2D.Double(x - 12, 356, width + 40, height + 52, 76, 76));
+        graphics.fill(new RoundRectangle2D.Double(x - 12, 452, width + 40, height + 48, 68, 68));
         graphics.setComposite(AlphaComposite.SrcOver);
         graphics.setColor(new Color(0x050605));
-        graphics.fill(new RoundRectangle2D.Double(x - 20, 340, width + 40, height + 52, 76, 76));
+        graphics.fill(new RoundRectangle2D.Double(x - 16, 440, width + 32, height + 32, 64, 64));
         graphics.setStroke(new BasicStroke(3f));
         graphics.setColor(new Color(0x282A28));
-        graphics.draw(new RoundRectangle2D.Double(x - 20, 340, width + 40, height + 52, 76, 76));
+        graphics.draw(new RoundRectangle2D.Double(x - 16, 440, width + 32, height + 32, 64, 64));
         Shape oldClip = graphics.getClip();
-        graphics.clip(new RoundRectangle2D.Double(x, 366, width, height, 40, 40));
-        graphics.drawImage(capture, x, 366, width, height, null);
+        graphics.clip(new RoundRectangle2D.Double(x, 456, width, height, 36, 36));
+        graphics.drawImage(capture, x, 456, width, height, null);
         graphics.setClip(oldClip);
         graphics.setColor(new Color(0x383A38));
-        graphics.fillRoundRect(480, 349, 120, 6, 6, 6);
+        graphics.fillRoundRect(492, 446, 96, 4, 4, 4);
     }
 
     private static void writeFeatureGraphic(String locale, BufferedImage icon, Path imageDir) throws IOException {
@@ -135,24 +148,79 @@ public final class RenderStoreScreenshots {
         Graphics2D graphics = feature.createGraphics();
         try {
             configure(graphics);
-            graphics.setColor(BACKGROUND);
-            graphics.fillRect(0, 0, 1024, 500);
+            drawBackground(graphics, 1024, 500, 0xDCEFF8, 0xF7F5F1);
             graphics.drawImage(icon, 58, 48, 56, 56, null);
             graphics.setColor(TEXT);
             graphics.setFont(new Font("Segoe UI", Font.BOLD, 30));
             graphics.drawString("SELIA WEATHER", 130, 87);
             graphics.setFont(new Font("Segoe UI", Font.BOLD, 60));
-            drawLine(graphics, locale.equals("cs-CZ") ? "Váš den." : "Your day.", 58, 222, 530);
-            drawLine(graphics, locale.equals("cs-CZ") ? "Vaše počasí." : "Your weather.", 58, 296, 530);
+            drawLine(graphics, locale.equals("cs-CZ") ? "Vaše počasí." : "Your weather.", 58, 222, 530);
+            drawLine(graphics, locale.equals("cs-CZ") ? "Váš styl." : "Your way.", 58, 296, 530);
             graphics.setColor(SECONDARY);
             graphics.setFont(new Font("Segoe UI", Font.PLAIN, 27));
-            drawLine(graphics, locale.equals("cs-CZ") ? "Předpověď, mapy a vlastní widget." : "Forecasts, maps and your own widget.", 60, 360, 530);
+            drawWrapped(graphics, locale.equals("cs-CZ") ? "Předpověď, radar a vlastní widget." : "Forecasts, radar and your own widget.", 60, 360, 510, 34, 2);
             graphics.setColor(TEXT);
             graphics.fillRoundRect(620, 38, 342, 720, 44, 44);
             graphics.setClip(new RoundRectangle2D.Double(632, 52, 318, 690, 28, 28));
             graphics.drawImage(capture, 632, 52, 318, (int) Math.round(capture.getHeight() * 318.0 / capture.getWidth()), null);
         } finally { graphics.dispose(); }
         write(feature, imageDir.resolve("featureGraphic.png"));
+    }
+
+    private static void writeSocialGraphic(String locale, BufferedImage icon) throws IOException {
+        BufferedImage image = new BufferedImage(1600, 1200, BufferedImage.TYPE_INT_RGB);
+        Graphics2D graphics = image.createGraphics();
+        try {
+            configure(graphics);
+            drawBackground(graphics, 1600, 1200, 0xDCEFF8, 0xF7F5F1);
+            graphics.drawImage(icon, 88, 96, 64, 64, null);
+            graphics.setColor(TEXT);
+            graphics.setFont(new Font("Segoe UI", Font.BOLD, 32));
+            graphics.drawString("SELIA WEATHER", 174, 140);
+            graphics.setFont(new Font("Segoe UI", Font.BOLD, 90));
+            drawLine(graphics, locale.equals("cs-CZ") ? "Vaše počasí." : "Your weather.", 88, 330, 660);
+            drawLine(graphics, locale.equals("cs-CZ") ? "Váš styl." : "Your way.", 88, 438, 660);
+            graphics.setFont(new Font("Segoe UI", Font.PLAIN, 34));
+            graphics.setColor(SECONDARY);
+            drawWrapped(graphics, locale.equals("cs-CZ")
+                ? "Nativní radar, podrobná předpověď a widget podle vás."
+                : "Native radar, detailed forecasts and a widget you can make your own.", 90, 540, 620, 48, 3);
+            graphics.setFont(new Font("Segoe UI", Font.PLAIN, 28));
+            graphics.drawString("Android 10+", 90, 1080);
+            graphics.setFont(new Font("Segoe UI", Font.PLAIN, 18));
+            graphics.drawString("Data Source: Environment and Climate Change Canada.", 90, 1120);
+            graphics.drawString("Map: OpenFreeMap. © OpenMapTiles. © OpenStreetMap contributors.", 90, 1148);
+            drawSocialPhone(graphics, read(CAPTURES.resolve(locale).resolve("01-weather.png")), 788, 234, 320);
+            drawSocialPhone(graphics, read(CAPTURES.resolve(locale).resolve("03-forecast-map.png")), 1160, 120, 320);
+        } finally { graphics.dispose(); }
+        write(image, REVIEW.resolve(locale).resolve("social-cover.png"));
+    }
+
+    private static void drawSocialPhone(Graphics2D graphics, BufferedImage capture, int x, int y, int width) {
+        int height = (int) Math.round(capture.getHeight() * (double) width / capture.getWidth());
+        graphics.setColor(new Color(0x111713));
+        graphics.fillRoundRect(x - 12, y - 12, width + 24, height + 24, 44, 44);
+        Shape clip = graphics.getClip();
+        graphics.clip(new RoundRectangle2D.Double(x, y, width, height, 28, 28));
+        graphics.drawImage(capture, x, y, width, height, null);
+        graphics.setClip(clip);
+    }
+
+    private static void drawWrapped(Graphics2D graphics, String text, int x, int baseline, int width, int lineHeight, int maxLines) {
+        StringBuilder line = new StringBuilder();
+        int count = 1;
+        for (String word : text.split(" ")) {
+            String next = line.isEmpty() ? word : line + " " + word;
+            if (graphics.getFontMetrics().stringWidth(next) > width && !line.isEmpty()) {
+                drawLine(graphics, line.toString(), x, baseline, width);
+                baseline += lineHeight;
+                if (++count > maxLines) throw new IllegalArgumentException("Copy is too tall: " + text);
+                line.setLength(0);
+            }
+            if (!line.isEmpty()) line.append(' ');
+            line.append(word);
+        }
+        drawLine(graphics, line.toString(), x, baseline, width);
     }
 
     private static void drawLine(Graphics2D graphics, String text, int x, int baseline, int width) {
@@ -188,5 +256,5 @@ public final class RenderStoreScreenshots {
         write(sheet, path);
     }
 
-    private record Slide(String file, String enTitle, String enSubtitle, String csTitle, String csSubtitle) {}
+    private record Slide(String file, String enTitle, String enSubtitle, String csTitle, String csSubtitle, int start, int end) {}
 }

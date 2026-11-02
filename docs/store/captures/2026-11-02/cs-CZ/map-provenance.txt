@@ -1,0 +1,3 @@
+Actual native map composable. Public Prague. ECCC GDPS six-hour precipitation totals.
+Displayed time: út 3 lis · 19:00 SEČ
+App pixels unchanged; only system bars cropped.

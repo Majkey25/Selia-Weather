@@ -6,19 +6,15 @@ import android.content.ContextWrapper
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.os.SystemClock
-import android.view.View
-import android.view.ViewGroup
-import android.webkit.WebView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollToNodeAction
@@ -27,8 +23,10 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
@@ -46,11 +44,7 @@ import java.io.File
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.util.Locale
-import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.runBlocking
-import org.json.JSONObject
-import org.json.JSONTokener
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.After
@@ -165,52 +159,30 @@ class StoreScreenshotsTest {
         compose.setContent {
             CompositionLocalProvider(LocalContext provides context, LocalConfiguration provides configuration,
                 LocalResources provides context.resources) {
-                WeatherTheme {
-                    Surface(color = Color(0xFF101820), contentColor = Color.White) {
-                        MapHubScreen(location, PaddingValues(), true, "Europe/Prague", {})
-                    }
+                WeatherTheme(config = AppearanceConfig(mode = AppearanceMode.LIGHT)) {
+                    MapHubScreen(location, PaddingValues(), true, "Europe/Prague", {})
                 }
             }
         }
-        val view = compose.runOnIdle { requireNotNull(findWebView(compose.activity.window.decorView)) }
-        val state = AtomicReference(JSONObject())
-        fun readState() {
-            compose.runOnIdle {
-                view.evaluateJavascript("""
-                    JSON.stringify({ready:typeof radarLayer!=='undefined'&&!!radarLayer,
-                        type:typeof radarLayer==='undefined'||!radarLayer?'':radarLayer.frame.type,
-                        displayedTime:typeof radarLayer==='undefined'||!radarLayer?0:radarLayer.frame.time,
-                        forecastCount:typeof frames==='undefined'?0:frames.filter(function(frame){return frame.type==='forecast';}).length,
-                        forecastTime:typeof frames==='undefined'?0:(frames.filter(function(frame){return frame.type==='forecast';})[3]?.time || 0),
-                        sliderTime:Number(document.getElementById('slider').value),
-                        pending:typeof pendingLayer!=='undefined'&&!!pendingLayer,
-                        status:document.getElementById('status')?.textContent})
-                """.trimIndent()) { result ->
-                    (JSONTokener(result).nextValue() as? String)?.let { state.set(JSONObject(it)) }
-                }
-            }
+        compose.waitUntil(60_000) {
+            compose.onAllNodesWithTag("radar-timeline").fetchSemanticsNodes().isNotEmpty()
         }
-        compose.waitUntil(45_000) {
-            readState()
-            state.get().optBoolean("ready") && state.get().optInt("forecastCount") >= 4
+        fun shownTime() = compose.onNodeWithTag("radar-frame-time").fetchSemanticsNode()
+            .config[SemanticsProperties.Text].joinToString { it.text }
+        compose.waitUntil(60_000) { shownTime().contains('·') }
+        val before = shownTime()
+        val timeline = compose.onNodeWithTag("radar-timeline")
+        val last = timeline.fetchSemanticsNode().config[SemanticsProperties.ProgressBarRangeInfo].range.endInclusive
+        timeline.performSemanticsAction(SemanticsActions.SetProgress) {
+            assertTrue(it(minOf(4f, last)))
         }
-        val selectedTime = state.get().getLong("forecastTime")
-        compose.runOnIdle {
-            view.evaluateJavascript("""
-                var slider = document.getElementById('slider');
-                slider.value = $selectedTime;
-                slider.dispatchEvent(new Event('input'));
-            """.trimIndent(), null)
-        }
-        compose.waitUntil(45_000) {
-            readState()
-            state.get().optString("type") == "forecast" && state.get().optBoolean("ready") &&
-                state.get().optLong("displayedTime") == selectedTime &&
-                !state.get().optBoolean("pending")
-        }
-        assertEquals(selectedTime, state.get().getLong("sliderTime"))
-        assertEquals("", state.get().getString("status"))
+        compose.waitUntil(60_000) { shownTime() != before && shownTime().contains('·') }
+        compose.onNodeWithText("GDPS · mm / 6 h").assertIsDisplayed()
         capture(context, tag, "03-forecast-map.png")
+        File(requireNotNull(context.getExternalFilesDir("store-captures")), "$tag/map-provenance.txt").writeText(
+            "Actual native map composable. Public Prague. ECCC GDPS six-hour precipitation totals.\n" +
+                "Displayed time: ${shownTime()}\nApp pixels unchanged; only system bars cropped.\n",
+        )
     }
 
     private fun capture(context: Context, tag: String, name: String) {
@@ -227,12 +199,6 @@ class StoreScreenshotsTest {
         File(directory, name).outputStream().use { check(content.compress(Bitmap.CompressFormat.PNG, 100, it)) }
         content.recycle()
         bitmap.recycle()
-    }
-
-    private fun findWebView(view: View): WebView? = when (view) {
-        is WebView -> view
-        is ViewGroup -> (0 until view.childCount).firstNotNullOfOrNull { findWebView(view.getChildAt(it)) }
-        else -> null
     }
 
     private class CaptureContext(base: Context) : ContextWrapper(base) {

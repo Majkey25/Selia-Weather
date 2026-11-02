@@ -1,0 +1,108 @@
+{
+  "app": "Selia Weather",
+  "appVersion": "0.7.26",
+  "capturedOn": "2026-11-02",
+  "captureDevice": "Huawei YAL-L21 Android 10",
+  "captureDirectory": "docs/store/captures/2026-11-02",
+  "renderer": "tools/RenderStoreScreenshots.java",
+  "widgetUsesDemoWeather": true,
+  "appScreenRetouched": false,
+  "assets": [
+    {
+      "path": "fastlane/metadata/android/en-US/images/phoneScreenshots/01-weather.png",
+      "width": 1080,
+      "height": 1920,
+      "sha256": "68415d7d66fe40be7269ff745c83b37e81ad4c60d860dc25cc3c9aa799b3c944"
+    },
+    {
+      "path": "fastlane/metadata/android/en-US/images/phoneScreenshots/02-widget.png",
+      "width": 1080,
+      "height": 1920,
+      "sha256": "92e0531fe85cdcf1e8fc6e7d7ff27e0c81919c7ba7b026546b46478e3721b584"
+    },
+    {
+      "path": "fastlane/metadata/android/en-US/images/phoneScreenshots/03-forecast-map.png",
+      "width": 1080,
+      "height": 1920,
+      "sha256": "8c8c7b1fbe0f034bf0c4c7d817ad01b4243a0ffcb7857c8f6d164fa1ae508a3c"
+    },
+    {
+      "path": "fastlane/metadata/android/en-US/images/phoneScreenshots/04-hourly.png",
+      "width": 1080,
+      "height": 1920,
+      "sha256": "9084ca10a5b1c7891c62fd5af7a6423401d5cfbde7d0b6b27213a1d547740244"
+    },
+    {
+      "path": "fastlane/metadata/android/en-US/images/phoneScreenshots/05-history.png",
+      "width": 1080,
+      "height": 1920,
+      "sha256": "5d7f6ed3cfa6603ca77ecd79ab0a94eafd94aeb573dd4091962240c1c9e47d8a"
+    },
+    {
+      "path": "fastlane/metadata/android/en-US/images/phoneScreenshots/06-ask-ai.png",
+      "width": 1080,
+      "height": 1920,
+      "sha256": "fb487c2027648df93aecb45ecbb2391bcc7817541997923ab23e6fe04127dd88"
+    },
+    {
+      "path": "fastlane/metadata/android/en-US/images/featureGraphic.png",
+      "width": 1024,
+      "height": 500,
+      "sha256": "066e6a19dd8a4b8166c442121912f74487749c8f8168f4983acbbf028fd3324f"
+    },
+    {
+      "path": "docs/store/2026-11-02/en-US/social-cover.png",
+      "width": 1600,
+      "height": 1200,
+      "sha256": "c363f213f4de8f0afe5dd713a3deab0080539d99e3f52859f90670df0c3192d5"
+    },
+    {
+      "path": "fastlane/metadata/android/cs-CZ/images/phoneScreenshots/01-weather.png",
+      "width": 1080,
+      "height": 1920,
+      "sha256": "7bdbdb4ce0b93cd206ced3955656f1666b14fb2b138cd43e51254a3ac2daa9c6"
+    },
+    {
+      "path": "fastlane/metadata/android/cs-CZ/images/phoneScreenshots/02-widget.png",
+      "width": 1080,
+      "height": 1920,
+      "sha256": "7cb86cc96d9e3365e482a21e001f1d837d5a413ff306040d4da97a9defe05f4d"
+    },
+    {
+      "path": "fastlane/metadata/android/cs-CZ/images/phoneScreenshots/03-forecast-map.png",
+      "width": 1080,
+      "height": 1920,
+      "sha256": "c754ac8477dd1caac3ead0c2b4fe4c4c6e92a9f6993dd53bd0594920bf17b552"
+    },
+    {
+      "path": "fastlane/metadata/android/cs-CZ/images/phoneScreenshots/04-hourly.png",
+      "width": 1080,
+      "height": 1920,
+      "sha256": "74c2c7df0197091f085dae2f1483b8f06cb8b8196c528703764ee0a820bfc84c"
+    },
+    {
+      "path": "fastlane/metadata/android/cs-CZ/images/phoneScreenshots/05-history.png",
+      "width": 1080,
+      "height": 1920,
+      "sha256": "9788220b8e63aad2e545cc7085f4a398c24cab95fcf3c8621482f4e004f63279"
+    },
+    {
+      "path": "fastlane/metadata/android/cs-CZ/images/phoneScreenshots/06-ask-ai.png",
+      "width": 1080,
+      "height": 1920,
+      "sha256": "c301edac142bdfb8f0d317011938f736ad019405990dd456faee32e99bf0e9b1"
+    },
+    {
+      "path": "fastlane/metadata/android/cs-CZ/images/featureGraphic.png",
+      "width": 1024,
+      "height": 500,
+      "sha256": "f3263e3a7dc4e46b6e4acc9176c5e3759b15c2df6c08292177929df541d55ddd"
+    },
+    {
+      "path": "docs/store/2026-11-02/cs-CZ/social-cover.png",
+      "width": 1600,
+      "height": 1200,
+      "sha256": "e9e3f1caaf52419af99862f26868c525fff5a798ab8905877ad01004afdf1a18"
+    }
+  ]
+}

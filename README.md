@@ -14,13 +14,13 @@
 </p>
 
 <p align="center">
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/01-weather.png" width="240" alt="Selia Weather forecast">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/01-weather.png" width="200" alt="Selia Weather forecast and next 24 hours">
   &nbsp;&nbsp;
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/06-ask-ai.png" width="240" alt="Share the five-year archive with your chosen AI app">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/03-forecast-map.png" width="200" alt="ECCC GDPS precipitation forecast on the native radar map">
   &nbsp;&nbsp;
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/03-forecast-map.png" width="240" alt="Future precipitation from the DWD model">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/02-widget.png" width="200" alt="Weather widget editor with a native demo preview">
   &nbsp;&nbsp;
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/02-widget.png" width="240" alt="Weather widget editor with a native preview">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/06-ask-ai.png" width="200" alt="Share the five-year archive with your chosen AI app">
 </p>
 
 ## What it does

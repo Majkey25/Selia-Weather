@@ -390,12 +390,12 @@ internal fun WeatherHero(snapshot: WeatherSnapshot, units: WeatherUnitFormatter,
             weatherCode = condition.weatherCode,
             isDay = snapshot.current.isDay,
             contentDescription = null,
-            modifier = Modifier.size(40.dp),
+            modifier = Modifier.size(56.dp),
         )
         BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             val temperature = units.temperature(snapshot.current.temperature)
-            val style = MaterialTheme.typography.displayLarge.copy(fontSize = 88.sp,
-                lineHeight = 96.sp, fontWeight = FontWeight.Light, letterSpacing = (-2).sp)
+            val style = MaterialTheme.typography.displayLarge.copy(fontSize = 96.sp,
+                lineHeight = 104.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-3).sp)
             val measuredWidth = rememberTextMeasurer().measure(temperature, style, softWrap = false).size.width
             val scale = (with(LocalDensity.current) { maxWidth.toPx() } / measuredWidth.coerceAtLeast(1)).coerceAtMost(1f)
             Text(temperature, style = style.copy(fontSize = style.fontSize * scale, lineHeight = style.lineHeight * scale),

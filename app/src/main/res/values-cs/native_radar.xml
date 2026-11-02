@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="native_radar_forecast">Předpověď</string>
+    <string name="native_radar_observed">Pozorování</string>
+    <string name="native_radar_recenter">Zpět na vybrané místo</string>
+    <string name="native_radar_play">Přehrát animaci radaru</string>
+    <string name="native_radar_pause">Pozastavit animaci radaru</string>
+    <string name="native_radar_loading">Načítám radar…</string>
+    <string name="native_radar_select_time">Vyberte čas</string>
+    <string name="native_radar_precipitation">Srážky</string>
+    <string name="native_radar_key">Legenda a zdroj mapy</string>
+    <string name="native_radar_failed">Snímek není dostupný. Zkuste to znovu nebo vyberte jiný čas.</string>
+    <string name="native_radar_model_note">Modelová předpověď · úhrn za interval končící v uvedený čas</string>
+    <string name="native_radar_observed_note">Pozorovaný radar · RainViewer · zastíněné oblasti nemají radarové pokrytí</string>
+</resources>

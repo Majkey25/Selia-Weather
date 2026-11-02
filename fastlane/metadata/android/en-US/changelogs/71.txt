@@ -1,0 +1,1 @@
+New native fullscreen radar with simpler controls, forecast and observed modes, source legends and smoother transitions. Global forecast maps now use available GDPS data up to ten days from the model run, with DWD fallback. Improved map loading, large-text controls and weather overview typography.

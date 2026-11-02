@@ -34,7 +34,7 @@ jobs:
         run: ./gradlew -PdistributionChannel=github :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease --console=plain
 
       - name: Test map loading, location updates, and recovery
-        run: node --test app/src/test/js/radar.test.cjs app/src/test/js/location-picker.test.cjs
+        run: node --test app/src/test/js/location-picker.test.cjs
 
       - uses: actions/upload-artifact@v7
         with:

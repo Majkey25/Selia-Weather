@@ -1,0 +1,1 @@
+Nuevo radar nativo a pantalla completa con controles sencillos, previsión y observación separadas, leyendas y transiciones más suaves. Mapas globales con datos GDPS disponibles hasta diez días desde la ejecución del modelo y DWD como alternativa. Mejoras de carga, controles con texto grande y tipografía.

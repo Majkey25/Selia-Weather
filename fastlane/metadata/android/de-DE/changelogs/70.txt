@@ -1,0 +1,1 @@
+Neues natives Vollbildradar mit einfacheren Bedienelementen, getrennten Vorhersage- und Beobachtungsmodi, Legenden und weicheren Übergängen. Globale Karten nutzen verfügbare GDPS-Daten bis zehn Tage ab Modelllauf, mit DWD als Ersatzquelle. Verbessertes Laden, Bedienelemente für große Schrift und Wetterübersicht.

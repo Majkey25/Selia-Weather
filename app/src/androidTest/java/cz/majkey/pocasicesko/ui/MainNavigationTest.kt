@@ -9,7 +9,7 @@ import android.view.MotionEvent
 import android.os.SystemClock
 import android.view.View
 import android.view.ViewGroup
-import android.webkit.WebView
+import org.maplibre.android.maps.MapView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.compose.foundation.layout.PaddingValues
@@ -39,7 +39,6 @@ import cz.majkey.pocasicesko.data.WeatherRepository
 import cz.majkey.pocasicesko.notification.WeatherAlertSettings
 import java.io.File
 import java.util.concurrent.atomic.AtomicReference
-import org.json.JSONTokener
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertSame
@@ -76,7 +75,7 @@ class MainNavigationTest {
     }
 
     @Test
-    fun timezoneChangesKeepWebViewAndSelectedTimelineFrame() {
+    fun timezoneChangesKeepNativeMapAndCamera() {
         var timezone by mutableStateOf<String?>("Europe/Prague")
         compose.setContent {
             WeatherTheme(config = AppearanceConfig()) {
@@ -86,32 +85,18 @@ class MainNavigationTest {
                     fullscreen = false,
                     timezone = timezone,
                     onToggleFullscreen = {},
-                    active = false,
+                    active = true,
                 )
             }
         }
-        val map = compose.runOnIdle { requireNotNull(findWebView(compose.activity.window.decorView)) }
-        longitude(map)
-        assertEquals("true", javascript(map, """
-            (function() {
-              var now = Math.floor(Date.now() / 1000);
-              frames = [{type:'observed',time:now-1800,path:'/v2/radar/navigation-previous'},
-                {type:'observed',time:now-1200,path:'/v2/radar/navigation-latest'}];
-              frameIndex = 0; selectedTime = frames[0].time; selectionTouched = true;
-              updateTimeline(); updateFrameInfo(frames[0]); updateSlider(frames[0]);
-              return selectedTime === frames[0].time && frameIndex === 0;
-            })()
-        """.trimIndent()))
-        val selectedFrame = javascript(map, "JSON.stringify([selectedTime,frameIndex,frames[frameIndex].path])")
+        val map = compose.runOnIdle { requireNotNull(findNativeMap(compose.activity.window.decorView)) }
+        val before = longitude(map)
         listOf("America/New_York", null, "Europe/Prague").forEach { selectedTimezone ->
             compose.runOnIdle { timezone = selectedTimezone }
             compose.runOnIdle {
-                assertSame("Timezone changes must retain WebView", map, findWebView(compose.activity.window.decorView))
+                assertSame("Timezone changes must retain native map", map, findNativeMap(compose.activity.window.decorView))
             }
-            compose.waitUntil(10_000) {
-                JSONTokener(javascript(map, "timezone")).nextValue() == (selectedTimezone ?: "UTC")
-            }
-            assertEquals(selectedFrame, javascript(map, "JSON.stringify([selectedTime,frameIndex,frames[frameIndex].path])"))
+            assertEquals(before, longitude(map))
         }
     }
 
@@ -131,16 +116,16 @@ class MainNavigationTest {
         weather.assertIsSelected()
         compose.onNodeWithTag("main-pages").performTouchInput { swipeLeft() }
         radar.assertIsSelected()
-        val map = compose.runOnIdle { requireNotNull(findWebView(compose.activity.window.decorView)) }
+        val map = compose.runOnIdle { requireNotNull(findNativeMap(compose.activity.window.decorView)) }
         val before = longitude(map)
         panMap(map)
         radar.assertIsSelected()
-        assertNotEquals("Map pan must reach the WebView, not change the tab", before, longitude(map))
+        assertNotEquals("Map pan must reach the native map, not change the tab", before, longitude(map))
         compose.onNodeWithTag("radar-header").performTouchInput { swipeLeft() }
         ai.assertIsSelected()
         compose.onNodeWithTag("main-pages").performTouchInput { swipeRight() }
         radar.assertIsSelected()
-        compose.runOnIdle { assertSame(map, findWebView(compose.activity.window.decorView)) }
+        compose.runOnIdle { assertSame(map, findNativeMap(compose.activity.window.decorView)) }
         compose.onNodeWithTag("radar-header").performTouchInput { swipeRight() }
         weather.assertIsSelected()
         val aiClick = requireNotNull(ai.fetchSemanticsNode().config[SemanticsActions.OnClick].action)
@@ -158,13 +143,13 @@ class MainNavigationTest {
         compose.onNodeWithContentDescription(context.getString(R.string.radar_fullscreen)).performClick()
         compose.onNodeWithContentDescription(context.getString(R.string.radar_exit_fullscreen)).assertIsDisplayed()
         compose.onNodeWithTag("main-navigation").assertDoesNotExist()
-        compose.runOnIdle { assertSame(map, findWebView(compose.activity.window.decorView)) }
+        compose.runOnIdle { assertSame(map, findNativeMap(compose.activity.window.decorView)) }
         InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
         radar.assertIsSelected()
         compose.onNodeWithContentDescription(context.getString(R.string.radar_fullscreen)).assertIsDisplayed()
     }
 
-    private fun panMap(view: WebView) {
+    private fun panMap(view: MapView) {
         val origin = IntArray(2)
         var width = 0
         var height = 0
@@ -185,12 +170,12 @@ class MainNavigationTest {
         send(MotionEvent.ACTION_UP, 0.2f)
     }
 
-    private fun longitude(view: WebView): String {
+    private fun longitude(view: MapView): String {
         val value = AtomicReference<String?>(null)
         compose.waitUntil(10_000) {
             compose.runOnIdle {
-                view.evaluateJavascript("typeof map === 'undefined' ? null : map.getCenter().lng.toFixed(5)") {
-                    if (it != "null") value.set(it)
+                view.getMapAsync { map ->
+                    if (map.style?.isFullyLoaded == true) value.set(map.cameraPosition.target?.longitude?.toString())
                 }
             }
             value.get() != null
@@ -198,16 +183,9 @@ class MainNavigationTest {
         return requireNotNull(value.get())
     }
 
-    private fun javascript(view: WebView, script: String): String {
-        val value = AtomicReference<String?>(null)
-        compose.runOnIdle { view.evaluateJavascript(script) { value.set(it) } }
-        compose.waitUntil(10_000) { value.get() != null }
-        return requireNotNull(value.get())
-    }
-
-    private fun findWebView(view: View): WebView? = when (view) {
-        is WebView -> view
-        is ViewGroup -> (0 until view.childCount).firstNotNullOfOrNull { findWebView(view.getChildAt(it)) }
+    private fun findNativeMap(view: View): MapView? = when (view) {
+        is MapView -> view
+        is ViewGroup -> (0 until view.childCount).firstNotNullOfOrNull { findNativeMap(view.getChildAt(it)) }
         else -> null
     }
 

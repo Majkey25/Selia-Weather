@@ -1,0 +1,1 @@
+Nový nativní radar na celou obrazovku s jednodušším ovládáním, oddělenou předpovědí a pozorováním, legendou a plynulejšími přechody. Globální mapa využívá dostupná data GDPS až deset dní od běhu modelu se zálohou DWD. Lepší načítání mapy, ovládání s velkým písmem a typografie přehledu počasí.

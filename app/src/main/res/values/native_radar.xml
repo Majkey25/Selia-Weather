@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="native_radar_forecast">Forecast</string>
+    <string name="native_radar_observed">Observed</string>
+    <string name="native_radar_recenter">Return to selected place</string>
+    <string name="native_radar_play">Play radar animation</string>
+    <string name="native_radar_pause">Pause radar animation</string>
+    <string name="native_radar_loading">Loading radar…</string>
+    <string name="native_radar_select_time">Select a time</string>
+    <string name="native_radar_precipitation">Precipitation</string>
+    <string name="native_radar_key">Map key and source</string>
+    <string name="native_radar_failed">This frame is unavailable. Retry or choose another time.</string>
+    <string name="native_radar_model_note">Model forecast · totals for the interval ending at this time</string>
+    <string name="native_radar_observed_note">Observed radar · RainViewer · shaded areas have no radar coverage</string>
+</resources>

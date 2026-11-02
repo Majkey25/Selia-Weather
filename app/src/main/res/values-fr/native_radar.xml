@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="native_radar_key">Légende et source de la carte</string>
+    <string name="native_radar_forecast">Prévisions</string>
+    <string name="native_radar_observed">Observations</string>
+    <string name="native_radar_recenter">Revenir au lieu choisi</string>
+    <string name="native_radar_play">Lire le radar</string>
+    <string name="native_radar_pause">Mettre le radar en pause</string>
+    <string name="native_radar_loading">Chargement du radar…</string>
+    <string name="native_radar_select_time">Choisir une heure</string>
+    <string name="native_radar_precipitation">Précipitations</string>
+    <string name="native_radar_failed">Image indisponible. Réessayez ou choisissez une autre heure.</string>
+    <string name="native_radar_model_note">Prévision du modèle · cumul sur l’intervalle se terminant à cette heure</string>
+    <string name="native_radar_observed_note">Radar observé · RainViewer · les zones ombrées ne sont pas couvertes par le radar</string>
+</resources>

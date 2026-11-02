@@ -1,8 +1,33 @@
 # Third-party notices
 
+## MapLibre Native 13.7.1 and OpenFreeMap
+
+The radar uses MapLibre Native for Android under the BSD 2-Clause License.
+The complete notice is bundled at `assets/maplibre-native-LICENSE.txt`.
+
+* Source: <https://github.com/maplibre/maplibre-native>
+* Vector styles, fonts and tiles: <https://openfreemap.org/>
+* The map retains the styles' OpenMapTiles and OpenStreetMap contributor attribution.
+
+## Environment and Climate Change Canada
+
+The forecast map uses GDPS six-hour precipitation accumulations in millimetres
+from MSC GeoMet. Its advertised timeline determines the available horizon.
+These are model forecasts, not observed radar or instantaneous rain rates.
+
+Data Source: Environment and Climate Change Canada.
+Contains information licenced under the Data Server End-use Licence of
+Environment and Climate Change Canada.
+
+* Data: <https://eccc-msc.github.io/open-data/msc-data/nwp_gdps/readme_gdps-geomet_en/>
+* Licence: <https://eccc-msc.github.io/open-data/licence/readme_en/>
+
+Fallback forecast maps use Deutscher Wetterdienst ICON data under CC BY 4.0:
+<https://www.dwd.de/copyright>.
+
 ## Leaflet 1.9.4
 
-The point picker and radar bundle Leaflet 1.9.4. The complete BSD notice is
+The point picker bundles Leaflet 1.9.4. The complete BSD notice is
 included in the application at `assets/leaflet-LICENSE.txt`.
 
 - Copyright 2010–2023 Volodymyr Agafonkin; 2010–2011 CloudMade.
@@ -11,8 +36,8 @@ included in the application at `assets/leaflet-LICENSE.txt`.
 - JavaScript SHA-256: `db49d009c841f5ca34a888c96511ae936fd9f5533e90d8b2c4d57596f4e5641a`.
 - Bundled CSS SHA-256: `337bfca5cabd03b39815b2700febe2b3b7edf55921c59cd49f88ecb328212303`.
 
-Map tiles are loaded interactively from OpenStreetMap only while the point picker or observed
-radar is open and retain the required OpenStreetMap attribution.
+Map tiles are loaded interactively from OpenStreetMap only while the point picker is open
+and retain the required OpenStreetMap attribution.
 
 ## RainViewer Weather Maps API
 

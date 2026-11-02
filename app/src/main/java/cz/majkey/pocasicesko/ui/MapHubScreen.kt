@@ -2,7 +2,6 @@ package cz.majkey.pocasicesko.ui
 
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Arrangement
@@ -26,7 +25,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
@@ -37,7 +35,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.data.CzechLocation
-import cz.majkey.pocasicesko.data.isInCzechia
 
 @Composable
 internal fun MapHubScreen(
@@ -50,17 +47,23 @@ internal fun MapHubScreen(
     onNavigate: (Destination) -> Unit = {},
     bottomInsetDp: Int = 76,
 ) {
-    val configuration = LocalConfiguration.current
-    val languageTag = configuration.locales[0]?.toLanguageTag()
     val navigate by rememberUpdatedState(onNavigate)
     val density = LocalDensity.current
     val swipeThreshold = with(density) { 48.dp.toPx() }
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .padding(padding),
     ) {
-        Row(Modifier.fillMaxWidth().padding(8.dp).testTag("radar-header").then(
+        NativeRadarScreen(
+            location = location,
+            modifier = Modifier.fillMaxSize(),
+            active = active,
+            topInsetDp = 64,
+            bottomInsetDp = if (fullscreen) 0 else bottomInsetDp,
+            timezone = timezone,
+        )
+        Row(Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(8.dp).testTag("radar-header").then(
             if (fullscreen) Modifier else Modifier.pointerInput(swipeThreshold) {
                 var distance = 0f
                 detectHorizontalDragGestures(
@@ -93,13 +96,5 @@ internal fun MapHubScreen(
                 }
             }
         }
-        ChmiWebScreen(
-            localizedRadarUrl(languageTag, location.latitude, location.longitude, location.isInCzechia()),
-            modifier = Modifier.weight(1f),
-            active = active,
-            topInsetDp = 0,
-            bottomInsetDp = if (fullscreen) 0 else bottomInsetDp,
-            timezone = timezone,
-        )
     }
 }

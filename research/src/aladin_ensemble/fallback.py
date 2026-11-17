@@ -2,19 +2,25 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from aladin_ensemble.train import WeightFit
 
 
-class ExclusionReason(str, Enum):
+class ExclusionReason(StrEnum):
     INSUFFICIENT_SAMPLES = "insufficient_samples"
     UNSTABLE_FIT = "unstable_fit"
     HOLDOUT_FAILED = "holdout_failed"
     MISSING_COVERAGE = "missing_coverage"
     LICENCE_FAILURE = "licence_failure"
+
+    # Preserve the existing diagnostic strings and formatting.
+    __str__ = Enum.__str__
+
+    def __format__(self, format_spec: str, /) -> str:
+        return Enum.__format__(self, format_spec)
 
 
 @dataclass(frozen=True, slots=True)

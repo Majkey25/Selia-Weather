@@ -80,7 +80,7 @@ Settings groups language, units, notifications, official warnings, appearance, w
 
 Appearance follows System, Light, or Dark mode, with independent theme choices for light and dark. Choose weather-reactive colours, fixed gradients, Material, Minimal, AMOLED, or a custom HEX palette. Native Material You colours are available on Android 12+. Font style, text size and corner radius are adjustable; custom colours require readable contrast. App-style widgets and radar controls follow the choice.
 
-The public application ID is `com.majkeylab.weatheraladin`. A network connection is required for fresh forecasts, search, and radar. Build locally with JDK 17 and Android SDK 36.
+The public application ID is `com.majkeylab.weatheraladin`. A network connection is required for fresh forecasts, search, and radar. Build locally with JDK 17 and Android SDK 37.
 
 ## Widget
 

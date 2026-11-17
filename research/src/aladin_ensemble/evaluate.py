@@ -5,7 +5,7 @@ import os
 import tempfile
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
-from enum import Enum
+from enum import Enum, StrEnum
 from math import isfinite
 from pathlib import Path
 from statistics import fmean
@@ -17,13 +17,19 @@ from aladin_ensemble.metrics import ConfidenceInterval, block_bootstrap_mean_int
 from aladin_ensemble.registry import JsonValue
 
 
-class EvaluationFailure(str, Enum):
+class EvaluationFailure(StrEnum):
     INSUFFICIENT_HOLDOUT = "insufficient_holdout"
     NO_SIGNIFICANT_IMPROVEMENT = "no_significant_improvement"
     REGION_DEGRADATION = "region_degradation"
     UNSTABLE_FOLDS = "unstable_folds"
     MISSING_FALLBACK = "missing_fallback"
     INSUFFICIENT_SOURCES = "insufficient_sources"
+
+    # Preserve the existing diagnostic strings and formatting.
+    __str__ = Enum.__str__
+
+    def __format__(self, format_spec: str, /) -> str:
+        return Enum.__format__(self, format_spec)
 
 
 @dataclass(frozen=True, slots=True)

@@ -32,7 +32,7 @@ gradle.taskGraph.whenReady {
 
 android {
     namespace = "cz.majkey.pocasicesko"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.majkeylab.weatheraladin"
@@ -118,11 +118,11 @@ configurations.matching { it.name == "releaseRuntimeClasspath" }.configureEach {
 
 dependencies {
     implementation("org.maplibre.gl:android-sdk-opengl:13.7.1")
-    implementation("androidx.core:core-ktx:1.17.0")
+    implementation("androidx.core:core-ktx:1.19.1")
     implementation("androidx.activity:activity-compose:1.13.0")
-    implementation("androidx.fragment:fragment:1.9.0")
-    implementation("androidx.webkit:webkit:1.15.0")
-    val composeBom = platform("androidx.compose:compose-bom:2026.06.01")
+    implementation("androidx.fragment:fragment:1.9.1")
+    implementation("androidx.webkit:webkit:1.18.0")
+    val composeBom = platform("androidx.compose:compose-bom:2026.09.00")
     implementation(composeBom)
     androidTestImplementation(composeBom)
     implementation("androidx.compose.ui:ui")

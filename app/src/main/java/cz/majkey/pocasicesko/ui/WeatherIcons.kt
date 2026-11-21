@@ -6,7 +6,6 @@ import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Dehaze
-import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -36,8 +35,12 @@ fun WeatherIcon(
     conditionKey: WeatherConditionKey? = null,
     weatherCode: Int? = null,
 ) {
+    if (kind == WeatherKind.CLEAR) {
+        SunOrMoonIcon(isDay, contentDescription, modifier)
+        return
+    }
     val appearance = LocalWeatherAppearance.current
-    val tint = remember(kind, isDay, appearance) { weatherIconTint(kind, isDay, appearance) }
+    val tint = remember(kind, appearance) { weatherIconTint(kind, appearance) }
     if (kind == WeatherKind.RAIN || kind == WeatherKind.SNOW) {
         val resource = if (kind == WeatherKind.SNOW) snowIconResource(weatherCode) else precipitationIconResource(conditionKey, weatherCode)
         Icon(painter = painterResource(resource), contentDescription = contentDescription,
@@ -47,7 +50,6 @@ fun WeatherIcon(
     if (kind == WeatherKind.MAINLY_CLEAR || kind == WeatherKind.PARTLY_CLOUDY) {
         val cloudFraction = compositeCloudFraction(kind)
         val sunOrMoonFraction = if (kind == WeatherKind.MAINLY_CLEAR) 0.84f else 0.78f
-        val sunOrMoonTint = remember(isDay, appearance) { weatherIconTint(WeatherKind.CLEAR, isDay, appearance) }
         Box(
             if (contentDescription == null) {
                 modifier
@@ -55,11 +57,10 @@ fun WeatherIcon(
                 modifier.semantics { this.contentDescription = contentDescription }
             },
         ) {
-            Icon(
-                imageVector = if (isDay) Icons.Outlined.WbSunny else Icons.Outlined.DarkMode,
+            SunOrMoonIcon(
+                isDay = isDay,
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(sunOrMoonFraction).align(Alignment.TopStart),
-                tint = sunOrMoonTint,
             )
             Icon(
                 imageVector = Icons.Filled.Cloud,
@@ -71,7 +72,7 @@ fun WeatherIcon(
         return
     }
     val icon = when (kind) {
-        WeatherKind.CLEAR -> if (isDay) Icons.Outlined.WbSunny else Icons.Outlined.DarkMode
+        WeatherKind.CLEAR -> error("Handled above")
         WeatherKind.MAINLY_CLEAR -> error("Handled above")
         WeatherKind.PARTLY_CLOUDY -> error("Handled above")
         WeatherKind.CLOUDY -> Icons.Outlined.Cloud
@@ -87,6 +88,17 @@ fun WeatherIcon(
         modifier = modifier,
         tint = tint,
     )
+}
+
+@Composable
+private fun SunOrMoonIcon(isDay: Boolean, contentDescription: String?, modifier: Modifier) {
+    if (isDay) {
+        Icon(painterResource(R.drawable.ic_weather_sun), contentDescription, modifier, tint = Color.Unspecified)
+    } else {
+        val appearance = LocalWeatherAppearance.current
+        val tint = remember(appearance) { weatherIconTint(WeatherKind.CLEAR, appearance) }
+        Icon(Icons.Outlined.DarkMode, contentDescription, modifier, tint = tint)
+    }
 }
 
 internal fun compositeCloudFraction(kind: WeatherKind): Float = when (kind) {
@@ -109,13 +121,11 @@ internal fun snowIconResource(weatherCode: Int?): Int = when (weatherCode) {
     else -> R.drawable.ic_weather_snow
 }
 
-internal fun weatherIconTint(kind: WeatherKind, isDay: Boolean, appearance: RenderedAppearance): Color {
+internal fun weatherIconTint(kind: WeatherKind, appearance: RenderedAppearance): Color {
     val dark = appearance.dark
     var contrastTarget = appearance.colors.onSurface
     val seed = when (kind) {
-        WeatherKind.CLEAR -> if (isDay) {
-            if (dark) Color(0xFFFFD34F) else Color(0xFFAD8500)
-        } else if (dark) Color(0xFFC3C8FF) else Color(0xFF6569A3)
+        WeatherKind.CLEAR -> if (dark) Color(0xFFC3C8FF) else Color(0xFF6569A3)
         WeatherKind.MAINLY_CLEAR, WeatherKind.PARTLY_CLOUDY, WeatherKind.CLOUDY, WeatherKind.UNKNOWN -> {
             val luminance = contrastTarget.luminance()
             contrastTarget = Color(luminance, luminance, luminance, colorSpace = ColorSpaces.LinearSrgb)

@@ -66,6 +66,8 @@ class WeatherIconRenderTest {
     fun precipitationShapesStayDistinctAtHourlySizeAndCloudHidesTheSun() {
         val dark = mutableStateOf(true)
         val codes = listOf(51, 61, 63, 65, 68, 71, 73, 75)
+        val sunYellow = Color(0xFFFFD34F).toArgb()
+        val sunOutline = Color(0xFF343B46).toArgb()
         lateinit var appearance: RenderedAppearance
         compose.setContent {
             WeatherTheme(config = AppearanceConfig(mode = if (dark.value) AppearanceMode.DARK else AppearanceMode.LIGHT)) {
@@ -90,6 +92,7 @@ class WeatherIconRenderTest {
                             WeatherKind.entries.forEach { kind ->
                                 WeatherIcon(kind, isDay, "symbol-$kind-$isDay", Modifier.size(24.dp))
                             }
+                            if (isDay) WeatherIcon(WeatherKind.CLEAR, true, "small-sun", Modifier.size(18.dp))
                         }
                     }
                 }
@@ -103,15 +106,22 @@ class WeatherIconRenderTest {
             compose.runOnIdle { dark.value = night }
             for (code in listOf(1, 2)) {
                 val image = compose.onNodeWithContentDescription("sky-$code").captureToImage().asAndroidBitmap()
-                val expected = weatherIconTint(WeatherKind.CLOUDY, true, appearance)
+                val expected = weatherIconTint(WeatherKind.CLOUDY, appearance)
                 assertEquals("Sun shows through cloud interior", expected.toArgb(),
                     image.getPixel((image.width * 0.75f).toInt(), (image.height * 0.75f).toInt()))
+                assertTrue("Composite sun stays yellow for code=$code dark=$night", image.containsColor(sunYellow))
             }
+            val smallSun = compose.onNodeWithContentDescription("small-sun").captureToImage().asAndroidBitmap()
+            assertTrue("Small sun stays yellow in dark=$night", smallSun.containsColor(sunYellow))
             for (isDay in listOf(true, false)) for (kind in WeatherKind.entries) {
                 val image = compose.onNodeWithContentDescription("symbol-$kind-$isDay").captureToImage().asAndroidBitmap()
-                val expected = weatherIconTint(kind, isDay, appearance).toArgb()
-                assertTrue("$kind day=$isDay dark=$night uses its semantic color",
-                    (0 until image.width).any { x -> (0 until image.height).any { y -> image.getPixel(x, y) == expected } })
+                if (isDay && kind == WeatherKind.CLEAR) {
+                    assertTrue("Sun keeps its yellow fill in dark=$night", image.containsColor(sunYellow))
+                    if (!night) assertTrue("Sun uses a dark outline on light backgrounds", image.containsColor(sunOutline))
+                } else {
+                    val expected = weatherIconTint(kind, appearance).toArgb()
+                    assertTrue("$kind day=$isDay dark=$night uses its semantic color", image.containsColor(expected))
+                }
             }
             val context = InstrumentationRegistry.getInstrumentation().targetContext
             File(context.getExternalFilesDir(null), "weather-icons-${if (night) "dark" else "light"}.png").outputStream().use {
@@ -123,4 +133,7 @@ class WeatherIconRenderTest {
             compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it)
         }
     }
+
+    private fun Bitmap.containsColor(color: Int): Boolean =
+        (0 until width).any { x -> (0 until height).any { y -> getPixel(x, y) == color } }
 }

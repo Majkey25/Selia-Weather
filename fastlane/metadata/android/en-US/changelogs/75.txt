@@ -1,0 +1,1 @@
+Forecast sun icons stay bright yellow, and cloud icons use slate blue.

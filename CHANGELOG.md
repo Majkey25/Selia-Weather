@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.7.29] - 2026-11-21
+
+- Keep forecast sun icons bright yellow in every theme and add a dark outline for contrast.
+
 ## [0.7.28] - 2026-11-21
 
 - Use slate blue for cloud icons in light and dark themes.

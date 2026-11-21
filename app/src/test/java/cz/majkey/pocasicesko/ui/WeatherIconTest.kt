@@ -59,23 +59,21 @@ class WeatherIconTest {
     fun symbolsKeepTheirColorsAndContrastAcrossAppThemes() {
         for (theme in AppAppearance.entries) for (dark in listOf(true, false)) {
             for (kind in WeatherKind.entries) for (isDay in listOf(true, false)) {
+                if (kind == WeatherKind.CLEAR && isDay) continue
                 val palette = appearancePalette(theme, kind, isDay, dark)
                 val colors = appearanceColors(palette, theme, dark)
                 val appearance = RenderedAppearance(palette, colors, colors.onBackground.luminance() > 0.5f)
-                val tint = weatherIconTint(kind, isDay, appearance)
+                val tint = weatherIconTint(kind, appearance)
                 val label = "$theme dark=$dark $kind day=$isDay"
                 val backgrounds = gradientContrastSamples(palette.background) + listOf(colors.surface, colors.surfaceVariant)
                 assertTrue("$label contrast", backgrounds.all { widgetContrastRatio(tint.toArgb(), it.toArgb()) >= 3.0 })
                 assertEquals("$label opacity", 1f, tint.alpha, 0f)
                 when (kind) {
-                    WeatherKind.CLEAR -> if (isDay) {
-                        assertTrue("$label yellow sun", tint.red > tint.green && tint.green > tint.blue)
-                    } else {
+                    WeatherKind.CLEAR ->
                         assertTrue("$label lavender moon", tint.blue > tint.red && tint.blue > tint.green)
-                    }
                     WeatherKind.MAINLY_CLEAR, WeatherKind.PARTLY_CLOUDY, WeatherKind.CLOUDY, WeatherKind.UNKNOWN -> {
                         assertTrue("$label blue-grey cloud", tint.blue > tint.green && tint.green > tint.red)
-                        assertEquals("$label shared cloud", weatherIconTint(WeatherKind.CLOUDY, isDay, appearance), tint)
+                        assertEquals("$label shared cloud", weatherIconTint(WeatherKind.CLOUDY, appearance), tint)
                     }
                     WeatherKind.RAIN, WeatherKind.SNOW ->
                         assertTrue("$label blue precipitation", tint.blue > tint.red && tint.blue > tint.green)
@@ -101,7 +99,7 @@ class WeatherIconTest {
         val theme = AppAppearance.CUSTOM
         val palette = appearancePalette(theme, kind, true, false, custom)
         val appearance = RenderedAppearance(palette, appearanceColors(palette, theme, false, custom), false)
-        val tint = weatherIconTint(kind, true, appearance)
+        val tint = weatherIconTint(kind, appearance)
         assertTrue("Custom text must not make the cloud green", tint.blue >= tint.green && tint.green >= tint.red)
         assertTrue(widgetContrastRatio(tint.toArgb(), appearance.colors.surface.toArgb()) >= 3.0)
     }

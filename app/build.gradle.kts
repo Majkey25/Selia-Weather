@@ -38,7 +38,7 @@ android {
         applicationId = "com.majkeylab.weatheraladin"
         minSdk = 29
         targetSdk = 36
-        versionCode = 73
+        versionCode = 74
         versionName = "0.7.28"
 
         manifestPlaceholders["adMobAppId"] = adMobAppId ?: testAdMobAppId

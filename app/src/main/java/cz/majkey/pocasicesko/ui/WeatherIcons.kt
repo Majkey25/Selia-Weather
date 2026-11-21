@@ -15,7 +15,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.colorspace.ColorSpaces
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
@@ -109,12 +111,17 @@ internal fun snowIconResource(weatherCode: Int?): Int = when (weatherCode) {
 
 internal fun weatherIconTint(kind: WeatherKind, isDay: Boolean, appearance: RenderedAppearance): Color {
     val dark = appearance.dark
+    var contrastTarget = appearance.colors.onSurface
     val seed = when (kind) {
         WeatherKind.CLEAR -> if (isDay) {
             if (dark) Color(0xFFFFD34F) else Color(0xFFAD8500)
         } else if (dark) Color(0xFFC3C8FF) else Color(0xFF6569A3)
-        WeatherKind.MAINLY_CLEAR, WeatherKind.PARTLY_CLOUDY, WeatherKind.CLOUDY, WeatherKind.UNKNOWN ->
+        WeatherKind.MAINLY_CLEAR, WeatherKind.PARTLY_CLOUDY, WeatherKind.CLOUDY, WeatherKind.UNKNOWN -> {
+            val luminance = contrastTarget.luminance()
+            contrastTarget = Color(luminance, luminance, luminance, colorSpace = ColorSpaces.LinearSrgb)
+                .convert(ColorSpaces.Srgb)
             if (dark) Color(0xFFB0C4DD) else Color(0xFF48637E)
+        }
         WeatherKind.RAIN -> if (dark) Color(0xFF70C6F2) else Color(0xFF1A6FA4)
         WeatherKind.SNOW -> if (dark) Color(0xFF9DDFF5) else Color(0xFF267A94)
         WeatherKind.STORM -> if (dark) Color(0xFFC4A7FF) else Color(0xFF78509C)
@@ -122,7 +129,7 @@ internal fun weatherIconTint(kind: WeatherKind, isDay: Boolean, appearance: Rend
     }
     val backgrounds = gradientContrastSamples(appearance.palette.background) +
         listOf(appearance.colors.surface, appearance.colors.surfaceVariant)
-    return (0..10).asSequence().map { lerp(seed, appearance.colors.onSurface, it / 10f) }
+    return (0..10).asSequence().map { lerp(seed, contrastTarget, it / 10f) }
         .firstOrNull { candidate -> backgrounds.all { widgetContrastRatio(candidate.toArgb(), it.toArgb()) >= 3.1 } }
-        ?: appearance.colors.onSurface
+        ?: contrastTarget
 }

@@ -85,4 +85,24 @@ class WeatherIconTest {
             }
         }
     }
+
+    @Test
+    fun cloudStaysBlueGreyWithCustomGreenText() {
+        val custom = CustomAppearance(
+            backgroundStart = "#858585",
+            backgroundEnd = "#858585",
+            surface = "#858585",
+            primaryText = "#001F00",
+            secondaryText = "#001F00",
+            automaticText = false,
+        )
+        assertTrue(customAppearanceReadable(custom))
+        val kind = WeatherKind.CLOUDY
+        val theme = AppAppearance.CUSTOM
+        val palette = appearancePalette(theme, kind, true, false, custom)
+        val appearance = RenderedAppearance(palette, appearanceColors(palette, theme, false, custom), false)
+        val tint = weatherIconTint(kind, true, appearance)
+        assertTrue("Custom text must not make the cloud green", tint.blue >= tint.green && tint.green >= tint.red)
+        assertTrue(widgetContrastRatio(tint.toArgb(), appearance.colors.surface.toArgb()) >= 3.0)
+    }
 }

@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.7.28] - 2026-11-21
+
+- Use slate blue for cloud icons in light and dark themes.
+
 ## [0.7.25] - 2026-11-01
 
 - Configure transparent system bars, contrast and display-cutout handling through the activity theme instead of deprecated system-bar color setters.

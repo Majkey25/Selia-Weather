@@ -74,7 +74,7 @@ class WeatherIconTest {
                         assertTrue("$label lavender moon", tint.blue > tint.red && tint.blue > tint.green)
                     }
                     WeatherKind.MAINLY_CLEAR, WeatherKind.PARTLY_CLOUDY, WeatherKind.CLOUDY, WeatherKind.UNKNOWN -> {
-                        assertTrue("$label green cloud", tint.green > tint.red && tint.green > tint.blue)
+                        assertTrue("$label blue-grey cloud", tint.blue > tint.green && tint.green > tint.red)
                         assertEquals("$label shared cloud", weatherIconTint(WeatherKind.CLOUDY, isDay, appearance), tint)
                     }
                     WeatherKind.RAIN, WeatherKind.SNOW ->

@@ -1,0 +1,5 @@
+<resources>
+    <string name="play_age_verify">Google Play muss Ihr Alter bestätigen. Öffnen Sie Google Play, um die Bestätigung abzuschließen.</string>
+    <string name="play_age_open_store">Google Play öffnen</string>
+    <string name="play_age_store_unavailable">Google Play konnte nicht geöffnet werden. Bestätigen Sie Ihr Alter im Play Store.</string>
+</resources>

@@ -1,0 +1,1 @@
+Cloud icons now use slate blue in light and dark themes.

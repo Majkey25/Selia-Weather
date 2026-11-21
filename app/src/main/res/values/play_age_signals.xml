@@ -1,0 +1,5 @@
+<resources>
+    <string name="play_age_verify">Google Play needs to verify your age. Open Google Play to finish verification.</string>
+    <string name="play_age_open_store">Open Google Play</string>
+    <string name="play_age_store_unavailable">Google Play could not be opened. Open the Play Store to verify your age.</string>
+</resources>

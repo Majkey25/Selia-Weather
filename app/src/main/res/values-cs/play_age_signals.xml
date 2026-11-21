@@ -1,0 +1,5 @@
+<resources>
+    <string name="play_age_verify">Google Play potřebuje ověřit váš věk. Otevřete Google Play a dokončete ověření.</string>
+    <string name="play_age_open_store">Otevřít Google Play</string>
+    <string name="play_age_store_unavailable">Google Play se nepodařilo otevřít. Ověřte svůj věk v Obchodě Play.</string>
+</resources>

@@ -114,7 +114,7 @@ internal fun weatherIconTint(kind: WeatherKind, isDay: Boolean, appearance: Rend
             if (dark) Color(0xFFFFD34F) else Color(0xFFAD8500)
         } else if (dark) Color(0xFFC3C8FF) else Color(0xFF6569A3)
         WeatherKind.MAINLY_CLEAR, WeatherKind.PARTLY_CLOUDY, WeatherKind.CLOUDY, WeatherKind.UNKNOWN ->
-            if (dark) Color(0xFF82D6A0) else Color(0xFF2B7844)
+            if (dark) Color(0xFFB0C4DD) else Color(0xFF48637E)
         WeatherKind.RAIN -> if (dark) Color(0xFF70C6F2) else Color(0xFF1A6FA4)
         WeatherKind.SNOW -> if (dark) Color(0xFF9DDFF5) else Color(0xFF267A94)
         WeatherKind.STORM -> if (dark) Color(0xFFC4A7FF) else Color(0xFF78509C)

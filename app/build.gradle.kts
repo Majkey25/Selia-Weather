@@ -38,8 +38,8 @@ android {
         applicationId = "com.majkeylab.weatheraladin"
         minSdk = 29
         targetSdk = 36
-        versionCode = 71
-        versionName = "0.7.26"
+        versionCode = 73
+        versionName = "0.7.28"
 
         manifestPlaceholders["adMobAppId"] = adMobAppId ?: testAdMobAppId
         buildConfigField("boolean", "MONETIZATION_CONFIGURED", "false")
@@ -117,6 +117,7 @@ configurations.matching { it.name == "releaseRuntimeClasspath" }.configureEach {
 }
 
 dependencies {
+    implementation("com.google.android.play:age-signals:0.0.6")
     implementation("org.maplibre.gl:android-sdk-opengl:13.7.1")
     implementation("androidx.core:core-ktx:1.19.1")
     implementation("androidx.activity:activity-compose:1.13.0")

@@ -23,6 +23,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (savedInstanceState == null && BuildConfig.DISTRIBUTION_CHANNEL == "play") {
+            checkPlayAgeSignalsOnLaunch()
+        }
         adsController = if (BuildConfig.MONETIZATION_CONFIGURED) AdsController(this) else null
         premiumBillingController =
             if (BuildConfig.PAYMENTS_ENABLED) PremiumBillingController(this) else null

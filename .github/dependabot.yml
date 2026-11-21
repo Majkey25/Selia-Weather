@@ -1,0 +1,21 @@
+# Check twice weekly in UTC, with stable times per repository, ecosystem and directory.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: cron
+      cronjob: "39 3 * * 1,5"
+      timezone: Etc/UTC
+  - package-ecosystem: gradle
+    directory: "/"
+    schedule:
+      interval: cron
+      cronjob: "30 20 * * 3,6"
+      timezone: Etc/UTC
+  - package-ecosystem: uv
+    directory: "/research"
+    schedule:
+      interval: cron
+      cronjob: "32 13 * * 0,4"
+      timezone: Etc/UTC

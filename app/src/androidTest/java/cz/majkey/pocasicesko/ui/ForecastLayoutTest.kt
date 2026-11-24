@@ -317,16 +317,22 @@ class ForecastLayoutTest {
 
     @Test
     fun dailyValuesFitAtLargeFontInNarrowWidth() {
-        compose.setContent { TestSurface { DailyRow(day.copy(displayWeatherCode = 2), true, units, {}) } }
+        compose.setContent { TestSurface { DailyRow(day.copy(displayWeatherCode = 2, snowfallSum = 4.2), true, units, {}) } }
         assertTextFits("123.4 mm", substring = true)
+        assertTextFits("${context.getString(R.string.snowfall)} 4.2 cm")
         assertTextFits(context.getString(R.string.feels_like), substring = true)
         assertTextFits(context.getString(R.string.condition_storm), substring = true)
     }
 
     @Test
     fun chartPrecipitationIsNotClippedAtLargeFont() {
-        compose.setContent { TestSurface { HourPrecipitationColumn(hour(11).copy(precipitation = 12.3), units, Modifier.width(68.dp)) } }
+        compose.setContent {
+            TestSurface {
+                HourPrecipitationColumn(hour(11).copy(precipitation = 12.3, snowfall = 2.4), units, Modifier.width(68.dp))
+            }
+        }
         assertTextFits("12.3 mm")
+        assertTextFits("2.4 cm")
     }
 
     @Test
@@ -379,8 +385,8 @@ class ForecastLayoutTest {
 
     @Test
     fun tappingCurrentHourKeepsForwardPrecipitationIntervalAndFeelsLike() {
-        val forecast = snapshot(listOf(hour(10).copy(precipitation = 99.0),
-            hour(11).copy(precipitation = 2.4, precipitationProbability = 80)))
+        val forecast = snapshot(listOf(hour(10).copy(precipitation = 99.0, snowfall = 9.9),
+            hour(11).copy(precipitation = 2.4, precipitationProbability = 80, snowfall = 0.7)))
         var selected: String? = null
         compose.setContent {
             WeatherTheme {
@@ -393,6 +399,8 @@ class ForecastLayoutTest {
         val description = current.fetchSemanticsNode().config[SemanticsProperties.ContentDescription].joinToString()
         assertTrue(description.contains("2.4 mm"))
         assertFalse(description.contains("99.0 mm"))
+        assertTrue(description.contains("${context.getString(R.string.snowfall)} 0.7 cm"))
+        assertFalse(description.contains("9.9 cm"))
         assertTrue(description.contains(context.getString(R.string.precipitation_interval, "10:00–11:00")))
         assertTrue(description.contains(context.getString(R.string.feels_like_temperature, units.temperature(19.0))))
         current.performTouchInput { click() }

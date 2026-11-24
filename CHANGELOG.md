@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.7.30] - 2026-11-24
+
+- Show forecast snowfall directly in the hourly and daily outlooks. Small amounts display as less than 0.1 cm in metric mode.
+
 ## [0.7.29] - 2026-11-21
 
 - Keep forecast sun icons bright yellow in every theme and add a dark outline for contrast.

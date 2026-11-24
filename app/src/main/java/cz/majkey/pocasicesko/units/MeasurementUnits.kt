@@ -56,8 +56,14 @@ class WeatherUnitFormatter(
     }
 
     fun snowfall(centimetres: Double): String = when (system) {
-        MeasurementSystem.METRIC -> String.format(locale, "%.1f cm", centimetres)
-        MeasurementSystem.IMPERIAL -> String.format(locale, "%.2f in", centimetres / CENTIMETRES_PER_INCH)
+        MeasurementSystem.METRIC -> if (centimetres > 0.0 && centimetres < 0.1) {
+            String.format(locale, "<%.1f cm", 0.1)
+        } else String.format(locale, "%.1f cm", centimetres)
+        MeasurementSystem.IMPERIAL -> {
+            val inches = centimetres / CENTIMETRES_PER_INCH
+            if (inches > 0.0 && inches < 0.01) String.format(locale, "<%.2f in", 0.01)
+            else String.format(locale, "%.2f in", inches)
+        }
     }
 
     fun pressure(hectopascals: Double): String = when (system) {

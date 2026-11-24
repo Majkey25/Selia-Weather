@@ -30,6 +30,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.AcUnit
 import androidx.compose.material.icons.rounded.Air
 import androidx.compose.material.icons.rounded.Compress
 import androidx.compose.material.icons.rounded.ExpandLess
@@ -557,6 +558,7 @@ internal fun HourlyGraphPanel(snapshot: WeatherSnapshot, units: WeatherUnitForma
                                 }
                                 val precipitationHour = precipitationByStart[hour.time]
                                 val interval = hourlyStartingPrecipitationInterval(hour.time, locale)
+                                val snowLabel = forecastSnowfallLabel(precipitationHour?.snowfall, units)
                                 val precipitationLabel = "${stringResource(R.string.precipitation)} " +
                                     (precipitationHour?.let {
                                         val chance = it.precipitationProbability?.let { chance -> "$chance%" }
@@ -564,6 +566,7 @@ internal fun HourlyGraphPanel(snapshot: WeatherSnapshot, units: WeatherUnitForma
                                         "$chance, ${units.precipitation(it.precipitation)}"
                                     }
                                         ?: stringResource(R.string.unavailable)) +
+                                    (snowLabel?.let { ", $it" } ?: "") +
                                     (interval?.let { ", " + stringResource(R.string.precipitation_interval, it) } ?: "")
                                 val windLabel = "${stringResource(R.string.wind)} ${units.windSpeed(hour.windSpeed)}, " +
                                     stringResource(windDirectionResource(hour.windDirection))
@@ -611,8 +614,23 @@ internal fun HourPrecipitationColumn(precipitationHour: HourlyWeather?, units: W
                 textAlign = TextAlign.Center,
             )
         }
+        units.positiveSnowfall(precipitationHour?.snowfall)?.let { amount ->
+            Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.AcUnit, contentDescription = null, modifier = Modifier.size(12.dp),
+                    tint = MaterialTheme.colorScheme.secondary)
+                Text(amount, color = MaterialTheme.colorScheme.secondary, fontSize = 10.sp, lineHeight = 14.sp,
+                    textAlign = TextAlign.Center)
+            }
+        }
     }
 }
+
+private fun WeatherUnitFormatter.positiveSnowfall(centimetres: Double?): String? =
+    centimetres?.takeIf { it.isFinite() && it > 0.0 }?.let(::snowfall)
+
+@Composable
+private fun forecastSnowfallLabel(centimetres: Double?, units: WeatherUnitFormatter): String? =
+    units.positiveSnowfall(centimetres)?.let { "${stringResource(R.string.snowfall)} $it" }
 
 private data class CurrentMetric(val icon: ImageVector, val label: String, val value: String, val note: String)
 
@@ -801,6 +819,9 @@ internal fun DailyRow(
                 fontSize = 11.sp,
                 lineHeight = 16.sp,
             )
+        }
+        forecastSnowfallLabel(day.snowfallSum, units)?.let { label ->
+            Text(label, color = MaterialTheme.colorScheme.secondary, fontSize = 11.sp, lineHeight = 16.sp)
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -1000,6 +1021,7 @@ internal fun DayDetailSheet(
                                             "${it.precipitationProbability?.let { chance -> "$chance%" } ?: "—"} · ${units.precipitation(it.precipitation)}"
                                         }
                                             ?: "${stringResource(R.string.precipitation)} ${stringResource(R.string.unavailable)}") + " · " +
+                                        (forecastSnowfallLabel(precipitationHour?.snowfall, units)?.let { "$it · " } ?: "") +
                                         "${units.windSpeed(hour.windSpeed)} " +
                                         stringResource(windDirectionResource(hour.windDirection)),
                                     modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),

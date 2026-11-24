@@ -43,6 +43,18 @@ class WeatherUnitFormatterTest {
     }
 
     @Test
+    fun traceSnowfallIsNotDisplayedAsZero() {
+        val metric = WeatherUnitFormatter(MeasurementSystem.METRIC, Locale.forLanguageTag("cs-CZ"))
+        val imperial = WeatherUnitFormatter(MeasurementSystem.IMPERIAL, Locale.US)
+        assertEquals("0,0 cm", metric.snowfall(0.0))
+        assertEquals("<0,1 cm", metric.snowfall(0.03))
+        assertEquals("0,1 cm", metric.snowfall(0.1))
+        assertEquals("0.00 in", imperial.snowfall(0.0))
+        assertEquals("<0.01 in", imperial.snowfall(0.02))
+        assertEquals("0.01 in", imperial.snowfall(0.0254))
+    }
+
+    @Test
     fun unknownStoredPresetFallsBackToMetric() {
         assertEquals(MeasurementSystem.METRIC, measurementSystem("broken"))
         assertEquals(MeasurementSystem.IMPERIAL, measurementSystem("IMPERIAL"))

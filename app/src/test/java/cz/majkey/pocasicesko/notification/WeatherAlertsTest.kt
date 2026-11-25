@@ -131,6 +131,18 @@ class WeatherAlertsTest {
     }
 
     @Test
+    fun rainAndColdTrackOnlyTheFirstContinuousPeriod() {
+        val wet = hour().copy(precipitation = 1.0, temperature = 2.0)
+        val clear = hour("2026-09-22T14:00")
+        val hours = listOf(wet, wet.copy(time = "2026-09-22T13:00"), clear, wet.copy(time = "2026-09-22T15:00"))
+        val decisions = forecastAlerts(WeatherAlertSettings(coldEnabled = true), snapshot(hours), now)
+        val rain = decisions.single { it.category == WeatherAlertCategory.RAIN }
+        val cold = decisions.single { it.category == WeatherAlertCategory.COLD }
+        assertEquals(Instant.parse("2026-09-22T10:00:00Z").toEpochMilli(), rain.lastValidAtEpochMillis)
+        assertEquals(Instant.parse("2026-09-22T11:00:00Z").toEpochMilli(), cold.lastValidAtEpochMillis)
+    }
+
+    @Test
     fun rejectsStaleFutureFetchedAndInvalidClockSnapshots() {
         val wet = listOf(hour().copy(precipitation = 1.0))
         assertTrue(forecastAlerts(allEnabled, snapshot(wet).copy(

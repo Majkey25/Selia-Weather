@@ -1,0 +1,1 @@
+Les conditions persistantes ne déclenchent plus de notifications répétées. Les alertes officielles nouvelles ou aggravées restent signalées.

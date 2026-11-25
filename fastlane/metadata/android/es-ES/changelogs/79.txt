@@ -1,0 +1,1 @@
+Las condiciones persistentes ya no generan avisos repetidos. Seguirás recibiendo las alertas oficiales nuevas o agravadas.

@@ -1,10 +1,9 @@
 package cz.majkey.pocasicesko.notification
 
 import cz.majkey.pocasicesko.data.CzechLocation
+import cz.majkey.pocasicesko.data.LocationMode
 import cz.majkey.pocasicesko.data.WeatherWarning
 import cz.majkey.pocasicesko.data.WeatherWarningSeverity
-import cz.majkey.pocasicesko.data.WeatherWarningsResult
-import cz.majkey.pocasicesko.data.WeatherWarningsStatus
 import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -33,10 +32,23 @@ class OfficialWarningNotificationsTest {
         val place = CzechLocation("Prague", "", 50.0755, 14.4378, "CZ")
         val warning = WeatherWarning("bulletin1", "ČHMÚ", "Heavy rain", "", "Avoid flood water",
             WeatherWarningSeverity.SEVERE, now, now.plusSeconds(3600), "https://vystrahy-cr.chmi.cz/")
-        val result = WeatherWarningsResult(WeatherWarningsStatus.AVAILABLE, listOf(warning), now, "ČHMÚ", warning.webUrl)
-        val first = officialWarningFingerprint(place, result)
-        assertEquals(first, officialWarningFingerprint(place, result.copy(warnings = listOf(warning.copy(id = "bulletin2")))))
-        assertNotEquals(first, officialWarningFingerprint(place, result.copy(warnings = listOf(warning.copy(severity = WeatherWarningSeverity.EXTREME)))))
-        assertNotEquals(first, officialWarningFingerprint(place.copy(latitude = 49.2), result))
+        val first = officialWarningKey(warning)
+        assertEquals(first, officialWarningKey(warning.copy(id = "bulletin2")))
+        assertEquals(first, officialWarningKey(warning.copy(
+            description = "Updated background details", instruction = "Avoid\n flood water",
+        )))
+        assertNotEquals(first, officialWarningKey(warning.copy(severity = WeatherWarningSeverity.EXTREME)))
+        assertNotEquals(first, officialWarningKey(warning.copy(instruction = "Avoid all travel")))
+        assertNotEquals(first, officialWarningKey(warning.copy(expires = now.plusSeconds(7200))))
+        assertNotEquals(officialWarningScope(place, LocationMode.FIXED),
+            officialWarningScope(place.copy(latitude = 49.2), LocationMode.FIXED))
+    }
+
+    @Test
+    fun followedWarningsKeepTheirIdentityAcrossGpsFixes() {
+        val place = CzechLocation("Prague", "", 50.0755, 14.4378, "CZ")
+        val nextFix = place.copy(latitude = 50.0756, longitude = 14.4380)
+        assertEquals(officialWarningScope(place, LocationMode.FOLLOW_DEVICE),
+            officialWarningScope(nextFix, LocationMode.FOLLOW_DEVICE))
     }
 }

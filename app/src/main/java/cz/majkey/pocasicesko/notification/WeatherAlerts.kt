@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.location.Location
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -15,6 +16,7 @@ import cz.majkey.pocasicesko.MainActivity
 import cz.majkey.pocasicesko.R
 import cz.majkey.pocasicesko.data.CzechLocation
 import cz.majkey.pocasicesko.data.HourlyWeather
+import cz.majkey.pocasicesko.data.LocationMode
 import cz.majkey.pocasicesko.data.WeatherRepository
 import cz.majkey.pocasicesko.data.WeatherSnapshot
 import cz.majkey.pocasicesko.data.hasPrecipitationEvidence
@@ -34,6 +36,7 @@ internal data class ForecastAlert(
     val category: WeatherAlertCategory,
     val validAtEpochMillis: Long,
     val value: Double? = null,
+    val lastValidAtEpochMillis: Long = validAtEpochMillis,
 )
 
 internal fun forecastAlerts(
@@ -50,17 +53,22 @@ internal fun forecastAlerts(
         (time to hour).takeIf { time > nowEpochMillis &&
             time <= nowEpochMillis + maxOf(normalized.lookAheadHours, normalized.rainLeadHours) * HOUR_MILLIS + HOUR_MILLIS }
     }.sortedBy { it.first }.distinctBy { it.first }
-    val decisions = mutableListOf<ForecastAlert>()
-    fun add(category: WeatherAlertCategory, time: Long, value: Double? = null) {
-        if (normalized.isEnabled(category) && decisions.none { it.category == category }) {
-            decisions += ForecastAlert(category, time, value)
+    val decisions = linkedMapOf<WeatherAlertCategory, ForecastAlert>()
+    fun add(category: WeatherAlertCategory, time: Long, value: Double? = null, withinLeadTime: Boolean = true) {
+        if (!normalized.isEnabled(category)) return
+        val first = decisions[category]
+        if (first == null) {
+            if (withinLeadTime) decisions[category] = ForecastAlert(category, time, value)
+        } else if (time > first.lastValidAtEpochMillis && time - first.lastValidAtEpochMillis <= HOUR_MILLIS) {
+            decisions[category] = first.copy(lastValidAtEpochMillis = time)
         }
     }
     future.forEachIndexed { index, (time, hour) ->
         // Advise only for future instants or wholly future accumulation intervals.
         rainAlertTimes(hour, normalized, time)
-            .firstOrNull { it in nowEpochMillis..(nowEpochMillis + normalized.rainLeadHours * HOUR_MILLIS) }
-            ?.let { add(WeatherAlertCategory.RAIN, it) }
+            .filter { it >= nowEpochMillis }
+            .forEach { add(WeatherAlertCategory.RAIN, it,
+                withinLeadTime = it <= nowEpochMillis + normalized.rainLeadHours * HOUR_MILLIS) }
         if (time > horizon) return@forEachIndexed
         hour.temperature.takeIf { it.isFinite() && it in -100.0..70.0 }?.let { temperature ->
             if (temperature <= normalized.coldCelsius) add(WeatherAlertCategory.COLD, time, temperature)
@@ -76,7 +84,7 @@ internal fun forecastAlerts(
         hour.uvIndex?.takeIf { it.isFinite() && it in normalized.uvIndex..30.0 }
             ?.let { add(WeatherAlertCategory.UV, time, it) }
     }
-    return decisions
+    return decisions.values.toList()
 }
 
 private fun forecastHourTime(hour: HourlyWeather, zone: ZoneId): Long? {
@@ -144,12 +152,13 @@ object WeatherAlerts {
         snapshot: WeatherSnapshot,
         requireBackgroundPermission: Boolean = false,
     ) {
-        WeatherRepository(context).publishForCurrentLocation(location, requireBackgroundPermission) {
-            notifyCurrentLocation(context, location, snapshot)
+        val repository = WeatherRepository(context)
+        repository.publishForCurrentLocation(location, requireBackgroundPermission) {
+            notifyCurrentLocation(context, location, snapshot, repository.locationMode())
         }
     }
 
-    private fun notifyCurrentLocation(context: Context, location: CzechLocation, snapshot: WeatherSnapshot) {
+    private fun notifyCurrentLocation(context: Context, location: CzechLocation, snapshot: WeatherSnapshot, mode: LocationMode) {
         ensureChannels(context)
         val now = System.currentTimeMillis()
         val settings = WeatherAlertSettings.load(context)
@@ -167,9 +176,24 @@ object WeatherAlerts {
             val category = alert.category
             val current = WeatherAlertSettings.load(context)
             if (!current.backgroundAlertsAllowed || !current.isEnabled(category) || !canPost(context, category.channelId)) return@forEach
-            val key = "${location.latitude},${location.longitude}|${alert.validAtEpochMillis}"
-            if (!shouldPostWeatherAlert(preferences.getString(category.channelId, null),
-                preferences.getLong("${category.channelId}_posted_at", 0), key, now)) return@forEach
+            val place = "${location.latitude},${location.longitude}"
+            val key = "$place|${alert.validAtEpochMillis}"
+            val previous = preferences.getString(category.channelId, null)
+            val postedAt = preferences.getLong("${category.channelId}_posted_at", 0)
+            val lastValidAtKey = "${category.channelId}_last_valid_at"
+            val firstValidAt = previous?.substringAfterLast('|')?.toLongOrNull()
+            if (firstValidAt != null && postedAt in 1..now) {
+                val lastValidAt = preferences.getLong(lastValidAtKey, firstValidAt)
+                if (alert.validAtEpochMillis <= lastValidAt + HOUR_MILLIS &&
+                    firstValidAt <= alert.lastValidAtEpochMillis + HOUR_MILLIS &&
+                    sameForecastAlertArea(previous.substringBeforeLast('|'), place, location, mode)) {
+                    if (alert.lastValidAtEpochMillis > lastValidAt) {
+                        preferences.edit().putLong(lastValidAtKey, alert.lastValidAtEpochMillis).apply()
+                    }
+                    return@forEach
+                }
+            }
+            if (!shouldPostWeatherAlert(previous, postedAt, key, now)) return@forEach
             val text = alertText(localized, alert, zone)
             val notification = NotificationCompat.Builder(localized, category.channelId)
                 .setSmallIcon(R.drawable.ic_weather_cloud)
@@ -186,13 +210,26 @@ object WeatherAlerts {
             try {
                 manager.notify(category.notificationId, notification)
                 preferences.edit().putString(category.channelId, key)
-                    .putLong("${category.channelId}_posted_at", now).apply()
+                    .putLong("${category.channelId}_posted_at", now)
+                    .putLong(lastValidAtKey, alert.lastValidAtEpochMillis).apply()
             } catch (_: SecurityException) {
                 // Permission can be revoked between the check and the system call.
                 manager.cancel(category.notificationId)
             }
         }
     }
+}
+
+private fun sameForecastAlertArea(previous: String, place: String, location: CzechLocation, mode: LocationMode): Boolean {
+    if (previous == place) return true
+    if (mode != LocationMode.FOLLOW_DEVICE) return false
+    val coordinates = previous.split(',', limit = 3)
+    if (coordinates.size != 2) return false
+    val latitude = coordinates[0].toDoubleOrNull()?.takeIf { it in -90.0..90.0 } ?: return false
+    val longitude = coordinates[1].toDoubleOrNull()?.takeIf { it in -180.0..180.0 } ?: return false
+    val distance = FloatArray(1)
+    Location.distanceBetween(latitude, longitude, location.latitude, location.longitude, distance)
+    return distance[0] <= FOLLOW_ALERT_AREA_METERS
 }
 
 private fun forecastAlertZone(snapshot: WeatherSnapshot): ZoneId? =
@@ -223,3 +260,4 @@ fun temperatureDropText(celsius: Double, system: MeasurementSystem): String =
 private const val HOUR_MILLIS = 60 * 60 * 1_000L
 private const val MAX_FORECAST_AGE_MILLIS = 6 * HOUR_MILLIS
 private const val ALERT_COOLDOWN_MILLIS = 6 * HOUR_MILLIS
+private const val FOLLOW_ALERT_AREA_METERS = 1_000f

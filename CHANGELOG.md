@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.7.33] - 2026-11-25
+
+- Suppress repeated notifications for continuous forecast conditions. Keep official alerts quiet when previously delivered warnings are removed or return unchanged.
+
 ## [0.7.32] - 2026-11-25
 
 - Put past radar on the left and the forecast on the right, with distinct time icons.

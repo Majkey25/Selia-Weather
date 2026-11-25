@@ -1,0 +1,1 @@
+Ongoing weather no longer sends repeated notifications. New and escalated official warnings still alert you.

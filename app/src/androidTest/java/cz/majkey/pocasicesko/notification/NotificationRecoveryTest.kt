@@ -2,18 +2,36 @@ package cz.majkey.pocasicesko.notification
 
 import android.app.job.JobScheduler
 import android.app.job.JobInfo
+import android.app.Notification
+import android.app.NotificationManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
 import android.content.res.Configuration
+import android.os.SystemClock
+import cz.majkey.pocasicesko.data.CzechLocation
+import cz.majkey.pocasicesko.data.CurrentWeather
 import cz.majkey.pocasicesko.data.DailyWeather
+import cz.majkey.pocasicesko.data.DeviceLocationFix
+import cz.majkey.pocasicesko.data.DeviceLocationRepository
+import cz.majkey.pocasicesko.data.HourlyWeather
 import cz.majkey.pocasicesko.data.WeatherRepository
+import cz.majkey.pocasicesko.data.WeatherSnapshot
+import cz.majkey.pocasicesko.data.WeatherWarning
+import cz.majkey.pocasicesko.data.WeatherWarningSeverity
+import cz.majkey.pocasicesko.data.WeatherWarningsResult
+import cz.majkey.pocasicesko.data.WeatherWarningsStatus
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import java.util.Locale
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
+import java.time.ZoneOffset
+import java.time.temporal.ChronoUnit
 import java.util.concurrent.TimeUnit
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertFalse
@@ -21,6 +39,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertEquals
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 
 class NotificationRecoveryTest {
@@ -28,6 +47,156 @@ class NotificationRecoveryTest {
     private val context get() = object : ContextWrapper(base) {
         override fun getSharedPreferences(name: String, mode: Int) =
             super.getSharedPreferences("notification_recovery_test_$name", mode)
+    }
+
+    @Test
+    fun ongoingRainDoesNotNotifyAgainAfterCooldown() {
+        check(base.packageName.endsWith(".debug"))
+        assumeTrue(WeatherAlertScheduler.notificationsAllowed(base))
+        val context = object : ContextWrapper(base) {
+            override fun getApplicationContext(): Context = this
+            override fun getSharedPreferences(name: String, mode: Int) =
+                super.getSharedPreferences("ongoing_rain_test_$name", mode)
+        }
+        val repository = WeatherRepository(context)
+        val place = CzechLocation("Fixture rain", "", 50.0755, 14.4378, "CZ")
+        repository.selectLocation(place)
+        val category = WeatherAlertCategory.RAIN
+        val deliveries = context.getSharedPreferences("weather_alert_deliveries", Context.MODE_PRIVATE)
+        val now = Instant.now()
+        val nextHour = now.truncatedTo(ChronoUnit.HOURS).plus(2, ChronoUnit.HOURS)
+        val earlier = nextHour.minus(8, ChronoUnit.HOURS).toEpochMilli()
+        val previous = "${place.latitude},${place.longitude}|$earlier"
+        val ongoing = HourlyWeather(nextHour.plus(1, ChronoUnit.HOURS).atOffset(ZoneOffset.UTC).toLocalDateTime().toString(),
+            10.0, 50, 80, 2.0, 61, 1010.0, 8.0, 180, true)
+        val snapshot = WeatherSnapshot("UTC", CurrentWeather("", 10.0, 10.0, 50, 0.0, 0, 0,
+            1010.0, 8.0, 180, 10.0, true), listOf(ongoing), emptyList(), now.toEpochMilli())
+        try {
+            WeatherAlertSettings(backgroundAlertsAllowed = true, rainLeadHours = 2).save(context)
+            deliveries.edit().clear().putString(category.channelId, previous)
+                .putLong("${category.channelId}_posted_at", now.minus(8, ChronoUnit.HOURS).toEpochMilli())
+                .putLong("${category.channelId}_last_valid_at", nextHour.toEpochMilli()).commit()
+
+            WeatherAlerts.evaluateAndNotify(context, place, snapshot)
+
+            assertEquals(previous, deliveries.getString(category.channelId, null))
+
+            deliveries.edit().putLong("${category.channelId}_last_valid_at", earlier).commit()
+            WeatherAlerts.evaluateAndNotify(context, place, snapshot)
+
+            assertEquals("${place.latitude},${place.longitude}|${nextHour.toEpochMilli()}",
+                deliveries.getString(category.channelId, null))
+        } finally {
+            WeatherAlertSettings().save(context)
+            WeatherAlertScheduler.scheduleRainCheck(context, null)
+            deliveries.edit().clear().commit()
+        }
+    }
+
+    @Test
+    fun officialWarningRemovalAndReappearanceAreSilentButEscalationAlerts() = runBlocking {
+        check(base.packageName.endsWith(".debug"))
+        assumeTrue(WeatherAlertScheduler.notificationsAllowed(base))
+        val context = object : ContextWrapper(base) {
+            override fun getApplicationContext(): Context = this
+            override fun getSharedPreferences(name: String, mode: Int) =
+                super.getSharedPreferences("warning_revisions_test_$name", mode)
+        }
+        val place = CzechLocation("Fixture warnings", "", 50.0755, 14.4378, "CZ")
+        WeatherRepository(context).selectLocation(place)
+        val delivery = context.getSharedPreferences("official_warning_delivery", Context.MODE_PRIVATE)
+        val manager = context.getSystemService(NotificationManager::class.java)
+        val id = WeatherAlerts.NOTIFICATION_ID_OFFICIAL
+        val checkedAt = Instant.now().minusSeconds(10)
+        val rain = WeatherWarning("rain", "ČHMÚ", "Heavy rain", "", "Avoid flood water",
+            WeatherWarningSeverity.SEVERE, checkedAt, checkedAt.plusSeconds(3600), "https://vystrahy-cr.chmi.cz/")
+        val wind = rain.copy(id = "wind", headline = "Strong wind", instruction = "Secure loose items")
+        fun publish(offset: Long, vararg warnings: WeatherWarning) {
+            OfficialWarningNotifications.publish(context, place, WeatherWarningsResult(WeatherWarningsStatus.AVAILABLE,
+                warnings.toList(), checkedAt.plusSeconds(offset), "ČHMÚ", rain.webUrl))
+        }
+        suspend fun shown(text: String): Notification = withTimeout(5_000) {
+            var notification: Notification? = null
+            while (notification == null) {
+                notification = manager.activeNotifications.firstOrNull { it.id == id &&
+                    it.notification.extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString() == text }?.notification
+                if (notification == null) delay(25)
+            }
+            notification
+        }
+        val flag = Notification.FLAG_ONLY_ALERT_ONCE
+        val rainText = "Heavy rain\nAvoid flood water\nČHMÚ"
+        val both = "$rainText\n\nStrong wind\nSecure loose items\nČHMÚ"
+        try {
+            delivery.edit().clear().commit()
+            WeatherAlertSettings(backgroundAlertsAllowed = true).save(context)
+            publish(0, rain, wind)
+            assertEquals(0, shown(both).flags and flag)
+            publish(1, rain)
+            assertEquals(flag, shown(rainText).flags and flag)
+            publish(2, rain, wind)
+            assertEquals(flag, shown(both).flags and flag)
+            publish(3, rain.copy(severity = WeatherWarningSeverity.EXTREME, instruction = "Evacuate low areas"))
+            assertEquals(0, shown("Heavy rain\nEvacuate low areas\nČHMÚ").flags and flag)
+        } finally {
+            WeatherAlertSettings().save(context)
+            manager.cancel(id)
+            delivery.edit().clear().commit()
+        }
+    }
+
+    @Test
+    fun followedOfficialWarningSurvivesGpsDriftAndProviderFailure() = runBlocking {
+        check(base.packageName.endsWith(".debug"))
+        val device = DeviceLocationRepository(base)
+        assumeTrue(device.hasLocationPermission() && device.isLocationEnabled() &&
+            WeatherAlertScheduler.notificationsAllowed(base))
+        val context = object : ContextWrapper(base) {
+            override fun getApplicationContext(): Context = this
+            override fun getSharedPreferences(name: String, mode: Int) =
+                super.getSharedPreferences("notification_official_test_$name", mode)
+        }
+        val manager = context.getSystemService(NotificationManager::class.java)
+        val repository = WeatherRepository(context)
+        val notificationId = WeatherAlerts.NOTIFICATION_ID_OFFICIAL
+        val delivery = context.getSharedPreferences("official_warning_delivery", Context.MODE_PRIVATE)
+        val place = CzechLocation("Fixture A", "", 50.0755, 14.4378, "CZ")
+        val checkedAt = Instant.now().minusSeconds(10)
+        val warning = WeatherWarning("fixture", "ČHMÚ", "Heavy rain", "", "Avoid flood water",
+            WeatherWarningSeverity.SEVERE, checkedAt, checkedAt.plusSeconds(3600), "https://vystrahy-cr.chmi.cz/")
+        val report = WeatherWarningsResult(WeatherWarningsStatus.AVAILABLE, listOf(warning), checkedAt, "ČHMÚ", warning.webUrl)
+
+        fun publish(location: CzechLocation, result: WeatherWarningsResult) {
+            repository.selectCurrentFix(DeviceLocationFix(location, System.currentTimeMillis(),
+                SystemClock.elapsedRealtimeNanos()), followDevice = true)
+            OfficialWarningNotifications.publish(context, location, result)
+        }
+        fun activeWarning() = manager.activeNotifications.firstOrNull {
+            it.id == notificationId && it.notification.extras.getCharSequence(Notification.EXTRA_TITLE)
+                ?.contains(place.name) == true
+        }
+        try {
+            delivery.edit().clear().commit()
+            WeatherAlertSettings(backgroundAlertsAllowed = true, officialWarningsEnabled = true).save(context)
+            publish(place, report)
+            val original = withTimeout(5_000) {
+                var active = activeWarning()
+                while (active == null) {
+                    delay(25)
+                    active = activeWarning()
+                }
+                active
+            }
+            val nextFix = place.copy(name = "Fixture B", latitude = 50.0756)
+            publish(nextFix, report.copy(status = WeatherWarningsStatus.UNAVAILABLE,
+                warnings = emptyList(), checkedAt = checkedAt.plusSeconds(1)))
+            publish(nextFix, report.copy(checkedAt = checkedAt.plusSeconds(2)))
+            val recovered = requireNotNull(activeWarning())
+            assertEquals(original.postTime, recovered.postTime)
+        } finally {
+            manager.cancel(notificationId)
+            delivery.edit().clear().commit()
+        }
     }
 
     @Test

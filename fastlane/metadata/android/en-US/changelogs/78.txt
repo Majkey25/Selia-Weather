@@ -1,0 +1,1 @@
+Past radar is on the left and the forecast is on the right. The map reuses forecast images for short pans.

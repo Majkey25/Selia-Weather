@@ -1,0 +1,1 @@
+Radar má naměřené srážky vlevo a předpověď vpravo. Při krátkém posunu mapy využije už načtený snímek.

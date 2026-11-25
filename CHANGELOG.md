@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.7.32] - 2026-11-25
+
+- Put past radar on the left and the forecast on the right, with distinct time icons.
+- Reuse forecast images on nearby map pans, fit requests to the map area, and prefetch frames during playback.
+
 ## [0.7.30] - 2026-11-24
 
 - Show forecast snowfall directly in the hourly and daily outlooks. Small amounts display as less than 0.1 cm in metric mode.

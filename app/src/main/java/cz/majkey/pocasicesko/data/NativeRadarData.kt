@@ -240,9 +240,8 @@ object NativeRadarUrls {
         val north = bounds.north.coerceAtMost(MERCATOR_LATITUDE)
         require(south < north) { "Viewport is outside Web Mercator."
         }
-        fun x(longitude: Double) = MERCATOR_RADIUS * longitude * PI / 180
-        fun y(latitude: Double) = MERCATOR_RADIUS * ln(tan(PI / 4 + latitude * PI / 360))
-        return mapUrl(frame, "${x(bounds.west)},${y(south)},${x(bounds.east)},${y(north)}", width, height)
+        val bbox = "${radarMercatorX(bounds.west)},${radarMercatorY(south)},${radarMercatorX(bounds.east)},${radarMercatorY(north)}"
+        return mapUrl(frame, bbox, width, height)
     }
 
     fun legend(source: NativeRadarSource): String = "${endpoint(source)}?" + query(
@@ -534,7 +533,11 @@ private const val MAX_RUN_AGE_SECONDS = 12 * 3600L
 private const val MAX_GDPS_RUN_AGE_SECONDS = 18 * 3600L
 private const val MIN_FORECAST_SECONDS = 12 * 3600L
 private const val MERCATOR_RADIUS = 6_378_137.0
-private const val MERCATOR_LATITUDE = 85.0511287798066
+internal const val MERCATOR_LATITUDE = 85.0511287798066
+internal fun radarMercatorY(latitude: Double): Double =
+    MERCATOR_RADIUS * ln(tan(PI / 4 + latitude.coerceIn(-MERCATOR_LATITUDE, MERCATOR_LATITUDE) * PI / 360))
+
+internal fun radarMercatorX(longitude: Double): Double = MERCATOR_RADIUS * longitude * PI / 180
 private val EUROPE_BOUNDS = NativeRadarBounds(29.46875, -23.53125, 70.53125, 62.53125)
 private val WORLD_BOUNDS = NativeRadarBounds(-90.0, -180.0, 90.0, 180.0)
 private val PROBE_BOUNDS = NativeRadarBounds(47.0, 12.0, 53.0, 17.0)

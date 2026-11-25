@@ -1,0 +1,1 @@
+Der Radarverlauf ist links, die Vorhersage rechts. Bei kleinen Kartenbewegungen werden geladene Prognosebilder wiederverwendet.

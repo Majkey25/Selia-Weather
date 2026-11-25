@@ -66,6 +66,7 @@ import java.time.format.DateTimeFormatter
 import kotlin.coroutines.coroutineContext
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -96,6 +97,9 @@ internal fun NativeRadarScreen(
     var viewport by remember(location.latitude, location.longitude) {
         val latitude = location.latitude.coerceIn(-82.0, 82.0)
         mutableStateOf(NativeRadarBounds(latitude - 2, location.longitude - 3, latitude + 2, location.longitude + 3))
+    }
+    var forecastBounds by remember(location.latitude, location.longitude) {
+        mutableStateOf(radarForecastBounds(viewport))
     }
     var snapshot by remember { mutableStateOf<NativeRadarSnapshot?>(null) }
     var frameIndex by rememberSaveable { mutableIntStateOf(0) }
@@ -159,16 +163,24 @@ internal fun NativeRadarScreen(
     DisposableEffect(renderer, ready) {
         val map = renderer.map
         val idle = MapLibreMap.OnCameraIdleListener {
-            if (!renderer.closed && map != null) {
+            if (!renderer.closed && map != null && renderer.view.width > 0 && renderer.view.height > 0) {
                 camera = map.cameraPosition
                 val bounds = map.projection.visibleRegion.latLngBounds
                 viewport = NativeRadarBounds(bounds.latitudeSouth, bounds.longitudeWest, bounds.latitudeNorth,
                     if (bounds.longitudeEast > bounds.longitudeWest) bounds.longitudeEast else bounds.longitudeEast + 360)
+                forecastBounds = radarForecastBounds(viewport, forecastBounds)
             }
         }
+        val resized = android.view.View.OnLayoutChangeListener { _, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom ->
+            if (ready && (right - left != oldRight - oldLeft || bottom - top != oldBottom - oldTop)) idle.onCameraIdle()
+        }
         map?.addOnCameraIdleListener(idle)
+        renderer.view.addOnLayoutChangeListener(resized)
         if (ready) idle.onCameraIdle()
-        onDispose { map?.removeOnCameraIdleListener(idle) }
+        onDispose {
+            map?.removeOnCameraIdleListener(idle)
+            renderer.view.removeOnLayoutChangeListener(resized)
+        }
     }
     LaunchedEffect(location.latitude, location.longitude) {
         renderer.map?.moveCamera(CameraUpdateFactory.newLatLngZoom(LatLng(location.latitude, location.longitude), 6.0))
@@ -180,13 +192,15 @@ internal fun NativeRadarScreen(
     LaunchedEffect(mode, ready, renderer) {
         if (ready) renderer.showCoverage(mode == NativeRadarMode.OBSERVED)
     }
-    LaunchedEffect(mode, viewport, reload, visible) {
+    val fallback = if (mode == NativeRadarMode.FORECAST) NativeRadarData.sourceFor(viewport) else null
+    val outsideRegionalCoverage = mode == NativeRadarMode.FORECAST && snapshot?.source == NativeRadarSource.EUROPE &&
+        snapshot?.coverage?.contains(viewport) != true
+    LaunchedEffect(mode, fallback, outsideRegionalCoverage, reload, visible) {
         if (!visible) return@LaunchedEffect
         delay(350)
-        playing = false
         while (visible) {
             loading = true
-            when (val result = provider.fetch(mode, viewport)) {
+            when (val result = provider.fetch(mode, currentViewport)) {
                 is NativeRadarResult.Success -> {
                     val previous = snapshot?.takeIf { it.mode == mode }?.frames?.getOrNull(frameIndex)?.validTime
                     snapshot = result.snapshot
@@ -195,7 +209,7 @@ internal fun NativeRadarScreen(
                 }
                 is NativeRadarResult.Failure -> {
                     if (BuildConfig.DEBUG) Log.w("NativeRadar", "${result.source}: ${result.reason}: ${result.message}")
-                    snapshot = null; failed = true
+                    snapshot = null; failed = true; playing = false
                 }
             }
             loading = false
@@ -206,14 +220,15 @@ internal fun NativeRadarScreen(
     val selected = frames.getOrNull(frameIndex)
     val visibleFrame = displayedFrame?.takeIf { (it.source == NativeRadarSource.RAINVIEWER) == (mode == NativeRadarMode.OBSERVED) }
     val visibleSource = visibleFrame?.source ?: snapshot?.takeIf { it.mode == mode }?.source
-    LaunchedEffect(selected, viewport, ready, visible, reload, renderer) {
+    val renderBounds = if (mode == NativeRadarMode.FORECAST) forecastBounds else viewport
+    LaunchedEffect(selected, renderBounds, ready, visible, reload, renderer) {
         if (!ready || !visible || selected == null) return@LaunchedEffect
         if (!playing) delay(120)
         frameLoading = true
         try {
-            renderer.load(selected, currentViewport)
+            renderer.load(selected, renderBounds)
             coroutineContext.ensureActive()
-            renderer.display(selected, currentViewport)
+            renderer.display(selected, renderBounds)
             displayedFrame = selected
             failed = false
         } catch (error: Exception) {
@@ -229,10 +244,10 @@ internal fun NativeRadarScreen(
             frameIndex = (frameIndex + 1) % frames.size
         }
     }
-    LaunchedEffect(displayedFrame, selected, viewport, visible, renderer) {
-        if (!visible || displayedFrame == null || displayedFrame != selected || frames.size < 2) return@LaunchedEffect
+    LaunchedEffect(displayedFrame, selected, renderBounds, playing, ready, visible, renderer) {
+        if (!visible || !ready || !playing || displayedFrame == null || displayedFrame != selected || frames.size < 2) return@LaunchedEffect
         val next = frames.getOrNull((frameIndex + 1) % frames.size) ?: return@LaunchedEffect
-        try { renderer.load(next, viewport) } catch (error: Exception) {
+        try { renderer.load(next, renderBounds) } catch (error: Exception) {
             if (error is kotlinx.coroutines.CancellationException) throw error
         }
     }
@@ -266,14 +281,16 @@ internal fun NativeRadarScreen(
             Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                    NativeRadarMode.entries.forEachIndexed { index, choice ->
+                    listOf(NativeRadarMode.OBSERVED, NativeRadarMode.FORECAST).forEachIndexed { index, choice ->
                         SegmentedButton(selected = mode == choice, onClick = {
                             if (choice != mode) {
                                 mode = choice; playing = false; frameIndex = 0; displayedFrame = null; renderer.clear()
+                                loading = true
+                                if (ready) failed = false
                             }
                         }, shape = SegmentedButtonDefaults.itemShape(index, 2),
                             colors = SegmentedButtonDefaults.colors(activeContainerColor = colors.primary, activeContentColor = colors.onPrimary), icon = {
-                            Icon(if (choice == NativeRadarMode.FORECAST) Icons.Rounded.Schedule else Icons.Rounded.Radar,
+                            Icon(if (choice == NativeRadarMode.FORECAST) Icons.Rounded.Update else Icons.Rounded.History,
                                 contentDescription = null, modifier = Modifier.size(18.dp))
                         }) { Text(stringResource(if (choice == NativeRadarMode.FORECAST) R.string.native_radar_forecast else R.string.native_radar_observed), maxLines = 2) }
                     }
@@ -348,12 +365,43 @@ private suspend fun radarBitmap(url: String): Bitmap {
 }
 
 internal fun radarImageBounds(bounds: NativeRadarBounds): List<NativeRadarBounds> {
+    if (bounds.east - bounds.west >= 360.0) return listOf(
+        NativeRadarBounds(bounds.south, -180.0, bounds.north, 0.0),
+        NativeRadarBounds(bounds.south, 0.0, bounds.north, 180.0),
+    )
     val west = ((bounds.west + 180) % 360 + 360) % 360 - 180
     val east = west + bounds.east - bounds.west
     return if (east <= 180) listOf(NativeRadarBounds(bounds.south, west, bounds.north, east)) else listOf(
         NativeRadarBounds(bounds.south, west, bounds.north, 180.0),
         NativeRadarBounds(bounds.south, -180.0, bounds.north, east - 360),
     )
+}
+
+internal fun radarForecastBounds(viewport: NativeRadarBounds, previous: NativeRadarBounds? = null): NativeRadarBounds {
+    val south = viewport.south.coerceAtLeast(-MERCATOR_LATITUDE)
+    val north = viewport.north.coerceAtMost(MERCATOR_LATITUDE)
+    val width = viewport.east - viewport.west
+    val height = north - south
+    if (previous != null && height > 0 && south >= previous.south && north <= previous.north) {
+        val previousWidth = previous.east - previous.west
+        val offset = ((viewport.west - previous.west) % 360 + 360) % 360
+        if ((previousWidth >= 360 || offset + width <= previousWidth) &&
+            previousWidth <= width * 2 && previous.north - previous.south <= height * 2) return previous
+    }
+    if (height <= 0) return viewport
+    // Include a small margin so nearby pans reuse the same forecast request and image.
+    val paddedSouth = (south - height / 8).coerceAtLeast(-MERCATOR_LATITUDE)
+    val paddedNorth = (north + height / 8).coerceAtMost(MERCATOR_LATITUDE)
+    if (width * 1.25 >= 360) return NativeRadarBounds(paddedSouth, -180.0, paddedNorth, 180.0)
+    val west = ((viewport.west - width / 8 + 180) % 360 + 360) % 360 - 180
+    return NativeRadarBounds(paddedSouth, west, paddedNorth, west + width * 1.25)
+}
+
+internal fun radarImageDimensions(bounds: NativeRadarBounds): Pair<Int, Int> {
+    val width = radarMercatorX(bounds.east - bounds.west)
+    val height = radarMercatorY(bounds.north) - radarMercatorY(bounds.south)
+    val scale = 768 / maxOf(width, height)
+    return (width * scale).roundToInt().coerceAtLeast(1) to (height * scale).roundToInt().coerceAtLeast(1)
 }
 
 private class NativeRadarRenderer(val view: MapView, onTileFailure: () -> Unit) {
@@ -380,7 +428,10 @@ private class NativeRadarRenderer(val view: MapView, onTileFailure: () -> Unit) 
     private val images = object : LinkedHashMap<String, Bitmap>(8, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Bitmap>?): Boolean = size > 6
     }
-    private fun imageUrl(frame: NativeRadarFrame, bounds: NativeRadarBounds) = NativeRadarUrls.wmsViewport(frame, bounds, 768, 768)
+    private fun imageUrl(frame: NativeRadarFrame, bounds: NativeRadarBounds): String {
+        val (width, height) = radarImageDimensions(bounds)
+        return NativeRadarUrls.wmsViewport(frame, bounds, width, height)
+    }
 
     suspend fun load(frame: NativeRadarFrame, bounds: NativeRadarBounds) = loading.withLock {
         check(!closed) { "Radar renderer is closed." }

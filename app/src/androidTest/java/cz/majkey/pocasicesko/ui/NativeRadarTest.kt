@@ -50,6 +50,9 @@ class NativeRadarTest {
                 compose.onAllNodesWithTag("radar-timeline").fetchSemanticsNodes().isNotEmpty()
             }
             compose.onNodeWithTag("radar-play").assertIsDisplayed().assertIsEnabled()
+            val past = compose.onNodeWithText(context.getString(R.string.native_radar_observed))
+            val forecast = compose.onNodeWithText(context.getString(R.string.native_radar_forecast))
+            assertTrue(past.fetchSemanticsNode().boundsInRoot.center.x < forecast.fetchSemanticsNode().boundsInRoot.center.x)
             compose.runOnIdle {
                 assertTrue(descendants(context.window.decorView).any { it is MapView })
                 assertFalse(descendants(context.window.decorView).any { it is WebView })

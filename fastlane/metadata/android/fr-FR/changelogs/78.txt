@@ -1,0 +1,1 @@
+Le radar passé est à gauche et les prévisions à droite. La carte réutilise les images lors des petits déplacements.

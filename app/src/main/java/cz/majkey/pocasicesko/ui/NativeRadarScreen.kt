@@ -269,7 +269,10 @@ internal fun NativeRadarScreen(
             view.visibility = if (active) android.view.View.VISIBLE else android.view.View.INVISIBLE
         }) }
         FilledTonalIconButton(onClick = {
-            renderer.map?.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(location.latitude, location.longitude), 7.0))
+            renderer.map?.let { map ->
+                val target = CameraUpdateFactory.newLatLngZoom(LatLng(location.latitude, location.longitude), 7.0)
+                if (ValueAnimator.areAnimatorsEnabled()) map.animateCamera(target) else map.moveCamera(target)
+            }
         }, modifier = Modifier.align(Alignment.TopEnd).padding(top = (topInsetDp + 12).dp, end = 12.dp).size(48.dp)) {
             Icon(Icons.Rounded.MyLocation, stringResource(R.string.native_radar_recenter))
         }

@@ -59,6 +59,27 @@ data class DeviceLocationFix(
 )
 
 internal const val MAX_FOLLOW_LOCATION_AGE_MILLIS = 2 * 60 * 1_000L
+private const val FOLLOW_LOCATION_REFRESH_INTERVAL_MILLIS = 5 * 60 * 1_000L
+private const val NETWORK_PROVIDER_HEAD_START_MILLIS = 3_000L
+private const val LOCATION_TIMEOUT_MILLIS = 15_000L
+
+internal fun shouldRefreshFollowedLocation(lastAttemptMillis: Long?, elapsedMillis: Long): Boolean =
+    lastAttemptMillis == null || elapsedMillis - lastAttemptMillis >= FOLLOW_LOCATION_REFRESH_INTERVAL_MILLIS
+
+internal suspend fun <T : Any> requestFollowedDeviceLocation(
+    providers: List<DeviceLocationProvider>,
+    request: suspend (List<DeviceLocationProvider>, Long) -> T,
+): T {
+    if (providers.size > 1) {
+        try {
+            return request(listOf(DeviceLocationProvider.NETWORK), NETWORK_PROVIDER_HEAD_START_MILLIS)
+        } catch (failure: DeviceLocationException) {
+            if (failure !is LocationTimeoutException && failure !is LocationPermissionException) throw failure
+            // An enabled network provider can still be unable to supply a fix.
+        }
+    }
+    return request(providers, LOCATION_TIMEOUT_MILLIS)
+}
 
 internal suspend fun <T : Any> withDeviceLocationTimeout(
     timeoutMillis: Long,
@@ -71,15 +92,32 @@ class DeviceLocationRepository(context: Context) {
 
     suspend fun currentLocation(): CzechLocation = locationFix(MAX_LAST_KNOWN_AGE_NANOS, false).location
 
-    suspend fun currentFix(requireBackgroundPermission: Boolean = false): DeviceLocationFix =
-        withDeviceLocationTimeout(LOCATION_TIMEOUT_MILLIS) {
-            locationFix(MAX_FOLLOW_LOCATION_AGE_MILLIS * 1_000_000, requireBackgroundPermission)
+    suspend fun currentFix(
+        requireBackgroundPermission: Boolean = false,
+        preferNetwork: Boolean = false,
+    ): DeviceLocationFix =
+        withDeviceLocationTimeout(LOCATION_TIMEOUT_MILLIS + if (preferNetwork) NETWORK_PROVIDER_HEAD_START_MILLIS else 0L) {
+            locationFix(MAX_FOLLOW_LOCATION_AGE_MILLIS * 1_000_000, requireBackgroundPermission, preferNetwork)
         }
 
-    private suspend fun locationFix(maxAgeNanos: Long, requireBackgroundPermission: Boolean): DeviceLocationFix {
+    private suspend fun locationFix(
+        maxAgeNanos: Long,
+        requireBackgroundPermission: Boolean,
+        preferNetwork: Boolean = false,
+    ): DeviceLocationFix {
         if (!hasLocationPermission(requireBackgroundPermission)) throw LocationPermissionException()
         if (!isLocationEnabled()) throw SystemLocationDisabledException()
-        val location = recentLastKnownLocation(maxAgeNanos) ?: requestSingleLocation(maxAgeNanos)
+        val location = recentLastKnownLocation(maxAgeNanos) ?: run {
+            val providers = enabledProviders()
+            if (preferNetwork) {
+                requestFollowedDeviceLocation(providers) { requested, deadline ->
+                    if (!hasLocationPermission(requireBackgroundPermission)) throw LocationPermissionException()
+                    requestSingleLocation(maxAgeNanos, requested, deadline)
+                }
+            } else {
+                requestSingleLocation(maxAgeNanos, providers, LOCATION_TIMEOUT_MILLIS)
+            }
+        }
         val resolved = runInterruptible(Dispatchers.IO) { resolveName(location) }
         if (!hasLocationPermission(requireBackgroundPermission)) throw LocationPermissionException()
         if (!isLocationEnabled()) throw SystemLocationDisabledException()
@@ -115,9 +153,12 @@ class DeviceLocationRepository(context: Context) {
         .filter { it.isUsable(maxAgeNanos) }
         .maxByOrNull { it.elapsedRealtimeNanos }
 
-    private suspend fun requestSingleLocation(maxAgeNanos: Long): Location = withDeviceLocationTimeout(LOCATION_TIMEOUT_MILLIS) {
+    private suspend fun requestSingleLocation(
+        maxAgeNanos: Long,
+        providers: List<DeviceLocationProvider>,
+        timeoutMillis: Long,
+    ): Location = withDeviceLocationTimeout(timeoutMillis) {
         suspendCancellableCoroutine { continuation ->
-            val providers = enabledProviders()
             if (providers.isEmpty()) {
                 continuation.resumeWithException(SystemLocationDisabledException())
                 return@suspendCancellableCoroutine
@@ -216,10 +257,6 @@ class DeviceLocationRepository(context: Context) {
         )
         return labels.entries.firstOrNull { (label, _) -> label.equals(adminArea, ignoreCase = true) }?.value
             ?: normalizeRegionKey(adminArea.orEmpty())
-    }
-
-    companion object {
-        private const val LOCATION_TIMEOUT_MILLIS = 15_000L
     }
 }
 

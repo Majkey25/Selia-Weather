@@ -13,6 +13,38 @@ import org.junit.Test
 
 class DeviceLocationRepositoryTest {
     @Test
+    fun automaticScreenRefreshWaitsFiveMinutesBetweenAttempts() {
+        val attempts = (0L until 60 * 60_000L step 60_000L).fold(emptyList<Long>()) { attempts, now ->
+            if (shouldRefreshFollowedLocation(attempts.lastOrNull(), now)) attempts + now else attempts
+        }
+        assertEquals((0L until 60 * 60_000L step 5 * 60_000L).toList(), attempts)
+    }
+
+    @Test
+    fun automaticLookupUsesNetworkWithoutStartingGpsWhenNetworkSucceeds() = runBlocking {
+        val providers = listOf(DeviceLocationProvider.NETWORK, DeviceLocationProvider.GPS)
+        val requests = mutableListOf<List<DeviceLocationProvider>>()
+        val result = requestFollowedDeviceLocation(providers) { requested, _ ->
+            requests.add(requested)
+            "network fix"
+        }
+        assertEquals("network fix", result)
+        assertEquals(listOf(listOf(DeviceLocationProvider.NETWORK)), requests)
+    }
+
+    @Test
+    fun automaticLookupStillTriesGpsWhenNetworkTimesOut() = runBlocking {
+        val providers = listOf(DeviceLocationProvider.NETWORK, DeviceLocationProvider.GPS)
+        val requests = mutableListOf<List<DeviceLocationProvider>>()
+        val result = requestFollowedDeviceLocation(providers) { requested, _ ->
+            requests.add(requested)
+            if (DeviceLocationProvider.GPS !in requested) throw LocationTimeoutException()
+            "gps fix"
+        }
+        assertEquals("gps fix", result)
+        assertEquals(listOf(listOf(DeviceLocationProvider.NETWORK), providers), requests)
+    }
+    @Test
     fun completedLocationRequestKeepsItsResult() = runBlocking {
         val location = CzechLocation("Praha", REGION_PRAGUE, 50.0755, 14.4378, "CZ")
         assertSame(location, withDeviceLocationTimeout(5_000) { location })

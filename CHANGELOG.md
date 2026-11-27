@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.35] - 2026-11-27
+
+- Recenter the radar immediately when Android animations are disabled.
+
+## [0.7.34] - 2026-11-26
+
+- Check automatic location at most every five minutes while the app is open. Reuse recent Android fixes and try the network provider before GPS.
+
 ## [0.7.33] - 2026-11-25
 
 - Suppress repeated notifications for continuous forecast conditions. Keep official alerts quiet when previously delivered warnings are removed or return unchanged.

@@ -1,0 +1,1 @@
+Weather checks your location less often while open and tries network location before GPS during automatic updates.

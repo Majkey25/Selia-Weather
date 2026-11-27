@@ -12,6 +12,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.SystemClock
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -121,6 +122,7 @@ import cz.majkey.pocasicesko.data.WeatherSnapshot
 import cz.majkey.pocasicesko.data.WeatherWarningsRepository
 import cz.majkey.pocasicesko.data.WeatherWarningsResult
 import cz.majkey.pocasicesko.data.conditionFor
+import cz.majkey.pocasicesko.data.shouldRefreshFollowedLocation
 import cz.majkey.pocasicesko.locale.AppLocale
 import cz.majkey.pocasicesko.monetization.AdsController
 import cz.majkey.pocasicesko.monetization.BillingMessage
@@ -237,6 +239,7 @@ fun WeatherApp(
     var locationMode by remember { mutableStateOf(repository.locationMode()) }
     var followedLocationUnavailable by remember { mutableStateOf(false) }
     var followedLocationUpdating by remember { mutableStateOf(locationMode == LocationMode.FOLLOW_DEVICE) }
+    var lastFollowLocationAttempt by remember { mutableStateOf<Long?>(null) }
     var backgroundLocationAllowed by remember { mutableStateOf(deviceLocationRepository.hasLocationPermission(true)) }
     var reloadKey by remember { mutableIntStateOf(0) }
     var showLocationSearch by rememberSaveable { mutableStateOf(false) }
@@ -360,18 +363,30 @@ fun WeatherApp(
         onDispose { lifecycle?.removeObserver(observer) }
     }
 
-    LaunchedEffect(warningsLifecycle) {
+    LaunchedEffect(warningsLifecycle, showLocationSearch) {
         warningsLifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             while (isActive) {
                 locationMode = repository.locationMode()
                 backgroundLocationAllowed = deviceLocationRepository.hasLocationPermission(true)
-                if (locationMode == LocationMode.FOLLOW_DEVICE) {
+                val elapsedMillis = SystemClock.elapsedRealtime()
+                if (locationMode == LocationMode.FOLLOW_DEVICE && !showLocationSearch &&
+                    shouldRefreshFollowedLocation(lastFollowLocationAttempt, elapsedMillis)) {
+                    lastFollowLocationAttempt = elapsedMillis
                     followedLocationUpdating = true
                     try {
-                        location = repository.refreshFollowedLocation()
+                        val updatedLocation = repository.refreshFollowedLocation()
+                        // Even at the same coordinates, the check needs the newly accepted fix.
+                        if (location == updatedLocation) warningsReloadKey++
+                        location = updatedLocation
                         followedLocationUnavailable = false
                     } catch (failure: Exception) {
-                        if (failure is CancellationException && !currentCoroutineContext().isActive) throw failure
+                        if (failure is CancellationException && !currentCoroutineContext().isActive) {
+                            lastFollowLocationAttempt = null
+                            throw failure
+                        }
+                        if (failure is LocationPermissionException || failure is SystemLocationDisabledException) {
+                            lastFollowLocationAttempt = null
+                        }
                         locationMode = repository.locationMode()
                         if (failure is CancellationException) location = repository.lastLocation()
                         followedLocationUnavailable = failure !is CancellationException && locationMode == LocationMode.FOLLOW_DEVICE
@@ -558,6 +573,7 @@ fun WeatherApp(
                     },
                     onFollow = { selected ->
                         locationMode = repository.locationMode()
+                        lastFollowLocationAttempt = SystemClock.elapsedRealtime()
                         backgroundLocationAllowed = deviceLocationRepository.hasLocationPermission(true)
                         followedLocationUnavailable = false
                         followedLocationUpdating = false
@@ -567,6 +583,7 @@ fun WeatherApp(
                     },
                     onFollowModeChanged = {
                         locationMode = repository.locationMode()
+                        lastFollowLocationAttempt = null
                         followedLocationUpdating = false
                         followedLocationUnavailable = true
                     },

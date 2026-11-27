@@ -113,7 +113,9 @@ class WeatherRepository(context: Context) {
         preferences.getLong(KEY_DEVICE_LOCATION_TIME, 0).takeIf { it > 0 }
 
     suspend fun refreshFollowedLocation(requireBackgroundPermission: Boolean = false): CzechLocation =
-        refreshFollowedLocation { DeviceLocationRepository(appContext).currentFix(requireBackgroundPermission) }
+        refreshFollowedLocation {
+            DeviceLocationRepository(appContext).currentFix(requireBackgroundPermission, preferNetwork = true)
+        }
 
     internal suspend fun refreshFollowedLocation(resolveFix: suspend () -> DeviceLocationFix): CzechLocation {
         val coroutine = currentCoroutineContext()
